@@ -1,1 +1,27 @@
-{"name": "Sheets2Anki", "version": "1.0.0", "author": "Dr. Basti", "description": "Synchronize Anki decks with Google Sheets published as TSV.", "addonId": null, "conflicts": [], "min_point_version": 20100, "max_point_version": 20199, "config": {"remote-decks": {"https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?output=tsv": {"url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?output=tsv", "deckName": "deck de teste do sheet2anki"}}, "debug": false}}
+{
+  "name": "Sheets2Anki",
+  "version": "1.0.0",
+  "author": "Dr. Basti",
+  "description": "Synchronize Anki decks with Google Sheets published as TSV.",
+  "addonId": null,
+  "conflicts": [],
+  "min_point_version": 20100,
+  "max_point_version": 20199,
+  "config": {
+    "remote-decks": {
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?output=tsv": {
+        "url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?output=tsv",
+        "deckName": "Decks de teste do sheet2anki::Rascunho"
+      },
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=334628680&output=tsv": {
+        "url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=334628680&output=tsv",
+        "deckName": "Decks de teste do sheet2anki::Mais importantes"
+      },
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=1869088045&output=tsv": {
+        "url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=1869088045&output=tsv",
+        "deckName": "Decks de teste do sheet2anki::Menos importantes"
+      }
+    },
+    "debug": false
+  }
+}
