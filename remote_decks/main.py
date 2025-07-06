@@ -113,8 +113,8 @@ def ensure_custom_models(col, url):
                             <b>{column_definitions.BANCAS.capitalize()}:</b><br>
                             {{{{{column_definitions.BANCAS}}}}}<br><br>
 
-                            <b>{column_definitions.IMPORTANCIA.capitalize()}:</b><br>
-                            {{{{{column_definitions.IMPORTANCIA}}}}}<br><br>
+                            <b>{column_definitions.ANO.capitalize()}:</b><br>
+                            {{{{{column_definitions.ANO}}}}}<br><br>
 
                             <b>{column_definitions.TAGS.capitalize()}:</b><br>
                             {{{{{column_definitions.TAGS}}}}}<br><br>
@@ -126,31 +126,31 @@ def ensure_custom_models(col, url):
         template['afmt'] = f"""
                             {{{{FrontSide}}}}<br><br>
 
-                            <b>{column_definitions.LEVAR_PARA_PROVA.capitalize()}:</b><br>
-                            {{{{{column_definitions.LEVAR_PARA_PROVA}}}}}<br><br>
+                            <b>{column_definitions.INFO_1.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFO_1}}}}}<br><br>
 
                             <hr id="answer"><br>
 
-                            <b>{column_definitions.INFORMACAO_COMPLEMENTAR.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFORMACAO_COMPLEMENTAR}}}}}<br><br>
+                            <b>{column_definitions.INFO_2.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFO_2}}}}}<br><br>
 
-                            <b>{column_definitions.INFORMACAO_DETALHADA.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFORMACAO_DETALHADA}}}}}<br><br>
+                            <b>{column_definitions.INFO_3.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFO_3}}}}}<br><br>
 
-                            {{{{#{column_definitions.EXEMPLO1}}}}}
-                            <b>{column_definitions.EXEMPLO1.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO1}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO1}}}}}
+                            {{{{#{column_definitions.EXEMPLO_1}}}}}
+                            <b>{column_definitions.EXEMPLO_1.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO_1}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO_1}}}}}
 
-                            {{{{#{column_definitions.EXEMPLO2}}}}}
-                            <b>{column_definitions.EXEMPLO2.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO2}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO2}}}}}
+                            {{{{#{column_definitions.EXEMPLO_2}}}}}
+                            <b>{column_definitions.EXEMPLO_2.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO_2}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO_2}}}}}
 
-                            {{{{#{column_definitions.EXEMPLO3}}}}}
-                            <b>{column_definitions.EXEMPLO3.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO3}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO3}}}}}
+                            {{{{#{column_definitions.EXEMPLO_3}}}}}
+                            <b>{column_definitions.EXEMPLO_3.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO_3}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO_3}}}}}
                             """        
         col.models.add_template(model, template)
         col.models.save(model)
@@ -185,8 +185,8 @@ def ensure_custom_models(col, url):
                             <b>{column_definitions.BANCAS.capitalize()}:</b><br>
                             {{{{{column_definitions.BANCAS}}}}}<br><br>
 
-                            <b>{column_definitions.IMPORTANCIA.capitalize()}:</b><br>
-                            {{{{{column_definitions.IMPORTANCIA}}}}}<br><Br>
+                            <b>{column_definitions.ANO.capitalize()}:</b><br>
+                            {{{{{column_definitions.ANO}}}}}<br><Br>
 
                             <b>{column_definitions.TAGS.capitalize()}:</b><br>
                             {{{{{column_definitions.TAGS}}}}}<br><br>
@@ -205,8 +205,8 @@ def ensure_custom_models(col, url):
                             <b>{column_definitions.BANCAS.capitalize()}:</b><br>
                             {{{{{column_definitions.BANCAS}}}}}<br><br>
 
-                            <b>{column_definitions.IMPORTANCIA.capitalize()}:</b><br>
-                            {{{{{column_definitions.IMPORTANCIA}}}}}<br><Br>
+                            <b>{column_definitions.ANO.capitalize()}:</b><br>
+                            {{{{{column_definitions.ANO}}}}}<br><Br>
 
                             <b>{column_definitions.TAGS.capitalize()}:</b><br>
                             {{{{{column_definitions.TAGS}}}}}<br><br>
@@ -215,31 +215,31 @@ def ensure_custom_models(col, url):
                             <b>{column_definitions.PERGUNTA.capitalize()}:</b><br>
                             {{{{cloze:{column_definitions.PERGUNTA}}}}}<br><br>
 
-                            <b>{column_definitions.LEVAR_PARA_PROVA.capitalize()}:</b><br>
-                            {{{{{column_definitions.LEVAR_PARA_PROVA}}}}}<br><br>
+                            <b>{column_definitions.INFO_1.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFO_1}}}}}<br><br>
 
                             <hr id="answer"><br>
 
-                            <b>{column_definitions.INFORMACAO_COMPLEMENTAR.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFORMACAO_COMPLEMENTAR}}}}}<br><br>
+                            <b>{column_definitions.INFO_2.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFO_2}}}}}<br><br>
 
-                            <b>{column_definitions.INFORMACAO_DETALHADA.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFORMACAO_DETALHADA}}}}}<br><br>
+                            <b>{column_definitions.INFO_3.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFO_3}}}}}<br><br>
 
-                            {{{{#{column_definitions.EXEMPLO1}}}}}
-                            <b>{column_definitions.EXEMPLO1.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO1}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO1}}}}}
+                            {{{{#{column_definitions.EXEMPLO_1}}}}}
+                            <b>{column_definitions.EXEMPLO_1.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO_1}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO_1}}}}}
 
-                            {{{{#{column_definitions.EXEMPLO2}}}}}
-                            <b>{column_definitions.EXEMPLO2.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO2}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO2}}}}}
+                            {{{{#{column_definitions.EXEMPLO_2}}}}}
+                            <b>{column_definitions.EXEMPLO_2.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO_2}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO_2}}}}}
 
-                            {{{{#{column_definitions.EXEMPLO3}}}}}
-                            <b>{column_definitions.EXEMPLO3.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO3}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO3}}}}}
+                            {{{{#{column_definitions.EXEMPLO_3}}}}}
+                            <b>{column_definitions.EXEMPLO_3.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO_3}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO_3}}}}}
                             """
         # Add the template to the cloze model
         col.models.add_template(cloze_model, template)
@@ -276,9 +276,12 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             fields = question['fields']
             tags = []
             
-            # Extract tags from the TAGS field and process them
+            # Extract tags from the TAGS field and process them using the new format
             if column_definitions.TAGS in fields and fields[column_definitions.TAGS]:
-                tags = [tag.strip() for tag in fields[column_definitions.TAGS].split('::') if tag.strip()]
+                from .parseRemoteDeck import parse_tags
+                tags = parse_tags(fields[column_definitions.TAGS])
+                # Store original tag string in the field
+                fields[column_definitions.TAGS] = fields[column_definitions.TAGS].strip()
 
             # Use ID as the key for tracking
             key = fields.get(column_definitions.ID)

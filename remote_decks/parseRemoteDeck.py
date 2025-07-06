@@ -55,6 +55,47 @@ def has_cloze_deletion(text):
     """Check if the text contains cloze deletions in the format {{c1::text}}."""
     return bool(re.search(r'\{\{c\d+::.+?\}\}', text))
 
+def parse_tags(tags_str):
+    """Parse tags in the format 'tagtype1: tagname1, tagtype1: tagname2, tagtype2: tagname1, ...'
+    
+    Args:
+        tags_str (str): String containing tags in the format 'tagtype1: tagname1, tagtype1: tagname2, ...'
+        
+    Returns:
+        list: List of Anki-compatible tags in the format ['tagtype1::tagname1', 'tagtype1::tagname2', ...]
+    """
+    if not tags_str or not tags_str.strip():
+        return []
+        
+    # Split by commas and clean up whitespace
+    tag_pairs = [pair.strip() for pair in tags_str.split(',')]
+    
+    # Process each tag pair
+    processed_tags = []
+    for pair in tag_pairs:
+        # Skip empty pairs
+        if not pair:
+            continue
+            
+        # Split by colon and clean up whitespace
+        parts = [part.strip() for part in pair.split(':', 1)]
+        if len(parts) != 2:
+            continue
+            
+        tag_type, tag_name = parts
+        # Skip if either part is empty
+        if not tag_type or not tag_name:
+            continue
+            
+        # Convert spaces to underscores and remove special characters
+        tag_type = re.sub(r'[^\w\s]', '', tag_type).replace(' ', '_')
+        tag_name = re.sub(r'[^\w\s]', '', tag_name).replace(' ', '_')
+        
+        # Combine with double colon for Anki hierarchical tags
+        processed_tags.append(f"{tag_type}::{tag_name}")
+    
+    return processed_tags
+
 def build_remote_deck_from_tsv(data):
     # Process and validate headers
     headers = validate_tsv_headers(data[0])
