@@ -129,7 +129,7 @@ def ensure_custom_models(col):
                             <b>Informação Complementar:</b><br>
                             {{INFORMAÇÃO_COMPLEMENTAR}}<br><br>
 
-                            <b>Informação DETALHADA:</b><br>
+                            <b>Informação Detalhada:</b><br>
                             {{INFORMAÇÃO_DETALHADA}}<br><br>
 
                             {{#EXEMPLO1}}
