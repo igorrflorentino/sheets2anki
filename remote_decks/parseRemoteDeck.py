@@ -1,6 +1,7 @@
 import csv
 import requests
 import re  # Import the 're' module for regular expressions
+from . import column_definitions as cols  # Import centralized column definitions
 
 class RemoteDeck:
     """Class representing a deck loaded from a remote TSV source."""
@@ -26,14 +27,8 @@ def getRemoteDeck(url):
 
 def validate_tsv_headers(headers):
     """Validate that the TSV has the required headers."""
-    required_headers = [
-        'ID', 'PERGUNTA', 'LEVAR_PARA_PROVA', 'INFORMAÇÃO_COMPLEMENTAR',
-        'INFORMAÇÃO_DETALHADA', 'EXEMPLO1', 'EXEMPLO2', 'EXEMPLO3',
-        'TOPICO', 'SUBTOPICO', 'BANCAS', 'IMPORTANCIA', 'TAGS'
-    ]
-    
     headers_upper = [h.strip().upper() for h in headers]
-    missing_headers = [h for h in required_headers if h not in headers_upper]
+    missing_headers = [h for h in cols.REQUIRED_COLUMNS if h not in headers_upper]
     
     if missing_headers:
         raise ValueError(f"Missing required columns: {', '.join(missing_headers)}")
@@ -87,7 +82,7 @@ def build_remote_deck_from_tsv(data):
                 fields[header] = ""
 
         # Validate required fields
-        if not fields['ID'] or not fields['PERGUNTA']:
+        if not fields[cols.ID] or not fields[cols.PERGUNTA]:
             continue
 
         # Create and add question

@@ -12,6 +12,8 @@ import csv
 import urllib.request
 
 from .parseRemoteDeck import getRemoteDeck, has_cloze_deletion
+from . import column_definitions
+import hashlib
 
 def validate_url(url):
     """Validate that the URL is a proper Google Sheets TSV URL."""
@@ -28,7 +30,7 @@ def validate_url(url):
             raise ValueError(f"URL returned status code {response.getcode()}")
     except Exception as e:
         raise ValueError(f"Error accessing URL: {str(e)}")
-
+    
 def syncDecks():
     """Synchronize all remote decks with their sources."""
     col = mw.col
@@ -49,6 +51,8 @@ def syncDecks():
             
             remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
             remoteDeck.deckName = deckName
+            remoteDeck.url = currentRemoteInfo["url"]  # <-- Adicione esta linha
+            
             deck_id = get_or_create_deck(col, deckName)
             create_or_update_notes(col, remoteDeck, deck_id)
             decks_synced += 1
@@ -73,24 +77,25 @@ def get_or_create_deck(col, deckName):
         deck_id = deck["id"]
     return deck_id
 
-def ensure_custom_models(col):
+def get_model_suffix_from_url(url):
+    """Gera um sufixo único e curto baseado na URL."""
+    return hashlib.sha1(url.encode()).hexdigest()[:8]
+
+def ensure_custom_models(col, url):
     """Ensure both standard and cloze models exist in Anki."""
     models = {}
+    suffix = get_model_suffix_from_url(url)
     
     # Standard model
-    model_name = "CadernoErrosConcursoBasic"
+    model_name = f"CadernoErrosConcurso_{suffix}_Basic"
     model = col.models.by_name(model_name)
     
     if model is None:
         # Create new model
         model = col.models.new(model_name)
         
-        # Define fields
-        fields = [
-            'ID', 'PERGUNTA', 'LEVAR_PARA_PROVA', 'INFORMAÇÃO_COMPLEMENTAR', 
-            'INFORMAÇÃO_DETALHADA', 'EXEMPLO1', 'EXEMPLO2', 'EXEMPLO3', 
-            'TOPICO', 'SUBTOPICO', 'BANCAS', 'IMPORTANCIA', 'TAGS'
-        ]
+        # Use fields from column_definitions
+        fields = column_definitions.REQUIRED_COLUMNS
         
         for field in fields:
             template = col.models.new_field(field)
@@ -98,54 +103,54 @@ def ensure_custom_models(col):
         
         # Add template
         template = col.models.new_template("Card 1")
-        template['qfmt'] = """ 
-                            <b>Tópico:</b><br>
-                            {{TOPICO}}<br><br>
+        template['qfmt'] = f""" 
+                            <b>{column_definitions.TOPICO.capitalize()}:</b><br>
+                            {{{{{column_definitions.TOPICO}}}}}<br><br>
 
-                            <b>Subtópico:</b><br> 
-                            {{SUBTOPICO}}<br><br>
+                            <b>{column_definitions.SUBTOPICO.capitalize()}:</b><br> 
+                            {{{{{column_definitions.SUBTOPICO}}}}}<br><br>
 
-                            <b>Bancas:</b><br>
-                            {{BANCAS}}<br><br>
+                            <b>{column_definitions.BANCAS.capitalize()}:</b><br>
+                            {{{{{column_definitions.BANCAS}}}}}<br><br>
 
-                            <b>Importância:</b><br>
-                            {{IMPORTANCIA}}<br><Br>
+                            <b>{column_definitions.IMPORTANCIA.capitalize()}:</b><br>
+                            {{{{{column_definitions.IMPORTANCIA}}}}}<br><br>
 
-                            <b>Tags:</b><br>
-                            {{TAGS}}<br><br>
+                            <b>{column_definitions.TAGS.capitalize()}:</b><br>
+                            {{{{{column_definitions.TAGS}}}}}<br><br>
 
                             <hr><br>
-                            <b>Pergunta:</b><br>
-                            {{PERGUNTA}}
+                            <b>{column_definitions.PERGUNTA.capitalize()}:</b><br>
+                            {{{{{column_definitions.PERGUNTA}}}}}
                             """
-        template['afmt'] = """
-                            {{FrontSide}}<br><br>
-													
-			    			<b>Levar para prova:</b><br>
-                            {{LEVAR_PARA_PROVA}}<br><br>
+        template['afmt'] = f"""
+                            {{{{FrontSide}}}}<br><br>
+
+                            <b>{column_definitions.LEVAR_PARA_PROVA.capitalize()}:</b><br>
+                            {{{{{column_definitions.LEVAR_PARA_PROVA}}}}}<br><br>
 
                             <hr id="answer"><br>
 
-                            <b>Informação Complementar:</b><br>
-                            {{INFORMAÇÃO_COMPLEMENTAR}}<br><br>
+                            <b>{column_definitions.INFORMACAO_COMPLEMENTAR.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFORMACAO_COMPLEMENTAR}}}}}<br><br>
 
-                            <b>Informação Detalhada:</b><br>
-                            {{INFORMAÇÃO_DETALHADA}}<br><br>
+                            <b>{column_definitions.INFORMACAO_DETALHADA.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFORMACAO_DETALHADA}}}}}<br><br>
 
-                            {{#EXEMPLO1}}
-                            <b>Exemplo 1:</b><br>
-                            {{EXEMPLO1}}<br><br>
-                            {{/EXEMPLO1}}
+                            {{{{#{column_definitions.EXEMPLO1}}}}}
+                            <b>{column_definitions.EXEMPLO1.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO1}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO1}}}}}
 
-                            {{#EXEMPLO2}}
-                            <b>Exemplo 2:</b><br>
-                            {{EXEMPLO2}}<br><br>
-                            {{/EXEMPLO2}}
+                            {{{{#{column_definitions.EXEMPLO2}}}}}
+                            <b>{column_definitions.EXEMPLO2.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO2}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO2}}}}}
 
-                            {{#EXEMPLO3}}
-                            <b>Exemplo 3:</b><br>
-                            {{EXEMPLO3}}<br><br>
-                            {{/EXEMPLO3}}
+                            {{{{#{column_definitions.EXEMPLO3}}}}}
+                            <b>{column_definitions.EXEMPLO3.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO3}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO3}}}}}
                             """        
         col.models.add_template(model, template)
         col.models.save(model)
@@ -153,7 +158,7 @@ def ensure_custom_models(col):
     models['standard'] = model
     
     # Cloze model
-    cloze_model_name = "CadernoErrosConcursoCloze"
+    cloze_model_name = f"CadernoErrosConcurso_{suffix}_Cloze"
     cloze_model = col.models.by_name(cloze_model_name)
     
     if cloze_model is None:
@@ -161,12 +166,8 @@ def ensure_custom_models(col):
         cloze_model = col.models.new(cloze_model_name)
         cloze_model['type'] = 1  # Set as cloze type
         
-        # Define fields (same as standard model)
-        fields = [
-            'ID', 'PERGUNTA', 'LEVAR_PARA_PROVA', 'INFORMAÇÃO_COMPLEMENTAR', 
-            'INFORMAÇÃO_DETALHADA', 'EXEMPLO1', 'EXEMPLO2', 'EXEMPLO3', 
-            'TOPICO', 'SUBTOPICO', 'BANCAS', 'IMPORTANCIA', 'TAGS'
-        ]
+        # Use fields from column_definitions (same as standard model)
+        fields = column_definitions.REQUIRED_COLUMNS
         
         for field in fields:
             template = col.models.new_field(field)
@@ -174,71 +175,71 @@ def ensure_custom_models(col):
         
         # Add cloze template
         template = col.models.new_template("Cloze")
-        template['qfmt'] = """
-                            <b>Tópico:</b><br>
-                            {{TOPICO}}<br><br>
+        template['qfmt'] = f"""
+                            <b>{column_definitions.TOPICO.capitalize()}:</b><br>
+                            {{{{{column_definitions.TOPICO}}}}}<br><br>
 
-                            <b>Subtópico:</b><br> 
-                            {{SUBTOPICO}}<br><br>
+                            <b>{column_definitions.SUBTOPICO.capitalize()}:</b><br>
+                            {{{{{column_definitions.SUBTOPICO}}}}}<br><br>
 
-                            <b>Bancas:</b><br>
-                            {{BANCAS}}<br><br>
+                            <b>{column_definitions.BANCAS.capitalize()}:</b><br>
+                            {{{{{column_definitions.BANCAS}}}}}<br><br>
 
-                            <b>Importância:</b><br>
-                            {{IMPORTANCIA}}<br><Br>
+                            <b>{column_definitions.IMPORTANCIA.capitalize()}:</b><br>
+                            {{{{{column_definitions.IMPORTANCIA}}}}}<br><Br>
 
-                            <b>Tags:</b><br>
-                            {{TAGS}}<br><br>
+                            <b>{column_definitions.TAGS.capitalize()}:</b><br>
+                            {{{{{column_definitions.TAGS}}}}}<br><br>
 
                             <hr><br>
-                            <b>Pergunta:</b><br>
-                            {{cloze:PERGUNTA}}
+                            <b>{column_definitions.PERGUNTA.capitalize()}:</b><br>
+                            {{{{cloze:{column_definitions.PERGUNTA}}}}}
                             """
-        template['afmt'] = """
-                            <b>Tópico:</b><br>
-                            {{TOPICO}}<br><br>
+        template['afmt'] = f"""
+                            <b>{column_definitions.TOPICO.capitalize()}:</b><br>
+                            {{{{{column_definitions.TOPICO}}}}}<br><br>
 
-                            <b>Subtópico:</b><br> 
-                            {{SUBTOPICO}}<br><br>
+                            <b>{column_definitions.SUBTOPICO.capitalize()}:</b><br> 
+                            {{{{{column_definitions.SUBTOPICO}}}}}<br><br>
 
-                            <b>Bancas:</b><br>
-                            {{BANCAS}}<br><br>
+                            <b>{column_definitions.BANCAS.capitalize()}:</b><br>
+                            {{{{{column_definitions.BANCAS}}}}}<br><br>
 
-                            <b>Importância:</b><br>
-                            {{IMPORTANCIA}}<br><Br>
+                            <b>{column_definitions.IMPORTANCIA.capitalize()}:</b><br>
+                            {{{{{column_definitions.IMPORTANCIA}}}}}<br><Br>
 
-                            <b>Tags:</b><br>
-                            {{TAGS}}<br><br>
+                            <b>{column_definitions.TAGS.capitalize()}:</b><br>
+                            {{{{{column_definitions.TAGS}}}}}<br><br>
 
                             <hr><br>
-                            <b>Pergunta:</b><br>
-                            {{cloze:PERGUNTA}}<br><br>
+                            <b>{column_definitions.PERGUNTA.capitalize()}:</b><br>
+                            {{{{cloze:{column_definitions.PERGUNTA}}}}}<br><br>
 
-                            <b>Levar para Prova:</b><br>
-                            {{LEVAR_PARA_PROVA}}<br><br>
+                            <b>{column_definitions.LEVAR_PARA_PROVA.capitalize()}:</b><br>
+                            {{{{{column_definitions.LEVAR_PARA_PROVA}}}}}<br><br>
 
                             <hr id="answer"><br>
 
-                            <b>Informação Complementar:</b><br>
-                            {{INFORMAÇÃO_COMPLEMENTAR}}<br><br>
+                            <b>{column_definitions.INFORMACAO_COMPLEMENTAR.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFORMACAO_COMPLEMENTAR}}}}}<br><br>
 
-                            <b>Informação Detalhada:</b><br>
-                            {{INFORMAÇÃO_DETALHADA}}<br><br>
+                            <b>{column_definitions.INFORMACAO_DETALHADA.capitalize()}:</b><br>
+                            {{{{{column_definitions.INFORMACAO_DETALHADA}}}}}<br><br>
 
-                            {{#EXEMPLO1}}
-                            <b>Exemplo 1:</b><br>
-                            {{EXEMPLO1}}<br><br>
-                            {{/EXEMPLO1}}
+                            {{{{#{column_definitions.EXEMPLO1}}}}}
+                            <b>{column_definitions.EXEMPLO1.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO1}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO1}}}}}
 
-                            {{#EXEMPLO2}}
-                            <b>Exemplo 2:</b><br>
-                            {{EXEMPLO2}}<br><br>
-                            {{/EXEMPLO2}}
+                            {{{{#{column_definitions.EXEMPLO2}}}}}
+                            <b>{column_definitions.EXEMPLO2.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO2}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO2}}}}}
 
-                            {{#EXEMPLO3}}
-                            <b>Exemplo 3:</b><br>
-                            {{EXEMPLO3}}<br><br>
-                            {{/EXEMPLO3}}
+                            {{{{#{column_definitions.EXEMPLO3}}}}}
+                            <b>{column_definitions.EXEMPLO3.capitalize()}:</b><br>
+                            {{{{{column_definitions.EXEMPLO3}}}}}<br><br>
+                            {{{{/{column_definitions.EXEMPLO3}}}}}
                             """
         # Add the template to the cloze model
         col.models.add_template(cloze_model, template)
@@ -250,7 +251,7 @@ def ensure_custom_models(col):
 def create_or_update_notes(col, remoteDeck, deck_id):
     """Create or update notes in the deck based on remote data."""
     # Ensure custom models exist
-    models = ensure_custom_models(col)
+    models = ensure_custom_models(col, remoteDeck.url)
     
     # Dictionaries for existing notes
     existing_notes = {}
@@ -259,7 +260,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
     # Fetch existing notes in the deck
     for nid in col.find_notes(f'deck:"{remoteDeck.deckName}"'):
         note = col.get_note(nid)
-        key = note['ID'] if 'ID' in note else None
+        key = note[column_definitions.ID] if column_definitions.ID in note else None
         if key:
             existing_notes[key] = note
             existing_note_ids[key] = nid
@@ -276,11 +277,11 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             tags = []
             
             # Extract tags from the TAGS field and process them
-            if 'TAGS' in fields and fields['TAGS']:
-                tags = [tag.strip() for tag in fields['TAGS'].split('::') if tag.strip()]
-            
+            if column_definitions.TAGS in fields and fields[column_definitions.TAGS]:
+                tags = [tag.strip() for tag in fields[column_definitions.TAGS].split('::') if tag.strip()]
+
             # Use ID as the key for tracking
-            key = fields.get('ID')
+            key = fields.get(column_definitions.ID)
             if not key:
                 raise ValueError("Row missing required ID field")
                 
@@ -302,7 +303,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             else:
                 # Create new note
                 # Check if the question contains cloze deletions
-                has_cloze = has_cloze_deletion(fields['PERGUNTA'])
+                has_cloze = has_cloze_deletion(fields[column_definitions.PERGUNTA])
                 model_to_use = models['cloze'] if has_cloze else models['standard']
                 
                 col.models.set_current(model_to_use)
@@ -404,6 +405,7 @@ def addNewDeck():
     try:
         deck = getRemoteDeck(url)
         deck.deckName = deckName
+        deck.url = url  # <-- Adicione esta linha
     except Exception as e:
         showInfo(f"Error fetching the remote deck:\n{str(e)}")
         return
