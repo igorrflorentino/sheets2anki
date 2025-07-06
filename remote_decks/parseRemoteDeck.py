@@ -3,6 +3,7 @@ import requests
 import re  # Import the 're' module for regular expressions
 
 class RemoteDeck:
+    """Class representing a deck loaded from a remote TSV source."""
     def __init__(self):
         self.deckName = ""
         self.questions = []  # Keep using 'questions' attribute
@@ -15,83 +16,85 @@ def getRemoteDeck(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        csv_data = response.content.decode('utf-8')
+        tsv_data = response.content.decode('utf-8')
     except Exception as e:
-        raise Exception(f"Error downloading or reading the CSV: {e}")
+        raise Exception(f"Error downloading or reading the TSV: {e}")
 
-    data = parse_csv_data(csv_data)
-    remoteDeck = build_remote_deck_from_csv(data)
+    data = parse_tsv_data(tsv_data)
+    remoteDeck = build_remote_deck_from_tsv(data)
     return remoteDeck
 
-def parse_csv_data(csv_data):
-    reader = csv.reader(csv_data.splitlines())
-    data = list(reader)
-    return data
+def validate_tsv_headers(headers):
+    """Validate that the TSV has the required headers."""
+    required_headers = [
+        'ID', 'PERGUNTA', 'RESPOSTA_PROVA', 'RESPOSTA_RESUMIDA',
+        'RESPOSTA_COMPLETA', 'EXAMPLO1', 'EXAMPLO2', 'EXAMPLO3',
+        'TOPICO', 'SUBTOPICO', 'BANCAS', 'IMPORTANCIA', 'TAGS'
+    ]
+    
+    headers_upper = [h.strip().upper() for h in headers]
+    missing_headers = [h for h in required_headers if h not in headers_upper]
+    
+    if missing_headers:
+        raise ValueError(f"Missing required columns: {', '.join(missing_headers)}")
+    
+    return headers_upper
 
-def build_remote_deck_from_csv(data):
-    # Process headers to find indices of 'question', 'answer', and 'tags'
-    headers = [h.strip().lower() for h in data[0]]
-    print("Headers:", headers)  # Debug message
+def parse_tsv_data(tsv_data):
+    """Parse and validate TSV data."""
+    try:
+        reader = csv.reader(tsv_data.splitlines(), delimiter='\t')
+        data = list(reader)
+        
+        if not data:
+            raise ValueError("TSV file is empty")
+            
+        if len(data) < 2:  # At least headers and one row
+            raise ValueError("TSV file must contain headers and at least one card")
+            
+        return data
+    except csv.Error as e:
+        raise ValueError(f"Invalid TSV format: {str(e)}")
 
-    question_index = headers.index('question') if 'question' in headers else headers.index('front') if 'front' in headers else 0
-    answer_index = headers.index('answer') if 'answer' in headers else headers.index('back') if 'back' in headers else 1
-    tag_index = headers.index('tags') if 'tags' in headers else None
-
-    print("Indices - Question:", question_index, "Answer:", answer_index, "Tags:", tag_index)  # Debug message
-
+def build_remote_deck_from_tsv(data):
+    # Process and validate headers
+    headers = validate_tsv_headers(data[0])
+    
+    # Create header to index mapping
+    header_indices = {header: idx for idx, header in enumerate(headers)}
+    
     questions = []
-    for row_num, row in enumerate(data[1:], start=2):  # Start at line 2 (after headers)
-        print(f"Processing row {row_num}: {row}")  # Debug message
-
+    for row_num, row in enumerate(data[1:], start=2):
         # Skip empty rows
         if not any(cell.strip() for cell in row):
-            print(f"Row {row_num} skipped because it is empty")
             continue
 
-        # Get question and answer
-        try:
-            question_text = row[question_index].strip()
-            answer_text = row[answer_index].strip()
-        except IndexError:
-            print(f"Row {row_num} skipped due to missing question or answer")
+        # Validate row length matches headers
+        if len(row) != len(headers):
             continue
 
-        # Get tags if available
-        tag_text = ''
-        if tag_index is not None and tag_index < len(row):
-            tag_text = row[tag_index].strip()
-        tags = tag_text.split('::') if tag_text else []
-        tags = [tag.strip() for tag in tags if tag.strip()]
+        # Create fields dictionary
+        fields = {}
+        for header in headers:
+            idx = header_indices[header]
+            if idx < len(row):
+                fields[header] = row[idx].strip()
+            else:
+                fields[header] = ""
 
-        # Detect if it's a Cloze deletion
-        if re.search(r'{{c\d+::.*?}}', question_text):
-            card_type = 'Cloze'
-            fields = {
-                'Text': question_text,
-                'Extra': answer_text  # The 'Extra' field can be empty
-            }
-        else:
-            card_type = 'Basic'
-            fields = {
-                'Front': question_text,
-                'Back': answer_text
-            }
+        # Validate required fields
+        if not fields['ID'] or not fields['PERGUNTA']:
+            continue
 
-        print(f"Detected card type: {card_type}")  # Debug message
-
-        # Create question dictionary
+        # Create and add question
         question = {
-            'type': card_type,
-            'fields': fields,
-            'tags': tags
+            'fields': fields
         }
         questions.append(question)
-        print(f"Added question: {question_text}")  # Debug message
 
+    # Create and return deck
     remoteDeck = RemoteDeck()
     remoteDeck.deckName = "Deck from CSV"
-    remoteDeck.questions = questions  # Keep using 'questions' attribute
-
-    print(f"Total questions added: {len(questions)}")  # Debug message
+    remoteDeck.questions = questions
 
     return remoteDeck

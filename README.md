@@ -1,6 +1,6 @@
 # Sheets2Anki
 
-**Sheets2Anki** is an Anki add-on that synchronizes your Anki decks with a published Google Sheets CSV. Your Google Sheets document serves as the source of truth: when you sync, cards are created, updated, or removed in your Anki deck to reflect the sheet’s contents. This add-on is currently in **beta**, so features and behavior may still change.
+**Sheets2Anki** is an Anki add-on that synchronizes your Anki decks with a published Google Sheets TSV. Your Google Sheets document serves as the source of truth: when you sync, cards are created, updated, or removed in your Anki deck to reflect the sheet's contents. This add-on is currently in **beta**, so features and behavior may still change.
 
 ## Features
 
@@ -12,7 +12,7 @@
   If you have a `tags` column in your sheet, those tags will be assigned to the cards in Anki.  
 - **Deck Maintenance:**  
   - **Removed in Sheet → Removed in Anki:** If a card disappears from the sheet, it is removed from Anki on the next sync.
-  - **Removed in Anki → Not Removed in Sheet:** There is **no reverse sync**. Deleting a card in Anki does not affect the sheet; the card may reappear if you sync again unless it’s removed from the sheet.
+  - **Removed in Anki → Not Removed in Sheet:** There is **no reverse sync**. Deleting a card in Anki does not affect the sheet; the card may reappear if you sync again unless it's removed from the sheet.
   
 **Important:** This add-on is in **beta** and currently supports only Basic and Cloze note types. Future updates may improve or extend functionality.
 
@@ -31,9 +31,12 @@
 
 Use this [example Google Sheets document](https://docs.google.com/spreadsheets/d/1S97fZkuw1DctJhBB1yaiWiSh5grmNmY9Gp8KVPCpMfU/edit?usp=sharing) as a starting template.  
 ![imagen](https://github.com/user-attachments/assets/a030ddd0-5dae-483b-bde2-32f20ed0e245)
-- Just copy and paste: `question`, `answer`, and `tags` columns as needed.
+- Required columns:
+  - Question field: either `question` or `front` column
+  - Answer field: either `answer` or `back` column
+  - Optional: `tags` column for card tagging
 - Add Cloze-formatted questions (e.g., `{{c1::essential}}`) for Cloze cards.
-- After finalizing, publish the sheet as a CSV (File > Publish to the Web) and copy the CSV URL.
+- After finalizing, publish the sheet as a TSV (File > Publish to the Web) and copy the TSV URL.
 
 
 ## Installation
@@ -51,7 +54,7 @@ Use this [example Google Sheets document](https://docs.google.com/spreadsheets/d
 
 1. **Add a New Remote Deck:**
    - `Tools > Manage Remote Deck > Add New Remote Deck`.
-   - Paste the published CSV URL from your Google Sheet.
+   - Paste the published TSV URL from your Google Sheet.
    - Enter a deck name and confirm.
 
 2. **Sync Decks:**
@@ -73,13 +76,13 @@ Confirm these models exist before syncing.
 ## Troubleshooting
 
 - **No Cards Imported?**  
-  Check CSV headers (`question`, `answer`, `tags`) and ensure required note models exist.
+  Check TSV headers (either `question`/`front` for questions and `answer`/`back` for answers, plus optional `tags`) and ensure required note models exist.
 - **Changes Not Updating?**  
-  Wait a few minutes after editing the sheet or verify the correct published CSV URL.
+  Wait a few minutes after editing the sheet or verify the correct published TSV URL.
 - **Cloze Cards Not Forming?**  
   Ensure Cloze syntax (`{{c1::...}}`) is correct and the Cloze model has `Text` and `Extra` fields, see Example Google Sheets Document above. 
 - **Cards Reappearing After Deletion in Anki?**  
-  Remember there’s no reverse sync. Remove the card from the sheet if you want it gone permanently.
+  Remember there's no reverse sync. Remove the card from the sheet if you want it gone permanently.
 
 ## Beta Status and Future Plans
 
