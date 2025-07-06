@@ -16,20 +16,54 @@ from . import column_definitions
 import hashlib
 
 def validate_url(url):
-    """Validate that the URL is a proper Google Sheets TSV URL."""
+    """
+    Validate that the URL is a proper Google Sheets TSV URL.
+    
+    Args:
+        url (str): The URL to validate
+        
+    Raises:
+        ValueError: If the URL is invalid or inaccessible
+        URLError: If there are network connectivity issues
+        HTTPError: If the server returns an error status
+    """
+    # Check if URL is empty or None
+    if not url or not isinstance(url, str):
+        raise ValueError("URL must be a non-empty string")
+
+    # Validate URL format
     if not url.startswith(('http://', 'https://')):
         raise ValueError("Invalid URL: Must start with http:// or https://")
     
-    if "output=tsv" not in url:
-        raise ValueError("The provided URL does not appear to be a published TSV from Google Sheets.")
+    # Validate Google Sheets TSV format
+    if not any(param in url.lower() for param in ['output=tsv', 'format=tsv']):
+        raise ValueError("The provided URL does not appear to be a published TSV from Google Sheets. "
+                        "Make sure to publish the sheet as TSV format.")
     
-    # Test URL accessibility
+    # Test URL accessibility with proper timeout and error handling
     try:
-        response = urllib.request.urlopen(url)
+        request = urllib.request.Request(
+            url,
+            headers={'User-Agent': 'Mozilla/5.0'}  # Some servers block default Python user agent
+        )
+        response = urllib.request.urlopen(request, timeout=10)
+        
         if response.getcode() != 200:
-            raise ValueError(f"URL returned status code {response.getcode()}")
+            raise ValueError(f"URL returned unexpected status code: {response.getcode()}")
+            
+        # Validate content type
+        content_type = response.headers.get('Content-Type', '').lower()
+        if not any(valid_type in content_type for valid_type in ['text/tab-separated-values', 'text/plain']):
+            raise ValueError(f"URL does not return TSV content (got {content_type})")
+            
+    except urllib.error.URLError as e:
+        raise ValueError(f"Error accessing URL - Network or server issue: {str(e)}")
+    except urllib.error.HTTPError as e:
+        raise ValueError(f"HTTP Error {e.code}: {str(e)}")
+    except TimeoutError:
+        raise ValueError("Connection timed out while accessing the URL")
     except Exception as e:
-        raise ValueError(f"Error accessing URL: {str(e)}")
+        raise ValueError(f"Unexpected error accessing URL: {str(e)}")
     
 def syncDecks():
     """Synchronize all remote decks with their sources."""
@@ -81,282 +115,302 @@ def get_model_suffix_from_url(url):
     """Gera um sufixo único e curto baseado na URL."""
     return hashlib.sha1(url.encode()).hexdigest()[:8]
 
+# Template constants
+CARD_HEADER_TEMPLATE = """
+<b>{field_name}:</b><br>
+{{{{{field_value}}}}}<br><br>
+"""
+
+CARD_EXAMPLE_TEMPLATE = """
+{{{{#{example_field}}}}}
+<b>{example_field_cap}:</b><br>
+{{{{{example_field}}}}}<br><br>
+{{{{/{example_field}}}}}
+"""
+
+def create_card_template(is_cloze=False):
+    """
+    Create the HTML template for a card (either standard or cloze).
+    
+    Args:
+        is_cloze (bool): Whether to create a cloze template
+        
+    Returns:
+        dict: Dictionary with 'qfmt' and 'afmt' template strings
+    """
+    # Common header fields
+    header_fields = [
+        (column_definitions.TOPICO, column_definitions.TOPICO),
+        (column_definitions.SUBTOPICO, column_definitions.SUBTOPICO),
+        (column_definitions.BANCAS, column_definitions.BANCAS),
+        (column_definitions.ANO, column_definitions.ANO),
+        (column_definitions.TAGS, column_definitions.TAGS)
+    ]
+    
+    # Build header section
+    header = ""
+    for field_name, field_value in header_fields:
+        header += CARD_HEADER_TEMPLATE.format(
+            field_name=field_name.capitalize(),
+            field_value=field_value
+        )
+    
+    # Question format
+    question = (
+        "<hr><br>"
+        f"<b>{column_definitions.PERGUNTA.capitalize()}:</b><br>"
+        f"{{{{{'cloze:' if is_cloze else ''}{column_definitions.PERGUNTA}}}}}"
+    )
+    
+    # Answer format
+    answer_fields = [
+        column_definitions.INFO_1,
+        column_definitions.INFO_2,
+        column_definitions.INFO_3
+    ]
+    
+    answer = ""
+    for field in answer_fields:
+        answer += CARD_HEADER_TEMPLATE.format(
+            field_name=field.capitalize(),
+            field_value=field
+        )
+    
+    # Example fields
+    example_fields = [
+        column_definitions.EXEMPLO_1,
+        column_definitions.EXEMPLO_2,
+        column_definitions.EXEMPLO_3
+    ]
+    
+    examples = ""
+    for field in example_fields:
+        examples += CARD_EXAMPLE_TEMPLATE.format(
+            example_field=field,
+            example_field_cap=field.capitalize()
+        )
+    
+    # Build complete templates
+    qfmt = header + question
+    afmt = (header + question + "<br><br><hr><br>" + answer + examples) if is_cloze else ("{{FrontSide}}<br><br><hr><br>" + answer + examples)
+    
+    return {'qfmt': qfmt, 'afmt': afmt}
+
+def create_model(col, model_name, is_cloze=False):
+    """
+    Create a new Anki note model.
+    
+    Args:
+        col: Anki collection object
+        model_name (str): Name for the new model
+        is_cloze (bool): Whether to create a cloze model
+        
+    Returns:
+        object: The created Anki model
+    """
+    model = col.models.new(model_name)
+    if is_cloze:
+        model['type'] = 1  # Set as cloze type
+    
+    # Add fields
+    for field in column_definitions.REQUIRED_COLUMNS:
+        template = col.models.new_field(field)
+        col.models.add_field(model, template)
+    
+    # Add card template
+    template = col.models.new_template("Cloze" if is_cloze else "Card 1")
+    card_template = create_card_template(is_cloze)
+    template['qfmt'] = card_template['qfmt']
+    template['afmt'] = card_template['afmt']
+    
+    col.models.add_template(model, template)
+    col.models.save(model)
+    return model
+
 def ensure_custom_models(col, url):
-    """Ensure both standard and cloze models exist in Anki."""
+    """
+    Ensure both standard and cloze models exist in Anki.
+    
+    Args:
+        col: Anki collection object
+        url (str): URL of the remote deck
+        
+    Returns:
+        dict: Dictionary containing both 'standard' and 'cloze' models
+    """
     models = {}
     suffix = get_model_suffix_from_url(url)
     
     # Standard model
     model_name = f"CadernoErrosConcurso_{suffix}_Basic"
     model = col.models.by_name(model_name)
-    
     if model is None:
-        # Create new model
-        model = col.models.new(model_name)
-        
-        # Use fields from column_definitions
-        fields = column_definitions.REQUIRED_COLUMNS
-        
-        for field in fields:
-            template = col.models.new_field(field)
-            col.models.add_field(model, template)
-        
-        # Add template
-        template = col.models.new_template("Card 1")
-        template['qfmt'] = f""" 
-                            <b>{column_definitions.TOPICO.capitalize()}:</b><br>
-                            {{{{{column_definitions.TOPICO}}}}}<br><br>
-
-                            <b>{column_definitions.SUBTOPICO.capitalize()}:</b><br> 
-                            {{{{{column_definitions.SUBTOPICO}}}}}<br><br>
-
-                            <b>{column_definitions.BANCAS.capitalize()}:</b><br>
-                            {{{{{column_definitions.BANCAS}}}}}<br><br>
-
-                            <b>{column_definitions.ANO.capitalize()}:</b><br>
-                            {{{{{column_definitions.ANO}}}}}<br><br>
-
-                            <b>{column_definitions.TAGS.capitalize()}:</b><br>
-                            {{{{{column_definitions.TAGS}}}}}<br><br>
-
-                            <hr><br>
-                            <b>{column_definitions.PERGUNTA.capitalize()}:</b><br>
-                            {{{{{column_definitions.PERGUNTA}}}}}
-                            """
-        template['afmt'] = f"""
-                            {{{{FrontSide}}}}<br><br>
-
-                            <b>{column_definitions.INFO_1.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFO_1}}}}}<br><br>
-
-                            <hr id="answer"><br>
-
-                            <b>{column_definitions.INFO_2.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFO_2}}}}}<br><br>
-
-                            <b>{column_definitions.INFO_3.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFO_3}}}}}<br><br>
-
-                            {{{{#{column_definitions.EXEMPLO_1}}}}}
-                            <b>{column_definitions.EXEMPLO_1.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO_1}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO_1}}}}}
-
-                            {{{{#{column_definitions.EXEMPLO_2}}}}}
-                            <b>{column_definitions.EXEMPLO_2.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO_2}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO_2}}}}}
-
-                            {{{{#{column_definitions.EXEMPLO_3}}}}}
-                            <b>{column_definitions.EXEMPLO_3.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO_3}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO_3}}}}}
-                            """        
-        col.models.add_template(model, template)
-        col.models.save(model)
-    
+        model = create_model(col, model_name)
     models['standard'] = model
     
     # Cloze model
     cloze_model_name = f"CadernoErrosConcurso_{suffix}_Cloze"
     cloze_model = col.models.by_name(cloze_model_name)
-    
     if cloze_model is None:
-        # Create new cloze model
-        cloze_model = col.models.new(cloze_model_name)
-        cloze_model['type'] = 1  # Set as cloze type
-        
-        # Use fields from column_definitions (same as standard model)
-        fields = column_definitions.REQUIRED_COLUMNS
-        
-        for field in fields:
-            template = col.models.new_field(field)
-            col.models.add_field(cloze_model, template)
-        
-        # Add cloze template
-        template = col.models.new_template("Cloze")
-        template['qfmt'] = f"""
-                            <b>{column_definitions.TOPICO.capitalize()}:</b><br>
-                            {{{{{column_definitions.TOPICO}}}}}<br><br>
-
-                            <b>{column_definitions.SUBTOPICO.capitalize()}:</b><br>
-                            {{{{{column_definitions.SUBTOPICO}}}}}<br><br>
-
-                            <b>{column_definitions.BANCAS.capitalize()}:</b><br>
-                            {{{{{column_definitions.BANCAS}}}}}<br><br>
-
-                            <b>{column_definitions.ANO.capitalize()}:</b><br>
-                            {{{{{column_definitions.ANO}}}}}<br><Br>
-
-                            <b>{column_definitions.TAGS.capitalize()}:</b><br>
-                            {{{{{column_definitions.TAGS}}}}}<br><br>
-
-                            <hr><br>
-                            <b>{column_definitions.PERGUNTA.capitalize()}:</b><br>
-                            {{{{cloze:{column_definitions.PERGUNTA}}}}}
-                            """
-        template['afmt'] = f"""
-                            <b>{column_definitions.TOPICO.capitalize()}:</b><br>
-                            {{{{{column_definitions.TOPICO}}}}}<br><br>
-
-                            <b>{column_definitions.SUBTOPICO.capitalize()}:</b><br> 
-                            {{{{{column_definitions.SUBTOPICO}}}}}<br><br>
-
-                            <b>{column_definitions.BANCAS.capitalize()}:</b><br>
-                            {{{{{column_definitions.BANCAS}}}}}<br><br>
-
-                            <b>{column_definitions.ANO.capitalize()}:</b><br>
-                            {{{{{column_definitions.ANO}}}}}<br><Br>
-
-                            <b>{column_definitions.TAGS.capitalize()}:</b><br>
-                            {{{{{column_definitions.TAGS}}}}}<br><br>
-
-                            <hr><br>
-                            <b>{column_definitions.PERGUNTA.capitalize()}:</b><br>
-                            {{{{cloze:{column_definitions.PERGUNTA}}}}}<br><br>
-
-                            <b>{column_definitions.INFO_1.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFO_1}}}}}<br><br>
-
-                            <hr id="answer"><br>
-
-                            <b>{column_definitions.INFO_2.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFO_2}}}}}<br><br>
-
-                            <b>{column_definitions.INFO_3.capitalize()}:</b><br>
-                            {{{{{column_definitions.INFO_3}}}}}<br><br>
-
-                            {{{{#{column_definitions.EXEMPLO_1}}}}}
-                            <b>{column_definitions.EXEMPLO_1.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO_1}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO_1}}}}}
-
-                            {{{{#{column_definitions.EXEMPLO_2}}}}}
-                            <b>{column_definitions.EXEMPLO_2.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO_2}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO_2}}}}}
-
-                            {{{{#{column_definitions.EXEMPLO_3}}}}}
-                            <b>{column_definitions.EXEMPLO_3.capitalize()}:</b><br>
-                            {{{{{column_definitions.EXEMPLO_3}}}}}<br><br>
-                            {{{{/{column_definitions.EXEMPLO_3}}}}}
-                            """
-        # Add the template to the cloze model
-        col.models.add_template(cloze_model, template)
-        col.models.save(cloze_model)
-    
+        cloze_model = create_model(col, cloze_model_name, is_cloze=True)
     models['cloze'] = cloze_model
+    
     return models
         
+class SyncError(Exception):
+    """Base exception for sync-related errors."""
+    pass
+
+class NoteProcessingError(SyncError):
+    """Exception raised when processing a note fails."""
+    pass
+
+class CollectionSaveError(SyncError):
+    """Exception raised when saving the collection fails."""
+    pass
+
 def create_or_update_notes(col, remoteDeck, deck_id):
-    """Create or update notes in the deck based on remote data."""
-    # Ensure custom models exist
-    models = ensure_custom_models(col, remoteDeck.url)
+    """
+    Create or update notes in the deck based on remote data.
     
-    # Dictionaries for existing notes
-    existing_notes = {}
-    existing_note_ids = {}
-
-    # Fetch existing notes in the deck
-    for nid in col.find_notes(f'deck:"{remoteDeck.deckName}"'):
-        note = col.get_note(nid)
-        key = note[column_definitions.ID] if column_definitions.ID in note else None
-        if key:
-            existing_notes[key] = note
-            existing_note_ids[key] = nid
-
-    # Set to keep track of keys from Google Sheets
-    gs_keys = set()
-    update_count = 0
-    create_count = 0
-    error_count = 0
-
-    for question in remoteDeck.questions:
-        try:
-            fields = question['fields']
-            tags = []
-            
-            # Extract tags from the TAGS field and process them using the new format
-            if column_definitions.TAGS in fields and fields[column_definitions.TAGS]:
-                from .parseRemoteDeck import parse_tags
-                tags = parse_tags(fields[column_definitions.TAGS])
-                # Store original tag string in the field
-                fields[column_definitions.TAGS] = fields[column_definitions.TAGS].strip()
-
-            # Use ID as the key for tracking
-            key = fields.get(column_definitions.ID)
-            if not key:
-                raise ValueError("Row missing required ID field")
-                
-            gs_keys.add(key)
-
-            if key in existing_notes:
-                # Update existing note
-                note = existing_notes[key]
-                for field_name in fields:
-                    if field_name in note:
-                        note[field_name] = fields[field_name]
-                note.tags = tags
-                try:
-                    note.flush()
-                    update_count += 1
-                except Exception as e:
-                    error_count += 1
-                    raise ValueError(f"Error updating note: {str(e)}")
-            else:
-                # Create new note
-                # Check if the question contains cloze deletions
-                has_cloze = has_cloze_deletion(fields[column_definitions.PERGUNTA])
-                model_to_use = models['cloze'] if has_cloze else models['standard']
-                
-                col.models.set_current(model_to_use)
-                model_to_use['did'] = deck_id
-                col.models.save(model_to_use)
-
-                note = col.new_note(model_to_use)
-                for field_name in fields:
-                    if field_name in note:
-                        note[field_name] = fields[field_name]
-                note.tags = tags
-                
-                try:
-                    col.add_note(note, deck_id)
-                    create_count += 1
-                except Exception as e:
-                    error_count += 1
-                    raise ValueError(f"Error creating note: {str(e)}")
-
-        except Exception as e:
-            error_count += 1
-            showInfo(f"Error processing card: {str(e)}")
-            continue
-
-    # Find and remove notes that are in Anki but not in Google Sheets
-    notes_to_delete = set(existing_notes.keys()) - gs_keys
-    delete_count = len(notes_to_delete)
-
-    if notes_to_delete:
-        note_ids_to_delete = [existing_note_ids[key] for key in notes_to_delete]
-        try:
-            col.remove_notes(note_ids_to_delete)
-        except Exception as e:
-            error_count += 1
-            showInfo(f"Error deleting notes: {str(e)}")
-
-    # Save changes
+    This function synchronizes the Anki deck with the remote data by:
+    1. Creating new notes for items that don't exist in Anki
+    2. Updating existing notes with new content from the remote source
+    3. Removing notes that no longer exist in the remote source
+    
+    Args:
+        col: Anki collection object
+        remoteDeck (RemoteDeck): Remote deck object containing the data to sync
+        deck_id (int): ID of the Anki deck to sync with
+        
+    Returns:
+        dict: Sync statistics containing counts for created, updated, deleted notes and errors
+        
+    Raises:
+        SyncError: If there are critical errors during synchronization
+        CollectionSaveError: If saving the collection fails
+    """
     try:
-        col.save()
-    except Exception as e:
-        error_count += 1
-        showInfo(f"Error saving collection: {str(e)}")
+        # Ensure custom models exist
+        models = ensure_custom_models(col, remoteDeck.url)
+        
+        # Track sync statistics
+        stats = {
+            'created': 0,
+            'updated': 0,
+            'deleted': 0,
+            'errors': 0,
+            'error_details': []
+        }
+        
+        # Build index of existing notes
+        existing_notes = {}
+        existing_note_ids = {}
+        for nid in col.find_notes(f'deck:"{remoteDeck.deckName}"'):
+            note = col.get_note(nid)
+            key = note[column_definitions.ID] if column_definitions.ID in note else None
+            if key:
+                existing_notes[key] = note
+                existing_note_ids[key] = nid
 
-    # Show summary
-    summary = (f"Sync Summary:\n"
-              f"Created: {create_count}\n"
-              f"Updated: {update_count}\n"
-              f"Deleted: {delete_count}\n"
-              f"Errors: {error_count}")
-    showInfo(summary)
+        # Track processed keys to identify deletions
+        processed_keys = set()
+
+        # Process each question from remote source
+        for question in remoteDeck.questions:
+            try:
+                fields = question['fields']
+                
+                # Validate required fields
+                key = fields.get(column_definitions.ID)
+                if not key:
+                    raise NoteProcessingError("Row missing required ID field")
+                
+                if not fields.get(column_definitions.PERGUNTA):
+                    raise NoteProcessingError(f"Row with ID {key} missing required question field")
+                
+                processed_keys.add(key)
+                
+                # Process tags
+                tags = []
+                if column_definitions.TAGS in fields and fields[column_definitions.TAGS]:
+                    from .parseRemoteDeck import parse_tags
+                    tags = parse_tags(fields[column_definitions.TAGS])
+                    fields[column_definitions.TAGS] = fields[column_definitions.TAGS].strip()
+
+                if key in existing_notes:
+                    # Update existing note
+                    note = existing_notes[key]
+                    for field_name, value in fields.items():
+                        if field_name in note:
+                            note[field_name] = value
+                    note.tags = tags
+                    try:
+                        note.flush()
+                        stats['updated'] += 1
+                    except Exception as e:
+                        raise NoteProcessingError(f"Error updating note {key}: {str(e)}")
+                else:
+                    # Create new note
+                    has_cloze = has_cloze_deletion(fields[column_definitions.PERGUNTA])
+                    model_to_use = models['cloze'] if has_cloze else models['standard']
+                    
+                    col.models.set_current(model_to_use)
+                    model_to_use['did'] = deck_id
+                    col.models.save(model_to_use)
+
+                    note = col.new_note(model_to_use)
+                    for field_name, value in fields.items():
+                        if field_name in note:
+                            note[field_name] = value
+                    note.tags = tags
+                    
+                    try:
+                        col.add_note(note, deck_id)
+                        stats['created'] += 1
+                    except Exception as e:
+                        raise NoteProcessingError(f"Error creating note {key}: {str(e)}")
+
+            except NoteProcessingError as e:
+                stats['errors'] += 1
+                stats['error_details'].append(str(e))
+                continue
+
+        # Handle deletions
+        notes_to_delete = set(existing_notes.keys()) - processed_keys
+        stats['deleted'] = len(notes_to_delete)
+
+        if notes_to_delete:
+            try:
+                note_ids_to_delete = [existing_note_ids[key] for key in notes_to_delete]
+                col.remove_notes(note_ids_to_delete)
+            except Exception as e:
+                raise NoteProcessingError(f"Error deleting notes: {str(e)}")
+
+        # Save changes
+        try:
+            col.save()
+        except Exception as e:
+            raise CollectionSaveError(f"Error saving collection: {str(e)}")
+
+        # Show summary
+        summary = (
+            f"Sync Summary:\n"
+            f"Created: {stats['created']}\n"
+            f"Updated: {stats['updated']}\n"
+            f"Deleted: {stats['deleted']}\n"
+            f"Errors: {stats['errors']}"
+        )
+        if stats['error_details']:
+            summary += "\n\nError Details:\n" + "\n".join(stats['error_details'])
+        
+        showInfo(summary)
+        return stats
+
+    except (SyncError, Exception) as e:
+        error_msg = f"Critical sync error: {str(e)}"
+        showInfo(error_msg)
+        raise SyncError(error_msg)
 
 def get_note_key(note):
     """Get the key field from a note based on its type."""
