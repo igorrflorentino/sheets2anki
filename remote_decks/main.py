@@ -11,7 +11,7 @@ import sys
 import csv
 import urllib.request
 
-from .parseRemoteDeck import getRemoteDeck
+from .parseRemoteDeck import getRemoteDeck, has_cloze_deletion
 
 def validate_url(url):
     """Validate that the URL is a proper Google Sheets TSV URL."""
@@ -73,9 +73,12 @@ def get_or_create_deck(col, deckName):
         deck_id = deck["id"]
     return deck_id
 
-def ensure_custom_model(col):
-    """Ensure the custom model exists in Anki."""
-    model_name = "CustomQuestionAnswer"
+def ensure_custom_models(col):
+    """Ensure both standard and cloze models exist in Anki."""
+    models = {}
+    
+    # Standard model
+    model_name = "CadernoErrosConcursoBasic"
     model = col.models.by_name(model_name)
     
     if model is None:
@@ -84,8 +87,8 @@ def ensure_custom_model(col):
         
         # Define fields
         fields = [
-            'ID', 'PERGUNTA', 'RESPOSTA_PROVA', 'RESPOSTA_RESUMIDA', 
-            'RESPOSTA_COMPLETA', 'EXAMPLO1', 'EXAMPLO2', 'EXAMPLO3', 
+            'ID', 'PERGUNTA', 'LEVAR_PARA_PROVA', 'INFORMAÇÃO_COMPLEMENTAR', 
+            'INFORMAÇÃO_DETALHADA', 'EXEMPLO1', 'EXEMPLO2', 'EXEMPLO3', 
             'TOPICO', 'SUBTOPICO', 'BANCAS', 'IMPORTANCIA', 'TAGS'
         ]
         
@@ -95,43 +98,159 @@ def ensure_custom_model(col):
         
         # Add template
         template = col.models.new_template("Card 1")
-        template['qfmt'] = """{{PERGUNTA}}
-<hr>
-<b>Tópico:</b> {{TOPICO}}<br>
-<b>Subtópico:</b> {{SUBTOPICO}}<br>
-<b>Bancas:</b> {{BANCAS}}<br>
-<b>Importância:</b> {{IMPORTANCIA}}<br>
-<b>Tags:</b> {{TAGS}}"""
-        template['afmt'] = """{{FrontSide}}
-<hr id="answer">
-<b>Resposta da Prova:</b><br>
-{{RESPOSTA_PROVA}}<br><br>
-<b>Resposta Resumida:</b><br>
-{{RESPOSTA_RESUMIDA}}<br><br>
-<b>Resposta Completa:</b><br>
-{{RESPOSTA_COMPLETA}}<br><br>
-{{#EXAMPLO1}}
-<b>Exemplo 1:</b><br>
-{{EXAMPLO1}}<br><br>
-{{/EXAMPLO1}}
-{{#EXAMPLO2}}
-<b>Exemplo 2:</b><br>
-{{EXAMPLO2}}<br><br>
-{{/EXAMPLO2}}
-{{#EXAMPLO3}}
-<b>Exemplo 3:</b><br>
-{{EXAMPLO3}}<br><br>
-{{/EXAMPLO3}}"""
-        
+        template['qfmt'] = """ 
+                            <b>Tópico:</b><br>
+                            {{TOPICO}}<br><br>
+
+                            <b>Subtópico:</b><br> 
+                            {{SUBTOPICO}}<br><br>
+
+                            <b>Bancas:</b><br>
+                            {{BANCAS}}<br><br>
+
+                            <b>Importância:</b><br>
+                            {{IMPORTANCIA}}<br><Br>
+
+                            <b>Tags:</b><br>
+                            {{TAGS}}<br><br>
+
+                            <hr><br>
+                            <b>Pergunta:</b><br>
+                            {{PERGUNTA}}
+                            """
+        template['afmt'] = """
+                            {{FrontSide}}<br><br>
+													
+			    			<b>Levar para prova:</b><br>
+                            {{LEVAR_PARA_PROVA}}<br><br>
+
+                            <hr id="answer"><br>
+
+                            <b>Informação Complementar:</b><br>
+                            {{INFORMAÇÃO_COMPLEMENTAR}}<br><br>
+
+                            <b>Informação DETALHADA:</b><br>
+                            {{INFORMAÇÃO_DETALHADA}}<br><br>
+
+                            {{#EXEMPLO1}}
+                            <b>Exemplo 1:</b><br>
+                            {{EXEMPLO1}}<br><br>
+                            {{/EXEMPLO1}}
+
+                            {{#EXEMPLO2}}
+                            <b>Exemplo 2:</b><br>
+                            {{EXEMPLO2}}<br><br>
+                            {{/EXEMPLO2}}
+
+                            {{#EXEMPLO3}}
+                            <b>Exemplo 3:</b><br>
+                            {{EXEMPLO3}}<br><br>
+                            {{/EXEMPLO3}}
+                            """        
         col.models.add_template(model, template)
         col.models.save(model)
     
-    return model
+    models['standard'] = model
+    
+    # Cloze model
+    cloze_model_name = "CadernoErrosConcursoCloze"
+    cloze_model = col.models.by_name(cloze_model_name)
+    
+    if cloze_model is None:
+        # Create new cloze model
+        cloze_model = col.models.new(cloze_model_name)
+        cloze_model['type'] = 1  # Set as cloze type
+        
+        # Define fields (same as standard model)
+        fields = [
+            'ID', 'PERGUNTA', 'LEVAR_PARA_PROVA', 'INFORMAÇÃO_COMPLEMENTAR', 
+            'INFORMAÇÃO_DETALHADA', 'EXEMPLO1', 'EXEMPLO2', 'EXEMPLO3', 
+            'TOPICO', 'SUBTOPICO', 'BANCAS', 'IMPORTANCIA', 'TAGS'
+        ]
+        
+        for field in fields:
+            template = col.models.new_field(field)
+            col.models.add_field(cloze_model, template)
+        
+        # Add cloze template
+        template = col.models.new_template("Cloze")
+        template['qfmt'] = """
+                            <b>Tópico:</b><br>
+                            {{TOPICO}}<br><br>
 
+                            <b>Subtópico:</b><br> 
+                            {{SUBTOPICO}}<br><br>
+
+                            <b>Bancas:</b><br>
+                            {{BANCAS}}<br><br>
+
+                            <b>Importância:</b><br>
+                            {{IMPORTANCIA}}<br><Br>
+
+                            <b>Tags:</b><br>
+                            {{TAGS}}<br><br>
+
+                            <hr><br>
+                            <b>Pergunta:</b><br>
+                            {{cloze:PERGUNTA}}
+                            """
+        template['afmt'] = """
+                            <b>Tópico:</b><br>
+                            {{TOPICO}}<br><br>
+
+                            <b>Subtópico:</b><br> 
+                            {{SUBTOPICO}}<br><br>
+
+                            <b>Bancas:</b><br>
+                            {{BANCAS}}<br><br>
+
+                            <b>Importância:</b><br>
+                            {{IMPORTANCIA}}<br><Br>
+
+                            <b>Tags:</b><br>
+                            {{TAGS}}<br><br>
+
+                            <hr><br>
+                            <b>Pergunta:</b><br>
+                            {{cloze:PERGUNTA}}<br><br>
+
+                            <b>Levar para Prova:</b><br>
+                            {{LEVAR_PARA_PROVA}}<br><br>
+
+                            <hr id="answer"><br>
+
+                            <b>Informação Complementar:</b><br>
+                            {{INFORMAÇÃO_COMPLEMENTAR}}<br><br>
+
+                            <b>Informação Detalhada:</b><br>
+                            {{INFORMAÇÃO_DETALHADA}}<br><br>
+
+                            {{#EXEMPLO1}}
+                            <b>Exemplo 1:</b><br>
+                            {{EXEMPLO1}}<br><br>
+                            {{/EXEMPLO1}}
+
+                            {{#EXEMPLO2}}
+                            <b>Exemplo 2:</b><br>
+                            {{EXEMPLO2}}<br><br>
+                            {{/EXEMPLO2}}
+
+                            {{#EXEMPLO3}}
+                            <b>Exemplo 3:</b><br>
+                            {{EXEMPLO3}}<br><br>
+                            {{/EXEMPLO3}}
+                            """
+        # Add the template to the cloze model
+        col.models.add_template(cloze_model, template)
+        col.models.save(cloze_model)
+    
+    models['cloze'] = cloze_model
+    return models
+        
 def create_or_update_notes(col, remoteDeck, deck_id):
     """Create or update notes in the deck based on remote data."""
-    # Ensure custom model exists
-    model = ensure_custom_model(col)
+    # Ensure custom models exist
+    models = ensure_custom_models(col)
     
     # Dictionaries for existing notes
     existing_notes = {}
@@ -182,11 +301,15 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                     raise ValueError(f"Error updating note: {str(e)}")
             else:
                 # Create new note
-                col.models.set_current(model)
-                model['did'] = deck_id
-                col.models.save(model)
+                # Check if the question contains cloze deletions
+                has_cloze = has_cloze_deletion(fields['PERGUNTA'])
+                model_to_use = models['cloze'] if has_cloze else models['standard']
+                
+                col.models.set_current(model_to_use)
+                model_to_use['did'] = deck_id
+                col.models.save(model_to_use)
 
-                note = col.new_note(model)
+                note = col.new_note(model_to_use)
                 for field_name in fields:
                     if field_name in note:
                         note[field_name] = fields[field_name]

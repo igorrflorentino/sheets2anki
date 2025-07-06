@@ -27,8 +27,8 @@ def getRemoteDeck(url):
 def validate_tsv_headers(headers):
     """Validate that the TSV has the required headers."""
     required_headers = [
-        'ID', 'PERGUNTA', 'RESPOSTA_PROVA', 'RESPOSTA_RESUMIDA',
-        'RESPOSTA_COMPLETA', 'EXAMPLO1', 'EXAMPLO2', 'EXAMPLO3',
+        'ID', 'PERGUNTA', 'LEVAR_PARA_PROVA', 'INFORMAÇÃO_COMPLEMENTAR',
+        'INFORMAÇÃO_DETALHADA', 'EXEMPLO1', 'EXEMPLO2', 'EXEMPLO3',
         'TOPICO', 'SUBTOPICO', 'BANCAS', 'IMPORTANCIA', 'TAGS'
     ]
     
@@ -55,6 +55,10 @@ def parse_tsv_data(tsv_data):
         return data
     except csv.Error as e:
         raise ValueError(f"Invalid TSV format: {str(e)}")
+
+def has_cloze_deletion(text):
+    """Check if the text contains cloze deletions in the format {{c1::text}}."""
+    return bool(re.search(r'\{\{c\d+::.+?\}\}', text))
 
 def build_remote_deck_from_tsv(data):
     # Process and validate headers
