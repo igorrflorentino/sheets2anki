@@ -198,7 +198,7 @@ def create_card_template(is_cloze=False):
     footer_fields = [
         (column_definitions.BANCAS, column_definitions.BANCAS),
         (column_definitions.ANO, column_definitions.ANO),
-        (column_definitions.TAGS, column_definitions.TAGS)
+        (column_definitions.MORE_TAGS, column_definitions.MORE_TAGS)
     ]
 
     # Build footer section
@@ -363,10 +363,10 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                 
                 # Process tags
                 tags = []
-                if column_definitions.TAGS in fields and fields[column_definitions.TAGS]:
+                if column_definitions.ALL_TAGS in fields and fields[column_definitions.ALL_TAGS]:
                     from .parseRemoteDeck import parse_tags
-                    tags = parse_tags(fields[column_definitions.TAGS])
-                    fields[column_definitions.TAGS] = fields[column_definitions.TAGS].strip()
+                    tags = parse_tags(fields[column_definitions.ALL_TAGS])
+                    fields[column_definitions.ALL_TAGS] = fields[column_definitions.ALL_TAGS].strip()
 
                 if key in existing_notes:
                     # Update existing note
