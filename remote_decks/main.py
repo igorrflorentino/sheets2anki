@@ -362,11 +362,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                 processed_keys.add(key)
                 
                 # Process tags
-                tags = []
-                if column_definitions.ALL_TAGS in fields and fields[column_definitions.ALL_TAGS]:
-                    from .parseRemoteDeck import parse_tags
-                    tags = parse_tags(fields[column_definitions.ALL_TAGS])
-                    fields[column_definitions.ALL_TAGS] = fields[column_definitions.ALL_TAGS].strip()
+                tags = question.get('tags', [])
 
                 if key in existing_notes:
                     # Update existing note

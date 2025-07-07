@@ -1,60 +1,83 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from .parseRemoteDeck import (
-    parse_tags, parse_tsv_data, validate_tsv_headers, 
+    create_tags_from_fields, parse_tsv_data, validate_tsv_headers, 
     has_cloze_deletion, getRemoteDeck, RemoteDeck,
-    build_remote_deck_from_tsv
+    build_remote_deck_from_tsv, clean_tag_text
 )
 from . import column_definitions as cols
 
 class TestParseRemoteDeck(unittest.TestCase):
-    def test_parse_tags_empty(self):
-        """Test parsing empty tag strings"""
-        self.assertEqual(parse_tags(""), [])
-        self.assertEqual(parse_tags(" "), [])
-        self.assertEqual(parse_tags(None), [])
+    def test_clean_tag_text(self):
+        """Test cleaning text for tag use"""
+        self.assertEqual(clean_tag_text(""), "")
+        self.assertEqual(clean_tag_text(" "), "")
+        self.assertEqual(clean_tag_text(None), "")
+        self.assertEqual(clean_tag_text("tag name!@#"), "tag_name")
+        self.assertEqual(clean_tag_text(" tag  name "), "tag_name")
 
-    def test_parse_tags_single(self):
-        """Test parsing a single tag"""
-        self.assertEqual(
-            parse_tags("type1: name1"),
-            ["type1::name1"]
-        )
+    def test_create_tags_from_fields_empty(self):
+        """Test creating tags from empty fields"""
+        fields = {
+            cols.TOPICO: "",
+            cols.SUBTOPICO: "",
+            cols.BANCAS: "",
+            cols.ANO: "",
+            cols.MORE_TAGS: ""
+        }
+        self.assertEqual(create_tags_from_fields(fields), [])
 
-    def test_parse_tags_multiple(self):
-        """Test parsing multiple tags"""
-        self.assertEqual(
-            parse_tags("type1: name1, type1: name2, type2: name1"),
-            ["type1::name1", "type1::name2", "type2::name1"]
-        )
+    def test_create_tags_from_fields_full(self):
+        """Test creating tags from complete fields"""
+        fields = {
+            cols.TOPICO: "Direito Civil",
+            cols.SUBTOPICO: "Contratos, Obrigações",
+            cols.BANCAS: "CESPE, FGV",
+            cols.ANO: "2023",
+            cols.MORE_TAGS: "importante, revisao"
+        }
+        expected_tags = [
+            "topicos::Direito_Civil::Contratos",
+            "topicos::Direito_Civil::Obrigacoes",
+            "bancas::CESPE",
+            "bancas::FGV",
+            "provas::2023",
+            "variado::importante",
+            "variado::revisao"
+        ]
+        self.assertEqual(create_tags_from_fields(fields), expected_tags)
 
-    def test_parse_tags_spaces(self):
-        """Test parsing tags with extra spaces"""
-        self.assertEqual(
-            parse_tags("  type1  :  name1  ,  type2  :  name2  "),
-            ["type1::name1", "type2::name2"]
-        )
+    def test_create_tags_from_fields_multiple_subtopics(self):
+        """Test creating tags with multiple subtopics for the same topic"""
+        fields = {
+            cols.TOPICO: "Direito Penal",
+            cols.SUBTOPICO: "Crimes contra a pessoa, Crimes contra o patrimônio, Crimes contra a honra",
+            cols.BANCAS: "",
+            cols.ANO: "",
+            cols.MORE_TAGS: ""
+        }
+        expected_tags = [
+            "topicos::Direito_Penal::Crimes_contra_a_pessoa",
+            "topicos::Direito_Penal::Crimes_contra_o_patrimonio",
+            "topicos::Direito_Penal::Crimes_contra_a_honra"
+        ]
+        self.assertEqual(create_tags_from_fields(fields), expected_tags)
 
-    def test_parse_tags_invalid(self):
-        """Test parsing invalid tag formats"""
-        # Missing colon
-        self.assertEqual(parse_tags("type1 name1"), [])
-        # Empty type
-        self.assertEqual(parse_tags(": name1"), [])
-        # Empty name
-        self.assertEqual(parse_tags("type1:"), [])
-        # Mixed valid and invalid
-        self.assertEqual(
-            parse_tags("type1: name1, invalid_tag, type2: name2"),
-            ["type1::name1", "type2::name2"]
-        )
-
-    def test_parse_tags_special_chars(self):
-        """Test parsing tags with special characters and spaces"""
-        self.assertEqual(
-            parse_tags("type one: name 1!, type-two: name@2"),
-            ["type_one::name_1", "type_two::name_2"]
-        )
+    def test_create_tags_from_fields_partial(self):
+        """Test creating tags from partial fields"""
+        fields = {
+            cols.TOPICO: "Direito Civil",
+            cols.SUBTOPICO: "",  # Empty subtopic
+            cols.BANCAS: "CESPE",
+            cols.ANO: "2023",
+            cols.MORE_TAGS: ""  # Empty additional tags
+        }
+        expected_tags = [
+            "topicos::Direito_Civil",
+            "bancas::CESPE",
+            "provas::2023"
+        ]
+        self.assertEqual(create_tags_from_fields(fields), expected_tags)
 
     def test_parse_tsv_data_valid(self):
         """Test parsing valid TSV data"""
@@ -128,6 +151,8 @@ class TestParseRemoteDeck(unittest.TestCase):
         deck = build_remote_deck_from_tsv(data)
         self.assertIsInstance(deck, RemoteDeck)
         self.assertEqual(len(deck.questions), 1)
+        self.assertIn('tags', deck.questions[0])  # Verify tags are included
+        self.assertIsInstance(deck.questions[0]['tags'], list)  # Verify tags is a list
 
     def test_build_remote_deck_missing_required(self):
         """Test building remote deck with missing required fields"""

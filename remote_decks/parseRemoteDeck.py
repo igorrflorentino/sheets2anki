@@ -55,46 +55,64 @@ def has_cloze_deletion(text):
     """Check if the text contains cloze deletions in the format {{c1::text}}."""
     return bool(re.search(r'\{\{c\d+::.+?\}\}', text))
 
-def parse_tags(tags_str):
-    """Parse tags in the format 'tagtype1: tagname1, tagtype1: tagname2, tagtype2: tagname1, ...'
+def clean_tag_text(text):
+    """Clean text for use in tags by removing special chars and converting spaces to underscores."""
+    if not text or not text.strip():
+        return ""
+    return re.sub(r'[^\w\s]', '', text.strip()).replace(' ', '_')
+
+def create_tags_from_fields(fields):
+    """Create hierarchical tags from specific fields.
+    
+    Creates tags in the format:
+    - topicos::topico1::subtopicos_do_topico1
+    - bancas::banca1
+    - provas::ano1
+    - variado::tag_adicional1
     
     Args:
-        tags_str (str): String containing tags in the format 'tagtype1: tagname1, tagtype1: tagname2, ...'
+        fields (dict): Dictionary containing the card fields
         
     Returns:
-        list: List of Anki-compatible tags in the format ['tagtype1::tagname1', 'tagtype1::tagname2', ...]
+        list: List of Anki-compatible hierarchical tags
     """
-    if not tags_str or not tags_str.strip():
-        return []
-        
-    # Split by commas and clean up whitespace
-    tag_pairs = [pair.strip() for pair in tags_str.split(',')]
+    tags = []
     
-    # Process each tag pair
-    processed_tags = []
-    for pair in tag_pairs:
-        # Skip empty pairs
-        if not pair:
-            continue
+    # Process TOPICO and SUBTOPICO
+    topico = clean_tag_text(fields.get(cols.TOPICO, ''))
+    subtopicos_raw = fields.get(cols.SUBTOPICO, '')
+    if topico:
+        if subtopicos_raw:
+            # Split subtopics by comma and process each one
+            for subtopico in subtopicos_raw.split(','):
+                subtopico_clean = clean_tag_text(subtopico)
+                if subtopico_clean:
+                    tags.append(f"topicos::{topico}::{subtopico_clean}")
+        else:
+            tags.append(f"topicos::{topico}")
             
-        # Split by colon and clean up whitespace
-        parts = [part.strip() for part in pair.split(':', 1)]
-        if len(parts) != 2:
-            continue
-            
-        tag_type, tag_name = parts
-        # Skip if either part is empty
-        if not tag_type or not tag_name:
-            continue
-            
-        # Convert spaces to underscores and remove special characters
-        tag_type = re.sub(r'[^\w\s]', '', tag_type).replace(' ', '_')
-        tag_name = re.sub(r'[^\w\s]', '', tag_name).replace(' ', '_')
+    # Process BANCAS (can have multiple comma-separated values)
+    bancas = fields.get(cols.BANCAS, '')
+    if bancas:
+        for banca in bancas.split(','):
+            banca_clean = clean_tag_text(banca)
+            if banca_clean:
+                tags.append(f"bancas::{banca_clean}")
+                
+    # Process ANO
+    ano = clean_tag_text(fields.get(cols.ANO, ''))
+    if ano:
+        tags.append(f"provas::{ano}")
         
-        # Combine with double colon for Anki hierarchical tags
-        processed_tags.append(f"{tag_type}::{tag_name}")
+    # Process MORE_TAGS (additional tags)
+    more_tags = fields.get(cols.MORE_TAGS, '')
+    if more_tags:
+        for tag in more_tags.split(','):
+            tag_clean = clean_tag_text(tag)
+            if tag_clean:
+                tags.append(f"variado::{tag_clean}")
     
-    return processed_tags
+    return tags
 
 def build_remote_deck_from_tsv(data):
     # Process and validate headers
@@ -126,9 +144,13 @@ def build_remote_deck_from_tsv(data):
         if not fields[cols.ID] or not fields[cols.PERGUNTA]:
             continue
 
-        # Create and add question
+        # Generate tags from fields
+        tags = create_tags_from_fields(fields)
+        
+        # Create and add question with tags
         question = {
-            'fields': fields
+            'fields': fields,
+            'tags': tags
         }
         questions.append(question)
 
