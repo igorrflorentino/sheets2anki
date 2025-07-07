@@ -116,16 +116,16 @@ def get_model_suffix_from_url(url):
     return hashlib.sha1(url.encode()).hexdigest()[:8]
 
 # Template constants
-CARD_HEADER_TEMPLATE = """
+CARD_SHOW_ALLWAYS_TEMPLATE = """
 <b>{field_name}:</b><br>
 {{{{{field_value}}}}}<br><br>
 """
 
-CARD_EXAMPLE_TEMPLATE = """
-{{{{#{example_field}}}}}
-<b>{example_field_cap}:</b><br>
-{{{{{example_field}}}}}<br><br>
-{{{{/{example_field}}}}}
+CARD_SHOW_HIDE_TEMPLATE = """
+{{{{#{field_value}}}}}
+<b>{field_name}:</b><br>
+{{{{{field_value}}}}}<br><br>
+{{{{/{field_value}}}}}
 """
 
 def create_card_template(is_cloze=False):
@@ -142,15 +142,12 @@ def create_card_template(is_cloze=False):
     header_fields = [
         (column_definitions.TOPICO, column_definitions.TOPICO),
         (column_definitions.SUBTOPICO, column_definitions.SUBTOPICO),
-        (column_definitions.BANCAS, column_definitions.BANCAS),
-        (column_definitions.ANO, column_definitions.ANO),
-        (column_definitions.TAGS, column_definitions.TAGS)
     ]
     
     # Build header section
     header = ""
     for field_name, field_value in header_fields:
-        header += CARD_HEADER_TEMPLATE.format(
+        header += CARD_SHOW_ALLWAYS_TEMPLATE.format(
             field_name=field_name.capitalize(),
             field_value=field_value
         )
@@ -161,17 +158,24 @@ def create_card_template(is_cloze=False):
         f"<b>{column_definitions.PERGUNTA.capitalize()}:</b><br>"
         f"{{{{{'cloze:' if is_cloze else ''}{column_definitions.PERGUNTA}}}}}"
     )
-    
-    # Answer format
-    answer_fields = [
-        column_definitions.INFO_1,
-        column_definitions.INFO_2,
-        column_definitions.INFO_3
+
+    # Match format
+    match = (
+        "<br><br>"
+        f"<b>{column_definitions.MATCH.capitalize()}:</b><br>"
+        f"{{{{{'cloze:' if is_cloze else ''}{column_definitions.MATCH}}}}}"
+        "<br><br><hr><br>"
+    )
+
+    # Extra Info format
+    extra_info_fields = [
+        column_definitions.EXTRA_INFO_1,
+        column_definitions.EXTRA_INFO_2
     ]
     
-    answer = ""
-    for field in answer_fields:
-        answer += CARD_HEADER_TEMPLATE.format(
+    extra_info = ""
+    for field in extra_info_fields:
+        extra_info += CARD_SHOW_HIDE_TEMPLATE.format(
             field_name=field.capitalize(),
             field_value=field
         )
@@ -185,15 +189,41 @@ def create_card_template(is_cloze=False):
     
     examples = ""
     for field in example_fields:
-        examples += CARD_EXAMPLE_TEMPLATE.format(
-            example_field=field,
-            example_field_cap=field.capitalize()
+        examples += CARD_SHOW_HIDE_TEMPLATE.format(
+            field_name=field.capitalize(),
+            field_value=field
+        )
+
+    # Footer fields
+    footer_fields = [
+        (column_definitions.BANCAS, column_definitions.BANCAS),
+        (column_definitions.ANO, column_definitions.ANO),
+        (column_definitions.TAGS, column_definitions.TAGS)
+    ]
+
+    # Build footer section
+    footer = ""
+    for field_name, field_value in footer_fields:
+        footer += CARD_SHOW_HIDE_TEMPLATE.format(
+            field_name=field_name.capitalize(),
+            field_value=field_value
         )
     
     # Build complete templates
     qfmt = header + question
-    afmt = (header + question + "<br><br><hr><br>" + answer + examples) if is_cloze else ("{{FrontSide}}<br><br><hr><br>" + answer + examples)
-    
+    afmt = (header + 
+            question + 
+            match + 
+            extra_info + 
+            examples + 
+            "<hr><br>" + 
+            footer) if is_cloze else ("{{FrontSide}}" + 
+                                      match + 
+                                      extra_info + 
+                                      examples + 
+                                      "<hr><br>" + 
+                                      footer)
+
     return {'qfmt': qfmt, 'afmt': afmt}
 
 def create_model(col, model_name, is_cloze=False):
