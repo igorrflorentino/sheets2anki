@@ -22,6 +22,7 @@ from aqt.qt import QAction, QMenu, QKeySequence
 from aqt.importing import ImportDialog
 
 try:
+    from .remote_decks.main import import_test_deck
     from .remote_decks.main import addNewDeck
     from .remote_decks.main import syncDecks as sDecks
     from .remote_decks.main import removeRemoteDeck as rDecks
@@ -108,3 +109,10 @@ if mw is not None:
     removeRemoteDeck.setShortcut(QKeySequence("Ctrl+Shift+D"))
     qconnect(removeRemoteDeck.triggered, removeRemote)
     remoteDecksSubMenu.addAction(removeRemoteDeck)
+
+    # Adicionar ação para importar deck de teste
+    importTestDeckAction = QAction("Import Test Deck", mw)
+    importTestDeckAction.setShortcut(QKeySequence("Ctrl+Shift+T"))
+    qconnect(importTestDeckAction.triggered, import_test_deck)
+    remoteDecksSubMenu.addAction(importTestDeckAction)
+    

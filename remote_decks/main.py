@@ -15,6 +15,56 @@ from .parseRemoteDeck import getRemoteDeck, has_cloze_deletion
 from . import column_definitions
 import hashlib
 
+# URLs hardcoded para testes e simulações
+TEST_SHEETS_URLS = [
+    ("Mais importantes", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=334628680&output=tsv"),
+    ("Menos importantes", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=1869088045&output=tsv"),
+]
+
+def import_test_deck():
+    """Permite importar rapidamente um dos decks de teste hardcoded."""
+    names = [name for name, url in TEST_SHEETS_URLS]
+    selection, okPressed = QInputDialog.getItem(
+        mw,
+        "Importar Deck de Teste",
+        "Escolha um deck de teste para importar:",
+        names,
+        0,
+        False
+    )
+    if not okPressed or not selection:
+        return
+
+    # Busca a URL correspondente
+    url = dict(TEST_SHEETS_URLS)[selection]
+
+    # Sugere um nome padrão para o deck
+    deckName = f"Deck de Teste do sheet2anki:: {selection}"
+
+    # Cria ou obtém o deck
+    deck_id = get_or_create_deck(mw.col, deckName)
+
+    # Busca e importa o deck
+    try:
+        validate_url(url)
+        deck = getRemoteDeck(url)
+        deck.deckName = deckName
+        deck.url = url
+
+        # Atualiza configuração e sincroniza
+        config = mw.addonManager.getConfig(__name__)
+        if not config:
+            config = {"remote-decks": {}}
+        config["remote-decks"][url] = {
+            "url": url,
+            "deck_id": deck_id,
+            "deck_name": deckName
+        }
+        mw.addonManager.writeConfig(__name__, config)
+        syncDecks()
+    except Exception as e:
+        showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
+
 def validate_url(url):
     """
     Validate that the URL is a proper Google Sheets TSV URL.
@@ -78,21 +128,44 @@ def syncDecks():
     for deckKey in config["remote-decks"].keys():
         try:
             currentRemoteInfo = config["remote-decks"][deckKey]
-            deckName = currentRemoteInfo["deckName"]
+            deck_id = currentRemoteInfo["deck_id"]
+            
+            # Get deck name for display purposes
+            deck = col.decks.get(deck_id)
+            if not deck:
+                # Deck foi excluído, criar novamente com o nome original
+                # Tenta obter o nome salvo, senão usa "Default"
+                deckName = currentRemoteInfo.get("deck_name", None)
+                if not deckName:
+                    # Tenta buscar pelo nome do deck na configuração antiga
+                    # Se não houver, usa "Default"
+                    deckName = "Default-Sheet2Anki"
+                try:
+                    deck_id = get_or_create_deck(col, deckName)
+                    # Atualiza o ID no config
+                    config["remote-decks"][deckKey]["deck_id"] = deck_id
+                    mw.addonManager.writeConfig(__name__, config)
+                except Exception as e:
+                    # Se falhar, joga para o deck Default
+                    deck_id = get_or_create_deck(col, "Default-Sheet2Anki")
+                    config["remote-decks"][deckKey]["deck_id"] = deck_id
+                    mw.addonManager.writeConfig(__name__, config)
+                    deckName = "Default-Sheet2Anki"
+            else:
+                deckName = deck["name"]
             
             # Validate URL before attempting sync
             validate_url(currentRemoteInfo["url"])
             
             remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
-            remoteDeck.deckName = deckName
-            remoteDeck.url = currentRemoteInfo["url"]  # <-- Adicione esta linha
+            remoteDeck.deckName = deckName  # Set name for display purposes
+            remoteDeck.url = currentRemoteInfo["url"]
             
-            deck_id = get_or_create_deck(col, deckName)
             create_or_update_notes(col, remoteDeck, deck_id)
             decks_synced += 1
             
         except Exception as e:
-            error_msg = f"Failed to sync deck '{deckName}': {str(e)}"
+            error_msg = f"Failed to sync deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
             sync_errors.append(error_msg)
             continue
 
@@ -484,18 +557,25 @@ def addNewDeck():
         showInfo(f"This URL has already been added as a remote deck.")
         return
 
+    # Create or get deck ID
+    deck_id = get_or_create_deck(mw.col, deckName)
+
     # Validate deck can be fetched
     try:
         deck = getRemoteDeck(url)
         deck.deckName = deckName
-        deck.url = url  # <-- Adicione esta linha
+        deck.url = url
     except Exception as e:
         showInfo(f"Error fetching the remote deck:\n{str(e)}")
         return
 
     # Save configuration and sync
     try:
-        config["remote-decks"][url] = {"url": url, "deckName": deckName}
+        config["remote-decks"][url] = {
+            "url": url,
+            "deck_id": deck_id,
+            "deck_name": deckName
+        }
         mw.addonManager.writeConfig(__name__, config)
         syncDecks()
     except Exception as e:
@@ -520,12 +600,21 @@ def removeRemoteDeck():
 
     # Get all deck names and their URLs
     deck_info = []
+    deck_map = {}  # Map display strings to URL keys
     for url, info in remoteDecks.items():
-        deck_name = info["deckName"]
+        deck_id = info["deck_id"]
         # Check if the deck still exists in Anki
-        deck = mw.col.decks.by_name(deck_name)
-        status = "Available" if deck else "Not found in Anki"
-        deck_info.append(f"{deck_name} ({status})")
+        deck = mw.col.decks.get(deck_id)
+        if deck:
+            deck_name = deck["name"]
+            status = "Available"
+        else:
+            deck_name = f"Unknown (ID: {deck_id})"
+            status = "Not found in Anki"
+            
+        display_str = f"{deck_name} ({status})"
+        deck_info.append(display_str)
+        deck_map[display_str] = url
 
     # Ask user to select a deck
     selection, okPressed = QInputDialog.getItem(
@@ -539,21 +628,23 @@ def removeRemoteDeck():
 
     if okPressed and selection:
         try:
-            # Extract deck name from selection (remove status)
-            selected_deck_name = selection.split(" (")[0]
-
-            # Find and remove the deck from config
-            for url in list(remoteDecks.keys()):
-                if selected_deck_name == remoteDecks[url]["deckName"]:
-                    del remoteDecks[url]
-                    break
+            # Get URL from selection using our map
+            url = deck_map[selection]
+            
+            # Get deck name for display
+            deck_id = remoteDecks[url]["deck_id"]
+            deck = mw.col.decks.get(deck_id)
+            deck_name = deck["name"] if deck else f"Unknown (ID: {deck_id})"
+            
+            # Remove the deck from config
+            del remoteDecks[url]
 
             # Save the updated configuration
             mw.addonManager.writeConfig(__name__, config)
 
             # Show success message with instructions
             message = (
-                f"The deck '{selected_deck_name}' has been unlinked from its remote source.\n\n"
+                f"The deck '{deck_name}' has been unlinked from its remote source.\n\n"
                 f"The local deck remains in Anki and can now be managed normally.\n"
                 f"Future updates from the Google Sheet will no longer affect this deck."
             )

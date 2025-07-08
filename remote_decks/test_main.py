@@ -1,10 +1,11 @@
 import unittest
 from unittest.mock import patch, MagicMock
+import urllib.error
 from . import main
 from .main import (
     validate_url, get_model_suffix_from_url, create_card_template,
     create_model, ensure_custom_models, SyncError, NoteProcessingError,
-    CollectionSaveError
+    CollectionSaveError, syncDecks, addNewDeck, removeRemoteDeck
 )
 
 class TestMain(unittest.TestCase):
@@ -129,6 +130,85 @@ class TestMain(unittest.TestCase):
         # Check model names contain URL suffix
         suffix = get_model_suffix_from_url(url)
         self.assertTrue(any(suffix in str(m) for m in models.values()))
+
+    @patch('aqt.mw')
+    def test_sync_decks_with_id(self, mock_mw):
+        """Test deck synchronization using deck IDs"""
+        # Mock configuration
+        mock_config = {
+            "remote-decks": {
+                "https://example.com/test.tsv": {
+                    "url": "https://example.com/test.tsv",
+                    "deck_id": 1234567890
+                }
+            }
+        }
+        
+        # Mock collection and deck
+        mock_deck = {"id": 1234567890, "name": "Test Deck"}
+        mock_col = MagicMock()
+        mock_col.decks.get.return_value = mock_deck
+        
+        # Set up mocks
+        mock_mw.col = mock_col
+        mock_mw.addonManager.getConfig.return_value = mock_config
+        
+        # Mock getRemoteDeck
+        with patch('remote_decks.main.getRemoteDeck') as mock_get_remote:
+            mock_deck = MagicMock()
+            mock_get_remote.return_value = mock_deck
+            
+            # Mock validate_url
+            with patch('remote_decks.main.validate_url'):
+                # Mock create_or_update_notes
+                with patch('remote_decks.main.create_or_update_notes'):
+                    # Run sync
+                    syncDecks()
+                    
+                    # Verify deck was looked up by ID
+                    mock_col.decks.get.assert_called_with(1234567890)
+                    
+                    # Verify deck name was set from collection
+                    self.assertEqual(mock_deck.deckName, "Test Deck")
+
+    @patch('aqt.mw')
+    @patch('aqt.qt.QInputDialog')
+    def test_add_new_deck_with_id(self, mock_dialog, mock_mw):
+        """Test adding a new deck with ID-based configuration"""
+        # Mock user input
+        mock_dialog.getText.side_effect = [
+            ("https://example.com/test.tsv", True),  # URL input
+            ("Test Deck", True)  # Deck name input
+        ]
+        
+        # Mock collection and deck
+        mock_deck = {"id": 1234567890, "name": "Test Deck"}
+        mock_col = MagicMock()
+        mock_col.decks.by_name.return_value = mock_deck
+        
+        # Set up mocks
+        mock_mw.col = mock_col
+        mock_mw.addonManager.getConfig.return_value = {"remote-decks": {}}
+        
+        # Mock validate_url and getRemoteDeck
+        with patch('remote_decks.main.validate_url'), \
+             patch('remote_decks.main.getRemoteDeck') as mock_get_remote, \
+             patch('remote_decks.main.syncDecks'):
+            
+            mock_get_remote.return_value = MagicMock()
+            
+            # Run add new deck
+            addNewDeck()
+            
+            # Verify configuration was saved with deck ID
+            mock_mw.addonManager.writeConfig.assert_called_once()
+            config = mock_mw.addonManager.writeConfig.call_args[0][1]
+            self.assertIn("remote-decks", config)
+            self.assertIn("https://example.com/test.tsv", config["remote-decks"])
+            self.assertEqual(
+                config["remote-decks"]["https://example.com/test.tsv"]["deck_id"],
+                1234567890
+            )
 
 if __name__ == '__main__':
     unittest.main()
