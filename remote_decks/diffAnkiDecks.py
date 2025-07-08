@@ -1,4 +1,6 @@
 
+# Codigo Legacy, não deve ser executado
+
 # """
 # Módulo de Comparação de Decks do Anki
 
