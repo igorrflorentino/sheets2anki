@@ -373,6 +373,19 @@ class CollectionSaveError(SyncError):
     pass
 
 def create_or_update_notes(col, remoteDeck, deck_id):
+    def note_needs_update(note, fields, tags):
+        # Compara todos os campos relevantes
+        for field_name, value in fields.items():
+            if field_name in note:
+                # Anki armazena campos como string
+                if str(note[field_name]).strip() != str(value).strip():
+                    return True
+        # Compara tags (ordem não importa)
+        note_tags = set(note.tags) if hasattr(note, 'tags') else set()
+        tsv_tags = set(tags) if tags else set()
+        if note_tags != tsv_tags:
+            return True
+        return False
     """
     Create or update notes in the deck based on remote data.
     
@@ -438,17 +451,18 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                 tags = question.get('tags', [])
 
                 if key in existing_notes:
-                    # Update existing note
+                    # Update existing note SOMENTE SE houver diferença real
                     note = existing_notes[key]
-                    for field_name, value in fields.items():
-                        if field_name in note:
-                            note[field_name] = value
-                    note.tags = tags
-                    try:
-                        note.flush()
-                        stats['updated'] += 1
-                    except Exception as e:
-                        raise NoteProcessingError(f"Error updating note {key}: {str(e)}")
+                    if note_needs_update(note, fields, tags):
+                        for field_name, value in fields.items():
+                            if field_name in note:
+                                note[field_name] = value
+                        note.tags = tags
+                        try:
+                            note.flush()
+                            stats['updated'] += 1
+                        except Exception as e:
+                            raise NoteProcessingError(f"Error updating note {key}: {str(e)}")
                 else:
                     # Create new note
                     has_cloze = has_cloze_deletion(fields[column_definitions.PERGUNTA])
