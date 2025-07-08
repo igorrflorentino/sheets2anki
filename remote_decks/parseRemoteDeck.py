@@ -1,7 +1,12 @@
+
 import csv
 import requests
 import re  # Import the 're' module for regular expressions
 from . import column_definitions as cols  # Import centralized column definitions
+
+# Custom exception for remote deck errors
+class RemoteDeckError(Exception):
+    pass
 
 class RemoteDeck:
     """Class representing a deck loaded from a remote TSV source."""
@@ -17,13 +22,19 @@ def getRemoteDeck(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
+    except requests.RequestException as e:
+        raise RemoteDeckError(f"Network error downloading TSV: {e}")
+    try:
         tsv_data = response.content.decode('utf-8')
-    except Exception as e:
-        raise Exception(f"Error downloading or reading the TSV: {e}")
+    except UnicodeDecodeError as e:
+        raise RemoteDeckError(f"Error decoding TSV content: {e}")
 
-    data = parse_tsv_data(tsv_data)
-    remoteDeck = build_remote_deck_from_tsv(data)
-    return remoteDeck
+    try:
+        data = parse_tsv_data(tsv_data)
+        remoteDeck = build_remote_deck_from_tsv(data)
+        return remoteDeck
+    except Exception as e:
+        raise RemoteDeckError(f"Error parsing remote deck: {e}")
 
 def validate_tsv_headers(headers):
     """Validate that the TSV has the required headers."""

@@ -62,8 +62,10 @@ def import_test_deck():
         }
         mw.addonManager.writeConfig(__name__, config)
         syncDecks()
-    except Exception as e:
+    except (ValueError, SyncError) as e:
         showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
+    except Exception as e:
+        showInfo(f"Erro inesperado ao importar deck de teste:\n{str(e)}")
 
 def validate_url(url):
     """
@@ -125,47 +127,40 @@ def syncDecks():
     sync_errors = []
     decks_synced = 0
 
-    for deckKey in config["remote-decks"].keys():
+    # Use list to avoid RuntimeError (dict changed size during iteration)
+    for deckKey in list(config["remote-decks"].keys()):
         try:
             currentRemoteInfo = config["remote-decks"][deckKey]
             deck_id = currentRemoteInfo["deck_id"]
-            
+
             # Get deck name for display purposes
             deck = col.decks.get(deck_id)
-            if not deck:
-                # Deck foi excluído, criar novamente com o nome original
-                # Tenta obter o nome salvo, senão usa "Default"
-                deckName = currentRemoteInfo.get("deck_name", None)
-                if not deckName:
-                    # Tenta buscar pelo nome do deck na configuração antiga
-                    # Se não houver, usa "Default"
-                    deckName = "Default-Sheet2Anki"
-                try:
-                    deck_id = get_or_create_deck(col, deckName)
-                    # Atualiza o ID no config
-                    config["remote-decks"][deckKey]["deck_id"] = deck_id
-                    mw.addonManager.writeConfig(__name__, config)
-                except Exception as e:
-                    # Se falhar, joga para o deck Default
-                    deck_id = get_or_create_deck(col, "Default-Sheet2Anki")
-                    config["remote-decks"][deckKey]["deck_id"] = deck_id
-                    mw.addonManager.writeConfig(__name__, config)
-                    deckName = "Default-Sheet2Anki"
-            else:
-                deckName = deck["name"]
-            
+            # If the deck does not exist or is now the Default deck, remove from config and skip sync
+            if not deck or deck["name"].strip().lower() == "default":
+                removed_name = currentRemoteInfo.get("deck_name", str(deck_id))
+                del config["remote-decks"][deckKey]
+                mw.addonManager.writeConfig(__name__, config)
+                info_msg = f"A sincronização do deck '{removed_name}' foi encerrada automaticamente porque o deck foi excluído ou virou o deck padrão (Default)."
+                showInfo(info_msg)
+                continue
+            deckName = deck["name"]
+
             # Validate URL before attempting sync
             validate_url(currentRemoteInfo["url"])
-            
+
             remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
             remoteDeck.deckName = deckName  # Set name for display purposes
             remoteDeck.url = currentRemoteInfo["url"]
-            
+
             create_or_update_notes(col, remoteDeck, deck_id)
             decks_synced += 1
-            
-        except Exception as e:
+
+        except (ValueError, SyncError) as e:
             error_msg = f"Failed to sync deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
+            sync_errors.append(error_msg)
+            continue
+        except Exception as e:
+            error_msg = f"Unexpected error syncing deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
             sync_errors.append(error_msg)
             continue
 
@@ -177,9 +172,14 @@ def syncDecks():
         showInfo(f"Successfully synced {decks_synced} deck(s).")
 
 def get_or_create_deck(col, deckName):
+    if not deckName or not isinstance(deckName, str) or deckName.strip() == "" or deckName.strip().lower() == "default":
+        raise ValueError("Nome de deck inválido ou proibido para sincronização: '%s'" % deckName)
     deck = col.decks.by_name(deckName)
     if deck is None:
-        deck_id = col.decks.id(deckName)
+        try:
+            deck_id = col.decks.id(deckName)
+        except Exception as e:
+            raise ValueError(f"Não foi possível criar o deck '{deckName}': {str(e)}")
     else:
         deck_id = deck["id"]
     return deck_id
@@ -506,8 +506,12 @@ def create_or_update_notes(col, remoteDeck, deck_id):
         showInfo(summary)
         return stats
 
-    except (SyncError, Exception) as e:
+    except SyncError as e:
         error_msg = f"Critical sync error: {str(e)}"
+        showInfo(error_msg)
+        raise
+    except Exception as e:
+        error_msg = f"Unexpected error during sync: {str(e)}"
         showInfo(error_msg)
         raise SyncError(error_msg)
 
