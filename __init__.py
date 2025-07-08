@@ -24,7 +24,7 @@ from aqt.importing import ImportDialog
 try:
     from .remote_decks.main import import_test_deck
     from .remote_decks.main import addNewDeck
-    from .remote_decks.main import syncDecks as sDecks
+    from .remote_decks.main import syncDecksWithSelection as sDecks
     from .remote_decks.main import removeRemoteDeck as rDecks
     from .remote_decks.libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
 except Exception as e:

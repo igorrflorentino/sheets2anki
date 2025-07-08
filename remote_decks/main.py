@@ -1,6 +1,17 @@
 from aqt import mw
 from aqt.utils import showInfo, qconnect
-from aqt.qt import QAction, QMenu, QInputDialog, QLineEdit, QKeySequence
+from aqt.qt import QAction, QMenu, QInputDialog, QLineEdit, QKeySequence, QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QLabel
+
+# Importar constantes do QDialog explicitamente para compatibilidade
+try:
+    from aqt.qt import QDialog
+    # Verificar se as constantes estão disponíveis
+    if hasattr(QDialog, 'Accepted'):
+        DialogAccepted = QDialog.Accepted
+    else:
+        DialogAccepted = 1  # Valor padrão para Accepted
+except ImportError:
+    DialogAccepted = 1
 
 try:
     echo_mode_normal = QLineEdit.EchoMode.Normal
@@ -16,6 +27,163 @@ from . import column_definitions
 import hashlib
 
 from aqt.qt import QProgressDialog, QPushButton
+
+class DeckSelectionDialog(QDialog):
+    def __init__(self, deck_info_list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Selecionar Decks para Sincronizar")
+        self.setMinimumSize(500, 350)
+        
+        # deck_info_list é uma lista de tuplas (deck_name, deck_count)
+        self.deck_info_list = deck_info_list
+        
+        # Layout principal
+        layout = QVBoxLayout()
+        
+        # Label de instruções
+        instruction_label = QLabel("Selecione os decks que deseja sincronizar:")
+        instruction_label.setStyleSheet("font-weight: bold; margin-bottom: 10px;")
+        layout.addWidget(instruction_label)
+        
+        # Checkboxes dos decks com informações
+        self.checkboxes = {}
+        for deck_name, card_count in deck_info_list:
+            # Mostrar nome do deck e número de cards
+            display_text = f"{deck_name} ({card_count} cards)"
+            checkbox = QCheckBox(display_text)
+            checkbox.setChecked(True)  # Por padrão, todos selecionados
+            self.checkboxes[deck_name] = checkbox
+            layout.addWidget(checkbox)
+        
+        # Espaçador
+        layout.addSpacing(10)
+        
+        # Botões de seleção rápida
+        button_layout = QHBoxLayout()
+        
+        select_all_btn = QPushButton("Selecionar Todos")
+        select_all_btn.clicked.connect(self.select_all)
+        button_layout.addWidget(select_all_btn)
+        
+        deselect_all_btn = QPushButton("Desmarcar Todos")
+        deselect_all_btn.clicked.connect(self.deselect_all)
+        button_layout.addWidget(deselect_all_btn)
+        
+        layout.addLayout(button_layout)
+        
+        # Espaçador
+        layout.addSpacing(10)
+        
+        # Label de status
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(self.status_label)
+        
+        # Botões OK e Cancel (criar antes de conectar eventos)
+        confirm_layout = QHBoxLayout()
+        
+        self.ok_btn = QPushButton("Sincronizar")
+        self.ok_btn.clicked.connect(self.accept)
+        confirm_layout.addWidget(self.ok_btn)
+        
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.clicked.connect(self.reject)
+        confirm_layout.addWidget(cancel_btn)
+        
+        layout.addLayout(confirm_layout)
+        
+        # Conectar mudanças nos checkboxes ao update de status (após criar ok_btn)
+        for checkbox in self.checkboxes.values():
+            checkbox.stateChanged.connect(self.update_status)
+        
+        # Atualizar status inicial
+        self.update_status()
+        
+        self.setLayout(layout)
+    
+    def select_all(self):
+        for checkbox in self.checkboxes.values():
+            checkbox.setChecked(True)
+    
+    def deselect_all(self):
+        for checkbox in self.checkboxes.values():
+            checkbox.setChecked(False)
+    
+    def update_status(self):
+        selected_count = len(self.get_selected_decks())
+        total_count = len(self.checkboxes)
+        
+        if selected_count == 0:
+            self.status_label.setText("Nenhum deck selecionado")
+            self.ok_btn.setEnabled(False)
+        else:
+            self.status_label.setText(f"{selected_count} de {total_count} decks selecionados")
+            self.ok_btn.setEnabled(True)
+    
+    def get_selected_decks(self):
+        selected = []
+        for deck_name, checkbox in self.checkboxes.items():
+            if checkbox.isChecked():
+                selected.append(deck_name)
+        return selected
+
+def syncDecksWithSelection():
+    """Mostra interface para selecionar decks e sincroniza apenas os selecionados."""
+    config = mw.addonManager.getConfig(__name__)
+    if not config:
+        config = {"remote-decks": {}}
+
+    # Verificar se há decks configurados
+    if not config["remote-decks"]:
+        showInfo("Nenhum deck remoto configurado para sincronização.")
+        return
+
+    # Obter informações dos decks configurados e verificar se ainda existem no Anki
+    deck_info_list = []
+    valid_decks = {}
+    
+    for url, deck_info in config["remote-decks"].items():
+        deck_id = deck_info["deck_id"]
+        deck = mw.col.decks.get(deck_id)
+        
+        if deck and deck["name"].strip().lower() != "default":
+            deck_name = deck["name"]
+            # Contar cards no deck
+            card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
+            deck_info_list.append((deck_name, card_count))
+            valid_decks[deck_name] = deck_info
+        else:
+            # Deck não existe mais ou virou default - será removido automaticamente na sincronização
+            pass
+
+    # Verificar se há decks válidos
+    if not deck_info_list:
+        showInfo("Nenhum deck remoto válido encontrado para sincronização.")
+        return
+
+    # Se há apenas um deck, sincronizar diretamente
+    if len(deck_info_list) == 1:
+        syncDecks()
+        return
+
+    # Mostrar interface de seleção
+    dialog = DeckSelectionDialog(deck_info_list, mw)
+    
+    # Compatibilidade com diferentes versões do Qt
+    try:
+        # Qt6 usa exec()
+        result = dialog.exec()
+    except AttributeError:
+        # Qt5 usa exec_()
+        result = dialog.exec_()
+    
+    if result == DialogAccepted:
+        selected_decks = dialog.get_selected_decks()
+        if selected_decks:
+            syncDecks(selected_decks)
+        else:
+            showInfo("Nenhum deck foi selecionado para sincronização.")
+    # Se cancelou, não faz nada
 
 # URLs hardcoded para testes e simulações
 TEST_SHEETS_URLS = [
@@ -119,8 +287,12 @@ def validate_url(url):
     except Exception as e:
         raise ValueError(f"Unexpected error accessing URL: {str(e)}")
     
-def syncDecks():
-    """Synchronize all remote decks with their sources."""
+def syncDecks(selected_deck_names=None):
+    """Synchronize all remote decks with their sources.
+    
+    Args:
+        selected_deck_names: List of deck names to sync. If None, sync all decks.
+    """
     col = mw.col
     config = mw.addonManager.getConfig(__name__)
     if not config:
@@ -138,11 +310,50 @@ def syncDecks():
     }
 
     deck_keys = list(config["remote-decks"].keys())
+    
+    # Filtrar decks se uma seleção específica foi fornecida
+    if selected_deck_names is not None:
+        # Mapear nomes de deck para suas chaves de configuração (URLs)
+        name_to_key = {}
+        for key, deck_info in config["remote-decks"].items():
+            # Obter o nome real do deck no Anki, não o nome salvo na config
+            deck_id = deck_info.get("deck_id")
+            if deck_id:
+                deck = mw.col.decks.get(deck_id)
+                if deck:
+                    actual_deck_name = deck["name"]
+                    name_to_key[actual_deck_name] = key
+                else:
+                    # Fallback para o nome salvo na config se o deck não existir
+                    config_deck_name = deck_info.get("deck_name", "")
+                    if config_deck_name:
+                        name_to_key[config_deck_name] = key
+        
+        # Filtrar apenas os decks selecionados
+        filtered_keys = []
+        for deck_name in selected_deck_names:
+            if deck_name in name_to_key:
+                filtered_keys.append(name_to_key[deck_name])
+            else:
+                # Debug: mostrar nomes disponíveis se não encontrar
+                print(f"DEBUG: Deck '{deck_name}' não encontrado no mapeamento.")
+                print(f"DEBUG: Nomes disponíveis: {list(name_to_key.keys())}")
+        
+        deck_keys = filtered_keys
+        
+        # Debug adicional
+        print(f"DEBUG: Decks selecionados: {selected_deck_names}")
+        print(f"DEBUG: Chaves filtradas: {filtered_keys}")
+        print(f"DEBUG: Total de chaves: {len(filtered_keys)}")
+    
     total_decks = len(deck_keys)
     
     # Se não há decks para sincronizar, mostrar mensagem e sair
     if total_decks == 0:
-        showInfo("Nenhum deck remoto configurado para sincronização.")
+        if selected_deck_names is not None:
+            showInfo(f"Nenhum dos decks selecionados foi encontrado na configuração.\n\nDecks selecionados: {', '.join(selected_deck_names)}")
+        else:
+            showInfo("Nenhum deck remoto configurado para sincronização.")
         return
     
     progress = QProgressDialog("Sincronizando decks...", None, 0, total_decks * 3, mw)
