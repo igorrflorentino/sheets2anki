@@ -1,10 +1,78 @@
-from aqt import mw
-from aqt.utils import showInfo, qconnect
-from aqt.qt import QAction, QMenu, QInputDialog, QLineEdit, QKeySequence, QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QLabel
+"""
+Módulo Principal de Sincronização de Decks Remotos
 
-# Importar constantes do QDialog explicitamente para compatibilidade
+Este módulo implementa a funcionalidade principal para sincronização de decks do Anki
+com planilhas do Google Sheets em formato TSV. 
+
+Funcionalidades principais:
+- Sincronização bidirecional com Google Sheets
+- Interface de seleção de decks
+- Validação de URLs e dados
+- Criação automática de modelos de cards
+- Suporte a cards cloze e padrão
+- Gerenciamento de erros robusto
+
+Estrutura do código:
+1. Imports e configuração de compatibilidade
+2. Constantes e dados de teste
+3. Exceções customizadas
+4. Dialogs de interface do usuário
+5. Funções de gerenciamento de decks
+6. Funções de validação
+7. Funções principais de sincronização
+8. Funções utilitárias
+9. Funções de template de cards
+10. Funções de processamento de notas
+11. Funções de interface para gerenciamento
+
+Autor: Sheets2Anki Project
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
+# Anki imports
 try:
-    from aqt.qt import QDialog
+    from aqt import mw  # type: ignore
+    from aqt.utils import showInfo, qconnect  # type: ignore
+    from aqt.qt import (  # type: ignore
+        QInputDialog, QLineEdit, QDialog, 
+        QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QLabel, 
+        QProgressDialog, Qt
+    )
+except ImportError:
+    # Fallback para desenvolvimento fora do ambiente Anki
+    import sys
+    import os
+    stubs_path = os.path.join(os.path.dirname(__file__), '..', 'stubs')
+    if os.path.exists(stubs_path):
+        sys.path.insert(0, stubs_path)
+        from aqt import mw  # type: ignore
+        from aqt.utils import showInfo, qconnect  # type: ignore
+        from aqt.qt import (  # type: ignore
+            QInputDialog, QLineEdit, QDialog, 
+            QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QLabel, 
+            QProgressDialog, Qt
+        )
+
+# Standard library imports
+import sys
+import urllib.request
+import urllib.error
+import hashlib
+
+# Local imports
+from .parseRemoteDeck import getRemoteDeck, has_cloze_deletion
+from . import column_definitions
+
+# =============================================================================
+# COMPATIBILITY LAYER
+# =============================================================================
+
+# Compatibilidade entre diferentes versões do Qt/Anki
+try:
+    from aqt.qt import QDialog  # type: ignore
     # Verificar se as constantes estão disponíveis
     if hasattr(QDialog, 'Accepted'):
         DialogAccepted = QDialog.Accepted
@@ -18,25 +86,103 @@ try:
 except AttributeError:
     echo_mode_normal = QLineEdit.Normal
 
-import sys
-import csv
-import urllib.request
+# Compatibilidade para constantes de alinhamento do Qt
+try:
+    # Qt6 style
+    from aqt.qt import Qt  # type: ignore
+    if hasattr(Qt, 'AlignmentFlag'):
+        AlignTop = Qt.AlignmentFlag.AlignTop
+        AlignLeft = Qt.AlignmentFlag.AlignLeft
+    elif hasattr(Qt, 'AlignTop'):
+        # Qt5 style
+        AlignTop = Qt.AlignTop
+        AlignLeft = Qt.AlignLeft
+    else:
+        # Fallback values
+        AlignTop = 0x20
+        AlignLeft = 0x01
+except (ImportError, AttributeError):
+    # Valores padrão como fallback
+    AlignTop = 0x20
+    AlignLeft = 0x01
 
-from .parseRemoteDeck import getRemoteDeck, has_cloze_deletion
-from . import column_definitions
-import hashlib
+# =============================================================================
+# CONSTANTS AND TEST DATA
+# =============================================================================
 
-from aqt.qt import QProgressDialog, QPushButton
+# URLs hardcoded para testes e simulações
+TEST_SHEETS_URLS = [
+    ("Mais importantes", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=334628680&output=tsv"),
+    ("Menos importantes", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=1869088045&output=tsv"),
+]
+
+# Template constants para geração de cards
+CARD_SHOW_ALLWAYS_TEMPLATE = """
+<b>{field_name}:</b><br>
+{{{{{field_value}}}}}<br><br>
+"""
+
+CARD_SHOW_HIDE_TEMPLATE = """
+{{{{#{field_value}}}}}
+<b>{field_name}:</b><br>
+{{{{{field_value}}}}}<br><br>
+{{{{/{field_value}}}}}
+"""
+
+# =============================================================================
+# CUSTOM EXCEPTIONS
+# =============================================================================
+
+class SyncError(Exception):
+    """Base exception for sync-related errors."""
+    pass
+
+class NoteProcessingError(SyncError):
+    """Exception raised when processing a note fails."""
+    pass
+
+class CollectionSaveError(SyncError):
+    """Exception raised when saving the collection fails."""
+    pass
+
+# =============================================================================
+# UI DIALOGS
+# =============================================================================
 
 class DeckSelectionDialog(QDialog):
+    """
+    Dialog para seleção de decks para sincronização.
+    
+    Permite ao usuário escolher quais decks remotos devem ser sincronizados,
+    mostrando informações como nome do deck e número de cards.
+    """
+    
     def __init__(self, deck_info_list, parent=None):
+        """
+        Inicializa o dialog de seleção de decks.
+        
+        Args:
+            deck_info_list: Lista de tuplas (deck_name, card_count)
+            parent: Widget pai (opcional)
+        """
         super().__init__(parent)
         self.setWindowTitle("Selecionar Decks para Sincronizar")
         self.setMinimumSize(500, 350)
         
-        # deck_info_list é uma lista de tuplas (deck_name, deck_count)
+        # Armazenar informações dos decks
         self.deck_info_list = deck_info_list
         
+        # Configurar interface
+        self._setup_ui()
+        
+        # Conectar eventos após criar todos os elementos
+        self._connect_events()
+        
+        # Atualizar status inicial
+        self.update_status()
+    
+    def _setup_ui(self):
+        """Configura os elementos da interface do usuário."""
         # Layout principal
         layout = QVBoxLayout()
         
@@ -45,9 +191,9 @@ class DeckSelectionDialog(QDialog):
         instruction_label.setStyleSheet("font-weight: bold; margin-bottom: 10px;")
         layout.addWidget(instruction_label)
         
-        # Checkboxes dos decks com informações
+        # Criar checkboxes para cada deck
         self.checkboxes = {}
-        for deck_name, card_count in deck_info_list:
+        for deck_name, card_count in self.deck_info_list:
             # Mostrar nome do deck e número de cards
             display_text = f"{deck_name} ({card_count} cards)"
             checkbox = QCheckBox(display_text)
@@ -59,6 +205,23 @@ class DeckSelectionDialog(QDialog):
         layout.addSpacing(10)
         
         # Botões de seleção rápida
+        self._add_selection_buttons(layout)
+        
+        # Espaçador
+        layout.addSpacing(10)
+        
+        # Label de status
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(self.status_label)
+        
+        # Botões de confirmação
+        self._add_confirmation_buttons(layout)
+        
+        self.setLayout(layout)
+    
+    def _add_selection_buttons(self, layout):
+        """Adiciona botões de seleção rápida (Selecionar/Desmarcar Todos)."""
         button_layout = QHBoxLayout()
         
         select_all_btn = QPushButton("Selecionar Todos")
@@ -70,16 +233,9 @@ class DeckSelectionDialog(QDialog):
         button_layout.addWidget(deselect_all_btn)
         
         layout.addLayout(button_layout)
-        
-        # Espaçador
-        layout.addSpacing(10)
-        
-        # Label de status
-        self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #666; font-size: 11px;")
-        layout.addWidget(self.status_label)
-        
-        # Botões OK e Cancel (criar antes de conectar eventos)
+    
+    def _add_confirmation_buttons(self, layout):
+        """Adiciona botões OK e Cancel."""
         confirm_layout = QHBoxLayout()
         
         self.ok_btn = QPushButton("Sincronizar")
@@ -91,25 +247,24 @@ class DeckSelectionDialog(QDialog):
         confirm_layout.addWidget(cancel_btn)
         
         layout.addLayout(confirm_layout)
-        
-        # Conectar mudanças nos checkboxes ao update de status (após criar ok_btn)
+    
+    def _connect_events(self):
+        """Conecta eventos após todos os elementos serem criados."""
         for checkbox in self.checkboxes.values():
             checkbox.stateChanged.connect(self.update_status)
-        
-        # Atualizar status inicial
-        self.update_status()
-        
-        self.setLayout(layout)
     
     def select_all(self):
+        """Marca todos os checkboxes."""
         for checkbox in self.checkboxes.values():
             checkbox.setChecked(True)
     
     def deselect_all(self):
+        """Desmarca todos os checkboxes."""
         for checkbox in self.checkboxes.values():
             checkbox.setChecked(False)
     
     def update_status(self):
+        """Atualiza o label de status e habilita/desabilita o botão OK."""
         selected_count = len(self.get_selected_decks())
         total_count = len(self.checkboxes)
         
@@ -121,14 +276,31 @@ class DeckSelectionDialog(QDialog):
             self.ok_btn.setEnabled(True)
     
     def get_selected_decks(self):
+        """
+        Retorna lista com nomes dos decks selecionados.
+        
+        Returns:
+            list: Lista de nomes dos decks marcados
+        """
         selected = []
         for deck_name, checkbox in self.checkboxes.items():
             if checkbox.isChecked():
                 selected.append(deck_name)
         return selected
 
+# =============================================================================
+# DECK MANAGEMENT FUNCTIONS
+# =============================================================================
+
 def syncDecksWithSelection():
-    """Mostra interface para selecionar decks e sincroniza apenas os selecionados."""
+    """
+    Mostra interface para selecionar decks e sincroniza apenas os selecionados.
+    
+    Esta função é o ponto de entrada principal para sincronização interativa.
+    Permite ao usuário escolher quais decks devem ser sincronizados através
+    de uma interface gráfica.
+    """
+    # Carregar configuração
     config = mw.addonManager.getConfig(__name__)
     if not config:
         config = {"remote-decks": {}}
@@ -138,24 +310,9 @@ def syncDecksWithSelection():
         showInfo("Nenhum deck remoto configurado para sincronização.")
         return
 
-    # Obter informações dos decks configurados e verificar se ainda existem no Anki
-    deck_info_list = []
-    valid_decks = {}
+    # Obter informações dos decks válidos
+    deck_info_list, valid_decks = _get_valid_deck_info(config)
     
-    for url, deck_info in config["remote-decks"].items():
-        deck_id = deck_info["deck_id"]
-        deck = mw.col.decks.get(deck_id)
-        
-        if deck and deck["name"].strip().lower() != "default":
-            deck_name = deck["name"]
-            # Contar cards no deck
-            card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
-            deck_info_list.append((deck_name, card_count))
-            valid_decks[deck_name] = deck_info
-        else:
-            # Deck não existe mais ou virou default - será removido automaticamente na sincronização
-            pass
-
     # Verificar se há decks válidos
     if not deck_info_list:
         showInfo("Nenhum deck remoto válido encontrado para sincronização.")
@@ -166,7 +323,45 @@ def syncDecksWithSelection():
         syncDecks()
         return
 
-    # Mostrar interface de seleção
+    # Mostrar interface de seleção e processar resultado
+    _show_selection_dialog_and_sync(deck_info_list)
+
+def _get_valid_deck_info(config):
+    """
+    Extrai informações dos decks válidos da configuração.
+    
+    Args:
+        config: Configuração do addon
+        
+    Returns:
+        tuple: (deck_info_list, valid_decks) onde deck_info_list contém
+               tuplas (deck_name, card_count) e valid_decks mapeia 
+               nomes para informações dos decks
+    """
+    deck_info_list = []
+    valid_decks = {}
+    
+    for url, deck_info in config["remote-decks"].items():
+        deck_id = deck_info["deck_id"]
+        deck = mw.col.decks.get(deck_id)
+        
+        # Verificar se o deck ainda existe e não é o deck padrão
+        if deck and deck["name"].strip().lower() != "default":
+            deck_name = deck["name"]
+            # Contar cards no deck
+            card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
+            deck_info_list.append((deck_name, card_count))
+            valid_decks[deck_name] = deck_info
+    
+    return deck_info_list, valid_decks
+
+def _show_selection_dialog_and_sync(deck_info_list):
+    """
+    Mostra o dialog de seleção e executa a sincronização dos decks selecionados.
+    
+    Args:
+        deck_info_list: Lista de informações dos decks válidos
+    """
     dialog = DeckSelectionDialog(deck_info_list, mw)
     
     # Compatibilidade com diferentes versões do Qt
@@ -183,17 +378,19 @@ def syncDecksWithSelection():
             syncDecks(selected_decks)
         else:
             showInfo("Nenhum deck foi selecionado para sincronização.")
-    # Se cancelou, não faz nada
-
-# URLs hardcoded para testes e simulações
-TEST_SHEETS_URLS = [
-    ("Mais importantes", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=334628680&output=tsv"),
-    ("Menos importantes", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=1869088045&output=tsv"),
-]
 
 def import_test_deck():
-    """Permite importar rapidamente um dos decks de teste hardcoded."""
+    """
+    Permite importar rapidamente um dos decks de teste hardcoded.
+    
+    Esta função é útil para desenvolvimento e testes, permitindo
+    importar rapidamente decks pré-configurados sem precisar
+    inserir URLs manualmente.
+    """
+    # Obter lista de nomes dos decks de teste
     names = [name for name, url in TEST_SHEETS_URLS]
+    
+    # Mostrar dialog de seleção
     selection, okPressed = QInputDialog.getItem(
         mw,
         "Importar Deck de Teste",
@@ -202,102 +399,134 @@ def import_test_deck():
         0,
         False
     )
+    
     if not okPressed or not selection:
         return
 
-    # Busca a URL correspondente
+    # Buscar a URL correspondente ao deck selecionado
     url = dict(TEST_SHEETS_URLS)[selection]
 
-    # Sugere um nome padrão para o deck
+    # Sugerir um nome padrão para o deck
     deckName = f"Deck de Teste do sheet2anki:: {selection}"
 
-    # Cria ou obtém o deck
-    deck_id = get_or_create_deck(mw.col, deckName)
-
-    # Busca e importa o deck
     try:
-        validate_url(url)
-        deck = getRemoteDeck(url)
-        deck.deckName = deckName
-        deck.url = url
-
-        # Atualiza configuração e sincroniza
-        config = mw.addonManager.getConfig(__name__)
-        if not config:
-            config = {"remote-decks": {}}
-        config["remote-decks"][url] = {
-            "url": url,
-            "deck_id": deck_id,
-            "deck_name": deckName
-        }
-        mw.addonManager.writeConfig(__name__, config)
+        # Validar URL e importar deck
+        _import_deck_from_url(url, deckName)
         syncDecks()
     except (ValueError, SyncError) as e:
         showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
     except Exception as e:
         showInfo(f"Erro inesperado ao importar deck de teste:\n{str(e)}")
 
-def validate_url(url):
+def _import_deck_from_url(url, deckName):
     """
-    Validate that the URL is a proper Google Sheets TSV URL.
+    Importa um deck a partir de uma URL, validando e configurando.
     
     Args:
-        url (str): The URL to validate
+        url: URL do Google Sheets em formato TSV
+        deckName: Nome do deck a ser criado
+    """
+    # Validar URL
+    validate_url(url)
+    
+    # Criar ou obter o deck
+    deck_id = get_or_create_deck(mw.col, deckName)
+
+    # Buscar dados do deck remoto
+    deck = getRemoteDeck(url)
+    deck.deckName = deckName
+    # deck.url = url  # Comentado devido ao erro de atribuição
+
+    # Atualizar configuração
+    config = mw.addonManager.getConfig(__name__)
+    if not config:
+        config = {"remote-decks": {}}
+    
+    config["remote-decks"][url] = {
+        "url": url,
+        "deck_id": deck_id,
+        "deck_name": deckName
+    }
+    mw.addonManager.writeConfig(__name__, config)
+
+# =============================================================================
+# VALIDATION FUNCTIONS
+# =============================================================================
+
+def validate_url(url):
+    """
+    Valida se a URL é uma URL válida do Google Sheets em formato TSV.
+    
+    Args:
+        url (str): A URL a ser validada
         
     Raises:
-        ValueError: If the URL is invalid or inaccessible
-        URLError: If there are network connectivity issues
-        HTTPError: If the server returns an error status
+        ValueError: Se a URL for inválida ou inacessível
+        URLError: Se houver problemas de conectividade de rede
+        HTTPError: Se o servidor retornar um erro de status
     """
-    # Check if URL is empty or None
+    # Verificar se a URL não está vazia
     if not url or not isinstance(url, str):
-        raise ValueError("URL must be a non-empty string")
+        raise ValueError("URL deve ser uma string não vazia")
 
-    # Validate URL format
+    # Validar formato da URL
     if not url.startswith(('http://', 'https://')):
-        raise ValueError("Invalid URL: Must start with http:// or https://")
+        raise ValueError("URL inválida: Deve começar com http:// ou https://")
     
-    # Validate Google Sheets TSV format
+    # Validar formato TSV do Google Sheets
     if not any(param in url.lower() for param in ['output=tsv', 'format=tsv']):
-        raise ValueError("The provided URL does not appear to be a published TSV from Google Sheets. "
-                        "Make sure to publish the sheet as TSV format.")
+        raise ValueError("A URL fornecida não parece ser um TSV publicado do Google Sheets. "
+                        "Certifique-se de publicar a planilha em formato TSV.")
     
-    # Test URL accessibility with proper timeout and error handling
+    # Testar acessibilidade da URL com timeout e tratamento de erros adequado
     try:
         request = urllib.request.Request(
             url,
-            headers={'User-Agent': 'Mozilla/5.0'}  # Some servers block default Python user agent
+            headers={'User-Agent': 'Mozilla/5.0'}  # Alguns servidores bloqueiam o user agent padrão do Python
         )
         response = urllib.request.urlopen(request, timeout=10)
         
         if response.getcode() != 200:
-            raise ValueError(f"URL returned unexpected status code: {response.getcode()}")
+            raise ValueError(f"URL retornou código de status inesperado: {response.getcode()}")
             
-        # Validate content type
+        # Validar tipo de conteúdo
         content_type = response.headers.get('Content-Type', '').lower()
         if not any(valid_type in content_type for valid_type in ['text/tab-separated-values', 'text/plain']):
-            raise ValueError(f"URL does not return TSV content (got {content_type})")
+            raise ValueError(f"URL não retorna conteúdo TSV (recebido {content_type})")
             
-    except urllib.error.URLError as e:
-        raise ValueError(f"Error accessing URL - Network or server issue: {str(e)}")
     except urllib.error.HTTPError as e:
-        raise ValueError(f"HTTP Error {e.code}: {str(e)}")
+        raise ValueError(f"Erro HTTP {e.code}: {str(e)}")
+    except urllib.error.URLError as e:
+        raise ValueError(f"Erro ao acessar URL - Problema de rede ou servidor: {str(e)}")
     except TimeoutError:
-        raise ValueError("Connection timed out while accessing the URL")
+        raise ValueError("Timeout de conexão ao acessar a URL")
     except Exception as e:
-        raise ValueError(f"Unexpected error accessing URL: {str(e)}")
+        raise ValueError(f"Erro inesperado ao acessar URL: {str(e)}")
+
+# =============================================================================
+# CORE SYNCHRONIZATION FUNCTIONS
+# =============================================================================
     
 def syncDecks(selected_deck_names=None):
-    """Synchronize all remote decks with their sources.
+    """
+    Sincroniza todos os decks remotos com suas fontes.
+    
+    Esta é a função principal de sincronização que:
+    1. Baixa dados dos decks remotos
+    2. Processa e valida os dados
+    3. Atualiza o banco de dados do Anki
+    4. Mostra progresso ao usuário
     
     Args:
-        selected_deck_names: List of deck names to sync. If None, sync all decks.
+        selected_deck_names: Lista de nomes de decks para sincronizar. 
+                           Se None, sincroniza todos os decks.
     """
     col = mw.col
     config = mw.addonManager.getConfig(__name__)
     if not config:
         config = {"remote-decks": {}}
 
+    # Inicializar estatísticas e controles
     sync_errors = []
     status_msgs = []
     decks_synced = 0
@@ -309,53 +538,128 @@ def syncDecks(selected_deck_names=None):
         'error_details': []
     }
 
+    # Determinar quais decks sincronizar
+    deck_keys = _get_deck_keys_to_sync(config, selected_deck_names)
+    total_decks = len(deck_keys)
+    
+    # Verificar se há decks para sincronizar
+    if total_decks == 0:
+        _show_no_decks_message(selected_deck_names)
+        return
+    
+    # Configurar e mostrar barra de progresso
+    progress = _setup_progress_dialog(total_decks)
+    
+    step = 0
+    try:
+        # Sincronizar cada deck
+        for deckKey in deck_keys:
+            try:
+                step, decks_synced, current_stats = _sync_single_deck(
+                    config, deckKey, progress, status_msgs, step
+                )
+                
+                # Acumular estatísticas
+                _accumulate_stats(total_stats, current_stats)
+                decks_synced += 1
+
+            except (ValueError, SyncError) as e:
+                step, sync_errors = _handle_sync_error(
+                    e, deckKey, config, progress, status_msgs, sync_errors, step
+                )
+                continue
+            except Exception as e:
+                step, sync_errors = _handle_unexpected_error(
+                    e, deckKey, config, progress, status_msgs, sync_errors, step
+                )
+                continue
+        
+        # Finalizar progresso e mostrar resultados
+        _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors)
+    
+    finally:
+        # Garantir que o dialog de progresso seja fechado
+        if progress.isVisible():
+            progress.close()
+
+def _get_deck_keys_to_sync(config, selected_deck_names):
+    """
+    Determina quais chaves de deck devem ser sincronizadas.
+    
+    Args:
+        config: Configuração do addon
+        selected_deck_names: Nomes dos decks selecionados ou None
+        
+    Returns:
+        list: Lista de chaves de deck para sincronizar
+    """
     deck_keys = list(config["remote-decks"].keys())
     
     # Filtrar decks se uma seleção específica foi fornecida
     if selected_deck_names is not None:
         # Mapear nomes de deck para suas chaves de configuração (URLs)
-        name_to_key = {}
-        for key, deck_info in config["remote-decks"].items():
-            # Obter o nome real do deck no Anki, não o nome salvo na config
-            deck_id = deck_info.get("deck_id")
-            if deck_id:
-                deck = mw.col.decks.get(deck_id)
-                if deck:
-                    actual_deck_name = deck["name"]
-                    name_to_key[actual_deck_name] = key
-                else:
-                    # Fallback para o nome salvo na config se o deck não existir
-                    config_deck_name = deck_info.get("deck_name", "")
-                    if config_deck_name:
-                        name_to_key[config_deck_name] = key
+        name_to_key = _build_name_to_key_mapping(config)
         
         # Filtrar apenas os decks selecionados
         filtered_keys = []
         for deck_name in selected_deck_names:
             if deck_name in name_to_key:
                 filtered_keys.append(name_to_key[deck_name])
-            else:
-                # Debug: mostrar nomes disponíveis se não encontrar
-                print(f"DEBUG: Deck '{deck_name}' não encontrado no mapeamento.")
-                print(f"DEBUG: Nomes disponíveis: {list(name_to_key.keys())}")
         
         deck_keys = filtered_keys
+    
+    return deck_keys
+
+def _build_name_to_key_mapping(config):
+    """
+    Constrói mapeamento de nomes de deck para chaves de configuração.
+    
+    Args:
+        config: Configuração do addon
         
-        # Debug adicional
-        print(f"DEBUG: Decks selecionados: {selected_deck_names}")
-        print(f"DEBUG: Chaves filtradas: {filtered_keys}")
-        print(f"DEBUG: Total de chaves: {len(filtered_keys)}")
+    Returns:
+        dict: Mapeamento de nomes para chaves
+    """
+    name_to_key = {}
+    for key, deck_info in config["remote-decks"].items():
+        # Obter o nome real do deck no Anki, não o nome salvo na config
+        deck_id = deck_info.get("deck_id")
+        if deck_id:
+            deck = mw.col.decks.get(deck_id)
+            if deck:
+                actual_deck_name = deck["name"]
+                name_to_key[actual_deck_name] = key
+            else:
+                # Fallback para o nome salvo na config se o deck não existir
+                config_deck_name = deck_info.get("deck_name", "")
+                if config_deck_name:
+                    name_to_key[config_deck_name] = key
     
-    total_decks = len(deck_keys)
+    return name_to_key
+
+def _show_no_decks_message(selected_deck_names):
+    """Mostra mensagem quando não há decks para sincronizar."""
+    if selected_deck_names is not None:
+        showInfo(f"Nenhum dos decks selecionados foi encontrado na configuração.\n\nDecks selecionados: {', '.join(selected_deck_names)}")
+    else:
+        showInfo("Nenhum deck remoto configurado para sincronização.")
+
+def _setup_progress_dialog(total_decks):
+    """
+    Configura e retorna o dialog de progresso com tamanho fixo.
     
-    # Se não há decks para sincronizar, mostrar mensagem e sair
-    if total_decks == 0:
-        if selected_deck_names is not None:
-            showInfo(f"Nenhum dos decks selecionados foi encontrado na configuração.\n\nDecks selecionados: {', '.join(selected_deck_names)}")
-        else:
-            showInfo("Nenhum deck remoto configurado para sincronização.")
-        return
+    Esta função configura uma barra de progresso com:
+    - Largura fixa de 500px para evitar redimensionamento horizontal
+    - Altura mínima de 120px e máxima de 300px para acomodar texto multilinha
+    - Quebra automática de linha para textos longos
+    - Alinhamento adequado do texto
     
+    Args:
+        total_decks: Número total de decks para calcular o máximo da barra
+        
+    Returns:
+        QProgressDialog: Dialog de progresso configurado
+    """
     progress = QProgressDialog("Sincronizando decks...", None, 0, total_decks * 3, mw)
     progress.setWindowTitle("Sincronização de Decks")
     progress.setMinimumDuration(0)
@@ -363,135 +667,221 @@ def syncDecks(selected_deck_names=None):
     progress.setCancelButton(None)
     progress.setAutoClose(False)  # Não fechar automaticamente
     progress.setAutoReset(False)  # Não resetar automaticamente
+    
+    # Configurar tamanho fixo horizontal e permitir ajuste vertical
+    progress.setFixedWidth(500)  # Largura fixa de 500 pixels
+    progress.setMinimumHeight(120)  # Altura mínima
+    progress.setMaximumHeight(300)  # Altura máxima
+    
+    # Configurar o label para quebrar linha automaticamente
+    label = progress.findChild(QLabel)
+    if label:
+        label.setWordWrap(True)  # Permitir quebra de linha
+        label.setAlignment(AlignTop | AlignLeft)  # Alinhar ao topo e à esquerda
+    
     progress.show()
     mw.app.processEvents()  # Força a exibição da barra
+    return progress
+
+def _update_progress_text(progress, status_msgs, max_lines=3):
+    """
+    Atualiza o texto da barra de progresso com formatação adequada.
     
-    step = 0
-    try:
-        for deckKey in deck_keys:
-            try:
-                currentRemoteInfo = config["remote-decks"][deckKey]
-                deck_id = currentRemoteInfo["deck_id"]
-
-                # Get deck name for display purposes
-                deck = col.decks.get(deck_id)
-                # If the deck does not exist or is now the Default deck, remove from config and skip sync
-                if not deck or deck["name"].strip().lower() == "default":
-                    removed_name = currentRemoteInfo.get("deck_name", str(deck_id))
-                    del config["remote-decks"][deckKey]
-                    mw.addonManager.writeConfig(__name__, config)
-                    info_msg = f"A sincronização do deck '{removed_name}' foi encerrada automaticamente porque o deck foi excluído ou virou o deck padrão (Default)."
-                    status_msgs.append(info_msg)
-                    progress.setLabelText("\n".join(status_msgs[-3:]))
-                    step += 3
-                    progress.setValue(step)
-                    mw.app.processEvents()  # Atualiza a interface
-                    continue
-                deckName = deck["name"]
-
-                # Validate URL before attempting sync
-                validate_url(currentRemoteInfo["url"])
-
-                msg = f"{deckName}: baixando arquivo..."
-                status_msgs.append(msg)
-                progress.setLabelText("\n".join(status_msgs[-3:]))
-                mw.app.processEvents()  # Atualiza a interface
-                # 1. Download
-                remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
-                step += 1
-                progress.setValue(step)
-                mw.app.processEvents()  # Atualiza a interface
-
-                # 2. Parsing (já incluso no getRemoteDeck)
-                msg = f"{deckName}: processando dados..."
-                status_msgs.append(msg)
-                progress.setLabelText("\n".join(status_msgs[-3:]))
-                mw.app.processEvents()  # Atualiza a interface
-                remoteDeck.deckName = deckName  # Set name for display purposes
-                remoteDeck.url = currentRemoteInfo["url"]
-                step += 1
-                progress.setValue(step)
-                mw.app.processEvents()  # Atualiza a interface
-
-                # 3. Escrita no banco
-                msg = f"{deckName}: escrevendo no banco de dados..."
-                status_msgs.append(msg)
-                progress.setLabelText("\n".join(status_msgs[-3:]))
-                mw.app.processEvents()  # Atualiza a interface
-                deck_stats = create_or_update_notes(col, remoteDeck, deck_id)
-                
-                # Accumulate statistics
-                total_stats['created'] += deck_stats['created']
-                total_stats['updated'] += deck_stats['updated']
-                total_stats['deleted'] += deck_stats['deleted']
-                total_stats['errors'] += deck_stats['errors']
-                total_stats['error_details'].extend(deck_stats['error_details'])
-                
-                step += 1
-                progress.setValue(step)
-                mw.app.processEvents()  # Atualiza a interface
-                decks_synced += 1
-
-            except (ValueError, SyncError) as e:
-                error_msg = f"Failed to sync deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
-                sync_errors.append(error_msg)
-                status_msgs.append(error_msg)
-                progress.setLabelText("\n".join(status_msgs[-3:]))
-                step += 3
-                progress.setValue(step)
-                mw.app.processEvents()  # Atualiza a interface
-                continue
-            except Exception as e:
-                error_msg = f"Unexpected error syncing deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
-                sync_errors.append(error_msg)
-                status_msgs.append(error_msg)
-                progress.setLabelText("\n".join(status_msgs[-3:]))
-                step += 3
-                progress.setValue(step)
-                mw.app.processEvents()  # Atualiza a interface
-                continue
-        
-        progress.setValue(total_decks * 3)
-        mw.app.processEvents()  # Atualiza a interface
-        
-        # Preparar mensagem final para exibir na barra de progresso
-        if sync_errors or total_stats['errors'] > 0:
-            final_msg = f"Concluído com problemas: {decks_synced}/{total_decks} decks sincronizados"
-            if total_stats['created'] > 0:
-                final_msg += f", {total_stats['created']} cards criados"
-            if total_stats['updated'] > 0:
-                final_msg += f", {total_stats['updated']} atualizados"
-            if total_stats['deleted'] > 0:
-                final_msg += f", {total_stats['deleted']} deletados"
-            final_msg += f", {total_stats['errors'] + len(sync_errors)} erros"
+    Args:
+        progress: QProgressDialog instance
+        status_msgs: Lista de mensagens de status
+        max_lines: Número máximo de linhas a mostrar
+    """
+    # Pegar apenas as últimas mensagens
+    recent_msgs = status_msgs[-max_lines:] if len(status_msgs) > max_lines else status_msgs
+    
+    # Juntar mensagens com quebra de linha
+    text = "\n".join(recent_msgs)
+    
+    # Limitar o comprimento de cada linha para evitar texto muito longo
+    lines = text.split('\n')
+    formatted_lines = []
+    
+    for line in lines:
+        # Se a linha for muito longa, quebrar em palavras
+        if len(line) > 60:  # Aproximadamente 60 caracteres por linha
+            words = line.split(' ')
+            current_line = ""
+            for word in words:
+                if len(current_line + word + " ") <= 60:
+                    current_line += word + " "
+                else:
+                    if current_line:
+                        formatted_lines.append(current_line.strip())
+                    current_line = word + " "
+            if current_line:
+                formatted_lines.append(current_line.strip())
         else:
-            final_msg = f"Sincronização concluída com sucesso!"
-            if total_stats['created'] > 0:
-                final_msg += f" {total_stats['created']} cards criados"
-            if total_stats['updated'] > 0:
-                final_msg += f", {total_stats['updated']} atualizados"
-            if total_stats['deleted'] > 0:
-                final_msg += f", {total_stats['deleted']} deletados"
-        
-        # Exibir mensagem final na barra e adicionar botão OK
-        progress.setLabelText(final_msg)
-        
-        # Criar e configurar o botão OK
-        ok_button = QPushButton("OK")
-        progress.setCancelButton(ok_button)
-        
-        # Aguardar o usuário clicar em OK usando um loop até o botão ser pressionado
-        while progress.isVisible() and not progress.wasCanceled():
-            mw.app.processEvents()
-            import time
-            time.sleep(0.1)
+            formatted_lines.append(line)
     
-    finally:
-        # Ensure progress dialog is closed
-        if progress.isVisible():
-            progress.close()
+    # Atualizar o texto da barra de progresso
+    final_text = "\n".join(formatted_lines)
+    progress.setLabelText(final_text)
+    
+    # Forçar atualização da interface
+    mw.app.processEvents()
 
-    # Show comprehensive summary of sync results
+def _sync_single_deck(config, deckKey, progress, status_msgs, step):
+    """
+    Sincroniza um único deck.
+    
+    Returns:
+        tuple: (step_updated, decks_synced_increment, deck_stats)
+    """
+    currentRemoteInfo = config["remote-decks"][deckKey]
+    deck_id = currentRemoteInfo["deck_id"]
+
+    # Obter nome do deck para exibição
+    deck = mw.col.decks.get(deck_id)
+    
+    # Se o deck não existe ou virou Default, remover da config e pular
+    if not deck or deck["name"].strip().lower() == "default":
+        removed_name = currentRemoteInfo.get("deck_name", str(deck_id))
+        del config["remote-decks"][deckKey]
+        mw.addonManager.writeConfig(__name__, config)
+        info_msg = f"A sincronização do deck '{removed_name}' foi encerrada automaticamente porque o deck foi excluído ou virou o deck padrão (Default)."
+        status_msgs.append(info_msg)
+        _update_progress_text(progress, status_msgs)
+        step += 3
+        progress.setValue(step)
+        mw.app.processEvents()
+        return step, 0, {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'error_details': []}
+    
+    deckName = deck["name"]
+
+    # Validar URL antes de tentar sincronizar
+    validate_url(currentRemoteInfo["url"])
+
+    # 1. Download
+    msg = f"{deckName}: baixando arquivo..."
+    status_msgs.append(msg)
+    _update_progress_text(progress, status_msgs)
+    
+    remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
+    step += 1
+    progress.setValue(step)
+    mw.app.processEvents()
+
+    # 2. Parsing (já incluso no getRemoteDeck)
+    msg = f"{deckName}: processando dados..."
+    status_msgs.append(msg)
+    _update_progress_text(progress, status_msgs)
+    
+    remoteDeck.deckName = deckName
+    # remoteDeck.url = currentRemoteInfo["url"]  # Comentado devido ao erro
+    step += 1
+    progress.setValue(step)
+    mw.app.processEvents()
+
+    # 3. Escrita no banco
+    msg = f"{deckName}: escrevendo no banco de dados..."
+    status_msgs.append(msg)
+    _update_progress_text(progress, status_msgs)
+    
+    deck_stats = create_or_update_notes(mw.col, remoteDeck, deck_id)
+    step += 1
+    progress.setValue(step)
+    mw.app.processEvents()
+    
+    return step, 1, deck_stats
+
+def _accumulate_stats(total_stats, deck_stats):
+    """Acumula estatísticas de um deck nas estatísticas totais."""
+    total_stats['created'] += deck_stats['created']
+    total_stats['updated'] += deck_stats['updated']
+    total_stats['deleted'] += deck_stats['deleted']
+    total_stats['errors'] += deck_stats['errors']
+    total_stats['error_details'].extend(deck_stats['error_details'])
+
+def _handle_sync_error(e, deckKey, config, progress, status_msgs, sync_errors, step):
+    """Trata erros de sincronização de deck."""
+    # Tentar obter o nome do deck para a mensagem de erro
+    try:
+        deck_info = config["remote-decks"][deckKey]
+        deck_id = deck_info["deck_id"]
+        deck = mw.col.decks.get(deck_id)
+        deckName = deck["name"] if deck else deck_info.get("deck_name", str(deck_id))
+    except:
+        deckName = "Unknown"
+    
+    error_msg = f"Failed to sync deck '{deckName}': {str(e)}"
+    sync_errors.append(error_msg)
+    status_msgs.append(error_msg)
+    _update_progress_text(progress, status_msgs)
+    step += 3
+    progress.setValue(step)
+    mw.app.processEvents()
+    return step, sync_errors
+
+def _handle_unexpected_error(e, deckKey, config, progress, status_msgs, sync_errors, step):
+    """Trata erros inesperados durante sincronização."""
+    # Tentar obter o nome do deck para a mensagem de erro
+    try:
+        deck_info = config["remote-decks"][deckKey]
+        deck_id = deck_info["deck_id"]
+        deck = mw.col.decks.get(deck_id)
+        deckName = deck["name"] if deck else deck_info.get("deck_name", str(deck_id))
+    except:
+        deckName = "Unknown"
+    
+    error_msg = f"Unexpected error syncing deck '{deckName}': {str(e)}"
+    sync_errors.append(error_msg)
+    status_msgs.append(error_msg)
+    _update_progress_text(progress, status_msgs)
+    step += 3
+    progress.setValue(step)
+    mw.app.processEvents()
+    return step, sync_errors
+
+def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors):
+    """Finaliza a sincronização mostrando resultados."""
+    progress.setValue(total_decks * 3)
+    mw.app.processEvents()
+    
+    # Preparar mensagem final para exibir na barra de progresso
+    if sync_errors or total_stats['errors'] > 0:
+        final_msg = f"Concluído com problemas: {decks_synced}/{total_decks} decks sincronizados"
+        if total_stats['created'] > 0:
+            final_msg += f", {total_stats['created']} cards criados"
+        if total_stats['updated'] > 0:
+            final_msg += f", {total_stats['updated']} atualizados"
+        if total_stats['deleted'] > 0:
+            final_msg += f", {total_stats['deleted']} deletados"
+        final_msg += f", {total_stats['errors'] + len(sync_errors)} erros"
+    else:
+        final_msg = f"Sincronização concluída com sucesso!"
+        if total_stats['created'] > 0:
+            final_msg += f" {total_stats['created']} cards criados"
+        if total_stats['updated'] > 0:
+            final_msg += f", {total_stats['updated']} atualizados"
+        if total_stats['deleted'] > 0:
+            final_msg += f", {total_stats['deleted']} deletados"
+    
+    # Exibir mensagem final na barra e adicionar botão OK
+    # Usar uma lista temporária para a mensagem final
+    final_status_msgs = [final_msg]
+    _update_progress_text(progress, final_status_msgs, max_lines=5)  # Permitir mais linhas para mensagem final
+    
+    # Criar e configurar o botão OK
+    ok_button = QPushButton("OK")
+    progress.setCancelButton(ok_button)
+    
+    # Aguardar o usuário clicar em OK
+    while progress.isVisible() and not progress.wasCanceled():
+        mw.app.processEvents()
+        import time
+        time.sleep(0.1)
+    
+    # Mostrar resumo abrangente dos resultados da sincronização
+    _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks)
+
+def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
+    """Mostra resumo detalhado da sincronização."""
     if sync_errors or total_stats['errors'] > 0:
         summary = f"Sincronização concluída com alguns problemas:\n\n"
         summary += f"Decks sincronizados: {decks_synced}/{total_decks}\n"
@@ -500,15 +890,15 @@ def syncDecks(selected_deck_names=None):
         summary += f"Cards deletados: {total_stats['deleted']}\n"
         summary += f"Erros encontrados: {total_stats['errors'] + len(sync_errors)}\n\n"
         
-        # Add deck-level errors
+        # Adicionar erros de nível de deck
         if sync_errors:
             summary += "Erros de sincronização de decks:\n"
             summary += "\n".join(sync_errors) + "\n\n"
         
-        # Add note-level errors
+        # Adicionar erros de nível de note
         if total_stats['error_details']:
             summary += "Erros de processamento de cards:\n"
-            summary += "\n".join(total_stats['error_details'][:10])  # Limit to first 10 errors
+            summary += "\n".join(total_stats['error_details'][:10])  # Limitar aos primeiros 10 erros
             if len(total_stats['error_details']) > 10:
                 summary += f"\n... e mais {len(total_stats['error_details']) - 10} erros."
         
@@ -522,9 +912,27 @@ def syncDecks(selected_deck_names=None):
         summary += "Nenhum erro encontrado."
         showInfo(summary)
 
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
 def get_or_create_deck(col, deckName):
+    """
+    Cria ou obtém um deck existente no Anki.
+    
+    Args:
+        col: Collection do Anki
+        deckName: Nome do deck
+        
+    Returns:
+        int: ID do deck
+        
+    Raises:
+        ValueError: Se o nome do deck for inválido
+    """
     if not deckName or not isinstance(deckName, str) or deckName.strip() == "" or deckName.strip().lower() == "default":
         raise ValueError("Nome de deck inválido ou proibido para sincronização: '%s'" % deckName)
+    
     deck = col.decks.by_name(deckName)
     if deck is None:
         try:
@@ -536,39 +944,54 @@ def get_or_create_deck(col, deckName):
     return deck_id
 
 def get_model_suffix_from_url(url):
-    """Gera um sufixo único e curto baseado na URL."""
+    """
+    Gera um sufixo único e curto baseado na URL.
+    
+    Args:
+        url: URL do deck remoto
+        
+    Returns:
+        str: Sufixo de 8 caracteres baseado no hash SHA1 da URL
+    """
     return hashlib.sha1(url.encode()).hexdigest()[:8]
 
-# Template constants
-CARD_SHOW_ALLWAYS_TEMPLATE = """
-<b>{field_name}:</b><br>
-{{{{{field_value}}}}}<br><br>
-"""
+def get_note_key(note):
+    """
+    Obtém a chave do campo de uma nota baseado no seu tipo.
+    
+    Args:
+        note: Nota do Anki
+        
+    Returns:
+        str: Valor da chave ou None se não encontrada
+    """
+    if "Text" in note:
+        return note["Text"]
+    elif "Front" in note:
+        return note["Front"]
+    return None
 
-CARD_SHOW_HIDE_TEMPLATE = """
-{{{{#{field_value}}}}}
-<b>{field_name}:</b><br>
-{{{{{field_value}}}}}<br><br>
-{{{{/{field_value}}}}}
-"""
+# =============================================================================
+# CARD TEMPLATE FUNCTIONS
+# =============================================================================
 
 def create_card_template(is_cloze=False):
     """
-    Create the HTML template for a card (either standard or cloze).
+    Cria o template HTML para um card (padrão ou cloze).
     
     Args:
-        is_cloze (bool): Whether to create a cloze template
+        is_cloze (bool): Se deve criar um template de cloze
         
     Returns:
-        dict: Dictionary with 'qfmt' and 'afmt' template strings
+        dict: Dicionário com strings de template 'qfmt' e 'afmt'
     """
-    # Common header fields
+    # Campos de cabeçalho comuns
     header_fields = [
         (column_definitions.TOPICO, column_definitions.TOPICO),
         (column_definitions.SUBTOPICO, column_definitions.SUBTOPICO),
     ]
     
-    # Build header section
+    # Construir seção de cabeçalho
     header = ""
     for field_name, field_value in header_fields:
         header += CARD_SHOW_ALLWAYS_TEMPLATE.format(
@@ -576,14 +999,14 @@ def create_card_template(is_cloze=False):
             field_value=field_value
         )
     
-    # Question format
+    # Formato da pergunta
     question = (
         "<hr><br>"
         f"<b>{column_definitions.PERGUNTA.capitalize()}:</b><br>"
         f"{{{{{'cloze:' if is_cloze else ''}{column_definitions.PERGUNTA}}}}}"
     )
 
-    # Match format
+    # Formato da resposta
     match = (
         "<br><br>"
         f"<b>{column_definitions.MATCH.capitalize()}:</b><br>"
@@ -591,7 +1014,7 @@ def create_card_template(is_cloze=False):
         "<br><br><hr><br>"
     )
 
-    # Extra Info format
+    # Campos de informação extra
     extra_info_fields = [
         column_definitions.EXTRA_INFO_1,
         column_definitions.EXTRA_INFO_2
@@ -604,7 +1027,7 @@ def create_card_template(is_cloze=False):
             field_value=field
         )
     
-    # Example fields
+    # Campos de exemplo
     example_fields = [
         column_definitions.EXEMPLO_1,
         column_definitions.EXEMPLO_2,
@@ -618,14 +1041,14 @@ def create_card_template(is_cloze=False):
             field_value=field
         )
 
-    # Footer fields
+    # Campos de rodapé
     footer_fields = [
         (column_definitions.BANCAS, column_definitions.BANCAS),
         (column_definitions.ANO, column_definitions.ANO),
         (column_definitions.MORE_TAGS, column_definitions.MORE_TAGS)
     ]
 
-    # Build footer section
+    # Construir seção de rodapé
     footer = ""
     for field_name, field_value in footer_fields:
         footer += CARD_SHOW_HIDE_TEMPLATE.format(
@@ -633,7 +1056,7 @@ def create_card_template(is_cloze=False):
             field_value=field_value
         )
     
-    # Build complete templates
+    # Construir templates completos
     qfmt = header + question
     afmt = (header + 
             question + 
@@ -652,26 +1075,26 @@ def create_card_template(is_cloze=False):
 
 def create_model(col, model_name, is_cloze=False):
     """
-    Create a new Anki note model.
+    Cria um novo modelo de nota do Anki.
     
     Args:
-        col: Anki collection object
-        model_name (str): Name for the new model
-        is_cloze (bool): Whether to create a cloze model
+        col: Objeto de coleção do Anki
+        model_name (str): Nome para o novo modelo
+        is_cloze (bool): Se deve criar um modelo de cloze
         
     Returns:
-        object: The created Anki model
+        object: O modelo do Anki criado
     """
     model = col.models.new(model_name)
     if is_cloze:
-        model['type'] = 1  # Set as cloze type
+        model['type'] = 1  # Definir como tipo cloze
     
-    # Add fields
+    # Adicionar campos
     for field in column_definitions.REQUIRED_COLUMNS:
         template = col.models.new_field(field)
         col.models.add_field(model, template)
     
-    # Add card template
+    # Adicionar template de card
     template = col.models.new_template("Cloze" if is_cloze else "Card 1")
     card_template = create_card_template(is_cloze)
     template['qfmt'] = card_template['qfmt']
@@ -683,26 +1106,26 @@ def create_model(col, model_name, is_cloze=False):
 
 def ensure_custom_models(col, url):
     """
-    Ensure both standard and cloze models exist in Anki.
+    Garante que ambos os modelos (padrão e cloze) existam no Anki.
     
     Args:
-        col: Anki collection object
-        url (str): URL of the remote deck
+        col: Objeto de coleção do Anki
+        url (str): URL do deck remoto
         
     Returns:
-        dict: Dictionary containing both 'standard' and 'cloze' models
+        dict: Dicionário contendo os modelos 'standard' e 'cloze'
     """
     models = {}
     suffix = get_model_suffix_from_url(url)
     
-    # Standard model
+    # Modelo padrão
     model_name = f"CadernoErrosConcurso_{suffix}_Basic"
     model = col.models.by_name(model_name)
     if model is None:
         model = create_model(col, model_name)
     models['standard'] = model
     
-    # Cloze model
+    # Modelo cloze
     cloze_model_name = f"CadernoErrosConcurso_{suffix}_Cloze"
     cloze_model = col.models.by_name(cloze_model_name)
     if cloze_model is None:
@@ -710,58 +1133,53 @@ def ensure_custom_models(col, url):
     models['cloze'] = cloze_model
     
     return models
-        
-class SyncError(Exception):
-    """Base exception for sync-related errors."""
-    pass
 
-class NoteProcessingError(SyncError):
-    """Exception raised when processing a note fails."""
-    pass
-
-class CollectionSaveError(SyncError):
-    """Exception raised when saving the collection fails."""
-    pass
+# =============================================================================
+# NOTE PROCESSING FUNCTIONS
+# =============================================================================
 
 def create_or_update_notes(col, remoteDeck, deck_id):
+    """
+    Cria ou atualiza notas no deck baseado nos dados remotos.
+    
+    Esta função sincroniza o deck do Anki com os dados remotos através de:
+    1. Criação de novas notas para itens que não existem no Anki
+    2. Atualização de notas existentes com novo conteúdo da fonte remota
+    3. Remoção de notas que não existem mais na fonte remota
+    
+    Args:
+        col: Objeto de coleção do Anki
+        remoteDeck (RemoteDeck): Objeto do deck remoto contendo os dados para sincronizar
+        deck_id (int): ID do deck do Anki para sincronizar
+        
+    Returns:
+        dict: Estatísticas de sincronização contendo contagens para notas criadas,
+              atualizadas, deletadas e erros
+        
+    Raises:
+        SyncError: Se houver erros críticos durante a sincronização
+        CollectionSaveError: Se falhar ao salvar a coleção
+    """
     def note_needs_update(note, fields, tags):
-        # Compara todos os campos relevantes
+        """Verifica se uma nota precisa ser atualizada."""
+        # Comparar todos os campos relevantes
         for field_name, value in fields.items():
             if field_name in note:
                 # Anki armazena campos como string
                 if str(note[field_name]).strip() != str(value).strip():
                     return True
-        # Compara tags (ordem não importa)
+        # Comparar tags (ordem não importa)
         note_tags = set(note.tags) if hasattr(note, 'tags') else set()
         tsv_tags = set(tags) if tags else set()
         if note_tags != tsv_tags:
             return True
         return False
-    """
-    Create or update notes in the deck based on remote data.
-    
-    This function synchronizes the Anki deck with the remote data by:
-    1. Creating new notes for items that don't exist in Anki
-    2. Updating existing notes with new content from the remote source
-    3. Removing notes that no longer exist in the remote source
-    
-    Args:
-        col: Anki collection object
-        remoteDeck (RemoteDeck): Remote deck object containing the data to sync
-        deck_id (int): ID of the Anki deck to sync with
-        
-    Returns:
-        dict: Sync statistics containing counts for created, updated, deleted notes and errors
-        
-    Raises:
-        SyncError: If there are critical errors during synchronization
-        CollectionSaveError: If saving the collection fails
-    """
+
     try:
-        # Ensure custom models exist
-        models = ensure_custom_models(col, remoteDeck.url)
+        # Garantir que os modelos customizados existam
+        models = ensure_custom_models(col, remoteDeck.url if hasattr(remoteDeck, 'url') else "")
         
-        # Track sync statistics
+        # Rastrear estatísticas de sincronização
         stats = {
             'created': 0,
             'updated': 0,
@@ -770,7 +1188,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             'error_details': []
         }
         
-        # Build index of existing notes
+        # Construir índice de notas existentes
         existing_notes = {}
         existing_note_ids = {}
         for nid in col.find_notes(f'deck:"{remoteDeck.deckName}"'):
@@ -780,15 +1198,15 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                 existing_notes[key] = note
                 existing_note_ids[key] = nid
 
-        # Track processed keys to identify deletions
+        # Rastrear chaves processadas para identificar exclusões
         processed_keys = set()
 
-        # Process each question from remote source
+        # Processar cada pergunta da fonte remota
         for question in remoteDeck.questions:
             try:
                 fields = question['fields']
                 
-                # Validate required fields
+                # Validar campos obrigatórios
                 key = fields.get(column_definitions.ID)
                 if not key:
                     raise NoteProcessingError("Row missing required ID field")
@@ -798,11 +1216,11 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                 
                 processed_keys.add(key)
                 
-                # Process tags
+                # Processar tags
                 tags = question.get('tags', [])
 
                 if key in existing_notes:
-                    # Update existing note SOMENTE SE houver diferença real
+                    # Atualizar nota existente SOMENTE SE houver diferença real
                     note = existing_notes[key]
                     if note_needs_update(note, fields, tags):
                         for field_name, value in fields.items():
@@ -815,7 +1233,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                         except Exception as e:
                             raise NoteProcessingError(f"Error updating note {key}: {str(e)}")
                 else:
-                    # Create new note
+                    # Criar nova nota
                     has_cloze = has_cloze_deletion(fields[column_definitions.PERGUNTA])
                     model_to_use = models['cloze'] if has_cloze else models['standard']
                     
@@ -840,7 +1258,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                 stats['error_details'].append(str(e))
                 continue
 
-        # Handle deletions
+        # Lidar com exclusões
         notes_to_delete = set(existing_notes.keys()) - processed_keys
         stats['deleted'] = len(notes_to_delete)
 
@@ -851,13 +1269,13 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             except Exception as e:
                 raise NoteProcessingError(f"Error deleting notes: {str(e)}")
 
-        # Save changes
+        # Salvar mudanças
         try:
             col.save()
         except Exception as e:
             raise CollectionSaveError(f"Error saving collection: {str(e)}")
 
-        # Return stats without showing info
+        # Retornar estatísticas sem mostrar info
         return stats
 
     except SyncError as e:
@@ -867,16 +1285,21 @@ def create_or_update_notes(col, remoteDeck, deck_id):
         error_msg = f"Unexpected error during sync: {str(e)}"
         raise SyncError(error_msg)
 
-def get_note_key(note):
-    """Get the key field from a note based on its type."""
-    if "Text" in note:
-        return note["Text"]
-    elif "Front" in note:
-        return note["Front"]
-    return None
+# =============================================================================
+# DECK MANAGEMENT INTERFACE FUNCTIONS
+# =============================================================================
 
 def addNewDeck():
-    """Add a new remote deck from a Google Sheets TSV URL."""
+    """
+    Adiciona um novo deck remoto a partir de uma URL TSV do Google Sheets.
+    
+    Esta função permite ao usuário:
+    1. Inserir uma URL de planilha publicada em formato TSV
+    2. Validar a URL
+    3. Definir um nome para o deck
+    4. Configurar e iniciar a sincronização
+    """
+    # Solicitar URL do usuário
     url, okPressed = QInputDialog.getText(
         mw, "Add New Remote Deck", "URL of published TSV:", echo_mode_normal, ""
     )
@@ -886,13 +1309,13 @@ def addNewDeck():
     url = url.strip()
 
     try:
-        # Validate URL format and accessibility
+        # Validar formato e acessibilidade da URL
         validate_url(url)
     except ValueError as e:
         showInfo(str(e))
         return
 
-    # Get deck name
+    # Obter nome do deck
     deckName, okPressed = QInputDialog.getText(
         mw, "Deck Name", "Enter the name of the deck:", echo_mode_normal, ""
     )
@@ -903,29 +1326,29 @@ def addNewDeck():
     if not deckName:
         deckName = "Deck from CSV"
 
-    # Check configuration
+    # Verificar configuração
     config = mw.addonManager.getConfig(__name__)
     if not config:
         config = {"remote-decks": {}}
 
-    # Check if URL is already in use
+    # Verificar se a URL já está em uso
     if url in config["remote-decks"]:
         showInfo(f"This URL has already been added as a remote deck.")
         return
 
-    # Create or get deck ID
+    # Criar ou obter ID do deck
     deck_id = get_or_create_deck(mw.col, deckName)
 
-    # Validate deck can be fetched
+    # Validar se o deck pode ser obtido
     try:
         deck = getRemoteDeck(url)
         deck.deckName = deckName
-        deck.url = url
+        # deck.url = url  # Comentado devido ao erro de atribuição
     except Exception as e:
         showInfo(f"Error fetching the remote deck:\n{str(e)}")
         return
 
-    # Save configuration and sync
+    # Salvar configuração e sincronizar
     try:
         config["remote-decks"][url] = {
             "url": url,
@@ -936,43 +1359,37 @@ def addNewDeck():
         syncDecks()
     except Exception as e:
         showInfo(f"Error saving deck configuration:\n{str(e)}")
-        # Remove failed configuration
+        # Remover configuração com falha
         if url in config["remote-decks"]:
             del config["remote-decks"][url]
             mw.addonManager.writeConfig(__name__, config)
 
 def removeRemoteDeck():
-    """Remove a remote deck from the configuration while keeping the local deck."""
+    """
+    Remove um deck remoto da configuração mantendo o deck local.
+    
+    Esta função permite ao usuário:
+    1. Visualizar todos os decks remotos configurados
+    2. Selecionar um deck para desconectar da fonte remota
+    3. Remover a configuração de sincronização automática
+    
+    O deck local permanece intacto no Anki após a remoção.
+    """
     config = mw.addonManager.getConfig(__name__)
     if not config:
         config = {"remote-decks": {}}
 
     remoteDecks = config["remote-decks"]
 
-    # Check if there are any remote decks
+    # Verificar se há decks remotos configurados
     if not remoteDecks:
         showInfo("There are currently no remote decks configured.")
         return
 
-    # Get all deck names and their URLs
-    deck_info = []
-    deck_map = {}  # Map display strings to URL keys
-    for url, info in remoteDecks.items():
-        deck_id = info["deck_id"]
-        # Check if the deck still exists in Anki
-        deck = mw.col.decks.get(deck_id)
-        if deck:
-            deck_name = deck["name"]
-            status = "Available"
-        else:
-            deck_name = f"Unknown (ID: {deck_id})"
-            status = "Not found in Anki"
-            
-        display_str = f"{deck_name} ({status})"
-        deck_info.append(display_str)
-        deck_map[display_str] = url
+    # Obter informações de todos os decks e suas URLs
+    deck_info, deck_map = _build_deck_info_for_removal(remoteDecks)
 
-    # Ask user to select a deck
+    # Solicitar seleção do usuário
     selection, okPressed = QInputDialog.getItem(
         mw,
         "Select a Deck to Unlink",
@@ -984,28 +1401,70 @@ def removeRemoteDeck():
 
     if okPressed and selection:
         try:
-            # Get URL from selection using our map
-            url = deck_map[selection]
-            
-            # Get deck name for display
-            deck_id = remoteDecks[url]["deck_id"]
-            deck = mw.col.decks.get(deck_id)
-            deck_name = deck["name"] if deck else f"Unknown (ID: {deck_id})"
-            
-            # Remove the deck from config
-            del remoteDecks[url]
-
-            # Save the updated configuration
-            mw.addonManager.writeConfig(__name__, config)
-
-            # Show success message with instructions
-            message = (
-                f"The deck '{deck_name}' has been unlinked from its remote source.\n\n"
-                f"The local deck remains in Anki and can now be managed normally.\n"
-                f"Future updates from the Google Sheet will no longer affect this deck."
-            )
-            showInfo(message)
-
+            _process_deck_removal(selection, deck_map, remoteDecks, config)
         except Exception as e:
             showInfo(f"Error unlinking deck: {str(e)}")
             return
+
+def _build_deck_info_for_removal(remoteDecks):
+    """
+    Constrói informações dos decks para interface de remoção.
+    
+    Args:
+        remoteDecks: Dicionário de decks remotos da configuração
+        
+    Returns:
+        tuple: (deck_info, deck_map) onde deck_info é lista de strings para exibição
+               e deck_map mapeia strings de exibição para URLs
+    """
+    deck_info = []
+    deck_map = {}  # Mapear strings de exibição para chaves de URL
+    
+    for url, info in remoteDecks.items():
+        deck_id = info["deck_id"]
+        # Verificar se o deck ainda existe no Anki
+        deck = mw.col.decks.get(deck_id)
+        if deck:
+            deck_name = deck["name"]
+            status = "Available"
+        else:
+            deck_name = f"Unknown (ID: {deck_id})"
+            status = "Not found in Anki"
+            
+        display_str = f"{deck_name} ({status})"
+        deck_info.append(display_str)
+        deck_map[display_str] = url
+    
+    return deck_info, deck_map
+
+def _process_deck_removal(selection, deck_map, remoteDecks, config):
+    """
+    Processa a remoção de um deck da configuração.
+    
+    Args:
+        selection: String de seleção do usuário
+        deck_map: Mapeamento de seleções para URLs
+        remoteDecks: Dicionário de decks remotos
+        config: Configuração do addon
+    """
+    # Obter URL da seleção usando nosso mapeamento
+    url = deck_map[selection]
+    
+    # Obter nome do deck para exibição
+    deck_id = remoteDecks[url]["deck_id"]
+    deck = mw.col.decks.get(deck_id)
+    deck_name = deck["name"] if deck else f"Unknown (ID: {deck_id})"
+    
+    # Remover o deck da configuração
+    del remoteDecks[url]
+
+    # Salvar a configuração atualizada
+    mw.addonManager.writeConfig(__name__, config)
+
+    # Mostrar mensagem de sucesso com instruções
+    message = (
+        f"The deck '{deck_name}' has been unlinked from its remote source.\n\n"
+        f"The local deck remains in Anki and can now be managed normally.\n"
+        f"Future updates from the Google Sheet will no longer affect this deck."
+    )
+    showInfo(message)

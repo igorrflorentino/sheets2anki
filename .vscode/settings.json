@@ -1,0 +1,23 @@
+{
+  "python.analysis.extraPaths": [
+    "/Applications/Anki.app/Contents/Resources",
+    "./stubs"
+  ],
+  "python.analysis.stubPath": "./stubs",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": [
+    "--ignore=E501,W503,F401,F841",
+    "--max-line-length=120"
+  ],
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.useLibraryCodeForTypes": false,
+  "files.associations": {
+    "*.py": "python"
+  },
+  "python.defaultInterpreterPath": "python3"
+}

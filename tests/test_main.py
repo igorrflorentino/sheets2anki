@@ -1,8 +1,18 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import urllib.error
-from . import main
-from .main import (
+import sys
+import os
+
+# Adicionar o diretório pai ao path para imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Adicionar stubs ao path para simular ambiente Anki
+stubs_path = os.path.join(os.path.dirname(__file__), '..', 'stubs')
+sys.path.insert(0, stubs_path)
+
+from remote_decks import main
+from remote_decks.main import (
     validate_url, get_model_suffix_from_url, create_card_template,
     create_model, ensure_custom_models, SyncError, NoteProcessingError,
     CollectionSaveError, syncDecks, addNewDeck, removeRemoteDeck
@@ -50,16 +60,18 @@ class TestMain(unittest.TestCase):
             mock_urlopen.side_effect = TimeoutError()
             with self.assertRaises(ValueError) as context:
                 validate_url(url)
-            self.assertTrue("Connection timed out" in str(context.exception))
+            self.assertTrue("Timeout de conexão" in str(context.exception))
         
         # Test HTTP error
         with patch('urllib.request.urlopen') as mock_urlopen:
+            from email.message import EmailMessage
+            headers = EmailMessage()
             mock_urlopen.side_effect = urllib.error.HTTPError(
-                url, 404, "Not Found", None, None
+                url, 404, "Not Found", headers, None
             )
             with self.assertRaises(ValueError) as context:
                 validate_url(url)
-            self.assertTrue("HTTP Error 404" in str(context.exception))
+            self.assertTrue("Erro HTTP 404" in str(context.exception))
 
     def test_get_model_suffix_from_url(self):
         """Test model suffix generation from URLs"""

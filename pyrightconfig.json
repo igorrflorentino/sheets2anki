@@ -1,0 +1,31 @@
+{
+    "include": [
+        "remote_decks",
+        "tests",
+        "stubs"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        "**/.*"
+    ],
+    "stubPath": "./stubs",
+    "extraPaths": [
+        "./stubs"
+    ],
+    "typeCheckingMode": "basic",
+    "reportMissingImports": "none",
+    "reportMissingTypeStubs": false,
+    "reportUnusedImport": "none",
+    "reportUnusedVariable": "none",
+    "reportAttributeAccessIssue": "none",
+    "reportUnknownVariableType": "none",
+    "reportUnknownMemberType": "none",
+    "reportUnknownArgumentType": "none",
+    "reportUnknownLambdaType": "none",
+    "reportUnknownParameterType": "none",
+    "reportMissingParameterType": "none",
+    "reportGeneralTypeIssues": "warning",
+    "pythonVersion": "3.9",
+    "venvPath": ".",
+    "venv": "venv"
+}

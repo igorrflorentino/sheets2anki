@@ -1,89 +1,167 @@
 # Sheets2Anki
 
-**Sheets2Anki** is an Anki add-on that synchronizes your Anki decks with a published Google Sheets TSV. Your Google Sheets document serves as the source of truth: when you sync, cards are created, updated, or removed in your Anki deck to reflect the sheet's contents. This add-on is currently in **beta**, so features and behavior may still change.
+**Sheets2Anki** é um add-on para Anki que sincroniza seus decks com planilhas do Google Sheets publicadas em formato TSV. Suas planilhas do Google Sheets servem como fonte da verdade: quando você sincroniza, os cards são criados, atualizados ou removidos no seu deck do Anki para refletir o conteúdo da planilha.
 
-## Features
+## Funcionalidades
 
-- **Google Sheets as Source of Truth:**  
-  Your published Google Sheet determines the cards present in Anki.  
-- **Supports Both Basic and Cloze Cards:**  
-  Automatically detects Cloze formatting (`{{c1::...}}`) in the question field for Cloze cards. Other questions become Basic cards.  
-- **Automatic Tag Assignment:**  
-  If you have a `tags` column in your sheet, those tags will be assigned to the cards in Anki.  
-- **Deck Maintenance:**  
-  - **Removed in Sheet → Removed in Anki:** If a card disappears from the sheet, it is removed from Anki on the next sync.
-  - **Removed in Anki → Not Removed in Sheet:** There is **no reverse sync**. Deleting a card in Anki does not affect the sheet; the card may reappear if you sync again unless it's removed from the sheet.
-  
-**Important:** This add-on is in **beta** and currently supports only Basic and Cloze note types. Future updates may improve or extend functionality.
+- **Google Sheets como Fonte da Verdade:**  
+  Sua planilha publicada do Google Sheets determina os cards presentes no Anki.
 
-## No Reverse Sync & Deck Disconnection
+- **Estrutura Específica de Planilha:**  
+  O add-on utiliza uma estrutura predefinida de colunas em português, otimizada para questões de estudo:
+  - `ID`: Identificador único da questão
+  - `PERGUNTA`: Texto principal da questão (frente do card)
+  - `LEVAR PARA PROVA`: Campo de filtro para seleção de questões
+  - `INFO COMPLEMENTAR`: Informação complementar básica
+  - `INFO DETALHADA`: Informação detalhada adicional
+  - `EXEMPLO 1`, `EXEMPLO 2`, `EXEMPLO 3`: Exemplos relacionados
+  - `TOPICO`: Tópico principal da questão
+  - `SUBTOPICO`: Subtópico específico
+  - `BANCAS`: Bancas organizadoras relacionadas
+  - `ULTIMO ANO EM PROVA`: Último ano em que apareceu em prova
+  - `TAGS ADICIONAIS`: Tags adicionais para organização
 
-- **No Reverse Sync:**  
-  All changes flow from Google Sheets to Anki. If you delete or modify a card in Anki, it will not update the sheet. To permanently remove a card, remove it from the sheet before syncing again.
-  
-- **Syncing vs. Disconnecting a Remote Deck:**
-  - **Sync Once and Disconnect:**  
-    You can sync a deck once, and then if you prefer to manage cards locally without further remote updates, go to `Tools > Manage Remote Deck > Disconnect Remote Deck`. This "unlinks" Anki from the sheet. The local deck remains and can be edited freely in Anki as a normal deck.
-  - **Continuous Syncing:**  
-    Alternatively, you can keep the deck connected and continue updating your Google Sheets document. Upon each sync, Anki updates to match the sheet. If you want a card gone, you must remove it from the sheet, as deletions in Anki alone won't persist after a resync.
+- **Suporte a Cards Básicos e Cloze:**  
+  Detecta automaticamente formatação Cloze (`{{c1::...}}`) no campo pergunta para criar cards Cloze. Outras questões se tornam cards básicos.
 
-## Example Google Sheets Document
+- **Atribuição Automática de Tags:**  
+  Tags são automaticamente geradas baseadas nos campos `TOPICO`, `SUBTOPICO`, `BANCAS` e `TAGS ADICIONAIS`.
 
-Use this [example Google Sheets document](https://docs.google.com/spreadsheets/d/1S97fZkuw1DctJhBB1yaiWiSh5grmNmY9Gp8KVPCpMfU/edit?usp=sharing) as a starting template.  
-![imagen](https://github.com/user-attachments/assets/a030ddd0-5dae-483b-bde2-32f20ed0e245)
-- Required columns:
-  - Question field: either `question` or `front` column
-  - Answer field: either `answer` or `back` column
-  - Optional: `tags` column for card tagging
-- Add Cloze-formatted questions (e.g., `{{c1::essential}}`) for Cloze cards.
-- After finalizing, publish the sheet as a TSV (File > Publish to the Web) and copy the TSV URL.
+- **Manutenção de Deck:**  
+  - **Removido na Planilha → Removido no Anki:** Se um card desaparecer da planilha, é removido do Anki na próxima sincronização.
+  - **Removido no Anki → Não Removido na Planilha:** Não há sincronização reversa. Deletar um card no Anki não afeta a planilha; o card pode reaparecer se você sincronizar novamente, a menos que seja removido da planilha.
 
+- **Interface em Português:**  
+  Menus e mensagens em português brasileiro para facilitar o uso.
 
-## Installation
+## Estrutura da Planilha
 
-1. **Download the `.ankiaddon` File:**
-   - Go to the [Releases](https://github.com/your-username/sheets2anki/releases) page of this repository.
-   - Download the latest `.ankiaddon`.
+Para usar o Sheets2Anki, sua planilha do Google Sheets deve ter exatamente as seguintes colunas (na ordem que preferir):
 
-2. **Install in Anki:**
-   - In Anki, go to `Tools > Add-ons > Install from file...`.
-   - Select the downloaded `.ankiaddon` file.
-   - Restart Anki when prompted.
+| Coluna | Obrigatória | Descrição |
+|--------|-------------|-----------|
+| ID | ✅ | Identificador único para cada questão |
+| PERGUNTA | ✅ | Texto da questão/frente do card |
+| LEVAR PARA PROVA | ✅ | Campo de filtro (qualquer valor) |
+| INFO COMPLEMENTAR | ✅ | Informações complementares |
+| INFO DETALHADA | ✅ | Informações detalhadas |
+| EXEMPLO 1 | ✅ | Primeiro exemplo |
+| EXEMPLO 2 | ✅ | Segundo exemplo |
+| EXEMPLO 3 | ✅ | Terceiro exemplo |
+| TOPICO | ✅ | Categoria principal |
+| SUBTOPICO | ✅ | Subcategoria |
+| BANCAS | ✅ | Bancas relacionadas |
+| ULTIMO ANO EM PROVA | ✅ | Ano da última ocorrência |
+| TAGS ADICIONAIS | ✅ | Tags extras separadas por vírgula |
 
-## Usage
+## Instalação
 
-1. **Add a New Remote Deck:**
-   - `Tools > Manage Remote Deck > Add New Remote Deck`.
-   - Paste the published TSV URL from your Google Sheet.
-   - Enter a deck name and confirm.
+1. Baixe o add-on do AnkiWeb ou instale manualmente
+2. Reinicie o Anki
+3. O menu "Gerenciar Decks sheets2anki" aparecerá no menu Ferramentas
 
-2. **Sync Decks:**
-   - `Tools > Manage Remote Deck > Sync Remote Decks` to update Anki from the sheet.
+## Como Usar
 
-3. **Disconnect a Remote Deck:**
-   - `Tools > Manage Remote Deck > Remove Remote Deck`.
-   - This unlinks the remote sheet. The local deck remains, allowing you to manage it entirely in Anki going forward.
+### 1. Preparar sua Planilha
+1. Crie uma planilha no Google Sheets com a estrutura de colunas descrita acima
+2. Preencha suas questões seguindo o formato
+3. **Publique a planilha:**
+   - Vá em Arquivo → Compartilhar → Publicar na web
+   - Escolha "Valores separados por vírgulas (.csv)" ou "Valores separados por tabulação (.tsv)"
+   - Copie o link gerado
 
-## Requirements
+### 2. Adicionar Deck Remoto
+1. No Anki, vá em **Ferramentas → Gerenciar Decks sheets2anki → Adicionar Novo Deck Remoto** (Ctrl+Shift+A)
+2. Cole a URL da planilha publicada
+3. Digite um nome para seu deck
+4. O add-on criará automaticamente o deck e sincronizará
 
-- **Anki Version:** Compatible with Anki 2.1.x.
-- **Note Models Needed:**
-  - **Basic:** Fields `Front` and `Back`.
-  - **Cloze:** Fields `Text` and `Extra`.
+### 3. Sincronizar
+- **Sincronização Manual:** **Ferramentas → Gerenciar Decks sheets2anki → Sincronizar Decks** (Ctrl+Shift+S)
+- **Sincronização Automática:** Execute sempre que quiser atualizar com a planilha
 
-Confirm these models exist before syncing.
+### 4. Gerenciar Decks
+- **Desconectar Deck:** **Ferramentas → Gerenciar Decks sheets2anki → Desconectar um Deck Remoto** (Ctrl+Shift+D)
 
-## Troubleshooting
+## Atalhos de Teclado
 
-- **No Cards Imported?**  
-  Check TSV headers (either `question`/`front` for questions and `answer`/`back` for answers, plus optional `tags`) and ensure required note models exist.
-- **Changes Not Updating?**  
-  Wait a few minutes after editing the sheet or verify the correct published TSV URL.
-- **Cloze Cards Not Forming?**  
-  Ensure Cloze syntax (`{{c1::...}}`) is correct and the Cloze model has `Text` and `Extra` fields, see Example Google Sheets Document above. 
-- **Cards Reappearing After Deletion in Anki?**  
-  Remember there's no reverse sync. Remove the card from the sheet if you want it gone permanently.
+| Ação | Atalho |
+|------|--------|
+| Adicionar Novo Deck Remoto | Ctrl+Shift+A |
+| Sincronizar Decks | Ctrl+Shift+S |
+| Desconectar Deck Remoto | Ctrl+Shift+D |
+| Importar Deck de Teste | Ctrl+Shift+T |
 
-## Beta Status and Future Plans
+## Requisitos
 
-melhorar a questão de sincronização caso um deck tenha sido excluido
+- Anki 2.1.x
+- Planilha do Google Sheets publicada em formato TSV/CSV
+- Conexão com internet para sincronização
+
+## Exemplo de Uso (Cards Cloze)
+
+Se sua coluna `PERGUNTA` contém:
+```
+A capital do Brasil é {{c1::Brasília}}
+```
+
+O add-on criará automaticamente um card Cloze no Anki.
+
+## Solução de Problemas
+
+### Erro de URL
+- Certifique-se de que a planilha está **publicada** (não apenas compartilhada)
+- Use o link de **valores separados por vírgula/tabulação**, não o link normal da planilha
+
+### Cards não aparecem
+- Verifique se todas as colunas obrigatórias estão presentes
+- Certifique-se de que o campo `ID` tem valores únicos
+- Verifique se há dados na coluna `PERGUNTA`
+
+### Erro de sincronização
+- Verifique sua conexão com internet
+- Confirme se a URL da planilha ainda está válida
+- Use **Ferramentas → Gerenciar Decks sheets2anki → Desconectar um Deck Remoto** e reconecte se necessário
+
+## Limitações
+
+- **Sem sincronização reversa:** Mudanças no Anki não afetam a planilha
+- **Estrutura fixa:** Deve usar exatamente as colunas especificadas
+- **Idioma:** Interface e estrutura otimizadas para português brasileiro
+- **Dependência de internet:** Requer conexão para sincronizar
+
+## Status de Desenvolvimento
+
+Este add-on é mantido ativamente. A estrutura de colunas foi projetada especificamente para questões de estudo em português brasileiro, oferecendo uma solução robusta para sincronização unidirecional com Google Sheets.
+
+## Estrutura do Projeto
+
+```
+sheets2anki/
+├── __init__.py                 # Módulo principal de integração
+├── remote_decks/              # Lógica de sincronização
+│   ├── main.py               # Funcionalidades principais
+│   ├── parseRemoteDeck.py    # Análise de decks remotos
+│   ├── column_definitions.py # Definições de colunas
+│   └── libs/                 # Bibliotecas externas
+├── tests/                    # Testes unitários
+│   ├── test_main.py         # Testes do módulo principal
+│   ├── test_parseRemoteDeck.py # Testes de análise
+│   └── test_selection_dialog.py # Testes de interface
+└── README.md                 # Esta documentação
+```
+
+## Desenvolvimento e Testes
+
+Para desenvolvedores interessados em contribuir:
+
+```bash
+# Executar testes
+python -m pytest tests/
+
+# Executar testes específicos
+python -m unittest tests.test_main
+```
+
+Consulte `tests/README.md` para instruções detalhadas sobre testes.
+

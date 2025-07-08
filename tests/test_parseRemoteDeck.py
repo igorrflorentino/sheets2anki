@@ -1,11 +1,17 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from .parseRemoteDeck import (
+import sys
+import os
+
+# Adicionar o diretório pai ao path para imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from remote_decks.parseRemoteDeck import (
     create_tags_from_fields, parse_tsv_data, validate_tsv_headers, 
     has_cloze_deletion, getRemoteDeck, RemoteDeck,
     build_remote_deck_from_tsv, clean_tag_text
 )
-from . import column_definitions as cols
+from remote_decks import column_definitions as cols
 
 class TestParseRemoteDeck(unittest.TestCase):
     def test_clean_tag_text(self):
