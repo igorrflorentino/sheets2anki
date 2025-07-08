@@ -15,6 +15,8 @@ from .parseRemoteDeck import getRemoteDeck, has_cloze_deletion
 from . import column_definitions
 import hashlib
 
+from aqt.qt import QProgressDialog, QPushButton
+
 # URLs hardcoded para testes e simulações
 TEST_SHEETS_URLS = [
     ("Mais importantes", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=334628680&output=tsv"),
@@ -125,51 +127,189 @@ def syncDecks():
         config = {"remote-decks": {}}
 
     sync_errors = []
+    status_msgs = []
     decks_synced = 0
+    total_stats = {
+        'created': 0,
+        'updated': 0,
+        'deleted': 0,
+        'errors': 0,
+        'error_details': []
+    }
 
-    # Use list to avoid RuntimeError (dict changed size during iteration)
-    for deckKey in list(config["remote-decks"].keys()):
-        try:
-            currentRemoteInfo = config["remote-decks"][deckKey]
-            deck_id = currentRemoteInfo["deck_id"]
+    deck_keys = list(config["remote-decks"].keys())
+    total_decks = len(deck_keys)
+    
+    # Se não há decks para sincronizar, mostrar mensagem e sair
+    if total_decks == 0:
+        showInfo("Nenhum deck remoto configurado para sincronização.")
+        return
+    
+    progress = QProgressDialog("Sincronizando decks...", None, 0, total_decks * 3, mw)
+    progress.setWindowTitle("Sincronização de Decks")
+    progress.setMinimumDuration(0)
+    progress.setValue(0)
+    progress.setCancelButton(None)
+    progress.setAutoClose(False)  # Não fechar automaticamente
+    progress.setAutoReset(False)  # Não resetar automaticamente
+    progress.show()
+    mw.app.processEvents()  # Força a exibição da barra
+    
+    step = 0
+    try:
+        for deckKey in deck_keys:
+            try:
+                currentRemoteInfo = config["remote-decks"][deckKey]
+                deck_id = currentRemoteInfo["deck_id"]
 
-            # Get deck name for display purposes
-            deck = col.decks.get(deck_id)
-            # If the deck does not exist or is now the Default deck, remove from config and skip sync
-            if not deck or deck["name"].strip().lower() == "default":
-                removed_name = currentRemoteInfo.get("deck_name", str(deck_id))
-                del config["remote-decks"][deckKey]
-                mw.addonManager.writeConfig(__name__, config)
-                info_msg = f"A sincronização do deck '{removed_name}' foi encerrada automaticamente porque o deck foi excluído ou virou o deck padrão (Default)."
-                showInfo(info_msg)
+                # Get deck name for display purposes
+                deck = col.decks.get(deck_id)
+                # If the deck does not exist or is now the Default deck, remove from config and skip sync
+                if not deck or deck["name"].strip().lower() == "default":
+                    removed_name = currentRemoteInfo.get("deck_name", str(deck_id))
+                    del config["remote-decks"][deckKey]
+                    mw.addonManager.writeConfig(__name__, config)
+                    info_msg = f"A sincronização do deck '{removed_name}' foi encerrada automaticamente porque o deck foi excluído ou virou o deck padrão (Default)."
+                    status_msgs.append(info_msg)
+                    progress.setLabelText("\n".join(status_msgs[-3:]))
+                    step += 3
+                    progress.setValue(step)
+                    mw.app.processEvents()  # Atualiza a interface
+                    continue
+                deckName = deck["name"]
+
+                # Validate URL before attempting sync
+                validate_url(currentRemoteInfo["url"])
+
+                msg = f"{deckName}: baixando arquivo..."
+                status_msgs.append(msg)
+                progress.setLabelText("\n".join(status_msgs[-3:]))
+                mw.app.processEvents()  # Atualiza a interface
+                # 1. Download
+                remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
+                step += 1
+                progress.setValue(step)
+                mw.app.processEvents()  # Atualiza a interface
+
+                # 2. Parsing (já incluso no getRemoteDeck)
+                msg = f"{deckName}: processando dados..."
+                status_msgs.append(msg)
+                progress.setLabelText("\n".join(status_msgs[-3:]))
+                mw.app.processEvents()  # Atualiza a interface
+                remoteDeck.deckName = deckName  # Set name for display purposes
+                remoteDeck.url = currentRemoteInfo["url"]
+                step += 1
+                progress.setValue(step)
+                mw.app.processEvents()  # Atualiza a interface
+
+                # 3. Escrita no banco
+                msg = f"{deckName}: escrevendo no banco de dados..."
+                status_msgs.append(msg)
+                progress.setLabelText("\n".join(status_msgs[-3:]))
+                mw.app.processEvents()  # Atualiza a interface
+                deck_stats = create_or_update_notes(col, remoteDeck, deck_id)
+                
+                # Accumulate statistics
+                total_stats['created'] += deck_stats['created']
+                total_stats['updated'] += deck_stats['updated']
+                total_stats['deleted'] += deck_stats['deleted']
+                total_stats['errors'] += deck_stats['errors']
+                total_stats['error_details'].extend(deck_stats['error_details'])
+                
+                step += 1
+                progress.setValue(step)
+                mw.app.processEvents()  # Atualiza a interface
+                decks_synced += 1
+
+            except (ValueError, SyncError) as e:
+                error_msg = f"Failed to sync deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
+                sync_errors.append(error_msg)
+                status_msgs.append(error_msg)
+                progress.setLabelText("\n".join(status_msgs[-3:]))
+                step += 3
+                progress.setValue(step)
+                mw.app.processEvents()  # Atualiza a interface
                 continue
-            deckName = deck["name"]
+            except Exception as e:
+                error_msg = f"Unexpected error syncing deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
+                sync_errors.append(error_msg)
+                status_msgs.append(error_msg)
+                progress.setLabelText("\n".join(status_msgs[-3:]))
+                step += 3
+                progress.setValue(step)
+                mw.app.processEvents()  # Atualiza a interface
+                continue
+        
+        progress.setValue(total_decks * 3)
+        mw.app.processEvents()  # Atualiza a interface
+        
+        # Preparar mensagem final para exibir na barra de progresso
+        if sync_errors or total_stats['errors'] > 0:
+            final_msg = f"Concluído com problemas: {decks_synced}/{total_decks} decks sincronizados"
+            if total_stats['created'] > 0:
+                final_msg += f", {total_stats['created']} cards criados"
+            if total_stats['updated'] > 0:
+                final_msg += f", {total_stats['updated']} atualizados"
+            if total_stats['deleted'] > 0:
+                final_msg += f", {total_stats['deleted']} deletados"
+            final_msg += f", {total_stats['errors'] + len(sync_errors)} erros"
+        else:
+            final_msg = f"Sincronização concluída com sucesso!"
+            if total_stats['created'] > 0:
+                final_msg += f" {total_stats['created']} cards criados"
+            if total_stats['updated'] > 0:
+                final_msg += f", {total_stats['updated']} atualizados"
+            if total_stats['deleted'] > 0:
+                final_msg += f", {total_stats['deleted']} deletados"
+        
+        # Exibir mensagem final na barra e adicionar botão OK
+        progress.setLabelText(final_msg)
+        
+        # Criar e configurar o botão OK
+        ok_button = QPushButton("OK")
+        progress.setCancelButton(ok_button)
+        
+        # Aguardar o usuário clicar em OK usando um loop até o botão ser pressionado
+        while progress.isVisible() and not progress.wasCanceled():
+            mw.app.processEvents()
+            import time
+            time.sleep(0.1)
+    
+    finally:
+        # Ensure progress dialog is closed
+        if progress.isVisible():
+            progress.close()
 
-            # Validate URL before attempting sync
-            validate_url(currentRemoteInfo["url"])
-
-            remoteDeck = getRemoteDeck(currentRemoteInfo["url"])
-            remoteDeck.deckName = deckName  # Set name for display purposes
-            remoteDeck.url = currentRemoteInfo["url"]
-
-            create_or_update_notes(col, remoteDeck, deck_id)
-            decks_synced += 1
-
-        except (ValueError, SyncError) as e:
-            error_msg = f"Failed to sync deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
-            sync_errors.append(error_msg)
-            continue
-        except Exception as e:
-            error_msg = f"Unexpected error syncing deck '{deckName if 'deckName' in locals() else deck_id}': {str(e)}"
-            sync_errors.append(error_msg)
-            continue
-
-    # Show summary of sync results
-    if sync_errors:
-        error_summary = "\n".join(sync_errors)
-        showInfo(f"Sync completed with errors:\n{error_summary}\n\nSuccessfully synced {decks_synced} deck(s).")
+    # Show comprehensive summary of sync results
+    if sync_errors or total_stats['errors'] > 0:
+        summary = f"Sincronização concluída com alguns problemas:\n\n"
+        summary += f"Decks sincronizados: {decks_synced}/{total_decks}\n"
+        summary += f"Cards criados: {total_stats['created']}\n"
+        summary += f"Cards atualizados: {total_stats['updated']}\n"
+        summary += f"Cards deletados: {total_stats['deleted']}\n"
+        summary += f"Erros encontrados: {total_stats['errors'] + len(sync_errors)}\n\n"
+        
+        # Add deck-level errors
+        if sync_errors:
+            summary += "Erros de sincronização de decks:\n"
+            summary += "\n".join(sync_errors) + "\n\n"
+        
+        # Add note-level errors
+        if total_stats['error_details']:
+            summary += "Erros de processamento de cards:\n"
+            summary += "\n".join(total_stats['error_details'][:10])  # Limit to first 10 errors
+            if len(total_stats['error_details']) > 10:
+                summary += f"\n... e mais {len(total_stats['error_details']) - 10} erros."
+        
+        showInfo(summary)
     else:
-        showInfo(f"Successfully synced {decks_synced} deck(s).")
+        summary = f"Sincronização concluída com sucesso!\n\n"
+        summary += f"Decks sincronizados: {decks_synced}\n"
+        summary += f"Cards criados: {total_stats['created']}\n"
+        summary += f"Cards atualizados: {total_stats['updated']}\n"
+        summary += f"Cards deletados: {total_stats['deleted']}\n"
+        summary += "Nenhum erro encontrado."
+        showInfo(summary)
 
 def get_or_create_deck(col, deckName):
     if not deckName or not isinstance(deckName, str) or deckName.strip() == "" or deckName.strip().lower() == "default":
@@ -506,27 +646,14 @@ def create_or_update_notes(col, remoteDeck, deck_id):
         except Exception as e:
             raise CollectionSaveError(f"Error saving collection: {str(e)}")
 
-        # Show summary
-        summary = (
-            f"Sync Summary:\n"
-            f"Created: {stats['created']}\n"
-            f"Updated: {stats['updated']}\n"
-            f"Deleted: {stats['deleted']}\n"
-            f"Errors: {stats['errors']}"
-        )
-        if stats['error_details']:
-            summary += "\n\nError Details:\n" + "\n".join(stats['error_details'])
-        
-        showInfo(summary)
+        # Return stats without showing info
         return stats
 
     except SyncError as e:
         error_msg = f"Critical sync error: {str(e)}"
-        showInfo(error_msg)
-        raise
+        raise SyncError(error_msg)
     except Exception as e:
         error_msg = f"Unexpected error during sync: {str(e)}"
-        showInfo(error_msg)
         raise SyncError(error_msg)
 
 def get_note_key(note):
