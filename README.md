@@ -94,7 +94,7 @@ Para usar o Sheets2Anki, sua planilha do Google Sheets deve ter exatamente as se
 
 ## Requisitos
 
-- Anki 2.1.x
+- Anki
 - Planilha do Google Sheets publicada em formato TSV/CSV
 - Conexão com internet para sincronização
 
@@ -134,34 +134,9 @@ O add-on criará automaticamente um card Cloze no Anki.
 
 Este add-on é mantido ativamente. A estrutura de colunas foi projetada especificamente para questões de estudo em português brasileiro, oferecendo uma solução robusta para sincronização unidirecional com Google Sheets.
 
-## Estrutura do Projeto
+## Documentação Técnica
 
-```
-sheets2anki/
-├── __init__.py                 # Módulo principal de integração
-├── remote_decks/              # Lógica de sincronização
-│   ├── main.py               # Funcionalidades principais
-│   ├── parseRemoteDeck.py    # Análise de decks remotos
-│   ├── column_definitions.py # Definições de colunas
-│   └── libs/                 # Bibliotecas externas
-├── tests/                    # Testes unitários
-│   ├── test_main.py         # Testes do módulo principal
-│   ├── test_parseRemoteDeck.py # Testes de análise
-│   └── test_selection_dialog.py # Testes de interface
-└── README.md                 # Esta documentação
-```
-
-## Desenvolvimento e Testes
-
-Para desenvolvedores interessados em contribuir:
-
-```bash
-# Executar testes
-python -m pytest tests/
-
-# Executar testes específicos
-python -m unittest tests.test_main
-```
-
-Consulte `tests/README.md` para instruções detalhadas sobre testes.
-
+Para desenvolvedores e informações técnicas:
+- **Correção de Imports:** [`docs/CORRECAO_IMPORTS.md`](docs/CORRECAO_IMPORTS.md) - Detalhes sobre a correção do erro de importação
+- **Testes:** [`tests/README.md`](tests/README.md) - Informações sobre como executar testes
+- **Documentação:** [`docs/README.md`](docs/README.md) - Índice da documentação técnica

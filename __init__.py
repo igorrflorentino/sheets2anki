@@ -13,7 +13,7 @@ Funcionalidades principais:
 
 Estrutura do add-on:
 - __init__.py: Módulo principal (este arquivo)
-- remote_decks/: Lógica de sincronização e processamento
+- src/: Lógica de sincronização e processamento
 - libs/: Bibliotecas e dependências externas
 
 Autor: Dr. Basti
@@ -29,7 +29,7 @@ import os
 
 # Configurar caminhos para dependências externas
 addon_path = os.path.dirname(__file__)
-libs_path = os.path.join(addon_path, 'remote_decks', 'libs')
+libs_path = os.path.join(addon_path, 'libs')
 
 # Adicionar bibliotecas ao path do Python se ainda não estiverem presentes
 if libs_path not in sys.path:
@@ -47,11 +47,11 @@ from aqt.importing import ImportDialog
 
 # Imports dos módulos internos com tratamento de erro robusto
 try:
-    from .remote_decks.main import import_test_deck
-    from .remote_decks.main import addNewDeck
-    from .remote_decks.main import syncDecksWithSelection as sDecks
-    from .remote_decks.main import removeRemoteDeck as rDecks
-    from .remote_decks.libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
+    from .src.main import import_test_deck
+    from .src.main import addNewDeck
+    from .src.main import syncDecksWithSelection as sDecks
+    from .src.main import removeRemoteDeck as rDecks
+    from .libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
 except Exception as e:
     showInfo(f"Erro ao importar módulos do plugin sheets2anki:\n{e}")
     raise

@@ -1,88 +1,56 @@
-# Testes do Sheets2Anki
+# Testes - Sheets2Anki
 
-Esta pasta contém todos os testes do projeto Sheets2Anki, organizados para facilitar a manutenção e execução.
+Esta pasta contém os testes para o add-on Sheets2Anki.
 
-## Estrutura de Testes
+## Arquivos de Teste
 
-### Testes Unitários
-- **`test_main.py`**: Testes para o módulo principal (`main.py`)
-  - Validação de URLs
-  - Criação de modelos de cards
-  - Sincronização de decks
-  - Gerenciamento de decks remotos
+### `test_structure.py`
+- **Descrição:** Teste de verificação da estrutura do projeto
+- **Função:** Verifica se todos os arquivos estão no local correto e se as correções de import foram aplicadas
+- **Como executar:** `python tests/test_structure.py`
 
-- **`test_parseRemoteDeck.py`**: Testes para análise de decks remotos (`parseRemoteDeck.py`)
-  - Parsing de dados TSV
-  - Validação de headers
-  - Criação de tags hierárquicas
-  - Detecção de cards cloze
-
-### Testes de Interface
-- **`test_selection_dialog.py`**: Testes para interface de seleção de decks
-  - Funcionalidades de seleção
-  - Interface com checkboxes
-  - Integração com sincronização
+### `test_imports.py`
+- **Descrição:** Teste de importação de módulos
+- **Função:** Verifica se os módulos podem ser importados corretamente
+- **Como executar:** `python tests/test_imports.py`
 
 ## Como Executar os Testes
 
-### Usando pytest (recomendado)
+### Do diretório raiz do projeto:
 ```bash
-# Instalar pytest se não tiver
-pip install pytest
+# Teste de estrutura
+python tests/test_structure.py
 
-# Executar todos os testes
-python -m pytest tests/
-
-# Executar testes com output detalhado
-python -m pytest tests/ -v
-
-# Executar um arquivo específico
-python -m pytest tests/test_main.py
+# Teste de imports
+python tests/test_imports.py
 ```
 
-### Usando unittest (built-in)
+### Executar todos os testes:
 ```bash
-# Executar todos os testes
-python -m unittest discover tests/
-
-# Executar um arquivo específico
-python -m unittest tests.test_main
-python -m unittest tests.test_parseRemoteDeck
-
-# Executar com output detalhado
-python -m unittest tests.test_main -v
+# Executar ambos os testes
+python tests/test_structure.py && python tests/test_imports.py
 ```
 
-## Cobertura de Testes
+## O que os Testes Verificam
 
-Os testes cobrem as principais funcionalidades:
+1. **Estrutura de Arquivos:**
+   - Existência dos arquivos principais (`src/main.py`, `libs/org_to_anki/utils.py`, `__init__.py`)
+   - Presença das funções necessárias nos arquivos corretos
 
-- ✅ Validação de URLs e dados TSV
-- ✅ Criação e gerenciamento de modelos de cards
-- ✅ Processamento de tags hierárquicas
-- ✅ Detecção de cards cloze
-- ✅ Sincronização de decks
-- ✅ Interface de seleção de decks
+2. **Correções de Import:**
+   - Verificação de que os imports foram corrigidos para apontar para `src/` ao invés de `remote_decks/`
+   - Confirmação de que o caminho das bibliotecas está correto
 
-## Adicionando Novos Testes
+3. **Integridade do Código:**
+   - Presença das funções principais: `import_test_deck`, `addNewDeck`, `syncDecksWithSelection`, `removeRemoteDeck`
+   - Presença da função `getAnkiPluginConnector` no utils
 
-Ao adicionar novos testes:
+## Status dos Testes
 
-1. Siga a convenção de nomes `test_*.py`
-2. Use a estrutura de imports padrão com `sys.path.insert()`
-3. Organize testes por funcionalidade
-4. Adicione docstrings descritivas
-5. Use mocks para dependências externas (Anki, rede, etc.)
-
-## Dependências para Testes
-
-- `unittest` (built-in)
-- `unittest.mock` (built-in)
-- `pytest` (opcional, mas recomendado)
+✅ **Todos os testes passando** - A estrutura do projeto está correta e o erro de importação foi resolvido.
 
 ## Notas Importantes
 
-- Os testes são independentes do ambiente Anki
-- Mocks são usados para simular funcionalidades do Anki
-- Testes de rede usam mocks para evitar dependências externas
-- A estrutura permite execução tanto no VS Code quanto linha de comando
+- Os testes são executados a partir do diretório raiz do projeto
+- Alguns testes podem mostrar avisos sobre dependências ausentes (como `requests`) durante o desenvolvimento, mas isso é normal
+- Os testes verificam a estrutura e imports, não a funcionalidade completa do add-on (que requer o ambiente Anki)

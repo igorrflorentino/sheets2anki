@@ -1,6 +1,6 @@
 {
     "include": [
-        "remote_decks",
+        "src",
         "tests",
         "stubs"
     ],
