@@ -32,79 +32,30 @@ Autor: Sheets2Anki Project
 # IMPORTS
 # =============================================================================
 
-# Anki imports
-try:
-    from aqt import mw  # type: ignore
-    from aqt.utils import showInfo, qconnect  # type: ignore
-    from aqt.qt import (  # type: ignore
-        QInputDialog, QLineEdit, QDialog, 
-        QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QLabel, 
-        QProgressDialog, Qt
-    )
-except ImportError:
-    # Fallback para desenvolvimento fora do ambiente Anki
-    import sys
-    import os
-    stubs_path = os.path.join(os.path.dirname(__file__), '..', 'stubs')
-    if os.path.exists(stubs_path):
-        sys.path.insert(0, stubs_path)
-        from aqt import mw  # type: ignore
-        from aqt.utils import showInfo, qconnect  # type: ignore
-        from aqt.qt import (  # type: ignore
-            QInputDialog, QLineEdit, QDialog, 
-            QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QLabel, 
-            QProgressDialog, Qt
-        )
+# Compatibilidade Qt/Anki
+from .compat import (
+    mw, showInfo, showWarning, showCritical, show_tooltip,
+    QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QCheckBox,
+    QInputDialog, QLineEdit, QProgressDialog, QMessageBox,
+    Qt, AlignTop, AlignLeft, AlignCenter, DialogAccepted, DialogRejected,
+    EchoModeNormal, safe_connect, create_button, show_message,
+    get_compatibility_info
+)
+
+# Import QDialog separadamente para herança
+from .compat import QDialog
 
 # Standard library imports
 import sys
 import urllib.request
 import urllib.error
 import hashlib
+import json
+from typing import List, Dict, Tuple, Optional, Any
 
 # Local imports
 from .parseRemoteDeck import getRemoteDeck, has_cloze_deletion
 from . import column_definitions
-
-# =============================================================================
-# COMPATIBILITY LAYER
-# =============================================================================
-
-# Compatibilidade entre diferentes versões do Qt/Anki
-try:
-    from aqt.qt import QDialog  # type: ignore
-    # Verificar se as constantes estão disponíveis
-    if hasattr(QDialog, 'Accepted'):
-        DialogAccepted = QDialog.Accepted
-    else:
-        DialogAccepted = 1  # Valor padrão para Accepted
-except ImportError:
-    DialogAccepted = 1
-
-try:
-    echo_mode_normal = QLineEdit.EchoMode.Normal
-except AttributeError:
-    echo_mode_normal = QLineEdit.Normal
-
-# Compatibilidade para constantes de alinhamento do Qt
-try:
-    # Qt6 style
-    from aqt.qt import Qt  # type: ignore
-    if hasattr(Qt, 'AlignmentFlag'):
-        AlignTop = Qt.AlignmentFlag.AlignTop
-        AlignLeft = Qt.AlignmentFlag.AlignLeft
-    elif hasattr(Qt, 'AlignTop'):
-        # Qt5 style
-        AlignTop = Qt.AlignTop
-        AlignLeft = Qt.AlignLeft
-    else:
-        # Fallback values
-        AlignTop = 0x20
-        AlignLeft = 0x01
-except (ImportError, AttributeError):
-    # Valores padrão como fallback
-    AlignTop = 0x20
-    AlignLeft = 0x01
 
 # =============================================================================
 # CONSTANTS AND TEST DATA
@@ -301,9 +252,7 @@ def syncDecksWithSelection():
     de uma interface gráfica.
     """
     # Carregar configuração
-    config = mw.addonManager.getConfig(__name__)
-    if not config:
-        config = {"remote-decks": {}}
+    config = get_addon_config()
 
     # Verificar se há decks configurados
     if not config["remote-decks"]:
@@ -438,16 +387,51 @@ def _import_deck_from_url(url, deckName):
     # deck.url = url  # Comentado devido ao erro de atribuição
 
     # Atualizar configuração
-    config = mw.addonManager.getConfig(__name__)
-    if not config:
-        config = {"remote-decks": {}}
+    config = get_addon_config()
     
     config["remote-decks"][url] = {
         "url": url,
         "deck_id": deck_id,
         "deck_name": deckName
     }
-    mw.addonManager.writeConfig(__name__, config)
+    save_addon_config(config)
+
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
+def get_addon_config():
+    """
+    Obter configuração do addon de forma segura.
+    
+    Returns:
+        dict: Configuração do addon com chave 'remote-decks' garantida
+    """
+    try:
+        config = mw.addonManager.getConfig(__name__)
+        if not config:
+            config = {}
+        
+        # Garantir que a chave 'remote-decks' existe
+        if "remote-decks" not in config:
+            config["remote-decks"] = {}
+            
+        return config
+    except Exception as e:
+        showWarning(f"Erro ao carregar configuração: {str(e)}")
+        return {"remote-decks": {}}
+
+def save_addon_config(config):
+    """
+    Salvar configuração do addon de forma segura.
+    
+    Args:
+        config: Dicionário com configuração do addon
+    """
+    try:
+        mw.addonManager.writeConfig(__name__, config)
+    except Exception as e:
+        showWarning(f"Erro ao salvar configuração: {str(e)}")
 
 # =============================================================================
 # VALIDATION FUNCTIONS
@@ -522,9 +506,7 @@ def syncDecks(selected_deck_names=None):
                            Se None, sincroniza todos os decks.
     """
     col = mw.col
-    config = mw.addonManager.getConfig(__name__)
-    if not config:
-        config = {"remote-decks": {}}
+    config = get_addon_config()
 
     # Inicializar estatísticas e controles
     sync_errors = []
@@ -743,7 +725,7 @@ def _sync_single_deck(config, deckKey, progress, status_msgs, step):
     if not deck or deck["name"].strip().lower() == "default":
         removed_name = currentRemoteInfo.get("deck_name", str(deck_id))
         del config["remote-decks"][deckKey]
-        mw.addonManager.writeConfig(__name__, config)
+        save_addon_config(config)
         info_msg = f"A sincronização do deck '{removed_name}' foi encerrada automaticamente porque o deck foi excluído ou virou o deck padrão (Default)."
         status_msgs.append(info_msg)
         _update_progress_text(progress, status_msgs)
@@ -1301,7 +1283,7 @@ def addNewDeck():
     """
     # Solicitar URL do usuário
     url, okPressed = QInputDialog.getText(
-        mw, "Add New Remote Deck", "URL of published TSV:", echo_mode_normal, ""
+        mw, "Add New Remote Deck", "URL of published TSV:", EchoModeNormal, ""
     )
     if not okPressed or not url.strip():
         return
@@ -1317,7 +1299,7 @@ def addNewDeck():
 
     # Obter nome do deck
     deckName, okPressed = QInputDialog.getText(
-        mw, "Deck Name", "Enter the name of the deck:", echo_mode_normal, ""
+        mw, "Deck Name", "Enter the name of the deck:", EchoModeNormal, ""
     )
     if not okPressed:
         return
@@ -1327,9 +1309,7 @@ def addNewDeck():
         deckName = "Deck from CSV"
 
     # Verificar configuração
-    config = mw.addonManager.getConfig(__name__)
-    if not config:
-        config = {"remote-decks": {}}
+    config = get_addon_config()
 
     # Verificar se a URL já está em uso
     if url in config["remote-decks"]:
@@ -1355,14 +1335,14 @@ def addNewDeck():
             "deck_id": deck_id,
             "deck_name": deckName
         }
-        mw.addonManager.writeConfig(__name__, config)
+        save_addon_config(config)
         syncDecks()
     except Exception as e:
         showInfo(f"Error saving deck configuration:\n{str(e)}")
         # Remover configuração com falha
         if url in config["remote-decks"]:
             del config["remote-decks"][url]
-            mw.addonManager.writeConfig(__name__, config)
+            save_addon_config(config)
 
 def removeRemoteDeck():
     """
@@ -1375,9 +1355,7 @@ def removeRemoteDeck():
     
     O deck local permanece intacto no Anki após a remoção.
     """
-    config = mw.addonManager.getConfig(__name__)
-    if not config:
-        config = {"remote-decks": {}}
+    config = get_addon_config()
 
     remoteDecks = config["remote-decks"]
 
@@ -1459,7 +1437,7 @@ def _process_deck_removal(selection, deck_map, remoteDecks, config):
     del remoteDecks[url]
 
     # Salvar a configuração atualizada
-    mw.addonManager.writeConfig(__name__, config)
+    save_addon_config(config)
 
     # Mostrar mensagem de sucesso com instruções
     message = (

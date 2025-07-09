@@ -65,62 +65,98 @@ class QInputDialog(QDialog):
 
 class QLineEdit(QWidget):
     Normal = 0  # EchoMode
-    EchoMode = type('EchoMode', (), {'Normal': 0})
+    EchoMode = type('EchoMode', (), {'Normal': 0, 'Password': 2, 'NoEcho': 1})
 
-class QProgressDialog(QDialog):
-    def __init__(self, text="", cancel_button_text=None, min_val=0, max_val=100, parent=None):
+class QTextEdit(QWidget):
+    def __init__(self, parent=None):
         super().__init__(parent)
+        self._text = ""
+        
+    def setPlainText(self, text):
         self._text = text
         
-    def setLabelText(self, text):
-        self._text = text
+    def toPlainText(self):
+        return self._text
+
+class QProgressDialog(QDialog):
+    def __init__(self, labelText="", cancelButtonText="", minimum=0, maximum=100, parent=None):
+        super().__init__(parent)
         
     def setValue(self, value):
         pass
         
-    def setMinimumDuration(self, ms):
-        pass
-        
-    def setCancelButton(self, button):
-        pass
-        
-    def setAutoClose(self, auto):
-        pass
-        
-    def setAutoReset(self, auto):
-        pass
-        
     def wasCanceled(self):
         return False
+
+class QMessageBox(QDialog):
+    Information = 1
+    Warning = 2
+    Critical = 3
+    Question = 4
+    
+    @staticmethod
+    def information(parent, title, text):
+        print(f"[INFO] {title}: {text}")
         
-    def setWindowTitle(self, title):
+    @staticmethod
+    def warning(parent, title, text):
+        print(f"[WARNING] {title}: {text}")
+        
+    @staticmethod
+    def critical(parent, title, text):
+        print(f"[CRITICAL] {title}: {text}")
+
+class QFrame(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+class QScrollArea(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+    def setWidget(self, widget):
         pass
         
-    def findChild(self, child_type):
-        if child_type == QLabel:
-            return QLabel()
-        return None
+    def setWidgetResizable(self, resizable):
+        pass
+
+class QGridLayout:
+    def __init__(self):
+        pass
+        
+    def addWidget(self, widget, row=0, col=0):
+        pass
 
 class QLabel(QWidget):
-    def setWordWrap(self, wrap):
-        pass
+    def __init__(self, text="", parent=None):
+        super().__init__(parent)
+        self.text = text
         
-    def setAlignment(self, alignment):
-        pass
+    def setText(self, text):
+        self.text = text
+
+class QComboBox(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.items = []
+        
+    def addItem(self, text):
+        self.items.append(text)
+        
+    def currentText(self):
+        return self.items[0] if self.items else ""
 
 class QCheckBox(QWidget):
     def __init__(self, text="", parent=None):
         super().__init__(parent)
-        self._checked = False
+        self.text = text
+        self.checked = False
         
     def setChecked(self, checked):
-        self._checked = checked
+        self.checked = checked
         
     def isChecked(self):
-        return self._checked
-        
-    def stateChanged(self):
-        pass
+        return self.checked
 
 class QPushButton(QWidget):
     def __init__(self, text="", parent=None):
@@ -177,12 +213,57 @@ class QKeySequence:
     def __init__(self, sequence=""):
         self.sequence = sequence
 
+class QApplication(QObject):
+    def __init__(self, args=None):
+        super().__init__()
+        
+    def exec_(self):
+        return 0
+        
+    def quit(self):
+        pass
+
+class QSizePolicy:
+    Expanding = 0
+    Fixed = 1
+    Minimum = 2
+    Maximum = 3
+
 class Qt:
     # Qt5 style constants
     AlignTop = 0x20
     AlignLeft = 0x1
+    AlignCenter = 0x84
+    AlignRight = 0x2
+    AlignBottom = 0x40
+    AlignVCenter = 0x80
+    AlignHCenter = 0x4
+    
+    # Keys
+    Key_Enter = 0x01000005
+    Key_Return = 0x01000004
+    Key_Escape = 0x01000000
     
     # Qt6 style constants (for compatibility)
     class AlignmentFlag:
         AlignTop = 0x20
         AlignLeft = 0x1
+        AlignCenter = 0x84
+        AlignRight = 0x2
+        AlignBottom = 0x40
+        AlignVCenter = 0x80
+        AlignHCenter = 0x4
+        
+    class Key:
+        Key_Enter = 0x01000005
+        Key_Return = 0x01000004
+        Key_Escape = 0x01000000
+
+
+# =============================================================================
+# QT UTILITIES
+# =============================================================================
+
+def qconnect(signal, slot):
+    """Mock qconnect function for Qt signal/slot connections"""
+    pass

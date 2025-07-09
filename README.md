@@ -137,6 +137,28 @@ Este add-on é mantido ativamente. A estrutura de colunas foi projetada especifi
 ## Documentação Técnica
 
 Para desenvolvedores e informações técnicas:
-- **Correção de Imports:** [`docs/CORRECAO_IMPORTS.md`](docs/CORRECAO_IMPORTS.md) - Detalhes sobre a correção do erro de importação
+- **Scripts de Build:** [`scripts/README.md`](scripts/README.md) - Como compilar e fazer build do add-on
 - **Testes:** [`tests/README.md`](tests/README.md) - Informações sobre como executar testes
 - **Documentação:** [`docs/README.md`](docs/README.md) - Índice da documentação técnica
+
+## Desenvolvimento
+
+### Scripts de Build
+
+O projeto inclui vários scripts automatizados para facilitar o desenvolvimento:
+
+```bash
+# Para Linux/macOS
+./scripts/build.sh
+
+# Para Windows
+scripts\build.bat
+
+# Usando Makefile
+make -f scripts/Makefile build
+
+# Python direto
+python scripts/prepare_ankiweb.py
+```
+
+Todos os scripts criam o arquivo `build/sheets2anki.ankiaddon` pronto para upload no AnkiWeb.

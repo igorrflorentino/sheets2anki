@@ -1,0 +1,27 @@
+# Arquivos gerados automaticamente pelo Anki
+meta.json
+
+# Build artifacts
+build/
+*.ankiaddon
+*.zip
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Scripts de desenvolvimento (manter no versionamento)
+# scripts/ - pasta com todos os scripts de build

@@ -16,8 +16,8 @@ Estrutura do add-on:
 - src/: Lógica de sincronização e processamento
 - libs/: Bibliotecas e dependências externas
 
-Autor: Dr. Basti
-Email: drbasti.co@gmail.com
+Autor: Igor Florentino
+Email: igorlopesc@gmail.com
 """
 
 # =============================================================================
@@ -39,11 +39,17 @@ if libs_path not in sys.path:
 # IMPORTS DO ANKI E MÓDULOS INTERNOS
 # =============================================================================
 
-# Imports principais do Anki
-from aqt import mw
-from aqt.utils import showInfo, qconnect
-from aqt.qt import QAction, QMenu, QKeySequence
-from aqt.importing import ImportDialog
+# Imports principais do Anki com compatibilidade
+try:
+    from .src.compat import mw, showInfo, QAction, QMenu, QKeySequence, safe_qconnect as qconnect
+    from aqt.importing import ImportDialog
+except ImportError as e:
+    # Fallback para desenvolvimento
+    print(f"Erro ao importar módulos de compatibilidade: {e}")
+    from aqt import mw
+    from aqt.utils import showInfo
+    from aqt.qt import QAction, QMenu, QKeySequence, qconnect
+    from aqt.importing import ImportDialog
 
 # Imports dos módulos internos com tratamento de erro robusto
 try:
@@ -55,10 +61,6 @@ try:
 except Exception as e:
     showInfo(f"Erro ao importar módulos do plugin sheets2anki:\n{e}")
     raise
-
-# =============================================================================
-# TEMPLATES E CONFIGURAÇÕES
-# =============================================================================
 
 # =============================================================================
 # TEMPLATES E CONFIGURAÇÕES
