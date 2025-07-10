@@ -4,6 +4,14 @@ Esta pasta contém a documentação técnica e guias relacionados ao desenvolvim
 
 ## Arquivos
 
+### `CORRECAO_CONTAGEM_DECKS.md`
+- **Descrição:** Correção do bug de contagem de decks sincronizados
+- **Conteúdo:**
+  - Análise do problema que sempre mostrava 2 decks sincronizados
+  - Explicação da causa raiz e solução implementada
+  - Teste de validação criado
+  - Status da correção
+
 ### `CORRECAO_IMPORTS.md`
 - **Descrição:** Documentação detalhada sobre a correção do erro de importação
 - **Conteúdo:** 

@@ -45,6 +45,11 @@ python tests/test_structure.py && python tests/test_imports.py
    - Presença das funções principais: `import_test_deck`, `addNewDeck`, `syncDecksWithSelection`, `removeRemoteDeck`
    - Presença da função `getAnkiPluginConnector` no utils
 
+4. **Contagem de Decks Sincronizados:**
+   - Verificação de que a contagem de decks sincronizados funciona corretamente
+   - Teste da correção do bug que causava sempre 2 decks sincronizados
+   - Validação da lógica de acumulação de estatísticas
+
 ## Status dos Testes
 
 ✅ **Todos os testes passando** - A estrutura do projeto está correta e o erro de importação foi resolvido.

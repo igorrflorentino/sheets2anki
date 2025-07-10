@@ -537,13 +537,13 @@ def syncDecks(selected_deck_names=None):
         # Sincronizar cada deck
         for deckKey in deck_keys:
             try:
-                step, decks_synced, current_stats = _sync_single_deck(
+                step, deck_sync_increment, current_stats = _sync_single_deck(
                     config, deckKey, progress, status_msgs, step
                 )
                 
                 # Acumular estatísticas
                 _accumulate_stats(total_stats, current_stats)
-                decks_synced += 1
+                decks_synced += deck_sync_increment
 
             except (ValueError, SyncError) as e:
                 step, sync_errors = _handle_sync_error(
@@ -642,7 +642,7 @@ def _setup_progress_dialog(total_decks):
     Returns:
         QProgressDialog: Dialog de progresso configurado
     """
-    progress = QProgressDialog("Sincronizando decks...", None, 0, total_decks * 3, mw)
+    progress = QProgressDialog("Sincronizando decks...", "", 0, total_decks * 3, mw)
     progress.setWindowTitle("Sincronização de Decks")
     progress.setMinimumDuration(0)
     progress.setValue(0)

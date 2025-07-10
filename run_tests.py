@@ -41,7 +41,8 @@ def main():
     # Lista de testes para executar
     tests = [
         ("tests/test_structure.py", "Teste de Estrutura do Projeto"),
-        ("tests/test_imports.py", "Teste de Importação de Módulos")
+        ("tests/test_imports.py", "Teste de Importação de Módulos"),
+        ("tests/test_deck_sync_counting.py", "Teste de Contagem de Decks Sincronizados")
     ]
     
     passed = 0
