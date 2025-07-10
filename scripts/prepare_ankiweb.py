@@ -126,18 +126,8 @@ def create_ankiweb_package():
             print(f"   ✓ {req}")
     
     # Verificar e validar manifest.json
-    manifest_path = package_dir / "manifest.json"
-    manifest_valid, manifest = validate_manifest(manifest_path)
-    
-    if not manifest_valid:
-        print("   ❌ ERRO: manifest.json inválido!")
-        return False
-    
-    print(f"   ✅ manifest.json válido para AnkiWeb")
-    
-    # Validar manifest.json de acordo com especificações do AnkiWeb
     print("\n🔍 Validando manifest.json...")
-    manifest_valid, manifest_data = validate_manifest(package_dir / "manifest.json")
+    manifest_valid, manifest = validate_manifest(package_dir / "manifest.json")
     if not manifest_valid:
         print("   ❌ ERRO: manifest.json não está conforme as especificações do AnkiWeb!")
         return False
@@ -201,11 +191,14 @@ def create_ankiweb_package():
     print(f"\n📊 ESTATÍSTICAS DO PACOTE:")
     print(f"   📁 Arquivos incluídos: {file_count}")
     print(f"   📦 Tamanho .ankiaddon: {ankiaddon_size:.1f} KB")
-    print(f"   🎯 Compatibilidade: Anki {manifest.get('min_point_version', 'N/A')} - {manifest.get('max_point_version', 'N/A')}")
+    if manifest:
+        print(f"   🎯 Compatibilidade: Anki {manifest.get('min_point_version', 'N/A')} - {manifest.get('max_point_version', 'N/A')}")
+    else:
+        print(f"   🎯 Compatibilidade: Anki N/A - N/A")
     
     print(f"\n✅ PACOTE CRIADO COM SUCESSO!")
     print(f"📍 Arquivo para AnkiWeb: {ankiaddon_path}")
-    print(f"\n� PRÓXIMOS PASSOS PARA PUBLICAÇÃO:")
+    print(f"\n📋 PRÓXIMOS PASSOS PARA PUBLICAÇÃO:")
     print("   1. Acesse: https://ankiweb.net/shared/addons/")
     print("   2. Clique em 'Upload' ou 'Share a New Add-on'")
     print(f"   3. Faça upload do arquivo: {ankiaddon_path.name}")

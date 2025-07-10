@@ -1,4 +1,3 @@
-
 """
 Módulo de Análise de Decks Remotos
 
@@ -36,7 +35,9 @@ Autor: Sheets2Anki Project
 # =============================================================================
 
 import csv
-import requests
+import urllib.request
+import urllib.error
+import socket
 import re  # Para expressões regulares
 from . import column_definitions as cols  # Definições centralizadas de colunas
 
@@ -105,14 +106,34 @@ def getRemoteDeck(url):
     """
     # 1. Download dos dados remotos
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        raise RemoteDeckError(f"Erro de rede ao baixar TSV: {e}")
+        # Usar timeout de 30 segundos e headers apropriados
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Sheets2Anki) AnkiAddon'
+        }
+        request = urllib.request.Request(url, headers=headers)
+        
+        response = urllib.request.urlopen(request, timeout=30)  # ✅ TIMEOUT LOCAL
+        
+        if response.getcode() != 200:
+            raise RemoteDeckError(f"URL retornou código de status inesperado: {response.getcode()}")
+            
+    except socket.timeout:
+        raise RemoteDeckError(f"Timeout ao acessar URL (30s). Verifique sua conexão ou tente novamente.")
+    except urllib.error.HTTPError as e:
+        raise RemoteDeckError(f"Erro HTTP {e.code}: {e.reason}")
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, socket.timeout):
+            raise RemoteDeckError(f"Timeout ao acessar URL. Verifique sua conexão ou tente novamente.")
+        elif isinstance(e.reason, socket.gaierror):
+            raise RemoteDeckError(f"Erro de DNS. Verifique sua conexão com a internet.")
+        else:
+            raise RemoteDeckError(f"Erro de conexão: {str(e.reason)}")
+    except Exception as e:
+        raise RemoteDeckError(f"Erro inesperado de rede ao baixar TSV: {e}")
     
     # 2. Decodificação do conteúdo
     try:
-        tsv_data = response.content.decode('utf-8')
+        tsv_data = response.read().decode('utf-8')
     except UnicodeDecodeError as e:
         raise RemoteDeckError(f"Erro ao decodificar conteúdo TSV: {e}")
 

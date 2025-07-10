@@ -49,6 +49,7 @@ from .compat import QDialog
 import sys
 import urllib.request
 import urllib.error
+import socket
 import hashlib
 import json
 from typing import List, Dict, Tuple, Optional, Any
@@ -464,28 +465,40 @@ def validate_url(url):
     
     # Testar acessibilidade da URL com timeout e tratamento de erros adequado
     try:
-        request = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0'}  # Alguns servidores bloqueiam o user agent padrão do Python
-        )
-        response = urllib.request.urlopen(request, timeout=10)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Sheets2Anki) AnkiAddon'  # User agent mais específico
+        }
+        request = urllib.request.Request(url, headers=headers)
+        
+        # USAR TIMEOUT LOCAL ao invés de global para evitar conflitos
+        # socket.setdefaulttimeout(30)  # ❌ REMOVIDO: configuração global
+        
+        response = urllib.request.urlopen(request, timeout=30)  # ✅ TIMEOUT LOCAL
         
         if response.getcode() != 200:
             raise ValueError(f"URL retornou código de status inesperado: {response.getcode()}")
-            
+        
         # Validar tipo de conteúdo
         content_type = response.headers.get('Content-Type', '').lower()
-        if not any(valid_type in content_type for valid_type in ['text/tab-separated-values', 'text/plain']):
+        if not any(valid_type in content_type for valid_type in ['text/tab-separated-values', 'text/plain', 'text/csv']):
             raise ValueError(f"URL não retorna conteúdo TSV (recebido {content_type})")
             
+    except socket.timeout:
+        raise ValueError("Timeout de conexão ao acessar a URL (30s). Verifique sua conexão ou tente novamente.")
     except urllib.error.HTTPError as e:
-        raise ValueError(f"Erro HTTP {e.code}: {str(e)}")
+        raise ValueError(f"Erro HTTP {e.code}: {e.reason}")
     except urllib.error.URLError as e:
-        raise ValueError(f"Erro ao acessar URL - Problema de rede ou servidor: {str(e)}")
-    except TimeoutError:
-        raise ValueError("Timeout de conexão ao acessar a URL")
+        if isinstance(e.reason, socket.timeout):
+            raise ValueError("Timeout de conexão ao acessar a URL. Verifique sua conexão ou tente novamente.")
+        elif isinstance(e.reason, socket.gaierror):
+            raise ValueError("Erro de DNS. Verifique sua conexão com a internet.")
+        else:
+            raise ValueError(f"Erro ao acessar URL - Problema de rede ou servidor: {str(e.reason)}")
     except Exception as e:
         raise ValueError(f"Erro inesperado ao acessar URL: {str(e)}")
+    # finally:  # ❌ REMOVIDO: não precisamos resetar timeout global
+    #     # Resetar timeout padrão
+    #     socket.setdefaulttimeout(None)
 
 # =============================================================================
 # CORE SYNCHRONIZATION FUNCTIONS
@@ -749,7 +762,7 @@ def _sync_single_deck(config, deckKey, progress, status_msgs, step):
     progress.setValue(step)
     mw.app.processEvents()
 
-    # 2. Parsing (já incluso no getRemoteDeck)
+    # 2. Parsing (já inclusos no getRemoteDeck)
     msg = f"{deckName}: processando dados..."
     status_msgs.append(msg)
     _update_progress_text(progress, status_msgs)
