@@ -16,7 +16,7 @@ from .parseRemoteDeck import getRemoteDeck
 from .note_processor import create_or_update_notes
 from .exceptions import SyncError
 
-def syncDecks(selected_deck_names=None):
+def syncDecks(selected_deck_names=None, selected_deck_urls=None):
     """
     Sincroniza todos os decks remotos com suas fontes.
     
@@ -29,6 +29,8 @@ def syncDecks(selected_deck_names=None):
     Args:
         selected_deck_names: Lista de nomes de decks para sincronizar. 
                            Se None, sincroniza todos os decks.
+        selected_deck_urls: Lista de URLs de decks para sincronizar.
+                          Se fornecida, tem precedência sobre selected_deck_names.
     """
     col = mw.col
     config = get_addon_config()
@@ -46,7 +48,7 @@ def syncDecks(selected_deck_names=None):
     }
 
     # Determinar quais decks sincronizar
-    deck_keys = _get_deck_keys_to_sync(config, selected_deck_names)
+    deck_keys = _get_deck_keys_to_sync(config, selected_deck_names, selected_deck_urls)
     total_decks = len(deck_keys)
     
     # Verificar se há decks para sincronizar
@@ -89,17 +91,24 @@ def syncDecks(selected_deck_names=None):
         if progress.isVisible():
             progress.close()
 
-def _get_deck_keys_to_sync(config, selected_deck_names):
+def _get_deck_keys_to_sync(config, selected_deck_names, selected_deck_urls=None):
     """
     Determina quais chaves de deck devem ser sincronizadas.
     
     Args:
         config: Configuração do addon
         selected_deck_names: Nomes dos decks selecionados ou None
+        selected_deck_urls: URLs dos decks selecionados ou None
         
     Returns:
         list: Lista de chaves de deck para sincronizar
     """
+    # Se URLs específicas foram fornecidas, usar apenas elas
+    if selected_deck_urls is not None:
+        # Filtrar apenas as URLs que existem na configuração
+        deck_keys = [url for url in selected_deck_urls if url in config["remote-decks"]]
+        return deck_keys
+    
     deck_keys = list(config["remote-decks"].keys())
     
     # Filtrar decks se uma seleção específica foi fornecida

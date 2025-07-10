@@ -110,6 +110,9 @@ def import_test_deck():
     Esta função é útil para desenvolvimento e testes, permitindo
     importar rapidamente decks pré-configurados sem precisar
     inserir URLs manualmente.
+    
+    Nota: Apenas o deck de teste importado será sincronizado, não afetando
+    outros decks previamente configurados.
     """
     # Obter lista de nomes dos decks de teste
     names = [name for name, url in TEST_SHEETS_URLS]
@@ -136,7 +139,8 @@ def import_test_deck():
     try:
         # Validar URL e importar deck
         _import_deck_from_url(url, deckName)
-        syncDecks()
+        # Sincronizar apenas o deck de teste recém-importado usando sua URL
+        syncDecks(selected_deck_urls=[url])
     except SyncError as e:
         showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
     except Exception as e:
@@ -179,7 +183,10 @@ def addNewDeck():
     1. Inserir uma URL de planilha publicada em formato TSV
     2. Validar a URL
     3. Definir um nome para o deck
-    4. Configurar e iniciar a sincronização
+    4. Configurar e iniciar a sincronização apenas do novo deck
+    
+    Nota: Apenas o deck recém-cadastrado será sincronizado, não afetando
+    outros decks previamente configurados.
     """
     # Solicitar URL do usuário
     url, okPressed = QInputDialog.getText(
@@ -228,7 +235,7 @@ def addNewDeck():
         showInfo(f"Error fetching the remote deck:\n{str(e)}")
         return
 
-    # Salvar configuração e sincronizar
+    # Salvar configuração e sincronizar apenas o novo deck
     try:
         config["remote-decks"][url] = {
             "url": url,
@@ -236,7 +243,8 @@ def addNewDeck():
             "deck_name": deckName
         }
         save_addon_config(config)
-        syncDecks()
+        # Sincronizar apenas o deck recém-cadastrado usando sua URL
+        syncDecks(selected_deck_urls=[url])
     except Exception as e:
         showInfo(f"Error saving deck configuration:\n{str(e)}")
         # Remover configuração com falha
