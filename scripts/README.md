@@ -1,90 +1,77 @@
-# 🚀 Scripts de Build - Sheets2Anki
+# Scripts de Build e Empacotamento
 
-Esta pasta contém todos os scripts necessários para fazer o build do add-on Sheets2Anki.
+Este diretório contém scripts Python para construir e validar os pacotes do add-on Sheets2Anki.
 
-## 📋 Scripts Disponíveis
+## Scripts Disponíveis
 
-### 1. **Script Shell (Linux/macOS)** - `build.sh`
+### `build_packages.py`
+**Script principal e mais recomendado para uso geral.**
+
+Menu interativo unificado que permite:
+- Construir pacote para AnkiWeb (`.ankiaddon`)
+- Construir pacote standalone (`.ankiaddon` com manifest completo)
+- Validar pacotes existentes
+- Limpar arquivos temporários
+
 ```bash
-# Build completo (com testes)
-./scripts/build.sh
-
-# Build rápido (sem testes)
-./scripts/build.sh --skip-tests
+python scripts/build_packages.py
 ```
 
-### 2. **Script Batch (Windows)** - `build.bat`
-```cmd
-REM Build completo (com testes)
-scripts\build.bat
+### `prepare_ankiweb.py`
+Constrói especificamente o pacote para upload no AnkiWeb.
 
-REM Build rápido (sem testes)
-scripts\build.bat --skip-tests
-```
+- Remove campos opcionais do manifest (mantém apenas os obrigatórios)
+- Limpa todos os arquivos de cache (`__pycache__`, `.pyc`, `.pyo`)
+- Gera `build/sheets2anki.ankiaddon` pronto para upload
+- Valida a estrutura do pacote
 
-### 3. **Makefile (Universal)** - `Makefile`
 ```bash
-# Ver comandos disponíveis
-make -f scripts/Makefile help
-
-# Build completo
-make -f scripts/Makefile build
-
-# Build rápido
-make -f scripts/Makefile build-quick
-
-# Executar testes
-make -f scripts/Makefile test
-
-# Limpar build
-make -f scripts/Makefile clean
-```
-
-### 4. **Python Direto** - `prepare_ankiweb.py`
-```bash
-# Executar diretamente
 python scripts/prepare_ankiweb.py
 ```
 
-## 🎯 Resultados
+### `create_standalone_package.py`
+Constrói um pacote standalone para distribuição independente.
 
-Todos os scripts criam:
-- **`build/sheets2anki.ankiaddon`** - Arquivo principal para upload no AnkiWeb
-- **`build/sheets2anki-backup.zip`** - Backup em formato ZIP
+- Mantém o manifest completo com todos os campos
+- Limpa arquivos de cache
+- Gera `build/sheets2anki-standalone.ankiaddon`
+- Valida a estrutura do pacote
 
-## 📦 Estrutura do Build
-
-```
-build/
-├── sheets2anki.ankiaddon    # 🚀 Upload no AnkiWeb
-├── sheets2anki-backup.zip   # 📦 Backup
-└── sheets2anki/             # 📁 Conteúdo extraído
-    ├── __init__.py
-    ├── manifest.json
-    ├── config.json
-    ├── src/
-    └── libs/
+```bash
+python scripts/create_standalone_package.py
 ```
 
-## ✅ Validações Automáticas
+### `validate_ankiaddon.py`
+Valida pacotes `.ankiaddon` existentes.
 
-Os scripts verificam:
-- ✓ Arquivos obrigatórios presentes
-- ✓ `manifest.json` válido
-- ✓ Estrutura de diretórios correta
-- ✓ Remoção de arquivos desnecessários
-- ✓ Limpeza automática de `meta.json` (se existir)
+- Verifica estrutura do ZIP
+- Valida manifest.json
+- Verifica ausência de arquivos de cache
+- Lista todos os arquivos incluídos
 
-## 🚀 Publicação no AnkiWeb
+```bash
+python scripts/validate_ankiaddon.py build/sheets2anki.ankiaddon
+```
 
-1. Execute qualquer script de build
-2. Acesse: https://ankiweb.net/shared/addons/
-3. Faça upload de `build/sheets2anki.ankiaddon`
-4. Preencha as informações do add-on
+## Workflow Recomendado
 
-## 💡 Dicas
+1. **Para desenvolvimento e testes**: Use `build_packages.py` para acesso rápido a todas as funções
+2. **Para upload no AnkiWeb**: Use `prepare_ankiweb.py` ou a opção correspondente no menu
+3. **Para distribuição independente**: Use `create_standalone_package.py` ou a opção correspondente no menu
+4. **Para validação**: Use `validate_ankiaddon.py` ou a opção correspondente no menu
 
-- Use `--skip-tests` para builds rápidos durante desenvolvimento
-- Execute os scripts a partir do diretório raiz do projeto
-- Todos os scripts são coloridos para melhor visualização
-- Em caso de erro, o script para e mostra a causa
+## Estrutura do Pacote
+
+Os scripts garantem que os pacotes `.ankiaddon` sigam as especificações do AnkiWeb:
+
+- ✅ Arquivos na raiz do ZIP (sem pasta pai)
+- ✅ `manifest.json` válido e presente
+- ✅ Ausência de arquivos `__pycache__`, `.pyc`, `.pyo`
+- ✅ Estrutura de diretórios preservada (`src/`, `libs/`, etc.)
+
+## Requisitos
+
+- Python 3.6+
+- Módulos padrão: `json`, `zipfile`, `os`, `shutil`, `tempfile`
+
+Todos os scripts são auto-suficientes e não requerem dependências externas.

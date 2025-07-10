@@ -145,20 +145,20 @@ Para desenvolvedores e informações técnicas:
 
 ### Scripts de Build
 
-O projeto inclui vários scripts automatizados para facilitar o desenvolvimento:
+O projeto inclui scripts Python para automatizar o build e empacotamento:
 
 ```bash
-# Para Linux/macOS
-./scripts/build.sh
+# Menu interativo unificado (recomendado)
+python scripts/build_packages.py
 
-# Para Windows
-scripts\build.bat
-
-# Usando Makefile
-make -f scripts/Makefile build
-
-# Python direto
+# Script específico para AnkiWeb
 python scripts/prepare_ankiweb.py
+
+# Script para pacote standalone
+python scripts/create_standalone_package.py
+
+# Validação de pacotes
+python scripts/validate_ankiaddon.py build/sheets2anki.ankiaddon
 ```
 
-Todos os scripts criam o arquivo `build/sheets2anki.ankiaddon` pronto para upload no AnkiWeb.
+Os scripts criam arquivos `.ankiaddon` prontos para upload no AnkiWeb ou distribuição independente. Consulte `scripts/README.md` para detalhes completos sobre cada script.
