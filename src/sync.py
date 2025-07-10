@@ -70,7 +70,7 @@ def syncDecks(selected_deck_names=None):
                 _accumulate_stats(total_stats, current_stats)
                 decks_synced += deck_sync_increment
 
-            except (Exception, SyncError) as e:
+            except SyncError as e:
                 step, sync_errors = _handle_sync_error(
                     e, deckKey, config, progress, status_msgs, sync_errors, step
                 )
