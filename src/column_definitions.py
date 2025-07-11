@@ -13,7 +13,8 @@ Funcionalidades principais:
 Estrutura da planilha esperada:
 - ID: Identificador único da questão
 - PERGUNTA: Texto principal da questão/frente do cartão
-- LEVAR PARA PROVA: Campo de filtro para seleção de questões
+- LEVAR PARA PROVA: Resposta sucinta e atômica da pergunta (núcleo da resposta)
+- SYNC?: Campo de controle de sincronização (true/false/1/0)
 - Campos informativos: Informações complementares e detalhadas
 - Exemplos: Até 3 exemplos relacionados à questão
 - Categorização: Tópico, subtópico, bancas e ano
@@ -29,7 +30,8 @@ Autor: Sheets2Anki Project
 # Campos obrigatórios básicos
 ID = 'ID'                           # Identificador único da questão
 PERGUNTA = 'PERGUNTA'               # Texto principal da questão/frente do cartão
-MATCH = 'LEVAR PARA PROVA'          # Campo de filtro (sim/não para incluir na sincronização)
+MATCH = 'LEVAR PARA PROVA'          # Resposta sucinta e atômica da pergunta (núcleo da resposta)
+SYNC = 'SYNC?'                      # Campo de controle de sincronização (true/false/1/0)
 
 # =============================================================================
 # CAMPOS INFORMATIVOS E COMPLEMENTARES
@@ -69,7 +71,8 @@ MORE_TAGS = 'TAGS ADICIONAIS'       # Tags adicionais para organização
 REQUIRED_COLUMNS = [
     ID,                    # Identificador único
     PERGUNTA,              # Texto da questão
-    MATCH,                 # Filtro de inclusão
+    MATCH,                 # Resposta sucinta (núcleo da resposta)
+    SYNC,                  # Controle de sincronização
     EXTRA_INFO_1,          # Info complementar
     EXTRA_INFO_2,          # Info detalhada
     EXEMPLO_1,             # Primeiro exemplo
@@ -89,11 +92,28 @@ REQUIRED_COLUMNS = [
 # Campos que são considerados obrigatórios para criação de notas
 ESSENTIAL_FIELDS = [ID, PERGUNTA]
 
-# Campos que podem ser usados para filtragem/seleção
+# Campos que podem ser usados para filtragem/seleção (exceto SYNC que é apenas controle interno)
 FILTER_FIELDS = [MATCH, TOPICO, SUBTOPICO, BANCAS]
 
 # Campos que contêm informações textuais extensas
-TEXT_FIELDS = [PERGUNTA, EXTRA_INFO_1, EXTRA_INFO_2, EXEMPLO_1, EXEMPLO_2, EXEMPLO_3]
+TEXT_FIELDS = [PERGUNTA, MATCH, EXTRA_INFO_1, EXTRA_INFO_2, EXEMPLO_1, EXEMPLO_2, EXEMPLO_3]
+
+# Campos que devem ser incluídos nas notas do Anki (excluindo controles internos)
+NOTE_FIELDS = [
+    ID,                    # Identificador único
+    PERGUNTA,              # Texto da questão
+    MATCH,                 # Resposta sucinta (núcleo da resposta)
+    EXTRA_INFO_1,          # Info complementar
+    EXTRA_INFO_2,          # Info detalhada
+    EXEMPLO_1,             # Primeiro exemplo
+    EXEMPLO_2,             # Segundo exemplo
+    EXEMPLO_3,             # Terceiro exemplo
+    TOPICO,                # Tópico principal
+    SUBTOPICO,             # Subtópico
+    BANCAS,                # Bancas relacionadas
+    ANO,                   # Ano da prova
+    MORE_TAGS              # Tags adicionais
+]
 
 # Campos que contêm metadados e tags
 METADATA_FIELDS = [TOPICO, SUBTOPICO, BANCAS, ANO, MORE_TAGS]
@@ -186,6 +206,47 @@ def get_field_category(field_name):
         return 'filter'
     else:
         return 'unknown'
+
+def should_sync_question(fields):
+    """
+    Verifica se uma questão deve ser sincronizada com base no campo SYNC.
+    
+    Args:
+        fields (dict): Dicionário com campos da questão
+        
+    Returns:
+        bool: True se deve sincronizar, False caso contrário
+        
+    Examples:
+        >>> fields = {'SYNC?': 'true'}
+        >>> should_sync_question(fields)
+        True
+        >>> fields = {'SYNC?': 'false'}
+        >>> should_sync_question(fields)
+        False
+        >>> fields = {'SYNC?': '1'}
+        >>> should_sync_question(fields)
+        True
+        >>> fields = {'SYNC?': '0'}
+        >>> should_sync_question(fields)
+        False
+    """
+    sync_value = fields.get(SYNC, '').strip().lower()
+    
+    # Considerar valores positivos: true, 1, sim, yes, verdadeiro
+    positive_values = ['true', '1', 'sim', 'yes', 'verdadeiro', 'v']
+    
+    # Considerar valores negativos: false, 0, não, no, falso
+    negative_values = ['false', '0', 'não', 'nao', 'no', 'falso', 'f']
+    
+    if sync_value in positive_values:
+        return True
+    elif sync_value in negative_values:
+        return False
+    else:
+        # Se o valor não for reconhecido, assumir que deve sincronizar
+        # para manter compatibilidade com planilhas antigas
+        return True
 
 def get_all_column_info():
     """

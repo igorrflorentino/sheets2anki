@@ -213,7 +213,7 @@ def addNewDeck():
     
     deckName = deckName.strip()
     if not deckName:
-        deckName = "Deck from CSV"
+        deckName = "Deck from TSV"
 
     # Verificar configuração
     config = get_addon_config()

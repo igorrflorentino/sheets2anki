@@ -17,7 +17,7 @@ Menu interativo unificado que permite:
 python scripts/build_packages.py
 ```
 
-### `prepare_ankiweb.py`
+### `create_standalone_package.py`
 Constrói especificamente o pacote para upload no AnkiWeb.
 
 - Remove campos opcionais do manifest (mantém apenas os obrigatórios)
@@ -26,7 +26,7 @@ Constrói especificamente o pacote para upload no AnkiWeb.
 - Valida a estrutura do pacote
 
 ```bash
-python scripts/prepare_ankiweb.py
+python scripts/create_standalone_package.py
 ```
 
 ### `create_standalone_package.py`
@@ -56,7 +56,7 @@ python scripts/validate_ankiaddon.py build/sheets2anki.ankiaddon
 ## Workflow Recomendado
 
 1. **Para desenvolvimento e testes**: Use `build_packages.py` para acesso rápido a todas as funções
-2. **Para upload no AnkiWeb**: Use `prepare_ankiweb.py` ou a opção correspondente no menu
+2. **Para upload no AnkiWeb**: Use `create_standalone_package.py` ou a opção correspondente no menu
 3. **Para distribuição independente**: Use `create_standalone_package.py` ou a opção correspondente no menu
 4. **Para validação**: Use `validate_ankiaddon.py` ou a opção correspondente no menu
 

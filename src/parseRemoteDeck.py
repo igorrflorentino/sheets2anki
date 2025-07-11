@@ -141,6 +141,8 @@ def getRemoteDeck(url):
     try:
         data = parse_tsv_data(tsv_data)
         remoteDeck = build_remote_deck_from_tsv(data)
+        # Armazenar URL para uso posterior
+        remoteDeck.url = url
         return remoteDeck
     except Exception as e:
         raise RemoteDeckError(f"Erro ao processar deck remoto: {e}")
@@ -346,7 +348,7 @@ def build_remote_deck_from_tsv(data):
 
     # 4. Criar e retornar deck
     remoteDeck = RemoteDeck()
-    remoteDeck.deckName = "Deck from CSV"
+    remoteDeck.deckName = "Deck from TSV"
     remoteDeck.questions = questions
 
     return remoteDeck
@@ -362,7 +364,7 @@ def _process_tsv_row(row, headers, header_indices, row_num):
         row_num (int): Número da linha (para debug)
         
     Returns:
-        dict: Questão processada ou None se inválida
+        dict: Questão processada ou None se inválida ou não deve ser sincronizada
     """
     # Pular linhas vazias
     if not any(cell.strip() for cell in row):
@@ -377,6 +379,10 @@ def _process_tsv_row(row, headers, header_indices, row_num):
 
     # Validar campos obrigatórios
     if not fields[cols.ID] or not fields[cols.PERGUNTA]:
+        return None
+
+    # Verificar se a questão deve ser sincronizada
+    if not cols.should_sync_question(fields):
         return None
 
     # Gerar tags dos campos

@@ -1,6 +1,13 @@
 # Sheets2Anki
 
-**Sheets2Anki** é um add-on para Anki que sincroniza seus decks com planilhas do Google Sheets publicadas em formato TSV. Suas planilhas do Google Sheets servem como fonte da verdade: quando você sincroniza, os cards são criados, atualizados ou removidos no seu deck do Anki para refletir o conteúdo da planilha.
+**Sheets2Anki** é um add-on para Anki que sincroniza- **Notas existentes não marcadas**: Permanecem intactas no Anki (não são excluídas)
+- 🚫 **Notas novas não marcadas**: Não são criadas no Anki
+
+### 📋 Exemplo de Planilha
+
+Um exemplo completo de planilha com a nova funcionalidade está disponível em [`docs/exemplo_planilha_com_sync.tsv`](docs/exemplo_planilha_com_sync.tsv).
+
+## Instalaçãos decks com planilhas do Google Sheets publicadas em formato TSV. Suas planilhas do Google Sheets servem como fonte da verdade: quando você sincroniza, os cards são criados, atualizados ou removidos no seu deck do Anki para refletir o conteúdo da planilha.
 
 ## Funcionalidades
 
@@ -42,7 +49,8 @@ Para usar o Sheets2Anki, sua planilha do Google Sheets deve ter exatamente as se
 |--------|-------------|-----------|
 | ID | ✅ | Identificador único para cada questão |
 | PERGUNTA | ✅ | Texto da questão/frente do card |
-| LEVAR PARA PROVA | ✅ | Campo de filtro (qualquer valor) |
+| LEVAR PARA PROVA | ✅ | **Resposta sucinta e atômica** - núcleo da resposta da pergunta |
+| SYNC? | ✅ | **Controle de sincronização** - true/1 para sincronizar, false/0 para não sincronizar |
 | INFO COMPLEMENTAR | ✅ | Informações complementares |
 | INFO DETALHADA | ✅ | Informações detalhadas |
 | EXEMPLO 1 | ✅ | Primeiro exemplo |
@@ -53,6 +61,21 @@ Para usar o Sheets2Anki, sua planilha do Google Sheets deve ter exatamente as se
 | BANCAS | ✅ | Bancas relacionadas |
 | ULTIMO ANO EM PROVA | ✅ | Ano da última ocorrência |
 | TAGS ADICIONAIS | ✅ | Tags extras separadas por vírgula |
+
+### 🔄 Controle de Sincronização com SYNC?
+
+A coluna **SYNC?** permite controlar individualmente quais questões são sincronizadas:
+
+- **Para sincronizar**: `true`, `1`, `sim`, `yes`, `verdadeiro`, `v` ou qualquer valor não reconhecido
+- **Para NÃO sincronizar**: `false`, `0`, `não`, `nao`, `no`, `falso`, `f`
+
+**✨ A coluna SYNC? é completamente case insensitive** - você pode usar `TRUE`, `True`, `SIM`, `False`, `NÃO`, etc.
+
+**Comportamento da sincronização:**
+- ✅ **Checkbox marcado (true/1)**: Nota é sincronizada normalmente
+- ❌ **Checkbox desmarcado (false/0)**: Nota é ignorada durante a sincronização
+- 🔒 **Notas existentes não marcadas**: Permanecem intactas no Anki (não são excluídas)
+- 🚫 **Notas novas não marcadas**: Não são criadas no Anki
 
 ## Instalação
 
@@ -67,7 +90,7 @@ Para usar o Sheets2Anki, sua planilha do Google Sheets deve ter exatamente as se
 2. Preencha suas questões seguindo o formato
 3. **Publique a planilha:**
    - Vá em Arquivo → Compartilhar → Publicar na web
-   - Escolha "Valores separados por vírgulas (.csv)" ou "Valores separados por tabulação (.tsv)"
+   - Escolha "Valores separados por tabulação (.tsv)"
    - Copie o link gerado
 
 ### 2. Adicionar Deck Remoto
@@ -95,7 +118,7 @@ Para usar o Sheets2Anki, sua planilha do Google Sheets deve ter exatamente as se
 ## Requisitos
 
 - Anki
-- Planilha do Google Sheets publicada em formato TSV/CSV
+- Planilha do Google Sheets publicada em formato TSV
 - Conexão com internet para sincronização
 
 ## Exemplo de Uso (Cards Cloze)

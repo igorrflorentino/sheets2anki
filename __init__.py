@@ -167,7 +167,7 @@ def removeRemote():
 # Verificar se o Anki está disponível antes de configurar a interface
 if mw is not None:
     # Criar submenu principal para funcionalidades do Sheets2Anki
-    remoteDecksSubMenu = QMenu("Gerenciar Decks sheets2anki", mw)
+    remoteDecksSubMenu = QMenu("Sheets2anki", mw)
     mw.form.menuTools.addMenu(remoteDecksSubMenu)
 
     # =========================================================================
@@ -175,13 +175,13 @@ if mw is not None:
     # =========================================================================
 
     # Ação: Adicionar novo deck remoto
-    remoteDeckAction = QAction("Adicionar Novo Deck Remoto sheets2anki", mw)
+    remoteDeckAction = QAction("Adicionar Novo Deck Remoto", mw)
     remoteDeckAction.setShortcut(QKeySequence("Ctrl+Shift+A"))
     qconnect(remoteDeckAction.triggered, addDeck)
     remoteDecksSubMenu.addAction(remoteDeckAction)
 
     # Ação: Sincronizar decks remotos
-    syncDecksAction = QAction("Sincronizar Decks", mw)
+    syncDecksAction = QAction("Sincronizar Decks Remotos", mw)
     syncDecksAction.setShortcut(QKeySequence("Ctrl+Shift+S"))
     qconnect(syncDecksAction.triggered, syncDecks)
     remoteDecksSubMenu.addAction(syncDecksAction)

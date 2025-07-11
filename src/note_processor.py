@@ -19,6 +19,9 @@ def create_or_update_notes(col, remoteDeck, deck_id):
     2. Atualização de notas existentes com novo conteúdo da fonte remota
     3. Remoção de notas que não existem mais na fonte remota
     
+    IMPORTANTE: Notas não marcadas para sincronização (SYNC? = false/0) são ignoradas
+    durante a sincronização, não sendo criadas, atualizadas ou excluídas.
+    
     Args:
         col: Objeto de coleção do Anki
         remoteDeck (RemoteDeck): Objeto do deck remoto contendo os dados para sincronizar
@@ -34,9 +37,9 @@ def create_or_update_notes(col, remoteDeck, deck_id):
     """
     def note_needs_update(note, fields, tags):
         """Verifica se uma nota precisa ser atualizada."""
-        # Comparar todos os campos relevantes
+        # Comparar apenas os campos que devem estar nas notas (excluindo campos de controle)
         for field_name, value in fields.items():
-            if field_name in note:
+            if field_name in column_definitions.NOTE_FIELDS and field_name in note:
                 # Anki armazena campos como string
                 if str(note[field_name]).strip() != str(value).strip():
                     return True
@@ -72,6 +75,11 @@ def create_or_update_notes(col, remoteDeck, deck_id):
 
         # Rastrear chaves processadas para identificar exclusões
         processed_keys = set()
+        
+        # Primeiro, identificar TODAS as questões que ainda existem na planilha
+        # (incluindo as não sincronizadas) para evitar excluir notas que apenas
+        # não devem ser sincronizadas
+        all_existing_keys_in_sheet = _get_all_question_keys_from_sheet(remoteDeck)
 
         # Processar cada pergunta da fonte remota
         for question in remoteDeck.questions:
@@ -96,7 +104,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                     note = existing_notes[key]
                     if note_needs_update(note, fields, tags):
                         for field_name, value in fields.items():
-                            if field_name in note:
+                            if field_name in column_definitions.NOTE_FIELDS and field_name in note:
                                 note[field_name] = value
                         note.tags = tags
                         try:
@@ -115,7 +123,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
 
                     note = col.new_note(model_to_use)
                     for field_name, value in fields.items():
-                        if field_name in note:
+                        if field_name in column_definitions.NOTE_FIELDS and field_name in note:
                             note[field_name] = value
                     note.tags = tags
                     
@@ -130,8 +138,9 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                 stats['error_details'].append(str(e))
                 continue
 
-        # Lidar com exclusões
-        notes_to_delete = set(existing_notes.keys()) - processed_keys
+        # Lidar com exclusões - apenas remover notas que não existem mais na planilha
+        # Notas que existem na planilha mas não estão sincronizadas devem ser preservadas
+        notes_to_delete = set(existing_notes.keys()) - all_existing_keys_in_sheet
         stats['deleted'] = len(notes_to_delete)
 
         if notes_to_delete:
@@ -156,3 +165,60 @@ def create_or_update_notes(col, remoteDeck, deck_id):
     except Exception as e:
         error_msg = f"Unexpected error during sync: {str(e)}"
         raise SyncError(error_msg)
+
+
+def _get_all_question_keys_from_sheet(remoteDeck):
+    """
+    Extrai todas as chaves (IDs) de questões da planilha, incluindo
+    as que não estão marcadas para sincronização.
+    
+    Args:
+        remoteDeck: Objeto RemoteDeck contendo dados da planilha
+        
+    Returns:
+        set: Conjunto de todas as chaves de questões que existem na planilha
+    """
+    from .parseRemoteDeck import getRemoteDeck
+    from . import column_definitions as cols
+    
+    # Precisamos acessar os dados brutos da planilha, não apenas as questões filtradas
+    # Para isso, vamos reprocessar a URL original sem filtros
+    try:
+        url = getattr(remoteDeck, 'url', None)
+        if not url:
+            return set()
+        
+        # Obter dados brutos da planilha
+        import urllib.request
+        import csv
+        
+        with urllib.request.urlopen(url) as response:
+            content = response.read().decode('utf-8')
+        
+        # Processar TSV
+        lines = content.strip().split('\n')
+        if not lines:
+            return set()
+            
+        # Detectar delimitador (TSV é o padrão)
+        delimiter = '\t' if '\t' in lines[0] else ','
+        reader = csv.reader(lines, delimiter=delimiter)
+        
+        # Processar headers
+        headers = next(reader)
+        if cols.ID not in headers:
+            return set()
+            
+        id_index = headers.index(cols.ID)
+        
+        # Extrair todas as chaves (IDs) da planilha
+        all_keys = set()
+        for row in reader:
+            if len(row) > id_index and row[id_index].strip():
+                all_keys.add(row[id_index].strip())
+        
+        return all_keys
+        
+    except Exception:
+        # Em caso de erro, retornar conjunto vazio para evitar exclusões acidentais
+        return set()

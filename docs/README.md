@@ -27,6 +27,31 @@ Esta pasta contém a documentação técnica e guias relacionados ao desenvolvim
   - Plano de refatoração implementado
   - Melhorias para compatibilidade
 
+### `ESCLARECIMENTO_LEVAR_PARA_PROVA.md`
+- **Descrição:** Esclarecimento sobre o uso correto da coluna 'LEVAR PARA PROVA'
+- **Conteúdo:**
+  - Correção da documentação inicial
+  - Explicação do propósito real da coluna
+  - Exemplos corretos e incorretos
+  - Diferença entre as colunas PERGUNTA, LEVAR PARA PROVA e SYNC?
+  - Guia de migração para planilhas com uso incorreto
+
+### `SINCRONIZACAO_SELETIVA_SYNC.md`
+- **Descrição:** Documentação completa da nova funcionalidade de sincronização seletiva
+- **Conteúdo:**
+  - Como usar a coluna SYNC? para controlar sincronização
+  - Comportamento detalhado da sincronização
+  - Cenários de uso e exemplos práticos
+  - Implementação técnica e arquivos modificados
+  - Guia de migração para planilhas existentes
+
+### `SINCRONIZACAO_SELETIVA.md`
+- **Descrição:** Funcionalidade anterior de sincronização seletiva para novos decks
+- **Conteúdo:**
+  - Problema identificado com sincronização de todos os decks
+  - Solução implementada para sincronizar apenas novos decks
+  - Arquivos modificados e correções de bugs
+
 ### `PREPARACAO_ANKIWEB.md`
 - **Descrição:** Guia completo para preparação e publicação no AnkiWeb
 - **Conteúdo:**

@@ -123,8 +123,8 @@ def create_model(col, model_name, is_cloze=False):
     if is_cloze:
         model['type'] = 1  # Definir como tipo cloze
     
-    # Adicionar campos
-    for field in column_definitions.REQUIRED_COLUMNS:
+    # Adicionar campos (excluindo campos de controle interno como SYNC?)
+    for field in column_definitions.NOTE_FIELDS:
         template = col.models.new_field(field)
         col.models.add_field(model, template)
     
