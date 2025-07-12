@@ -59,6 +59,7 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             'created': 0,
             'updated': 0,
             'deleted': 0,
+            'ignored': 0,
             'errors': 0,
             'error_details': []
         }
@@ -155,6 +156,10 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             col.save()
         except Exception as e:
             raise CollectionSaveError(f"Error saving collection: {str(e)}")
+
+        # Adicionar contagem de cards ignorados às estatísticas
+        if hasattr(remoteDeck, 'ignored_count'):
+            stats['ignored'] = remoteDeck.ignored_count
 
         # Retornar estatísticas sem mostrar info
         return stats

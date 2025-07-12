@@ -43,6 +43,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         'created': 0,
         'updated': 0,
         'deleted': 0,
+        'ignored': 0,
         'errors': 0,
         'error_details': []
     }
@@ -311,6 +312,7 @@ def _accumulate_stats(total_stats, deck_stats):
     total_stats['created'] += deck_stats['created']
     total_stats['updated'] += deck_stats['updated']
     total_stats['deleted'] += deck_stats['deleted']
+    total_stats['ignored'] += deck_stats.get('ignored', 0)
     total_stats['errors'] += deck_stats['errors']
     total_stats['error_details'].extend(deck_stats['error_details'])
 
@@ -368,6 +370,8 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
             final_msg += f", {total_stats['updated']} atualizados"
         if total_stats['deleted'] > 0:
             final_msg += f", {total_stats['deleted']} deletados"
+        if total_stats['ignored'] > 0:
+            final_msg += f", {total_stats['ignored']} ignorados"
         final_msg += f", {total_stats['errors'] + len(sync_errors)} erros"
     else:
         final_msg = f"Sincronização concluída com sucesso!"
@@ -377,6 +381,8 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
             final_msg += f", {total_stats['updated']} atualizados"
         if total_stats['deleted'] > 0:
             final_msg += f", {total_stats['deleted']} deletados"
+        if total_stats['ignored'] > 0:
+            final_msg += f", {total_stats['ignored']} ignorados"
     
     # Exibir mensagem final na barra e adicionar botão OK
     # Usar uma lista temporária para a mensagem final
@@ -403,6 +409,7 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
         summary += f"Cards criados: {total_stats['created']}\n"
         summary += f"Cards atualizados: {total_stats['updated']}\n"
         summary += f"Cards deletados: {total_stats['deleted']}\n"
+        summary += f"Cards ignorados: {total_stats['ignored']}\n"
         summary += f"Erros encontrados: {total_stats['errors'] + len(sync_errors)}\n\n"
         
         # Adicionar erros de nível de deck
@@ -424,5 +431,6 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
         summary += f"Cards criados: {total_stats['created']}\n"
         summary += f"Cards atualizados: {total_stats['updated']}\n"
         summary += f"Cards deletados: {total_stats['deleted']}\n"
+        summary += f"Cards ignorados: {total_stats['ignored']}\n"
         summary += "Nenhum erro encontrado."
         showInfo(summary)

@@ -64,6 +64,7 @@ class RemoteDeck:
         deckName (str): Nome do deck
         questions (list): Lista de questões/cards do deck
         media (list): Lista de arquivos de mídia associados
+        ignored_count (int): Número de cards ignorados devido à coluna SYNC?
     """
     
     def __init__(self):
@@ -71,6 +72,7 @@ class RemoteDeck:
         self.deckName = ""
         self.questions = []  # Mantém o atributo 'questions' para compatibilidade
         self.media = []
+        self.ignored_count = 0  # Contador de cards ignorados
 
     def getMedia(self):
         """
@@ -323,6 +325,7 @@ def build_remote_deck_from_tsv(data):
     3. Validação de campos obrigatórios
     4. Criação de tags hierárquicas
     5. Construção das questões finais
+    6. Contagem de cards ignorados devido à coluna SYNC?
     
     Args:
         data (list): Lista de listas contendo os dados TSV (headers + rows)
@@ -341,17 +344,53 @@ def build_remote_deck_from_tsv(data):
     
     # 3. Processar cada linha de dados
     questions = []
+    ignored_count = 0
     for row_num, row in enumerate(data[1:], start=2):
         question = _process_tsv_row(row, headers, header_indices, row_num)
         if question:  # Apenas adicionar se a questão for válida
             questions.append(question)
+        else:
+            # Verificar se foi ignorada devido à coluna SYNC?
+            if _row_ignored_due_to_sync(row, headers, header_indices):
+                ignored_count += 1
 
     # 4. Criar e retornar deck
     remoteDeck = RemoteDeck()
     remoteDeck.deckName = "Deck from TSV"
     remoteDeck.questions = questions
+    remoteDeck.ignored_count = ignored_count
 
     return remoteDeck
+
+def _row_ignored_due_to_sync(row, headers, header_indices):
+    """
+    Verifica se uma linha foi ignorada especificamente devido à coluna SYNC?.
+    
+    Args:
+        row (list): Dados da linha
+        headers (list): Lista de headers
+        header_indices (dict): Mapeamento de header para índice
+        
+    Returns:
+        bool: True se a linha foi ignorada devido à coluna SYNC?, False caso contrário
+    """
+    # Verificar se a linha não está vazia
+    if not any(cell.strip() for cell in row):
+        return False
+    
+    # Verificar se o comprimento da linha é válido
+    if len(row) != len(headers):
+        return False
+    
+    # Criar dicionário de campos
+    fields = _create_fields_dict(row, headers, header_indices)
+    
+    # Verificar se os campos obrigatórios estão presentes
+    if not fields[cols.ID] or not fields[cols.PERGUNTA]:
+        return False
+    
+    # Se chegou até aqui, a linha só foi rejeitada se should_sync_question retornou False
+    return not cols.should_sync_question(fields)
 
 def _process_tsv_row(row, headers, header_indices, row_num):
     """
