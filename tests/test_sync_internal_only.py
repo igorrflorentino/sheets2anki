@@ -52,7 +52,8 @@ def test_note_processing_excludes_sync():
         'LEVAR PARA PROVA': 'Brasília',
         'SYNC?': 'true',  # Este campo não deve ser processado na nota
         'INFO COMPLEMENTAR': 'Informação complementar',
-        'TOPICO': 'Geografia'
+        'TOPICO': 'Geografia',
+        'CONCEITO': 'Capital de país'
     }
     
     # Contar quantos campos seriam processados para a nota

@@ -23,6 +23,7 @@ def create_card_template(is_cloze=False):
     header_fields = [
         (column_definitions.TOPICO, column_definitions.TOPICO),
         (column_definitions.SUBTOPICO, column_definitions.SUBTOPICO),
+        (column_definitions.CONCEITO, column_definitions.CONCEITO),
     ]
     
     # Construir seção de cabeçalho

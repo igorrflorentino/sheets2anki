@@ -76,10 +76,10 @@ def test_tsv_parsing_simulation():
     print("\n🧪 Testando simulação de parsing TSV...")
     
     # Simular conteúdo TSV
-    tsv_content = """ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	INFO COMPLEMENTAR	INFO DETALHADA	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	BANCAS	ULTIMO ANO EM PROVA	TAGS ADICIONAIS
-001	Qual é a capital do Brasil?	Brasília	true	Brasília fundada em 1960	Capital federal	Plano Piloto	DF	Congresso	Geografia	Capitais	FCC	2023	geografia
-002	Quem foi o primeiro presidente?	Deodoro da Fonseca	false	Deodoro da Fonseca	1889-1891	República Velha	Proclamação	Marechal	História	República	CESPE	2022	historia
-003	Qual é a fórmula da água?	H2O	1	H2O é a fórmula	2H + 1O	Molécula polar	Ligação covalente	Ponto fusão	Química	Geral	VUNESP	2021	quimica"""
+    tsv_content = """ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	INFO COMPLEMENTAR	INFO DETALHADA	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	TAGS ADICIONAIS
+001	Qual é a capital do Brasil?	Brasília	true	Brasília fundada em 1960	Capital federal	Plano Piloto	DF	Congresso	Geografia	Capitais	Capital de país	FCC	2023	geografia
+002	Quem foi o primeiro presidente?	Deodoro da Fonseca	false	Deodoro da Fonseca	1889-1891	República Velha	Proclamação	Marechal	História	República	Primeiro governante	CESPE	2022	historia
+003	Qual é a fórmula da água?	H2O	1	H2O é a fórmula	2H + 1O	Molécula polar	Ligação covalente	Ponto fusão	Química	Geral	Fórmula molecular	VUNESP	2021	quimica"""
     
     # Simular processamento
     import csv

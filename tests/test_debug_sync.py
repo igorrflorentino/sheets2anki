@@ -23,7 +23,7 @@ def test_header_validation():
     csv_headers = [
         'ID', 'PERGUNTA', 'LEVAR PARA PROVA', 'SYNC?', 'INFO COMPLEMENTAR',
         'INFO DETALHADA', 'EXEMPLO 1', 'EXEMPLO 2', 'EXEMPLO 3', 'TOPICO',
-        'SUBTOPICO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'
+        'SUBTOPICO', 'CONCEITO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'
     ]
     
     print(f"  📋 Headers do CSV: {csv_headers}")
@@ -110,11 +110,13 @@ def test_full_processing():
         'Congresso Nacional',  # EXEMPLO 3
         'Geografia',  # TOPICO
         'Capitais',  # SUBTOPICO
+        'Capital de país',  # CONCEITO
         'FCC',  # BANCAS
         '2023',  # ULTIMO ANO EM PROVA
         'brasil;capital;geografia'  # TAGS ADICIONAIS
     ]
     
+    # Dados de teste - linha que NÃO deve ser sincronizada
     # Dados de teste - linha que NÃO deve ser sincronizada
     test_row_no_sync = [
         '003',  # ID
@@ -128,6 +130,7 @@ def test_full_processing():
         'Ponto de fusão 0°C',  # EXEMPLO 3
         'Química',  # TOPICO
         'Química Geral',  # SUBTOPICO
+        'Fórmula molecular',  # CONCEITO
         'VUNESP',  # BANCAS
         '2021',  # ULTIMO ANO EM PROVA
         'quimica;agua;formula'  # TAGS ADICIONAIS

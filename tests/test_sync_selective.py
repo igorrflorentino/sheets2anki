@@ -94,7 +94,7 @@ def test_column_validation():
     complete_columns = [
         'ID', 'PERGUNTA', 'LEVAR PARA PROVA', 'SYNC?', 'INFO COMPLEMENTAR',
         'INFO DETALHADA', 'EXEMPLO 1', 'EXEMPLO 2', 'EXEMPLO 3',
-        'TOPICO', 'SUBTOPICO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'
+        'TOPICO', 'SUBTOPICO', 'CONCEITO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'
     ]
     
     is_valid, missing = validate_required_columns(complete_columns)
@@ -107,7 +107,7 @@ def test_column_validation():
     incomplete_columns = [
         'ID', 'PERGUNTA', 'LEVAR PARA PROVA', 'INFO COMPLEMENTAR',
         'INFO DETALHADA', 'EXEMPLO 1', 'EXEMPLO 2', 'EXEMPLO 3',
-        'TOPICO', 'SUBTOPICO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'
+        'TOPICO', 'SUBTOPICO', 'CONCEITO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'
     ]
     
     is_valid, missing = validate_required_columns(incomplete_columns)

@@ -17,7 +17,7 @@ Estrutura da planilha esperada:
 - SYNC?: Campo de controle de sincronização (true/false/1/0)
 - Campos informativos: Informações complementares e detalhadas
 - Exemplos: Até 3 exemplos relacionados à questão
-- Categorização: Tópico, subtópico, bancas e ano
+- Categorização: Tópico, subtópico, conceito, bancas e ano
 - Tags: Tags adicionais para organização
 
 Autor: Sheets2Anki Project
@@ -57,6 +57,7 @@ EXEMPLO_3 = 'EXEMPLO 3'             # Terceiro exemplo
 # Categorização hierárquica do conteúdo
 TOPICO = 'TOPICO'                   # Tópico principal da questão
 SUBTOPICO = 'SUBTOPICO'             # Subtópico específico
+CONCEITO = 'CONCEITO'               # Conceito atômico sendo perguntado (mais refinado que subtópico)
 
 # Informações de contexto e fonte
 BANCAS = 'BANCAS'                   # Bancas organizadoras relacionadas
@@ -80,6 +81,7 @@ REQUIRED_COLUMNS = [
     EXEMPLO_3,             # Terceiro exemplo
     TOPICO,                # Tópico principal
     SUBTOPICO,             # Subtópico
+    CONCEITO,              # Conceito atômico
     BANCAS,                # Bancas relacionadas
     ANO,                   # Ano da prova
     MORE_TAGS              # Tags adicionais
@@ -93,7 +95,7 @@ REQUIRED_COLUMNS = [
 ESSENTIAL_FIELDS = [ID, PERGUNTA]
 
 # Campos que podem ser usados para filtragem/seleção (exceto SYNC que é apenas controle interno)
-FILTER_FIELDS = [MATCH, TOPICO, SUBTOPICO, BANCAS]
+FILTER_FIELDS = [MATCH, TOPICO, SUBTOPICO, CONCEITO, BANCAS]
 
 # Campos que contêm informações textuais extensas
 TEXT_FIELDS = [PERGUNTA, MATCH, EXTRA_INFO_1, EXTRA_INFO_2, EXEMPLO_1, EXEMPLO_2, EXEMPLO_3]
@@ -110,13 +112,14 @@ NOTE_FIELDS = [
     EXEMPLO_3,             # Terceiro exemplo
     TOPICO,                # Tópico principal
     SUBTOPICO,             # Subtópico
+    CONCEITO,              # Conceito atômico
     BANCAS,                # Bancas relacionadas
     ANO,                   # Ano da prova
     MORE_TAGS              # Tags adicionais
 ]
 
 # Campos que contêm metadados e tags
-METADATA_FIELDS = [TOPICO, SUBTOPICO, BANCAS, ANO, MORE_TAGS]
+METADATA_FIELDS = [TOPICO, SUBTOPICO, CONCEITO, BANCAS, ANO, MORE_TAGS]
 
 # =============================================================================
 # FUNÇÕES UTILITÁRIAS
