@@ -24,6 +24,7 @@ Um exemplo completo de planilha com a nova funcionalidade está disponível em [
   - `EXEMPLO 1`, `EXEMPLO 2`, `EXEMPLO 3`: Exemplos relacionados
   - `TOPICO`: Tópico principal da questão
   - `SUBTOPICO`: Subtópico específico
+  - `CONCEITO`: Conhecimento exigido para responder
   - `BANCAS`: Bancas organizadoras relacionadas
   - `ULTIMO ANO EM PROVA`: Último ano em que apareceu em prova
   - `TAGS ADICIONAIS`: Tags adicionais para organização
