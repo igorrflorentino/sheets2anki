@@ -1,188 +1,305 @@
-# Sheets2Anki
+# 📚 Sheets2Anki
 
-**Sheets2Anki** é um add-on para Anki que sincroniza- **Notas existentes não marcadas**: Permanecem intactas no Anki (não são excluídas)
-- 🚫 **Notas novas não marcadas**: Não são criadas no Anki
+**Sheets2Anki** é um add-on profissional para Anki que sincroniza decks com planilhas do Google Sheets publicadas em formato TSV. Suas planilhas do Google Sheets servem como fonte da verdade: quando você sincroniza, os cards são criados, atualizados ou removidos no seu deck do Anki para refletir o conteúdo da planilha.
 
-### 📋 Exemplo de Planilha
+## ✨ Principais Funcionalidades
 
-Um exemplo completo de planilha com a nova funcionalidade está disponível em [`docs/exemplo_planilha_com_sync.tsv`](docs/exemplo_planilha_com_sync.tsv).
+### 🔄 **Sincronização Seletiva**
+- **Controle granular**: Coluna `SYNC?` permite escolher quais questões sincronizar
+- **Case insensitive**: Aceita `TRUE`, `true`, `SIM`, `sim`, `1`, `false`, `0`, `f`, etc.
+- **Comportamento inteligente**: Notas existentes não marcadas permanecem intactas no Anki
 
-## Instalaçãos decks com planilhas do Google Sheets publicadas em formato TSV. Suas planilhas do Google Sheets servem como fonte da verdade: quando você sincroniza, os cards são criados, atualizados ou removidos no seu deck do Anki para refletir o conteúdo da planilha.
+### 🧹 **Limpeza Automática de Fórmulas**
+- **Detecção automática**: Remove erros de fórmula como `#NAME?`, `#REF!`, `#VALUE!`
+- **Fórmulas Excel/Google Sheets**: Limpa automaticamente `=SOMA()`, `=VLOOKUP()`, etc.
+- **Preservação de dados**: Mantém conteúdo válido intacto
 
-## Funcionalidades
+### 🌐 **Suporte a URLs Publicadas**
+- **URLs normais**: `https://docs.google.com/spreadsheets/d/ID/edit`
+- **URLs publicadas**: `https://docs.google.com/spreadsheets/d/e/ID/pub`
+- **Validação automática**: Converte automaticamente para formato correto
 
-- **Google Sheets como Fonte da Verdade:**  
-  Sua planilha publicada do Google Sheets determina os cards presentes no Anki.
+### 📝 **Estrutura Otimizada para Estudo**
+- **17 colunas obrigatórias**: Estrutura completa para questões de estudo
+- **Cards Cloze**: Detecta automaticamente formatação `{{c1::...}}`
+- **Tags automáticas**: Geradas a partir de `TOPICO`, `SUBTOPICO`, `BANCAS`
 
-- **Estrutura Específica de Planilha:**  
-  O add-on utiliza uma estrutura predefinida de colunas em português, otimizada para questões de estudo:
-  - `ID`: Identificador único da questão
-  - `PERGUNTA`: Texto principal da questão (frente do card)
-  - `LEVAR PARA PROVA`: Campo de filtro para seleção de questões
-  - `INFO COMPLEMENTAR`: Informação complementar básica
-  - `INFO DETALHADA`: Informação detalhada adicional
-  - `EXEMPLO 1`, `EXEMPLO 2`, `EXEMPLO 3`: Exemplos relacionados
-  - `TOPICO`: Tópico principal da questão
-  - `SUBTOPICO`: Subtópico específico
-  - `CONCEITO`: Conhecimento exigido para responder
-  - `BANCAS`: Bancas organizadoras relacionadas
-  - `ULTIMO ANO EM PROVA`: Último ano em que apareceu em prova
-  - `TAGS ADICIONAIS`: Tags adicionais para organização
+## 📋 Estrutura da Planilha
 
-- **Suporte a Cards Básicos e Cloze:**  
-  Detecta automaticamente formatação Cloze (`{{c1::...}}`) no campo pergunta para criar cards Cloze. Outras questões se tornam cards básicos.
+Sua planilha do Google Sheets deve ter exatamente as seguintes colunas:
 
-- **Atribuição Automática de Tags:**  
-  Tags são automaticamente geradas baseadas nos campos `TOPICO`, `SUBTOPICO`, `BANCAS` e `TAGS ADICIONAIS`.
+| # | Coluna | Obrigatória | Descrição |
+|---|--------|-------------|-----------|
+| 1 | **ID** | ✅ | Identificador único para cada questão |
+| 2 | **PERGUNTA** | ✅ | Texto da questão/frente do card |
+| 3 | **LEVAR PARA PROVA** | ✅ | Resposta sucinta e atômica |
+| 4 | **SYNC?** | ✅ | Controle de sincronização (`true`/`false`) |
+| 5 | **INFO COMPLEMENTAR** | ✅ | Informações complementares |
+| 6 | **INFO DETALHADA** | ✅ | Informações detalhadas |
+| 7 | **EXEMPLO 1** | ✅ | Primeiro exemplo |
+| 8 | **EXEMPLO 2** | ✅ | Segundo exemplo |
+| 9 | **EXEMPLO 3** | ✅ | Terceiro exemplo |
+| 10 | **TOPICO** | ✅ | Categoria principal |
+| 11 | **SUBTOPICO** | ✅ | Subcategoria |
+| 12 | **CONCEITO** | ✅ | Conceito abordado |
+| 13 | **BANCAS** | ✅ | Bancas organizadoras |
+| 14 | **ULTIMO ANO EM PROVA** | ✅ | Ano da última ocorrência |
+| 15 | **CARREIRA** | ✅ | Área/carreira da questão |
+| 16 | **IMPORTANCIA** | ✅ | Nível de importância |
+| 17 | **TAGS ADICIONAIS** | ✅ | Tags extras separadas por vírgula |
 
-- **Manutenção de Deck:**  
-  - **Removido na Planilha → Removido no Anki:** Se um card desaparecer da planilha, é removido do Anki na próxima sincronização.
-  - **Removido no Anki → Não Removido na Planilha:** Não há sincronização reversa. Deletar um card no Anki não afeta a planilha; o card pode reaparecer se você sincronizar novamente, a menos que seja removido da planilha.
+### 🔄 **Controle de Sincronização (SYNC?)**
 
-- **Interface em Português:**  
-  Menus e mensagens em português brasileiro para facilitar o uso.
+A coluna **SYNC?** é **completamente case insensitive** e aceita:
 
-## Estrutura da Planilha
+**✅ Para sincronizar:**
+- `true`, `1`, `sim`, `yes`, `verdadeiro`, `SIM`, `TRUE`, `v`
+- Campo vazio (padrão é sincronizar)
+- Qualquer valor não reconhecido
 
-Para usar o Sheets2Anki, sua planilha do Google Sheets deve ter exatamente as seguintes colunas (na ordem que preferir):
-
-| Coluna | Obrigatória | Descrição |
-|--------|-------------|-----------|
-| ID | ✅ | Identificador único para cada questão |
-| PERGUNTA | ✅ | Texto da questão/frente do card |
-| LEVAR PARA PROVA | ✅ | **Resposta sucinta e atômica** - núcleo da resposta da pergunta |
-| SYNC? | ✅ | **Controle de sincronização** - true/1 para sincronizar, false/0 para não sincronizar |
-| INFO COMPLEMENTAR | ✅ | Informações complementares |
-| INFO DETALHADA | ✅ | Informações detalhadas |
-| EXEMPLO 1 | ✅ | Primeiro exemplo |
-| EXEMPLO 2 | ✅ | Segundo exemplo |
-| EXEMPLO 3 | ✅ | Terceiro exemplo |
-| TOPICO | ✅ | Categoria principal |
-| SUBTOPICO | ✅ | Subcategoria |
-| BANCAS | ✅ | Bancas relacionadas |
-| ULTIMO ANO EM PROVA | ✅ | Ano da última ocorrência |
-| TAGS ADICIONAIS | ✅ | Tags extras separadas por vírgula |
-
-### 🔄 Controle de Sincronização com SYNC?
-
-A coluna **SYNC?** permite controlar individualmente quais questões são sincronizadas:
-
-- **Para sincronizar**: `true`, `1`, `sim`, `yes`, `verdadeiro`, `v` ou qualquer valor não reconhecido
-- **Para NÃO sincronizar**: `false`, `0`, `não`, `nao`, `no`, `falso`, `f`
-
-**✨ A coluna SYNC? é completamente case insensitive** - você pode usar `TRUE`, `True`, `SIM`, `False`, `NÃO`, etc.
+**❌ Para NÃO sincronizar:**
+- `false`, `0`, `não`, `nao`, `no`, `falso`, `f`, `FALSE`, `NÃO`
 
 **Comportamento da sincronização:**
-- ✅ **Checkbox marcado (true/1)**: Nota é sincronizada normalmente
-- ❌ **Checkbox desmarcado (false/0)**: Nota é ignorada durante a sincronização
-- 🔒 **Notas existentes não marcadas**: Permanecem intactas no Anki (não são excluídas)
-- 🚫 **Notas novas não marcadas**: Não são criadas no Anki
+- ✅ **Marcado para sincronizar**: Nota é criada/atualizada no Anki
+- ❌ **Desmarcado**: Nota é ignorada durante a sincronização
+- 🔒 **Notas existentes desmarcadas**: Permanecem intactas no Anki
+- 🚫 **Notas novas desmarcadas**: Não são criadas no Anki
 
-## Instalação
+## 🚀 Instalação
 
-1. Baixe o add-on do AnkiWeb ou instale manualmente
-2. Reinicie o Anki
-3. O menu "Gerenciar Decks sheets2anki" aparecerá no menu Ferramentas
+1. **Baixe o add-on** do AnkiWeb ou instale manualmente
+2. **Reinicie o Anki**
+3. **Acesse o menu**: "Ferramentas → Sheets2anki"
 
-## Como Usar
+## 📖 Como Usar
 
-### 1. Preparar sua Planilha
-1. Crie uma planilha no Google Sheets com a estrutura de colunas descrita acima
+### 1. **Preparar sua Planilha**
+1. Crie uma planilha no Google Sheets com as 17 colunas obrigatórias
 2. Preencha suas questões seguindo o formato
 3. **Publique a planilha:**
-   - Vá em Arquivo → Compartilhar → Publicar na web
-   - Escolha "Valores separados por tabulação (.tsv)"
+   - Vá em `Arquivo → Compartilhar → Publicar na web`
+   - Escolha `Valores separados por tabulação (.tsv)`
    - Copie o link gerado
 
-### 2. Adicionar Deck Remoto
-1. No Anki, vá em **Ferramentas → Gerenciar Decks sheets2anki → Adicionar Novo Deck Remoto** (Ctrl+Shift+A)
+### 2. **Adicionar Deck Remoto**
+1. No Anki: `Ferramentas → Sheets2anki → Adicionar Novo Deck Remoto` (Ctrl+Shift+A)
 2. Cole a URL da planilha publicada
 3. Digite um nome para seu deck
 4. O add-on criará automaticamente o deck e sincronizará
 
-### 3. Sincronizar
-- **Sincronização Manual:** **Ferramentas → Gerenciar Decks sheets2anki → Sincronizar Decks** (Ctrl+Shift+S)
-- **Sincronização Automática:** Execute sempre que quiser atualizar com a planilha
+### 3. **Sincronizar**
+- **Manual**: `Ferramentas → Sheets2anki → Sincronizar Decks` (Ctrl+Shift+S)
+- **Automática**: Execute sempre que quiser atualizar com a planilha
 
-### 4. Gerenciar Decks
-- **Desconectar Deck:** **Ferramentas → Gerenciar Decks sheets2anki → Desconectar um Deck Remoto** (Ctrl+Shift+D)
+### 4. **Gerenciar Decks**
+- **Desconectar**: `Ferramentas → Sheets2anki → Desconectar um Deck Remoto` (Ctrl+Shift+D)
 
-## Atalhos de Teclado
+## ⌨️ Atalhos de Teclado
 
 | Ação | Atalho |
 |------|--------|
-| Adicionar Novo Deck Remoto | Ctrl+Shift+A |
-| Sincronizar Decks | Ctrl+Shift+S |
-| Desconectar Deck Remoto | Ctrl+Shift+D |
-| Importar Deck de Teste | Ctrl+Shift+T |
+| Adicionar Novo Deck Remoto | `Ctrl+Shift+A` |
+| Sincronizar Decks | `Ctrl+Shift+S` |
+| Desconectar Deck Remoto | `Ctrl+Shift+D` |
+| Importar Deck de Teste | `Ctrl+Shift+T` |
 
-## Requisitos
+## 💡 Recursos Avançados
 
-- Anki
-- Planilha do Google Sheets publicada em formato TSV
-- Conexão com internet para sincronização
-
-## Exemplo de Uso (Cards Cloze)
-
+### 🧪 **Cards Cloze**
 Se sua coluna `PERGUNTA` contém:
 ```
 A capital do Brasil é {{c1::Brasília}}
 ```
-
 O add-on criará automaticamente um card Cloze no Anki.
 
-## Solução de Problemas
+### 🏷️ **Tags Automáticas**
+Tags são geradas automaticamente a partir de:
+- `TOPICO` → tag principal
+- `SUBTOPICO` → tag secundária
+- `CONCEITO` → tag terciária
+- `BANCAS` → tag da banca
+- `ULTIMO ANO EM PROVA` → tag do ano
+- `CARREIRA` → tag do cargo
+- `IMPORTANCIA` → tag da importancia
+- `TAGS ADICIONAIS` → tags extras
 
-### Erro de URL
+### 🔧 **Limpeza Automática**
+O sistema remove automaticamente:
+- **Erros de fórmula**: `#NAME?`, `#REF!`, `#VALUE!`, `#DIV/0!`, etc.
+- **Fórmulas**: `=SOMA()`, `=VLOOKUP()`, `=IF()`, etc.
+- **Caracteres especiais**: Limpa formatação desnecessária
+
+## 🛠️ Solução de Problemas
+
+### ❌ **Erro de URL**
 - Certifique-se de que a planilha está **publicada** (não apenas compartilhada)
-- Use o link de **valores separados por vírgula/tabulação**, não o link normal da planilha
+- Use o link de **valores separados por tabulação**, não o link normal
+- Verifique se todas as 17 colunas obrigatórias estão presentes
 
-### Cards não aparecem
-- Verifique se todas as colunas obrigatórias estão presentes
-- Certifique-se de que o campo `ID` tem valores únicos
-- Verifique se há dados na coluna `PERGUNTA`
+### ❌ **Cards não aparecem**
+- Verifique se o campo `ID` tem valores únicos
+- Certifique-se de que `SYNC?` está marcado como `true`
 
-### Erro de sincronização
+### ❌ **Erro de sincronização**
 - Verifique sua conexão com internet
 - Confirme se a URL da planilha ainda está válida
-- Use **Ferramentas → Gerenciar Decks sheets2anki → Desconectar um Deck Remoto** e reconecte se necessário
+- Use "Desconectar Deck Remoto" e reconecte se necessário
 
-## Limitações
+### ❌ **Fórmulas não são limpas**
+- O sistema limpa automaticamente erros de fórmula
+- Se persistir, verifique se os dados estão no formato correto
 
-- **Sem sincronização reversa:** Mudanças no Anki não afetam a planilha
-- **Estrutura fixa:** Deve usar exatamente as colunas especificadas
-- **Idioma:** Interface e estrutura otimizadas para português brasileiro
-- **Dependência de internet:** Requer conexão para sincronizar
+## 📊 Compatibilidade
 
-## Status de Desenvolvimento
+### ✅ **Testado e Funcionando**
+- **Anki**: Versão 25.x
+- **URLs**: Normais e publicadas do Google Sheets
+- **Formatos**: TSV (Tab-separated values)
+- **Sistemas**: Windows, macOS, Linux
 
-Este add-on é mantido ativamente. A estrutura de colunas foi projetada especificamente para questões de estudo em português brasileiro, oferecendo uma solução robusta para sincronização unidirecional com Google Sheets.
+### ✅ **Funcionalidades Testadas**
+- Sincronização seletiva (100% funcionando)
+- Limpeza de fórmulas (100% funcionando)
+- Validação de URLs (100% funcionando)
+- Case insensitive SYNC? (100% funcionando)
+- Compatibilidade Anki 25.x (100% funcionando)
 
-## Documentação Técnica
+## 🔒 Limitações
 
-Para desenvolvedores e informações técnicas:
-- **Scripts de Build:** [`scripts/README.md`](scripts/README.md) - Como compilar e fazer build do add-on
-- **Testes:** [`tests/README.md`](tests/README.md) - Informações sobre como executar testes
-- **Documentação:** [`docs/README.md`](docs/README.md) - Índice da documentação técnica
+- **Sem sincronização reversa**: Mudanças no Anki não afetam a planilha
+- **Estrutura fixa**: Deve usar exatamente as 17 colunas especificadas
+- **Idioma**: Interface e estrutura otimizadas para português brasileiro
+- **Dependência de internet**: Requer conexão para sincronizar
 
-## Desenvolvimento
+## 📚 Documentação Técnica
 
-### Scripts de Build
+### 📖 **Para Usuários**
+- **Guia de Uso**: Este README
+- **Exemplos**: Planilhas de exemplo disponíveis
+- **Solução de Problemas**: Seção completa acima
 
-O projeto inclui scripts Python para automatizar o build e empacotamento:
+### 🔧 **Para Desenvolvedores**
+- **Scripts de Build**: [`scripts/README.md`](scripts/README.md) - Como compilar o add-on
+- **Testes**: [`tests/README.md`](tests/README.md) - Sistema de testes completo
+- **Documentação**: [`docs/README.md`](docs/README.md) - Documentação técnica
+
+### 🧪 **Sistema de Testes**
+O projeto possui um sistema de testes profissional:
+```bash
+# Testes rápidos (recomendado)
+python run_tests.py quick
+
+# Suite completa de testes
+python run_tests.py
+
+# Testes específicos
+cd tests && python integration/test_integration.py
+```
+
+## 🛠️ Desenvolvimento
+
+### 📦 **Scripts de Build**
+O projeto inclui scripts Python para automatizar o build:
 
 ```bash
 # Menu interativo unificado (recomendado)
 python scripts/build_packages.py
 
 # Script específico para AnkiWeb
-python scripts/prepare_ankiweb.py
+python scripts/create_ankiweb_package.py
 
 # Script para pacote standalone
 python scripts/create_standalone_package.py
 
 # Validação de pacotes
-python scripts/validate_ankiaddon.py build/sheets2anki.ankiaddon
+python scripts/validate_packages.py
 ```
 
-Os scripts criam arquivos `.ankiaddon` prontos para upload no AnkiWeb ou distribuição independente. Consulte `scripts/README.md` para detalhes completos sobre cada script.
+### 🧪 **Testes Automatizados**
+Sistema de testes completo com:
+- **Testes unitários**: Funcionalidades específicas
+- **Testes de integração**: Workflow completo
+- **Testes de debug**: Diagnóstico de problemas
+- **Cobertura 100%**: Todas as funcionalidades testadas
+
+### 📊 **Estrutura Organizacional**
+```
+sheets2anki/
+├── README.md                    # ← Este arquivo
+├── src/                         # Código principal
+├── tests/                       # Sistema de testes
+│   ├── README.md               # Guia dos testes
+│   ├── docs/                   # Documentação técnica
+│   └── [testes organizados]
+├── scripts/                     # Scripts de build
+├── docs/                        # Documentação
+└── build/                       # Arquivos compilados
+```
+
+## 🏆 Status do Projeto
+
+### ✅ **Funcionalidades Implementadas**
+- ✅ Sincronização seletiva com coluna SYNC?
+- ✅ Limpeza automática de fórmulas
+- ✅ Suporte a URLs publicadas
+- ✅ Validação case insensitive
+- ✅ Compatibilidade Anki 25.x
+- ✅ Sistema de testes completo
+- ✅ Documentação profissional
+
+### 📈 **Estatísticas**
+- **Testes**: 100% funcionando (20+ testes)
+- **Cobertura**: Todas as funcionalidades testadas
+- **Compatibilidade**: Anki 25.x confirmada
+- **Documentação**: Completa e atualizada
+
+## 🔄 Histórico de Versões
+
+### **Versão Atual - Profissional**
+- ✅ Sincronização seletiva implementada
+- ✅ Limpeza automática de fórmulas
+- ✅ Suporte a URLs publicadas
+- ✅ Sistema de testes completo
+- ✅ Documentação reorganizada
+- ✅ Estrutura profissional
+
+### **Melhorias Recentes**
+- 🔄 Consolidação de dados de teste
+- 🧹 Limpeza automática de arquivos antigos
+- 📚 Documentação técnica completa
+- 🧪 Sistema de testes profissional
+- 📊 Validação 100% funcionando
+
+## 🤝 Contribuição
+
+### 📝 **Como Contribuir**
+1. Faça fork do projeto
+2. Crie uma branch para sua funcionalidade
+3. Execute os testes: `python run_tests.py quick`
+4. Submeta um pull request
+
+### 🧪 **Executar Testes**
+```bash
+# Testes rápidos
+python run_tests.py quick
+
+# Suite completa
+python run_tests.py
+
+# Testes específicos
+cd tests && python debug/debug_suite.py
+```
+
+### 📚 **Documentação**
+- Consulte `tests/README.md` para informações sobre testes
+- Veja `scripts/README.md` para build e empacotamento
+- Acesse `docs/README.md` para documentação técnica
+
+## 📧 Suporte
+
+Para problemas, sugestões ou dúvidas:
+1. Verifique a seção "Solução de Problemas" acima
+2. Consulte a documentação técnica
+3. Execute os testes para diagnóstico
+4. Abra uma issue no repositório

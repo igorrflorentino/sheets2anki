@@ -16,16 +16,16 @@ def test_with_real_csv():
     
     print("🧪 Testando com dados reais do CSV...")
     
-    # Dados exatos do CSV (convertidos para TSV)
-    csv_data = '''ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	INFO COMPLEMENTAR	INFO DETALHADA	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	TAGS ADICIONAIS
-001	Qual é a capital do Brasil?	Brasília	true	Brasília foi fundada em 1960	A capital federal do Brasil é Brasília	Plano Piloto	Distrito Federal	Congresso Nacional	Geografia	Capitais	Capital de país	FCC	2023	brasil;capital;geografia
-002	Quem foi o primeiro presidente do Brasil?	Deodoro da Fonseca	1	Deodoro da Fonseca foi o primeiro presidente	Governou de 1889 a 1891	República Velha	Proclamação da República	Marechal Deodoro	História	República	Primeiro governante	CESPE	2022	historia;presidentes;brasil
-003	Qual é a fórmula da água?	H2O	false	H2O é a fórmula química da água	Composta por 2 átomos de hidrogênio e 1 de oxigênio	Molécula polar	Ligação covalente	Ponto de fusão 0°C	Química	Química Geral	Fórmula molecular	VUNESP	2021	quimica;agua;formula
-004	Qual é o maior planeta do sistema solar?	Júpiter	0	Júpiter é o maior planeta	Planeta gasoso com maior massa	Grande Mancha Vermelha	Luas galileanas	Cinturão de asteroides	Astronomia	Sistema Solar	Planeta maior	FGV	2023	astronomia;planetas;jupiter
-005	Qual é a velocidade da luz?	299.792.458 m/s	verdadeiro	299.792.458 m/s no vácuo	Velocidade máxima no universo	Teoria da relatividade	Einstein	Constante física	Física	Óptica	Constante física	CESPE	2022	fisica;luz;velocidade
-006	Qual é a capital da França?	Paris	f	Paris é a capital da França	Cidade luz da Europa	Torre Eiffel	Museu do Louvre	Rio Sena	Geografia	Capitais Europeias	Capital de país	FCC	2020	geografia;europa;capital
-007	Qual é o símbolo químico do ouro?	Au	SIM	Au vem do latim aurum	Metal precioso número atômico 79	Ourives	Joalheria	Reserva de valor	Química	Tabela Periódica	Símbolo químico	VUNESP	2023	quimica;ouro;simbolo
-008	Quantos continentes existem?	6 continentes		Tradicionalmente são 6 continentes	Ásia África América Europa Oceania Antártida	Pangeia	Deriva continental	Placas tectônicas	Geografia	Continentes	Quantidade de continentes	FGV	2021	geografia;continentes;mundo'''
+    # Dados exatos do CSV (convertidos para TSV) - COMPLETO com todas as colunas
+    csv_data = '''ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	INFO COMPLEMENTAR	INFO DETALHADA	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	CARREIRA	IMPORTANCIA	TAGS ADICIONAIS
+001	Qual é a capital do Brasil?	Brasília	true	Brasília foi fundada em 1960	A capital federal do Brasil é Brasília	Plano Piloto	Distrito Federal	Congresso Nacional	Geografia	Capitais	Capital de país	FCC	2023	PC	Alta	brasil;capital;geografia
+002	Quem foi o primeiro presidente do Brasil?	Deodoro da Fonseca	1	Deodoro da Fonseca foi o primeiro presidente	Governou de 1889 a 1891	República Velha	Proclamação da República	Marechal Deodoro	História	República	Primeiro governante	CESPE	2022	PC	Alta	historia;presidentes;brasil
+003	Qual é a fórmula da água?	H2O	false	H2O é a fórmula química da água	Composta por 2 átomos de hidrogênio e 1 de oxigênio	Molécula polar	Ligação covalente	Ponto de fusão 0°C	Química	Química Geral	Fórmula molecular	VUNESP	2021	PC	Média	quimica;agua;formula
+004	Qual é o maior planeta do sistema solar?	Júpiter	0	Júpiter é o maior planeta	Planeta gasoso com maior massa	Grande Mancha Vermelha	Luas galileanas	Cinturão de asteroides	Astronomia	Sistema Solar	Planeta maior	FGV	2023	PC	Média	astronomia;planetas;jupiter
+005	Qual é a velocidade da luz?	299.792.458 m/s	verdadeiro	299.792.458 m/s no vácuo	Velocidade máxima no universo	Teoria da relatividade	Einstein	Constante física	Física	Óptica	Constante física	CESPE	2022	PC	Alta	fisica;luz;velocidade
+006	Qual é a capital da França?	Paris	f	Paris é a capital da França	Cidade luz da Europa	Torre Eiffel	Museu do Louvre	Rio Sena	Geografia	Capitais Europeias	Capital de país	FCC	2020	PC	Baixa	geografia;europa;capital
+007	Qual é o símbolo químico do ouro?	Au	SIM	Au vem do latim aurum	Metal precioso número atômico 79	Ourives	Joalheria	Reserva de valor	Química	Tabela Periódica	Símbolo químico	VUNESP	2023	PC	Alta	quimica;ouro;simbolo
+008	Quantos continentes existem?	6 continentes		Tradicionalmente são 6 continentes	Ásia África América Europa Oceania Antártida	Pangeia	Deriva continental	Placas tectônicas	Geografia	Continentes	Quantidade de continentes	FGV	2021	PC	Média	geografia;continentes;mundo'''
     
     try:
         # Processar como TSV

@@ -3,13 +3,54 @@
 Script de teste integrado para o projeto Sheets2Anki
 
 Este script executa todos os testes disponíveis e fornece um relatório
-completo sobre o status do projeto.
+completo sobre o status do projeto. 
+
+Agora utiliza a nova estrutura organizada de testes na pasta tests/.
 """
 
 import sys
 import os
 import subprocess
 import glob
+
+def run_organized_tests(test_type='all'):
+    """Executa os testes organizados na pasta tests/"""
+    tests_dir = os.path.join(os.path.dirname(__file__), 'tests')
+    
+    if test_type == 'quick':
+        print("🚀 EXECUTANDO TESTES RÁPIDOS (NOVA ESTRUTURA)")
+        cmd = [sys.executable, os.path.join(tests_dir, 'run_all_tests.py'), 'quick']
+    else:
+        print("🚀 EXECUTANDO SUITE COMPLETA DE TESTES (NOVA ESTRUTURA)")
+        cmd = [sys.executable, os.path.join(tests_dir, 'run_all_tests.py')]
+    
+    try:
+        result = subprocess.run(cmd, cwd=tests_dir, timeout=300)
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        print("⏰ Timeout: Testes demoraram mais de 5 minutos")
+        return False
+    except Exception as e:
+        print(f"❌ Erro ao executar testes: {e}")
+        return False
+
+def run_legacy_tests():
+    """Executa testes antigos que ainda existem"""
+    legacy_tests = []
+    
+    # Buscar por testes na raiz que ainda existem
+    for pattern in ['test_*.py', 'debug_*.py']:
+        legacy_tests.extend(glob.glob(pattern))
+    
+    if legacy_tests:
+        print(f"⚠️  Encontrados {len(legacy_tests)} arquivos de teste antigos na raiz:")
+        for test in legacy_tests:
+            print(f"   - {test}")
+        print("   Recomendação: mover para tests/ ou remover se obsoletos")
+        return False
+    else:
+        print("✅ Nenhum arquivo de teste antigo encontrado na raiz")
+        return True
 
 def run_test(test_file, description):
     """Executa um teste e retorna o resultado"""
@@ -58,51 +99,54 @@ def main():
     print("🚀 EXECUTANDO SUITE DE TESTES - SHEETS2ANKI")
     print("=" * 60)
     
-    # Descobrir automaticamente todos os testes
-    tests = get_all_test_files()
+    # Verificar argumentos da linha de comando
+    test_type = 'all'
+    if len(sys.argv) > 1 and sys.argv[1] == 'quick':
+        test_type = 'quick'
     
-    if not tests:
-        print("❌ NENHUM ARQUIVO DE TESTE ENCONTRADO na pasta 'tests/'")
-        print("💡 Certifique-se de que existem arquivos 'test_*.py' na pasta 'tests/'")
-        return 1
+    # Executar testes organizados
+    print("📋 Usando nova estrutura organizada de testes")
+    organized_success = run_organized_tests(test_type)
     
-    print(f"📋 Encontrados {len(tests)} arquivo(s) de teste:")
-    for test_file, description in tests:
-        print(f"   • {test_file}")
+    # Verificar arquivos antigos
+    print("\n" + "=" * 60)
+    print("🔍 VERIFICANDO ESTRUTURA ANTIGA")
+    legacy_clean = run_legacy_tests()
     
-    passed = 0
-    total = len(tests)
+    # Resumo final
+    print("\n" + "=" * 60)
+    print("📊 RESUMO FINAL")
+    print("=" * 60)
     
-    # Executar cada teste
-    for test_file, description in tests:
-        if run_test(test_file, description):
-            passed += 1
-    
-    # Relatório final
-    print(f"\n{'='*60}")
-    print("📊 RELATÓRIO FINAL")
-    print(f"{'='*60}")
-    print(f"Testes executados: {total}")
-    print(f"Testes aprovados: {passed}")
-    print(f"Testes falharam: {total - passed}")
-    
-    # Análise mais detalhada
-    if passed == total:
-        print("\n🎉 TODOS OS TESTES PASSARAM!")
-        print("✅ O projeto está funcionando corretamente.")
-        print("✅ Todas as funcionalidades foram validadas.")
-        return 0
-    elif passed >= total * 0.7:  # Se pelo menos 70% dos testes passaram
-        print(f"\n⚠️  {total - passed} TESTE(S) FALHARAM")
-        print(f"✅ {passed} de {total} testes passaram ({passed/total*100:.1f}%)")
-        print("⚠️  Alguns testes podem falhar devido a dependências ausentes no ambiente de desenvolvimento.")
-        print("💡 No ambiente Anki real, essas dependências estão disponíveis.")
-        return 0  # Considerar sucesso se a maioria passou
+    if organized_success:
+        print("✅ Testes organizados: SUCESSO")
     else:
-        print(f"\n❌ {total - passed} TESTE(S) FALHARAM")
-        print(f"❌ Apenas {passed} de {total} testes passaram ({passed/total*100:.1f}%)")
-        print("❌ Problemas críticos precisam ser corrigidos.")
-        return 1
+        print("❌ Testes organizados: FALHOU")
+    
+    if legacy_clean:
+        print("✅ Estrutura: LIMPA (sem arquivos antigos)")
+    else:
+        print("⚠️  Estrutura: ARQUIVOS ANTIGOS ENCONTRADOS")
+    
+    overall_success = organized_success and legacy_clean
+    
+    if overall_success:
+        print("\n🎉 TODOS OS TESTES PASSARAM!")
+        print("💡 Estrutura de testes organizada e funcionando perfeitamente")
+    else:
+        print("\n⚠️  ALGUNS PROBLEMAS ENCONTRADOS")
+        if not organized_success:
+            print("   - Testes organizados falharam")
+        if not legacy_clean:
+            print("   - Arquivos antigos precisam ser movidos/removidos")
+    
+    print("\n� COMANDOS ÚTEIS:")
+    print("   python run_tests.py        # Executar todos os testes")
+    print("   python run_tests.py quick  # Executar testes rápidos")
+    print("   cd tests && python run_all_tests.py  # Executar da pasta tests")
+    print("   cd tests && python integration/test_integration.py  # Teste específico")
+    
+    return 0 if overall_success else 1
 
 if __name__ == "__main__":
     exit_code = main()

@@ -12,6 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 # Adicionar o diretório src ao path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+from src.column_definitions import REQUIRED_COLUMNS
+
 def test_header_validation():
     """Testa se a validação de headers está funcionando corretamente."""
     from src.parseRemoteDeck import validate_tsv_headers
@@ -19,12 +21,8 @@ def test_header_validation():
     
     print("🧪 Testando validação de headers...")
     
-    # Headers do exemplo CSV
-    csv_headers = [
-        'ID', 'PERGUNTA', 'LEVAR PARA PROVA', 'SYNC?', 'INFO COMPLEMENTAR',
-        'INFO DETALHADA', 'EXEMPLO 1', 'EXEMPLO 2', 'EXEMPLO 3', 'TOPICO',
-        'SUBTOPICO', 'CONCEITO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'
-    ]
+    # Headers completos com todas as colunas obrigatórias
+    csv_headers = REQUIRED_COLUMNS.copy()
     
     print(f"  📋 Headers do CSV: {csv_headers}")
     print(f"  📋 Headers obrigatórios: {REQUIRED_COLUMNS}")
@@ -43,11 +41,11 @@ def test_field_mapping():
     
     print("\n🧪 Testando mapeamento de campos...")
     
-    headers = ['ID', 'PERGUNTA', 'LEVAR PARA PROVA', 'SYNC?', 'INFO COMPLEMENTAR']
+    headers = REQUIRED_COLUMNS.copy()
     header_indices = {header: idx for idx, header in enumerate(headers)}
     
-    # Linha de teste com SYNC? = true
-    test_row = ['001', 'Qual é a capital do Brasil?', 'Brasília', 'true', 'Informação complementar']
+    # Linha de teste com SYNC? = true (com todas as colunas)
+    test_row = ['001', 'Qual é a capital do Brasil?', 'Brasília', 'true', 'Informação complementar'] + [''] * (len(headers) - 5)
     
     fields = _create_fields_dict(test_row, headers, header_indices)
     

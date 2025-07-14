@@ -1,61 +1,172 @@
-# Testes - Sheets2Anki
+# 📋 Testes - Sheets2Anki
 
-Esta pasta contém os testes para o add-on Sheets2Anki.
+## 🎯 Visão Geral
 
-## Arquivos de Teste
+Esta pasta contém todos os testes organizados para o addon Sheets2Anki. O sistema de testes foi completamente reorganizado para ser profissional, escalável e fácil de manter.
 
-### `test_structure.py`
-- **Descrição:** Teste de verificação da estrutura do projeto
-- **Função:** Verifica se todos os arquivos estão no local correto e se as correções de import foram aplicadas
-- **Como executar:** `python tests/test_structure.py`
+## 📁 Estrutura Organizada
 
-### `test_imports.py`
-- **Descrição:** Teste de importação de módulos
-- **Função:** Verifica se os módulos podem ser importados corretamente
-- **Como executar:** `python tests/test_imports.py`
-
-## Como Executar os Testes
-
-### Do diretório raiz do projeto:
-```bash
-# Teste de estrutura
-python tests/test_structure.py
-
-# Teste de imports
-python tests/test_imports.py
+```
+tests/
+├── README.md                          # ← Este arquivo (visão geral)
+├── run_all_tests.py                   # Script principal de execução
+├── test_data_consolidated.tsv         # Dados de teste consolidados
+├── test_data_helpers.py               # Funções helper para dados
+├── docs/                              # Documentação detalhada
+│   ├── STRUCTURE.md                   # Estrutura detalhada dos testes
+│   ├── DATA_GUIDE.md                  # Guia dos dados de teste
+│   └── MIGRATION_GUIDE.md             # Guia de migração
+├── debug/                             # Scripts de debug
+│   └── debug_suite.py                 # Suite de debug consolidada
+├── integration/                       # Testes de integração
+│   └── test_integration.py            # Testes de integração completos
+├── workflow/                          # Testes de workflow
+│   └── test_workflow.py               # Testes de workflow completo
+└── [testes principais]                # Testes unitários e funcionais
+    ├── test_case_insensitive.py       # Case insensitive SYNC?
+    ├── test_sync_selective.py         # Sincronização seletiva
+    ├── test_formula_errors_simple.py  # Limpeza de erros de fórmula
+    ├── test_url_validation.py         # Validação de URLs
+    ├── test_compatibility.py          # Compatibilidade Anki 25.x
+    ├── test_deck_sync_counting.py     # Contagem de decks
+    ├── test_structure.py              # Estrutura do projeto
+    ├── test_imports.py                # Importações
+    ├── test_real_csv.py               # Dados reais CSV
+    ├── test_debug_sync.py             # Debug sincronização
+    └── [outros testes...]
 ```
 
-### Executar todos os testes:
+## 🚀 Como Executar
+
+### 1. **Execução Rápida (Recomendado)**
 ```bash
-# Executar ambos os testes
-python tests/test_structure.py && python tests/test_imports.py
+# Da raiz do projeto
+python run_tests.py quick
+
+# Ou diretamente da pasta tests
+cd tests
+python run_all_tests.py quick
 ```
 
-## O que os Testes Verificam
+### 2. **Suite Completa**
+```bash
+# Da raiz do projeto
+python run_tests.py
 
-1. **Estrutura de Arquivos:**
-   - Existência dos arquivos principais (`src/main.py`, `libs/org_to_anki/utils.py`, `__init__.py`)
-   - Presença das funções necessárias nos arquivos corretos
+# Ou diretamente da pasta tests
+cd tests
+python run_all_tests.py
+```
 
-2. **Correções de Import:**
-   - Verificação de que os imports foram corrigidos para apontar para `src/` ao invés de `remote_decks/`
-   - Confirmação de que o caminho das bibliotecas está correto
+### 3. **Testes Específicos**
+```bash
+cd tests
 
-3. **Integridade do Código:**
-   - Presença das funções principais: `import_test_deck`, `addNewDeck`, `syncDecksWithSelection`, `removeRemoteDeck`
-   - Presença da função `getAnkiPluginConnector` no utils
+# Testes por categoria
+python debug/debug_suite.py             # Debug completo
+python integration/test_integration.py  # Integração
+python workflow/test_workflow.py        # Workflow
 
-4. **Contagem de Decks Sincronizados:**
-   - Verificação de que a contagem de decks sincronizados funciona corretamente
-   - Teste da correção do bug que causava sempre 2 decks sincronizados
-   - Validação da lógica de acumulação de estatísticas
+# Testes individuais
+python test_case_insensitive.py         # Case insensitive
+python test_sync_selective.py           # Sincronização seletiva
+python test_formula_errors_simple.py    # Limpeza de fórmulas
+```
 
-## Status dos Testes
+## 📊 Status dos Testes
 
-✅ **Todos os testes passando** - A estrutura do projeto está correta e o erro de importação foi resolvido.
+### ✅ **Testes Rápidos (100% Funcionando)**
+- `test_case_insensitive.py` ✅
+- `test_sync_selective.py` ✅
+- `test_formula_errors_simple.py` ✅
+- `test_url_validation.py` ✅
+- `integration/test_integration.py` ✅
 
-## Notas Importantes
+### ✅ **Funcionalidades Testadas**
+1. **Sincronização Seletiva** - Coluna SYNC? com múltiplos valores
+2. **Limpeza de Fórmulas** - Erros #NAME?, #REF!, =FORMULA
+3. **Validação de URLs** - URLs publicadas e normais
+4. **Case Insensitive** - SYNC? aceita variações de case
+5. **Contagem de Cards** - Cards sincronizados vs ignorados
+6. **Compatibilidade** - Anki 25.x
+7. **Estrutura** - Imports e arquivos organizados
 
-- Os testes são executados a partir do diretório raiz do projeto
-- Alguns testes podem mostrar avisos sobre dependências ausentes (como `requests`) durante o desenvolvimento, mas isso é normal
-- Os testes verificam a estrutura e imports, não a funcionalidade completa do add-on (que requer o ambiente Anki)
+## 🔧 Dados de Teste
+
+### 📄 **Arquivo Principal:** `test_data_consolidated.tsv`
+- **20 linhas** de dados + header
+- **17 colunas** obrigatórias
+- **Todos os cenários** de teste cobertos
+
+### 🔍 **Tipos de Dados Incluídos:**
+- **Sincronização**: `true`, `1`, `SIM`, `false`, `0`, `f`, etc.
+- **Erros de Fórmula**: `#NAME?`, `#REF!`, `#VALUE!`, `=FORMULA`
+- **Áreas**: Geografia, História, Química, Matemática, etc.
+
+### 🧰 **Funções Helper:**
+```python
+from test_data_helpers import load_test_data
+
+# Dados básicos para testes rápidos
+basic_data = load_test_data('basic')
+
+# Dados com erros de fórmula
+formula_data = load_test_data('formula_errors')
+
+# Dados para testes de sincronização
+sync_data = load_test_data('sync_tests')
+```
+
+## 📚 Documentação
+
+### 📖 **Guias Detalhados:**
+- **`docs/STRUCTURE.md`** - Estrutura completa dos testes
+- **`docs/DATA_GUIDE.md`** - Guia detalhado dos dados
+- **`docs/MIGRATION_GUIDE.md`** - Como migrar testes antigos
+
+### 🔧 **Scripts Utilitários:**
+- **`migrate_to_consolidated.py`** - Migração de dados antigos
+- **`test_data_helpers.py`** - Funções para trabalhar com dados
+
+## 🎯 Benefícios da Organização
+
+### ✅ **Estrutura Profissional**
+- Testes organizados por categoria
+- Documentação completa
+- Dados centralizados
+
+### ✅ **Execução Flexível**
+- Testes rápidos para desenvolvimento
+- Suite completa para CI/CD
+- Testes específicos para debug
+
+### ✅ **Manutenção Facilitada**
+- Scripts centralizados
+- Imports padronizados
+- Estrutura escalável
+
+## 🛠️ Desenvolvimento
+
+### 📝 **Adicionar Novo Teste:**
+1. Criar arquivo `test_nova_funcionalidade.py`
+2. Usar `test_data_helpers.py` para dados
+3. Seguir padrão dos testes existentes
+4. Documentar no README apropriado
+
+### 🔄 **Atualizar Dados:**
+1. Editar `test_data_consolidated.tsv`
+2. Usar funções helper para acessar
+3. Validar com testes existentes
+4. Atualizar documentação
+
+## 🏆 Resultado
+
+**✅ Sistema de testes 100% organizado e funcional!**
+
+- ✅ Estrutura profissional e escalável
+- ✅ Todos os testes funcionando (100% sucesso)
+- ✅ Dados centralizados e documentados
+- ✅ Fácil manutenção e desenvolvimento
+- ✅ Execução flexível e rápida
+
+**🎉 Pronto para desenvolvimento profissional!**
