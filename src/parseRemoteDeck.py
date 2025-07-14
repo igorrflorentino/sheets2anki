@@ -255,9 +255,12 @@ def create_tags_from_fields(fields):
     hierárquico de tags para melhor organização no Anki.
     
     Estrutura de tags criadas:
-    - topicos::topico1::subtopicos_do_topico1
+    - topicos::topico1::subtopicos::subtopico1
+    - topicos::topico1::conceitos::conceito1
     - bancas::banca1
     - provas::ano1
+    - carreiras::carreira1
+    - importancia::nivel_importancia
     - variado::tag_adicional1
     
     Args:
@@ -267,25 +270,36 @@ def create_tags_from_fields(fields):
         list: Lista de tags hierárquicas compatíveis com o Anki
         
     Examples:
-        >>> fields = {'TOPICO': 'Direito Civil', 'SUBTOPICO': 'Contratos, Responsabilidade'}
+        >>> fields = {'TOPICO': 'Direito Civil', 'SUBTOPICO': 'Contratos', 'CONCEITO': 'Responsabilidade'}
         >>> create_tags_from_fields(fields)
-        ['topicos::Direito_Civil::Contratos', 'topicos::Direito_Civil::Responsabilidade']
+        ['topicos::Direito_Civil::subtopicos::Contratos', 'topicos::Direito_Civil::conceitos::Responsabilidade']
     """
     tags = []
     
-    # Processar TOPICO e SUBTOPICO
+    # Processar TOPICO, SUBTOPICO e CONCEITO de forma hierárquica
     topico = clean_tag_text(fields.get(cols.TOPICO, ''))
     subtopicos_raw = fields.get(cols.SUBTOPICO, '')
+    conceitos_raw = fields.get(cols.CONCEITO, '')
     
     if topico:
+        # Processar SUBTOPICO dentro do TOPICO
         if subtopicos_raw:
             # Dividir subtópicos por vírgula e processar cada um
             for subtopico in subtopicos_raw.split(','):
                 subtopico_clean = clean_tag_text(subtopico)
                 if subtopico_clean:
-                    tags.append(f"topicos::{topico}::{subtopico_clean}")
-        else:
-            # Se não há subtópicos, criar tag apenas com tópico principal
+                    tags.append(f"topicos::{topico}::subtopicos::{subtopico_clean}")
+        
+        # Processar CONCEITO dentro do TOPICO
+        if conceitos_raw:
+            # Dividir conceitos por vírgula e processar cada um
+            for conceito in conceitos_raw.split(','):
+                conceito_clean = clean_tag_text(conceito)
+                if conceito_clean:
+                    tags.append(f"topicos::{topico}::conceitos::{conceito_clean}")
+        
+        # Se não há subtópicos nem conceitos, criar tag apenas com tópico principal
+        if not subtopicos_raw and not conceitos_raw:
             tags.append(f"topicos::{topico}")
             
     # Processar BANCAS (pode ter múltiplos valores separados por vírgula)
@@ -300,6 +314,19 @@ def create_tags_from_fields(fields):
     ano = clean_tag_text(fields.get(cols.ANO, ''))
     if ano:
         tags.append(f"provas::{ano}")
+        
+    # Processar CARREIRA (pode ter múltiplos valores separados por vírgula)
+    carreira = fields.get(cols.CARREIRA, '')
+    if carreira:
+        for carr in carreira.split(','):
+            carr_clean = clean_tag_text(carr)
+            if carr_clean:
+                tags.append(f"carreiras::{carr_clean}")
+        
+    # Processar IMPORTANCIA
+    importancia = clean_tag_text(fields.get(cols.IMPORTANCIA, ''))
+    if importancia:
+        tags.append(f"importancia::{importancia}")
         
     # Processar MORE_TAGS (tags adicionais)
     more_tags = fields.get(cols.MORE_TAGS, '')

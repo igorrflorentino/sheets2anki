@@ -62,6 +62,8 @@ CONCEITO = 'CONCEITO'               # Conceito atômico sendo perguntado (mais r
 # Informações de contexto e fonte
 BANCAS = 'BANCAS'                   # Bancas organizadoras relacionadas
 ANO = 'ULTIMO ANO EM PROVA'         # Último ano em que apareceu em prova
+CARREIRA = 'CARREIRA'               # Carreira ou área profissional relacionada
+IMPORTANCIA = 'IMPORTANCIA'         # Nível de importância da questão
 MORE_TAGS = 'TAGS ADICIONAIS'       # Tags adicionais para organização
 
 # =============================================================================
@@ -84,6 +86,8 @@ REQUIRED_COLUMNS = [
     CONCEITO,              # Conceito atômico
     BANCAS,                # Bancas relacionadas
     ANO,                   # Ano da prova
+    CARREIRA,              # Carreira ou área profissional
+    IMPORTANCIA,           # Nível de importância
     MORE_TAGS              # Tags adicionais
 ]
 
@@ -92,10 +96,10 @@ REQUIRED_COLUMNS = [
 # =============================================================================
 
 # Campos que são considerados obrigatórios para criação de notas
-ESSENTIAL_FIELDS = [ID, PERGUNTA]
+ESSENTIAL_FIELDS = [ID]
 
 # Campos que podem ser usados para filtragem/seleção (exceto SYNC que é apenas controle interno)
-FILTER_FIELDS = [MATCH, TOPICO, SUBTOPICO, CONCEITO, BANCAS]
+FILTER_FIELDS = [MATCH, TOPICO, SUBTOPICO, CONCEITO, BANCAS, CARREIRA, IMPORTANCIA]
 
 # Campos que contêm informações textuais extensas
 TEXT_FIELDS = [PERGUNTA, MATCH, EXTRA_INFO_1, EXTRA_INFO_2, EXEMPLO_1, EXEMPLO_2, EXEMPLO_3]
@@ -115,11 +119,13 @@ NOTE_FIELDS = [
     CONCEITO,              # Conceito atômico
     BANCAS,                # Bancas relacionadas
     ANO,                   # Ano da prova
+    CARREIRA,              # Carreira ou área profissional
+    IMPORTANCIA,           # Nível de importância
     MORE_TAGS              # Tags adicionais
 ]
 
 # Campos que contêm metadados e tags
-METADATA_FIELDS = [TOPICO, SUBTOPICO, CONCEITO, BANCAS, ANO, MORE_TAGS]
+METADATA_FIELDS = [TOPICO, SUBTOPICO, CONCEITO, BANCAS, ANO, CARREIRA, IMPORTANCIA, MORE_TAGS]
 
 # =============================================================================
 # FUNÇÕES UTILITÁRIAS

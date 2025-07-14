@@ -80,6 +80,8 @@ def create_card_template(is_cloze=False):
     footer_fields = [
         (column_definitions.BANCAS, column_definitions.BANCAS),
         (column_definitions.ANO, column_definitions.ANO),
+        (column_definitions.CARREIRA, column_definitions.CARREIRA),
+        (column_definitions.IMPORTANCIA, column_definitions.IMPORTANCIA),
         (column_definitions.MORE_TAGS, column_definitions.MORE_TAGS)
     ]
 
