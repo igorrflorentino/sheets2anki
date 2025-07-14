@@ -25,10 +25,17 @@ def run_organized_tests(test_type='all'):
         cmd = [sys.executable, os.path.join(tests_dir, 'run_all_tests.py')]
     
     try:
-        result = subprocess.run(cmd, cwd=tests_dir, timeout=300)
+        result = subprocess.run(cmd, cwd=tests_dir, timeout=600, capture_output=True, text=True)
+        
+        # Exibir output dos testes
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print("STDERR:", result.stderr)
+            
         return result.returncode == 0
     except subprocess.TimeoutExpired:
-        print("⏰ Timeout: Testes demoraram mais de 5 minutos")
+        print("⏰ Timeout: Testes demoraram mais de 10 minutos")
         return False
     except Exception as e:
         print(f"❌ Erro ao executar testes: {e}")

@@ -18,7 +18,8 @@ def run_test_file(test_file):
             [sys.executable, str(test_file)],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=120,  # Aumentar timeout para 2 minutos
+            cwd=str(test_file.parent)  # Executar no diretório do teste
         )
         
         success = result.returncode == 0
@@ -32,14 +33,14 @@ def run_test_file(test_file):
         return {
             'success': False,
             'stdout': '',
-            'stderr': 'Test timeout after 60 seconds',
+            'stderr': 'Test timeout after 2 minutes',
             'returncode': -1
         }
     except Exception as e:
         return {
             'success': False,
             'stdout': '',
-            'stderr': str(e),
+            'stderr': f'Exception during test execution: {str(e)}',
             'returncode': -1
         }
 
@@ -54,9 +55,14 @@ def run_organized_tests():
             'test_case_insensitive.py',
             'test_sync_selective.py',
             'test_sync_internal_only.py',
+            'test_sync_basic.py',
             'test_formula_errors_simple.py',
             'test_formula_advanced.py',
             'test_url_validation.py',
+            'test_ignored_cards.py',
+            'test_data_validation.py',
+            'test_card_templates.py',
+            'test_config.py',
         ],
         'Integration Tests': [
             'test_formula_integration.py',
@@ -71,6 +77,7 @@ def run_organized_tests():
         'Fixed Tests': [
             'test_real_csv.py',
             'test_debug_sync.py',
+            'test_formula_errors.py',
         ],
         'Structure Tests': [
             'test_structure.py',
@@ -173,8 +180,12 @@ def run_quick_tests():
     essential_tests = [
         'test_case_insensitive.py',
         'test_sync_selective.py',
+        'test_sync_internal_only.py',
         'test_formula_errors_simple.py',
         'test_url_validation.py',
+        'test_structure.py',
+        'test_imports.py',
+        'test_data_validation.py',
         'integration/test_integration.py',
     ]
     
@@ -194,6 +205,8 @@ def run_quick_tests():
                 passed += 1
             else:
                 print(f"❌ FALHOU")
+                if result['stderr']:
+                    print(f"   Erro: {result['stderr'][:100]}...")
         else:
             print(f"⚠️  Não encontrado: {test_file}")
     

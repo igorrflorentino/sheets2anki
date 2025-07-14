@@ -1,0 +1,6 @@
+ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	INFO COMPLEMENTAR	INFO DETALHADA	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	CARREIRA	IMPORTANCIA	TAGS ADICIONAIS
+1	Qual é a capital do Brasil?	Brasília	true	Capital do país	#NAME?	Exemplo 1	#REF!	Exemplo 3	Geografia	Capitais	#VALUE!	FCC	2023	Concurso Público	Alta	geografia
+2	Quem descobriu o Brasil?	Pedro Álvares Cabral	true	#DIV/0!	Informação detalhada	#N/A	Exemplo 2	#NULL!	História	Descobrimentos	Navegação	CESPE	2022	#ERROR!	Média	historia
+3	Quanto é 2+2?	=2+2	false	Matemática básica	#NUM!	=SUM(A1:A5)	#CUSTOM!	Exemplo 3	Matemática	Aritmética	Soma	FGV	2023	Ensino Médio	Baixa	matematica
+4	Qual é a soma?	=VLOOKUP(A1,B:C,2,FALSE)	true	Fórmula de busca	=CONCATENATE(A1,B1)	Exemplo normal	=IF(A1>0,"Positivo","Negativo")	Exemplo 3	Planilhas	Funções	Fórmulas	VUNESP	2024	Superior	Alta	excel
+5	Texto normal	Resposta normal	true	= não é fórmula	Informação válida	=	Exemplo 2	Texto = 10	Português	Gramática	Textos	CESPE	2023	Fundamental	Baixa	portugues

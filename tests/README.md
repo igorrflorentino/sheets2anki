@@ -25,14 +25,19 @@ tests/
 └── [testes principais]                # Testes unitários e funcionais
     ├── test_case_insensitive.py       # Case insensitive SYNC?
     ├── test_sync_selective.py         # Sincronização seletiva
+    ├── test_sync_basic.py             # Sincronização básica
+    ├── test_sync_internal_only.py     # Campos internos apenas
     ├── test_formula_errors_simple.py  # Limpeza de erros de fórmula
+    ├── test_formula_advanced.py       # Fórmulas avançadas
     ├── test_url_validation.py         # Validação de URLs
+    ├── test_ignored_cards.py          # Cards ignorados
+    ├── test_data_validation.py        # Validação de dados
+    ├── test_card_templates.py         # Templates de cards
+    ├── test_config.py                 # Configurações
     ├── test_compatibility.py          # Compatibilidade Anki 25.x
     ├── test_deck_sync_counting.py     # Contagem de decks
     ├── test_structure.py              # Estrutura do projeto
     ├── test_imports.py                # Importações
-    ├── test_real_csv.py               # Dados reais CSV
-    ├── test_debug_sync.py             # Debug sincronização
     └── [outros testes...]
 ```
 
@@ -70,26 +75,38 @@ python workflow/test_workflow.py        # Workflow
 # Testes individuais
 python test_case_insensitive.py         # Case insensitive
 python test_sync_selective.py           # Sincronização seletiva
+python test_sync_basic.py               # Sincronização básica
 python test_formula_errors_simple.py    # Limpeza de fórmulas
+python test_data_validation.py          # Validação de dados
+python test_card_templates.py           # Templates de cards
+python test_config.py                   # Configurações
 ```
 
 ## 📊 Status dos Testes
 
-### ✅ **Testes Rápidos (100% Funcionando)**
+### ✅ **Testes Rápidos (Essenciais)**
 - `test_case_insensitive.py` ✅
 - `test_sync_selective.py` ✅
+- `test_sync_internal_only.py` ✅
 - `test_formula_errors_simple.py` ✅
 - `test_url_validation.py` ✅
+- `test_structure.py` ✅
+- `test_imports.py` ✅
+- `test_data_validation.py` ✅
 - `integration/test_integration.py` ✅
 
 ### ✅ **Funcionalidades Testadas**
 1. **Sincronização Seletiva** - Coluna SYNC? com múltiplos valores
-2. **Limpeza de Fórmulas** - Erros #NAME?, #REF!, =FORMULA
-3. **Validação de URLs** - URLs publicadas e normais
-4. **Case Insensitive** - SYNC? aceita variações de case
-5. **Contagem de Cards** - Cards sincronizados vs ignorados
-6. **Compatibilidade** - Anki 25.x
-7. **Estrutura** - Imports e arquivos organizados
+2. **Sincronização Básica** - Funcionalidades core de sincronização
+3. **Limpeza de Fórmulas** - Erros #NAME?, #REF!, =FORMULA
+4. **Validação de URLs** - URLs publicadas e normais
+5. **Case Insensitive** - SYNC? aceita variações de case
+6. **Contagem de Cards** - Cards sincronizados vs ignorados
+7. **Validação de Dados** - Dados malformados e robustez
+8. **Templates de Cards** - Geração e formatação HTML
+9. **Configurações** - Carregamento e persistência
+10. **Compatibilidade** - Anki 25.x
+11. **Estrutura** - Imports e arquivos organizados
 
 ## 🔧 Dados de Teste
 

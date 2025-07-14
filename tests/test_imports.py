@@ -49,15 +49,44 @@ try:
         print(f"   ⚠️ Aviso: utils.py tem dependências que não estão disponíveis no teste ({e})")
         print("   ✓ Mas o arquivo existe e a estrutura está correta")
     
-    print("3. Testando estrutura de arquivos...")
+    print("3. Testando imports dos módulos principais...")
+    core_modules = [
+        'src.sync',
+        'src.deck_manager',
+        'src.parseRemoteDeck',
+        'src.column_definitions',
+        'src.constants',
+        'src.config',
+        'src.utils',
+        'src.validation',
+    ]
+    
+    for module_name in core_modules:
+        try:
+            __import__(module_name)
+            print(f"   ✓ {module_name} importado com sucesso")
+        except ImportError as e:
+            print(f"   ⚠️ {module_name} não pode ser importado: {e}")
+        except Exception as e:
+            print(f"   ⚠️ {module_name} erro durante import: {e}")
+    
+    print("4. Testando estrutura de arquivos...")
     files_to_check = [
         'src/main.py',
+        'src/sync.py',
+        'src/deck_manager.py',
+        'src/parseRemoteDeck.py',
+        'src/column_definitions.py',
+        'src/constants.py',
+        'src/config.py',
+        'src/utils.py',
+        'src/validation.py',
         'libs/org_to_anki/utils.py',
         '__init__.py'
     ]
     
     for file_path in files_to_check:
-        full_path = os.path.join(current_dir, file_path)
+        full_path = os.path.join(project_root, file_path)
         if os.path.exists(full_path):
             print(f"   ✓ {file_path} existe")
         else:

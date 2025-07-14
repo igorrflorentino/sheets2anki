@@ -102,6 +102,36 @@ print("4. Configuração pyrightconfig.json atualizada:")
 print("   DE: 'remote_decks' na seção include")
 print("   PARA: 'src' na seção include")
 
+# Teste 5: Verificar estrutura completa do projeto
+print("\n5. Verificando estrutura completa do projeto...")
+project_structure = {
+    'src/': [
+        'main.py', 'sync.py', 'deck_manager.py', 'parseRemoteDeck.py',
+        'column_definitions.py', 'constants.py', 'config.py', 'utils.py',
+        'validation.py', 'card_templates.py', 'note_processor.py',
+        'dialogs.py', 'exceptions.py', 'compat.py'
+    ],
+    'libs/': [
+        'org_to_anki/utils.py'
+    ],
+    'tests/': [
+        'run_all_tests.py', 'test_imports.py', 'test_structure.py',
+        'test_sync_selective.py', 'test_case_insensitive.py'
+    ],
+    'stubs/': [
+        'anki.py', 'aqt.py'
+    ]
+}
+
+for directory, files in project_structure.items():
+    print(f"\n   📁 {directory}")
+    for file in files:
+        file_path = os.path.join(project_root, directory, file)
+        if os.path.exists(file_path):
+            print(f"      ✓ {file}")
+        else:
+            print(f"      ✗ {file} (não encontrado)")
+
 if all_files_exist:
     print("\n✅ PROBLEMA RESOLVIDO!")
     print("O erro 'No module named 'sheet2anki-v2.remote_decks'' deve estar corrigido.")
