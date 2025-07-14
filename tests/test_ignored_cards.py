@@ -28,21 +28,21 @@ def test_ignored_cards_counting():
     
     # Dados de teste com questões ignoradas e aceitas
     test_data = [
-        # Headers
-        ['ID', 'PERGUNTA', 'LEVAR PARA PROVA', 'SYNC?', 'INFO COMPLEMENTAR', 'INFO DETALHADA', 'EXEMPLO 1', 'EXEMPLO 2', 'EXEMPLO 3', 'TOPICO', 'SUBTOPICO', 'CONCEITO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'TAGS ADICIONAIS'],
+        # Headers completos
+        ['ID', 'PERGUNTA', 'LEVAR PARA PROVA', 'SYNC?', 'INFO COMPLEMENTAR', 'INFO DETALHADA', 'EXEMPLO 1', 'EXEMPLO 2', 'EXEMPLO 3', 'TOPICO', 'SUBTOPICO', 'CONCEITO', 'BANCAS', 'ULTIMO ANO EM PROVA', 'CARREIRA', 'IMPORTANCIA', 'TAGS ADICIONAIS'],
         
         # Questões que devem ser sincronizadas
-        ['001', 'Qual é a capital do Brasil?', 'Brasília', 'true', '', '', '', '', '', '', '', '', '', '', ''],
-        ['002', 'Quem foi o primeiro presidente?', 'Deodoro', '1', '', '', '', '', '', '', '', '', '', '', ''],
-        ['003', 'Qual é a velocidade da luz?', '299.792.458 m/s', 'sim', '', '', '', '', '', '', '', '', '', '', ''],
+        ['001', 'Qual é a capital do Brasil?', 'Brasília', 'true', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+        ['002', 'Quem foi o primeiro presidente?', 'Deodoro', '1', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+        ['003', 'Qual é a velocidade da luz?', '299.792.458 m/s', 'sim', '', '', '', '', '', '', '', '', '', '', '', '', ''],
         
         # Questões que devem ser ignoradas
-        ['004', 'Qual é a fórmula da água?', 'H2O', 'false', '', '', '', '', '', '', '', '', '', '', ''],
-        ['005', 'Qual é o maior planeta?', 'Júpiter', '0', '', '', '', '', '', '', '', '', '', '', ''],
-        ['006', 'Qual é a capital da França?', 'Paris', 'não', '', '', '', '', '', '', '', '', '', '', ''],
+        ['004', 'Qual é a fórmula da água?', 'H2O', 'false', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+        ['005', 'Qual é o maior planeta?', 'Júpiter', '0', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+        ['006', 'Qual é a capital da França?', 'Paris', 'não', '', '', '', '', '', '', '', '', '', '', '', '', ''],
         
         # Questão com valor vazio (deve sincronizar)
-        ['007', 'Qual é o símbolo do ouro?', 'Au', '', '', '', '', '', '', '', '', '', '', '', ''],
+        ['007', 'Qual é o símbolo do ouro?', 'Au', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
     ]
     
     # Processar dados

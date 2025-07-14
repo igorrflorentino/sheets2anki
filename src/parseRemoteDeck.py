@@ -283,91 +283,47 @@ def parse_tsv_data(tsv_data):
 
 def clean_formula_errors(cell_value):
     """
-    Limpa valores de erro comuns de fórmulas do Google Sheets e fórmulas não calculadas.
+    Preserva valores de célula do TSV exatamente como foram capturados.
     
-    O Google Sheets pode exportar valores de erro quando fórmulas não conseguem
-    ser calculadas corretamente, resultando em textos como '#NAME?', '#REF!', etc.
-    Também pode exportar fórmulas como texto quando não consegue calculá-las.
-    Esta função detecta e trata esses valores.
+    MODIFICAÇÃO: Esta função agora retorna SEMPRE o valor original sem nenhuma 
+    conversão para string vazia. Os dados do TSV devem ser entregues para as 
+    notas do Anki tal qual como foram capturados.
     
     Args:
-        cell_value (str): Valor da célula a ser limpo
+        cell_value (str): Valor da célula a ser preservado
         
     Returns:
-        str: Valor limpo, string vazia se for um erro de fórmula ou fórmula não calculada
+        str: Valor original sem modificações
         
     Examples:
         >>> clean_formula_errors('#NAME?')
-        ''
+        '#NAME?'
         >>> clean_formula_errors('=SUM(A1:A10)')
-        ''
+        '=SUM(A1:A10)'
         >>> clean_formula_errors('Conteúdo normal')
         'Conteúdo normal'
     """
-    if not cell_value or not isinstance(cell_value, str):
-        return cell_value
-    
-    # Lista de valores de erro comuns do Google Sheets/Excel
-    formula_errors = [
-        '#NAME?',    # Função ou nome não reconhecido
-        '#REF!',     # Referência inválida
-        '#VALUE!',   # Tipo de valor incorreto
-        '#DIV/0!',   # Divisão por zero
-        '#N/A',      # Valor não disponível
-        '#NULL!',    # Intersecção inválida
-        '#NUM!',     # Erro numérico
-        '#ERROR!',   # Erro genérico
-    ]
-    
-    cell_value_stripped = cell_value.strip()
-    
-    # Verificar se o valor é um erro de fórmula
-    if cell_value_stripped in formula_errors:
-        return ""  # Retornar string vazia para valores de erro
-    
-    # Verificar se começa com # (possível erro não listado)
-    if cell_value_stripped.startswith('#') and cell_value_stripped.endswith('!'):
-        return ""  # Tratar como erro de fórmula
-    
-    # Verificar se é uma fórmula não calculada (novo)
-    if detect_formula_content(cell_value_stripped):
-        return ""  # Tratar fórmula não calculada como vazio
-    
+    # Retornar sempre o valor original sem nenhuma modificação
     return cell_value
 
 def clean_formula_errors_with_logging(cell_value, field_name="", row_num=None):
     """
-    Limpa valores de erro de fórmulas com logging para debug.
+    Preserva valores de célula do TSV com logging para debug.
     
-    Versão estendida de clean_formula_errors que registra quando
-    erros de fórmula ou fórmulas não calculadas são detectados e limpos.
+    MODIFICAÇÃO: Esta função agora retorna SEMPRE o valor original sem nenhuma 
+    conversão para string vazia. Os dados do TSV devem ser entregues para as 
+    notas do Anki tal qual como foram capturados.
     
     Args:
-        cell_value (str): Valor da célula a ser limpo
+        cell_value (str): Valor da célula a ser preservado
         field_name (str): Nome do campo (para logging)
         row_num (int): Número da linha (para logging)
         
     Returns:
-        str: Valor limpo, string vazia se for um erro de fórmula ou fórmula não calculada
+        str: Valor original sem modificações
     """
-    if not cell_value or not isinstance(cell_value, str):
-        return cell_value
-    
-    original_value = cell_value
-    cleaned_value = clean_formula_errors(cell_value)
-    
-    # Se o valor foi alterado (erro de fórmula ou fórmula detectada), registrar
-    if original_value.strip() != cleaned_value:
-        location_info = ""
-        if field_name:
-            location_info += f"campo '{field_name}'"
-        if row_num:
-            location_info += f" linha {row_num}" if location_info else f"linha {row_num}"
-        
-        # Determinar tipo de problema
-        problem_type = "erro de fórmula"
-        if detect_formula_content(original_value.strip()):
-            problem_type = "fórmula não calculada"
+    # Retornar sempre o valor original sem nenhuma modificação
+    return cell_value
         
         # Para ambientes de desenvolvimento, você pode descomentar esta linha:
         # print(f"⚠️  {problem_type.title()} detectado e limpo: '{original_value.strip()}' → '' ({location_info})")
@@ -417,14 +373,14 @@ def create_tags_from_fields(fields):
     Esta função processa diferentes campos do card e cria um sistema
     hierárquico de tags para melhor organização no Anki.
     
-    Estrutura de tags criadas:
-    - topicos::topico1::subtopicos::subtopico1
-    - topicos::topico1::conceitos::conceito1
-    - bancas::banca1
-    - provas::ano1
-    - carreiras::carreira1
-    - importancia::nivel_importancia
-    - variado::tag_adicional1
+    Estrutura de tags criadas (todas sob a tag raiz 'sheet2anki'):
+    - sheet2anki::topicos::topico1::subtopicos::subtopico1
+    - sheet2anki::topicos::topico1::conceitos::conceito1
+    - sheet2anki::bancas::banca1
+    - sheet2anki::provas::ano1
+    - sheet2anki::carreiras::carreira1
+    - sheet2anki::importancia::nivel_importancia
+    - sheet2anki::variado::tag_adicional1
     
     Args:
         fields (dict): Dicionário contendo os campos do card
@@ -435,9 +391,10 @@ def create_tags_from_fields(fields):
     Examples:
         >>> fields = {'TOPICO': 'Direito Civil', 'SUBTOPICO': 'Contratos', 'CONCEITO': 'Responsabilidade'}
         >>> create_tags_from_fields(fields)
-        ['topicos::Direito_Civil::subtopicos::Contratos', 'topicos::Direito_Civil::conceitos::Responsabilidade']
+        ['sheet2anki::topicos::Direito_Civil::subtopicos::Contratos', 'sheet2anki::topicos::Direito_Civil::conceitos::Responsabilidade']
     """
     tags = []
+    ROOT_TAG = "sheet2anki"
     
     # Processar TOPICO, SUBTOPICO e CONCEITO de forma hierárquica
     topico = clean_tag_text(fields.get(cols.TOPICO, ''))
@@ -451,7 +408,7 @@ def create_tags_from_fields(fields):
             for subtopico in subtopicos_raw.split(','):
                 subtopico_clean = clean_tag_text(subtopico)
                 if subtopico_clean:
-                    tags.append(f"topicos::{topico}::subtopicos::{subtopico_clean}")
+                    tags.append(f"{ROOT_TAG}::topicos::{topico}::subtopicos::{subtopico_clean}")
         
         # Processar CONCEITO dentro do TOPICO
         if conceitos_raw:
@@ -459,11 +416,11 @@ def create_tags_from_fields(fields):
             for conceito in conceitos_raw.split(','):
                 conceito_clean = clean_tag_text(conceito)
                 if conceito_clean:
-                    tags.append(f"topicos::{topico}::conceitos::{conceito_clean}")
+                    tags.append(f"{ROOT_TAG}::topicos::{topico}::conceitos::{conceito_clean}")
         
         # Se não há subtópicos nem conceitos, criar tag apenas com tópico principal
         if not subtopicos_raw and not conceitos_raw:
-            tags.append(f"topicos::{topico}")
+            tags.append(f"{ROOT_TAG}::topicos::{topico}")
             
     # Processar BANCAS (pode ter múltiplos valores separados por vírgula)
     bancas = fields.get(cols.BANCAS, '')
@@ -471,12 +428,12 @@ def create_tags_from_fields(fields):
         for banca in bancas.split(','):
             banca_clean = clean_tag_text(banca)
             if banca_clean:
-                tags.append(f"bancas::{banca_clean}")
+                tags.append(f"{ROOT_TAG}::bancas::{banca_clean}")
                 
     # Processar ANO
     ano = clean_tag_text(fields.get(cols.ANO, ''))
     if ano:
-        tags.append(f"provas::{ano}")
+        tags.append(f"{ROOT_TAG}::provas::{ano}")
         
     # Processar CARREIRA (pode ter múltiplos valores separados por vírgula)
     carreira = fields.get(cols.CARREIRA, '')
@@ -484,12 +441,12 @@ def create_tags_from_fields(fields):
         for carr in carreira.split(','):
             carr_clean = clean_tag_text(carr)
             if carr_clean:
-                tags.append(f"carreiras::{carr_clean}")
+                tags.append(f"{ROOT_TAG}::carreiras::{carr_clean}")
         
     # Processar IMPORTANCIA
     importancia = clean_tag_text(fields.get(cols.IMPORTANCIA, ''))
     if importancia:
-        tags.append(f"importancia::{importancia}")
+        tags.append(f"{ROOT_TAG}::importancia::{importancia}")
         
     # Processar MORE_TAGS (tags adicionais)
     more_tags = fields.get(cols.MORE_TAGS, '')
@@ -497,7 +454,7 @@ def create_tags_from_fields(fields):
         for tag in more_tags.split(','):
             tag_clean = clean_tag_text(tag)
             if tag_clean:
-                tags.append(f"variado::{tag_clean}")
+                tags.append(f"{ROOT_TAG}::variado::{tag_clean}")
     
     return tags
 
@@ -740,6 +697,8 @@ def detect_formula_content(cell_value):
         True
         >>> detect_formula_content('=VLOOKUP(B2,D:E,2,FALSE)')
         True
+        >>> detect_formula_content('=GEMINI_2_5_FLASH("texto")')
+        True
         >>> detect_formula_content('Texto normal')
         False
         >>> detect_formula_content('=5+3')
@@ -764,33 +723,82 @@ def detect_formula_content(cell_value):
         if len(cell_value) <= 1:
             return False
         
-        # Verificar padrões de fórmulas válidas
-        formula_content = cell_value[1:]  # Removes o =
-        
-        # Se contém apenas espaços após =, não é fórmula
-        if not formula_content.strip():
-            return False
-        
-        # Se contém palavras comuns que indicam que não é fórmula
-        non_formula_indicators = [
-            ' não ', ' nao ', ' is ', ' are ', ' was ', ' were ',
-            ' the ', ' and ', ' or ', ' but ', ' if ', ' when ',
-            ' para ', ' com ', ' sem ', ' por ', ' em ', ' de ',
+        # Verificar padrões de fórmulas Gemini PRIMEIRO (prioridade máxima)
+        # Fórmulas Gemini são sempre consideradas válidas, independente do conteúdo
+        gemini_patterns = [
+            r'^=GEMINI_\w+\(',  # =GEMINI_QUALQUER_COISA(
+            r'^=AI_\w+\(',      # =AI_QUALQUER_COISA(
         ]
         
-        for indicator in non_formula_indicators:
-            if indicator in cell_value.lower():
-                return False
+        for pattern in gemini_patterns:
+            if re.search(pattern, cell_value):
+                return True
         
-        # Verificar padrões comuns de fórmulas válidas
+        # Verificar padrões de fórmulas válidas PRIMEIRO (antes dos indicadores)
+        # Isso permite que fórmulas legítimas sejam detectadas mesmo com palavras comuns
         valid_formula_patterns = [
             r'^=\w+\(',  # =FUNCAO(
+            r'^=\w+_\w+\(',  # =FUNCAO_COMPOSTA( (ex: GEMINI_2_5_FLASH)
+            r'^=\w+_\w+_\w+\(',  # =FUNCAO_COMPOSTA_LONGA( (ex: GEMINI_2_5_FLASH)
             r'^=\d+[\+\-\*\/]',  # =5+, =10*, etc.
             r'^=[A-Z]+\d+',  # =A1, =B2, etc.
             r'^=.*\([^\)]*\).*$',  # Qualquer função com parênteses
             r'^=\d+(\.\d+)?([\+\-\*\/]\d+(\.\d+)?)+$',  # Operações matemáticas: =5+3, =10*2.5
         ]
         
+        # Verificar padrões válidos primeiro
+        for pattern in valid_formula_patterns:
+            if re.search(pattern, cell_value):
+                # Se coincide com um padrão válido, verificar se não é falso positivo
+                # Para fórmulas com parênteses, assumir que são válidas
+                if '(' in cell_value and ')' in cell_value:
+                    return True
+                # Para outros padrões, continuar com verificação de indicadores
+                break
+        else:
+            # Se não coincide com nenhum padrão válido, não é fórmula
+            return False
+        
+        # Verificar padrões de fórmulas válidas
+        formula_content = cell_value[1:]  # Remove o =
+        
+        # Se contém apenas espaços após =, não é fórmula
+        if not formula_content.strip():
+            return False
+        
+        # Para fórmulas com parênteses, ser menos restritivo com indicadores
+        # Verificar se é uma função válida (tem parênteses balanceados)
+        if '(' in cell_value and ')' in cell_value:
+            # Contar parênteses para verificar se estão balanceados
+            open_count = cell_value.count('(')
+            close_count = cell_value.count(')')
+            if open_count == close_count and open_count > 0:
+                # É provável que seja uma função válida, aplicar filtros mais relaxados
+                restrictive_indicators = [
+                    ' não é ', ' nao é ', ' não deve ', ' nao deve ',
+                    ' não pode ', ' nao pode ', ' não tem ', ' nao tem ',
+                ]
+                
+                for indicator in restrictive_indicators:
+                    if indicator in cell_value.lower():
+                        return False
+                
+                # Se passou nos filtros restritivos, é uma fórmula
+                return True
+        
+        # Para outros casos, aplicar filtros mais rigorosos
+        non_formula_indicators = [
+            ' não ', ' nao ', ' is ', ' are ', ' was ', ' were ',
+            ' the ', ' and ', ' or ', ' but ', ' if ', ' when ',
+            ' para ', ' com ', ' sem ', ' por ', ' em ',
+            # Removido ' de ' - muito comum em fórmulas legítimas (ex: Gemini)
+        ]
+        
+        for indicator in non_formula_indicators:
+            if indicator in cell_value.lower():
+                return False
+        
+        # Se passou em todos os testes, verificar novamente os padrões
         for pattern in valid_formula_patterns:
             if re.search(pattern, cell_value):
                 return True

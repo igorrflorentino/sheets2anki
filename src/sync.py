@@ -45,7 +45,8 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         'deleted': 0,
         'ignored': 0,
         'errors': 0,
-        'error_details': []
+        'error_details': [],
+        'updated_details': []
     }
 
     # Determinar quais decks sincronizar
@@ -315,6 +316,16 @@ def _accumulate_stats(total_stats, deck_stats):
     total_stats['ignored'] += deck_stats.get('ignored', 0)
     total_stats['errors'] += deck_stats['errors']
     total_stats['error_details'].extend(deck_stats['error_details'])
+    
+    # Adicionar detalhes das atualizações (limitado a 10 total)
+    if 'updated_details' in deck_stats:
+        current_count = len(total_stats.get('updated_details', []))
+        remaining_slots = max(0, 10 - current_count)
+        
+        if remaining_slots > 0:
+            if 'updated_details' not in total_stats:
+                total_stats['updated_details'] = []
+            total_stats['updated_details'].extend(deck_stats['updated_details'][:remaining_slots])
 
 def _handle_sync_error(e, deckKey, config, progress, status_msgs, sync_errors, step):
     """Trata erros de sincronização de deck."""
@@ -424,6 +435,14 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
             if len(total_stats['error_details']) > 10:
                 summary += f"\n... e mais {len(total_stats['error_details']) - 10} erros."
         
+        # Adicionar detalhes das atualizações se houver
+        if total_stats.get('updated_details'):
+            summary += "\n\nPrimeiras atualizações realizadas:\n"
+            for i, update in enumerate(total_stats['updated_details'], 1):
+                summary += f"{i}. ID: {update['id']}\n"
+                summary += f"   Pergunta: {update['pergunta']}\n"
+                summary += f"   Mudanças: {'; '.join(update['changes'])}\n\n"
+        
         showInfo(summary)
     else:
         summary = f"Sincronização concluída com sucesso!\n\n"
@@ -433,4 +452,13 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
         summary += f"Cards deletados: {total_stats['deleted']}\n"
         summary += f"Cards ignorados: {total_stats['ignored']}\n"
         summary += "Nenhum erro encontrado."
+        
+        # Adicionar detalhes das atualizações se houver
+        if total_stats.get('updated_details'):
+            summary += "\n\nPrimeiras atualizações realizadas:\n"
+            for i, update in enumerate(total_stats['updated_details'], 1):
+                summary += f"{i}. ID: {update['id']}\n"
+                summary += f"   Pergunta: {update['pergunta']}\n"
+                summary += f"   Mudanças: {'; '.join(update['changes'])}\n\n"
+        
         showInfo(summary)

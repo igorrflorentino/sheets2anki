@@ -50,6 +50,38 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             return True
         return False
 
+    def get_update_details(note, fields, tags):
+        """Detecta e retorna detalhes específicos do que foi atualizado."""
+        changes = []
+        
+        # Verificar mudanças nos campos
+        for field_name, new_value in fields.items():
+            if field_name in column_definitions.NOTE_FIELDS and field_name in note:
+                old_value = str(note[field_name]).strip()
+                new_value_str = str(new_value).strip()
+                
+                if old_value != new_value_str:
+                    # Truncar valores longos para exibição
+                    old_display = old_value[:50] + "..." if len(old_value) > 50 else old_value
+                    new_display = new_value_str[:50] + "..." if len(new_value_str) > 50 else new_value_str
+                    
+                    changes.append(f"{field_name}: '{old_display}' → '{new_display}'")
+        
+        # Verificar mudanças nas tags
+        note_tags = set(note.tags) if hasattr(note, 'tags') else set()
+        tsv_tags = set(tags) if tags else set()
+        
+        if note_tags != tsv_tags:
+            added_tags = tsv_tags - note_tags
+            removed_tags = note_tags - tsv_tags
+            
+            if added_tags:
+                changes.append(f"Tags adicionadas: {', '.join(added_tags)}")
+            if removed_tags:
+                changes.append(f"Tags removidas: {', '.join(removed_tags)}")
+        
+        return changes
+    
     try:
         # Garantir que os modelos customizados existam
         models = ensure_custom_models(col, remoteDeck.url if hasattr(remoteDeck, 'url') else "")
@@ -61,7 +93,8 @@ def create_or_update_notes(col, remoteDeck, deck_id):
             'deleted': 0,
             'ignored': 0,
             'errors': 0,
-            'error_details': []
+            'error_details': [],
+            'updated_details': []  # Lista das primeiras 10 atualizações
         }
         
         # Construir índice de notas existentes
@@ -104,6 +137,20 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                     # Atualizar nota existente SOMENTE SE houver diferença real
                     note = existing_notes[key]
                     if note_needs_update(note, fields, tags):
+                        # Capturar detalhes das mudanças ANTES de atualizar
+                        if len(stats['updated_details']) < 10:  # Limitar a 10 atualizações
+                            changes = get_update_details(note, fields, tags)
+                            if changes:
+                                pergunta = fields.get(column_definitions.PERGUNTA, "")
+                                pergunta_display = pergunta[:100] + "..." if len(pergunta) > 100 else pergunta
+                                
+                                update_info = {
+                                    'id': key,
+                                    'pergunta': pergunta_display,
+                                    'changes': changes
+                                }
+                                stats['updated_details'].append(update_info)
+                        
                         for field_name, value in fields.items():
                             if field_name in column_definitions.NOTE_FIELDS and field_name in note:
                                 note[field_name] = value
