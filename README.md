@@ -75,7 +75,9 @@ A coluna **SYNC?** é **completamente case insensitive** e aceita:
 ## 📖 Como Usar
 
 ### 1. **Preparar sua Planilha**
-1. Crie uma planilha no Google Sheets com as 17 colunas obrigatórias
+1. Crie uma planilha no Google Sheets com as 17 colunas obrigatória
+   - Modelo exemplo padrão Google Sheet 
+      - https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing
 2. Preencha suas questões seguindo o formato
 3. **Publique a planilha:**
    - Vá em `Arquivo → Compartilhar → Publicar na web`
