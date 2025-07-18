@@ -2,53 +2,92 @@
 Gerenciamento de decks para o addon Sheets2Anki.
 
 Este módulo contém funções para adicionar, remover e gerenciar
-decks remotos no Anki.
+decks remotos no Anki com suporte a nomeação automática e
+desconexão de decks.
 """
 
 from .compat import (
-    mw, showInfo, QInputDialog, EchoModeNormal,
+    mw, showInfo, QInputDialog,
     DialogAccepted
 )
+from .fix_exec import safe_exec
 from .constants import TEST_SHEETS_URLS
-from .config import get_addon_config, save_addon_config
+from .config_manager import (
+    get_remote_decks, add_remote_deck, disconnect_deck, detect_deck_name_changes
+)
 from .validation import validate_url
 from .utils import get_or_create_deck
 from .parseRemoteDeck import getRemoteDeck
 from .exceptions import SyncError
 from .sync import syncDecks
 from .dialogs import DeckSelectionDialog
+from .add_deck_dialog import show_add_deck_dialog
+from .sync_dialog import show_sync_dialog
+from .disconnect_dialog import show_disconnect_dialog
+from .deck_naming_dialog import show_deck_naming_dialog
+from .deck_naming import get_available_deck_name, update_deck_name_if_needed
 
 def syncDecksWithSelection():
     """
     Mostra interface para selecionar decks e sincroniza apenas os selecionados.
     
     Esta função é o ponto de entrada principal para sincronização interativa.
-    Permite ao usuário escolher quais decks devem ser sincronizados através
-    de uma interface gráfica.
-    """
-    # Carregar configuração
-    config = get_addon_config()
-
-    # Verificar se há decks configurados
-    if not config["remote-decks"]:
-        showInfo("Nenhum deck remoto configurado para sincronização.")
-        return
-
-    # Obter informações dos decks válidos
-    deck_info_list, valid_decks = _get_valid_deck_info(config)
+    Utiliza o novo sistema de configuração e permite reconexão de decks desconectados.
     
-    # Verificar se há decks válidos
-    if not deck_info_list:
-        showInfo("Nenhum deck remoto válido encontrado para sincronização.")
-        return
+    Nota: Os nomes dos decks só serão atualizados quando o usuário clicar em 'sincronizar selecionados'.
+    """
+    # Usar o novo diálogo de sincronização sem verificar mudanças nos nomes dos decks
+    # para evitar notificações indesejadas
+    success, selected_urls = show_sync_dialog(mw)
+    
+    if success and selected_urls:
+        # Sincronizar apenas os decks selecionados
+        # As atualizações de nomes serão feitas silenciosamente durante a sincronização
+        syncDecks(selected_deck_urls=selected_urls)
+    elif not selected_urls:
+        showInfo("Nenhum deck selecionado para sincronização.")
+    
+    return
 
-    # Se há apenas um deck, sincronizar diretamente
-    if len(deck_info_list) == 1:
-        syncDecks()
-        return
-
-    # Mostrar interface de seleção e processar resultado
-    _show_selection_dialog_and_sync(deck_info_list)
+def check_and_update_deck_names(silent=False):
+    """
+    Verifica e atualiza os nomes dos decks na configuração.
+    
+    Esta função deve ser chamada regularmente para garantir que
+    a configuração sempre reflita os nomes atuais dos decks.
+    
+    Nota: Decks deletados não são atualizados automaticamente.
+    
+    Args:
+        silent (bool): Se True, não mostra notificações
+        
+    Returns:
+        list: Lista de URLs dos decks que foram atualizados
+    """
+    try:
+        updated_urls = detect_deck_name_changes(skip_deleted=True)
+        
+        if updated_urls and not silent:
+            # Mostrar informação sobre as atualizações apenas se não estiver em modo silencioso
+            deck_names = []
+            remote_decks = get_remote_decks()
+            
+            for url in updated_urls:
+                deck_info = remote_decks.get(url, {})
+                deck_name = deck_info.get("deck_name", "Deck")
+                deck_names.append(deck_name)
+            
+            if len(deck_names) == 1:
+                showInfo(f"Nome do deck '{deck_names[0]}' foi atualizado na configuração.")
+            else:
+                names_str = "', '".join(deck_names)
+                showInfo(f"Nomes dos decks '{names_str}' foram atualizados na configuração.")
+        
+        return updated_urls
+    except Exception as e:
+        if not silent:
+            showInfo(f"Erro ao verificar nomes dos decks: {str(e)}")
+        return []
 
 def _get_valid_deck_info(config):
     """
@@ -65,7 +104,7 @@ def _get_valid_deck_info(config):
     deck_info_list = []
     valid_decks = {}
     
-    for url, deck_info in config["remote-decks"].items():
+    for url, deck_info in get_remote_decks().items():
         deck_id = deck_info["deck_id"]
         deck = mw.col.decks.get(deck_id)
         
@@ -88,13 +127,8 @@ def _show_selection_dialog_and_sync(deck_info_list):
     """
     dialog = DeckSelectionDialog(deck_info_list, mw)
     
-    # Compatibilidade com diferentes versões do Qt
-    try:
-        # Qt6 usa exec()
-        result = dialog.exec()
-    except AttributeError:
-        # Qt5 usa exec_()
-        result = dialog.exec_()
+    # Usar função de compatibilidade para exec/exec_
+    result = safe_exec(dialog)
     
     if result == DialogAccepted:
         selected_decks = dialog.get_selected_decks()
@@ -105,14 +139,10 @@ def _show_selection_dialog_and_sync(deck_info_list):
 
 def import_test_deck():
     """
-    Permite importar rapidamente um dos decks de teste hardcoded.
+    Importa um deck de teste para desenvolvimento e demonstração.
     
-    Esta função é útil para desenvolvimento e testes, permitindo
-    importar rapidamente decks pré-configurados sem precisar
-    inserir URLs manualmente.
-    
-    Nota: Apenas o deck de teste importado será sincronizado, não afetando
-    outros decks previamente configurados.
+    Esta função permite selecionar entre diferentes planilhas de teste
+    pré-configuradas e usar o sistema de nomeação automática.
     """
     # Obter lista de nomes dos decks de teste
     names = [name for name, url in TEST_SHEETS_URLS]
@@ -133,224 +163,119 @@ def import_test_deck():
     # Buscar a URL correspondente ao deck selecionado
     url = dict(TEST_SHEETS_URLS)[selection]
 
-    # Sugerir um nome padrão para o deck
-    deckName = f"Deck de Teste do sheet2anki:: {selection}"
+    # Gerar nome automático para o deck
+    deck_name = get_available_deck_name(url)
+    
+    # Verificar se URL já está configurada
+    remote_decks = get_remote_decks()
+    if url in remote_decks:
+        showInfo(f"Este deck de teste já está configurado como '{remote_decks[url]['deck_name']}'.")
+        return
 
     try:
-        # Validar URL e importar deck
-        _import_deck_from_url(url, deckName)
-        # Sincronizar apenas o deck de teste recém-importado usando sua URL
+        # Criar deck no Anki
+        deck_id = get_or_create_deck(mw.col, deck_name)
+        
+        # Adicionar à configuração
+        deck_info = {
+            "url": url,
+            "deck_id": deck_id,
+            "deck_name": deck_name,
+            "is_test_deck": True
+        }
+        
+        add_remote_deck(url, deck_info)
+        
+        # Sincronizar o deck
         syncDecks(selected_deck_urls=[url])
-    except SyncError as e:
-        showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
+        
+        showInfo(f"Deck de teste '{deck_name}' importado e sincronizado com sucesso!")
+        
     except Exception as e:
-        showInfo(f"Erro inesperado ao importar deck de teste:\n{str(e)}")
-
-def _import_deck_from_url(url, deckName):
-    """
-    Importa um deck a partir de uma URL, validando e configurando.
-    
-    Args:
-        url: URL do Google Sheets em formato TSV
-        deckName: Nome do deck a ser criado
-    """
-    # Validar URL
-    validate_url(url)
-    
-    # Criar ou obter o deck
-    deck_id = get_or_create_deck(mw.col, deckName)
-
-    # Buscar dados do deck remoto
-    deck = getRemoteDeck(url)
-    deck.deckName = deckName
-    # deck.url = url  # Comentado devido ao erro de atribuição
-
-    # Atualizar configuração
-    config = get_addon_config()
-    
-    config["remote-decks"][url] = {
-        "url": url,
-        "deck_id": deck_id,
-        "deck_name": deckName
-    }
-    save_addon_config(config)
+        showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
+        return
 
 def addNewDeck():
     """
-    Adiciona um novo deck remoto a partir de uma URL TSV do Google Sheets.
+    Adiciona um novo deck remoto usando o novo sistema de configuração.
     
-    Esta função permite ao usuário:
-    1. Inserir uma URL de planilha publicada em formato TSV
-    2. Validar a URL
-    3. Definir um nome para o deck
-    4. Configurar e iniciar a sincronização apenas do novo deck
-    
-    Nota: Apenas o deck recém-cadastrado será sincronizado, não afetando
-    outros decks previamente configurados.
+    Esta função utiliza o diálogo aprimorado que suporta nomeação automática,
+    resolução de conflitos e reconexão de decks desconectados.
     """
-    # Solicitar URL do usuário
-    url, okPressed = QInputDialog.getText(
-        mw, "Add New Remote Deck", "URL of published TSV:", EchoModeNormal, ""
-    )
-    if not okPressed or not url.strip():
-        return
-
-    url = url.strip()
-
-    try:
-        # Validar formato e acessibilidade da URL
-        validate_url(url)
-    except Exception as e:
-        showInfo(str(e))
-        return
-
-    # Obter nome do deck
-    deckName, okPressed = QInputDialog.getText(
-        mw, "Deck Name", "Enter the name of the deck:", EchoModeNormal, ""
-    )
-    if not okPressed:
-        return
+    # Usar o novo diálogo de adicionar deck
+    success, deck_info = show_add_deck_dialog(mw)
     
-    deckName = deckName.strip()
-    if not deckName:
-        deckName = "Deck from TSV"
-
-    # Verificar configuração
-    config = get_addon_config()
-
-    # Verificar se a URL já está em uso
-    if url in config["remote-decks"]:
-        showInfo(f"This URL has already been added as a remote deck.")
-        return
-
-    # Criar ou obter ID do deck
-    deck_id = get_or_create_deck(mw.col, deckName)
-
-    # Validar se o deck pode ser obtido
-    try:
-        deck = getRemoteDeck(url)
-        deck.deckName = deckName
-        # deck.url = url  # Comentado devido ao erro de atribuição
-    except Exception as e:
-        showInfo(f"Error fetching the remote deck:\n{str(e)}")
-        return
-
-    # Salvar configuração e sincronizar apenas o novo deck
-    try:
-        config["remote-decks"][url] = {
-            "url": url,
-            "deck_id": deck_id,
-            "deck_name": deckName
-        }
-        save_addon_config(config)
-        # Sincronizar apenas o deck recém-cadastrado usando sua URL
+    if success and deck_info:
+        # Sincronizar apenas o deck recém-adicionado
+        url = deck_info["url"]
         syncDecks(selected_deck_urls=[url])
-    except Exception as e:
-        showInfo(f"Error saving deck configuration:\n{str(e)}")
-        # Remover configuração com falha
-        if url in config["remote-decks"]:
-            del config["remote-decks"][url]
-            save_addon_config(config)
+        
+        showInfo(f"Deck '{deck_info['name']}' adicionado e sincronizado com sucesso!")
+
+def configure_deck_naming():
+    """
+    Mostra o diálogo para configurar as preferências de nomeação de decks.
+    
+    Esta função permite ao usuário escolher entre nomeação automática e manual,
+    além de configurar o nome do deck pai para hierarquias.
+    """
+    success = show_deck_naming_dialog(mw)
+    
+    if success:
+        from .config_manager import get_deck_naming_mode
+        mode = get_deck_naming_mode()
+        
+        if mode == "automatic":
+            showInfo("Configuração salva! Novos decks usarão nomeação automática com hierarquia.")
+        else:
+            showInfo("Configuração salva! Novos decks usarão nomeação manual.")
+    else:
+        showInfo("Configuração cancelada. Nenhuma alteração foi feita.")
 
 def removeRemoteDeck():
     """
-    Remove um deck remoto da configuração mantendo o deck local.
+    Remove decks remotos da configuração usando interface com checkboxes.
     
-    Esta função permite ao usuário:
-    1. Visualizar todos os decks remotos configurados
-    2. Selecionar um deck para desconectar da fonte remota
-    3. Remover a configuração de sincronização automática
-    
-    O deck local permanece intacto no Anki após a remoção.
+    Esta função utiliza o novo diálogo de desconexão que permite selecionar
+    múltiplos decks para desconexão simultânea, mantendo os decks locais.
     """
-    config = get_addon_config()
-
-    remoteDecks = config["remote-decks"]
-
-    # Verificar se há decks remotos configurados
-    if not remoteDecks:
-        showInfo("There are currently no remote decks configured.")
-        return
-
-    # Obter informações de todos os decks e suas URLs
-    deck_info, deck_map = _build_deck_info_for_removal(remoteDecks)
-
-    # Solicitar seleção do usuário
-    selection, okPressed = QInputDialog.getItem(
-        mw,
-        "Select a Deck to Unlink",
-        "Select a deck to unlink from remote source:\n(The local deck will remain in Anki)",
-        deck_info,
-        0,
-        False
-    )
-
-    if okPressed and selection:
-        try:
-            _process_deck_removal(selection, deck_map, remoteDecks, config)
-        except Exception as e:
-            showInfo(f"Error unlinking deck: {str(e)}")
-            return
-
-def _build_deck_info_for_removal(remoteDecks):
-    """
-    Constrói informações dos decks para interface de remoção.
+    # Usar o novo diálogo de desconexão
+    success, selected_urls = show_disconnect_dialog(mw)
     
-    Args:
-        remoteDecks: Dicionário de decks remotos da configuração
+    if success and selected_urls:
+        # Processar desconexão dos decks selecionados
+        disconnected_decks = []
         
-    Returns:
-        tuple: (deck_info, deck_map) onde deck_info é lista de strings para exibição
-               e deck_map mapeia strings de exibição para URLs
-    """
-    deck_info = []
-    deck_map = {}  # Mapear strings de exibição para chaves de URL
-    
-    for url, info in remoteDecks.items():
-        deck_id = info["deck_id"]
-        # Verificar se o deck ainda existe no Anki
-        deck = mw.col.decks.get(deck_id)
-        if deck:
-            deck_name = deck["name"]
-            status = "Available"
+        for url in selected_urls:
+            # Obter informações do deck antes de desconectar
+            remote_decks = get_remote_decks()
+            if url in remote_decks:
+                deck_info = remote_decks[url]
+                deck_id = deck_info["deck_id"]
+                deck = mw.col.decks.get(deck_id)
+                deck_name = deck["name"] if deck else deck_info.get("deck_name", "Deck Desconhecido")
+                
+                # Desconectar o deck
+                disconnect_deck(url)
+                disconnected_decks.append(deck_name)
+        
+        # Mostrar mensagem de sucesso
+        if len(disconnected_decks) == 1:
+            message = (
+                f"O deck '{disconnected_decks[0]}' foi desconectado de sua fonte remota.\n\n"
+                f"O deck local permanece no Anki e pode ser gerenciado normalmente.\n"
+                f"Para reconectar, você precisará adicioná-lo novamente."
+            )
         else:
-            deck_name = f"Unknown (ID: {deck_id})"
-            status = "Not found in Anki"
-            
-        display_str = f"{deck_name} ({status})"
-        deck_info.append(display_str)
-        deck_map[display_str] = url
+            decks_list = "', '".join(disconnected_decks)
+            message = (
+                f"Os decks '{decks_list}' foram desconectados de suas fontes remotas.\n\n"
+                f"Os decks locais permanecem no Anki e podem ser gerenciados normalmente.\n"
+                f"Para reconectar, você precisará adicioná-los novamente."
+            )
+        
+        showInfo(message)
+    elif not selected_urls:
+        showInfo("Nenhum deck selecionado para desconexão.")
     
-    return deck_info, deck_map
-
-def _process_deck_removal(selection, deck_map, remoteDecks, config):
-    """
-    Processa a remoção de um deck da configuração.
-    
-    Args:
-        selection: String de seleção do usuário
-        deck_map: Mapeamento de seleções para URLs
-        remoteDecks: Dicionário de decks remotos
-        config: Configuração do addon
-    """
-    # Obter URL da seleção usando nosso mapeamento
-    url = deck_map[selection]
-    
-    # Obter nome do deck para exibição
-    deck_id = remoteDecks[url]["deck_id"]
-    deck = mw.col.decks.get(deck_id)
-    deck_name = deck["name"] if deck else f"Unknown (ID: {deck_id})"
-    
-    # Remover o deck da configuração
-    del remoteDecks[url]
-
-    # Salvar a configuração atualizada
-    save_addon_config(config)
-
-    # Mostrar mensagem de sucesso com instruções
-    message = (
-        f"The deck '{deck_name}' has been unlinked from its remote source.\n\n"
-        f"The local deck remains in Anki and can now be managed normally.\n"
-        f"Future updates from the Google Sheet will no longer affect this deck."
-    )
-    showInfo(message)
+    return

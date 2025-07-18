@@ -9,7 +9,7 @@ from pathlib import Path
 def get_consolidated_data_path():
     """Retorna o caminho para o arquivo consolidado"""
     current_dir = Path(__file__).parent
-    return current_dir / "test_data_consolidated.tsv"
+    return current_dir / ".." / "sample data" / "test_data_consolidated.tsv"
 
 def load_test_data(filter_type=None):
     """

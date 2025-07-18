@@ -75,7 +75,26 @@ def create_standalone_package():
         shutil.copytree(libs_source, libs_dest, ignore=ignore_patterns)
         print("   ✓ libs/")
     
-    print("\n3. Validando manifest.json para distribuição standalone...")
+    print("\n3. Configurando modo de produção...")
+    
+    # Alterar a constante IS_DEVELOPMENT_MODE para False
+    constants_path = package_dir / "src" / "constants.py"
+    if constants_path.exists():
+        with open(constants_path, 'r', encoding='utf-8') as f:
+            constants_content = f.read()
+        
+        # Substituir IS_DEVELOPMENT_MODE = True por IS_DEVELOPMENT_MODE = False
+        constants_content = constants_content.replace(
+            "IS_DEVELOPMENT_MODE = True", 
+            "IS_DEVELOPMENT_MODE = False"
+        )
+        
+        with open(constants_path, 'w', encoding='utf-8') as f:
+            f.write(constants_content)
+        
+        print("   ✅ Modo de desenvolvimento desativado")
+    
+    print("\n4. Validando manifest.json para distribuição standalone...")
     
     # Ler e validar manifest
     manifest_path = package_dir / "manifest.json"
@@ -109,7 +128,7 @@ def create_standalone_package():
             json.dump(manifest, f, indent=4, ensure_ascii=False)
         print("   ✓ Campo 'conflicts' adicionado (lista vazia)")
     
-    print("\n4. Limpando arquivos desnecessários...")
+    print("\n5. Limpando arquivos desnecessários...")
     
     # Remover arquivos de cache
     for root, dirs, files in os.walk(package_dir):
@@ -127,7 +146,7 @@ def create_standalone_package():
                 os.remove(file_path)
                 print(f"   🗑️  Removido: {os.path.relpath(file_path, package_dir)}")
     
-    print("\n5. Criando arquivo .ankiaddon standalone...")
+    print("\n6. Criando arquivo .ankiaddon standalone...")
     
     # Criar arquivo .ankiaddon
     ankiaddon_path = build_dir / "sheets2anki-standalone.ankiaddon"

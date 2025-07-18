@@ -66,7 +66,26 @@ def create_ankiweb_package():
         shutil.copytree(libs_source, libs_dest, ignore=ignore_patterns)
         print("   ✓ libs/")
     
-    print("\n3. Limpando arquivos desnecessários...")
+    print("\n3. Configurando modo de produção...")
+    
+    # Alterar a constante IS_DEVELOPMENT_MODE para False
+    constants_path = package_dir / "src" / "constants.py"
+    if constants_path.exists():
+        with open(constants_path, 'r', encoding='utf-8') as f:
+            constants_content = f.read()
+        
+        # Substituir IS_DEVELOPMENT_MODE = True por IS_DEVELOPMENT_MODE = False
+        constants_content = constants_content.replace(
+            "IS_DEVELOPMENT_MODE = True", 
+            "IS_DEVELOPMENT_MODE = False"
+        )
+        
+        with open(constants_path, 'w', encoding='utf-8') as f:
+            f.write(constants_content)
+        
+        print("   ✅ Modo de desenvolvimento desativado")
+    
+    print("\n4. Limpando arquivos desnecessários...")
     
     # Remover meta.json se existir (gerado automaticamente pelo Anki)
     meta_json_path = package_dir / "meta.json"
@@ -114,7 +133,7 @@ def create_ankiweb_package():
     else:
         print("   ✅ Verificação de limpeza: OK (sem __pycache__ ou .pyc)")
     
-    print("\n4. Validando pacote...")
+    print("\n5. Validando pacote...")
     
     # Verificar arquivos obrigatórios
     required = ["__init__.py", "manifest.json"]
@@ -134,7 +153,7 @@ def create_ankiweb_package():
     else:
         print("   ✅ manifest.json validado com sucesso")
     
-    print("\n5. Criando arquivo .ankiaddon...")
+    print("\n6. Criando arquivo .ankiaddon...")
     
     # Criar arquivo .ankiaddon para AnkiWeb
     # IMPORTANTE: Seguir especificações do AnkiWeb - sem pasta raiz no ZIP
@@ -153,7 +172,7 @@ def create_ankiweb_package():
     print(f"   ✅ Criado: {ankiaddon_path}")
     
     # Verificar estrutura do ZIP criado
-    print("\n6. Verificando estrutura do arquivo .ankiaddon...")
+    print("\n7. Verificando estrutura do arquivo .ankiaddon...")
     with zipfile.ZipFile(ankiaddon_path, 'r') as zipf:
         zip_contents = zipf.namelist()
         

@@ -2,7 +2,10 @@
 Stub para aqt.importing - Importação do Anki
 """
 
-from .qt import QDialog
+# Evitar importação circular
+class QDialog:
+    def __init__(self, parent=None):
+        pass
 
 class ImportDialog:
     def __init__(self, mw=None):

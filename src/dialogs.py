@@ -9,6 +9,7 @@ from .compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QCheckBox,
     DialogAccepted, DialogRejected, mw
 )
+from .fix_exec import safe_exec
 
 class DeckSelectionDialog(QDialog):
     """

@@ -118,40 +118,35 @@ def test_tsv_parsing_simulation():
     
     return accept_ok and filter_ok
 
-def test_migration_scenario():
-    """Testa cenário de migração de planilhas existentes."""
-    print("\n🧪 Testando cenário de migração...")
+def test_performance():
+    """Testa performance de sincronização."""
+    print("\n🧪 Testando performance de sincronização...")
     
-    # Simular planilha antes da migração (sem SYNC?)
-    planilha_antiga = [
-        {'ID': '001', 'PERGUNTA': 'Qual é a capital do Brasil?', 'LEVAR PARA PROVA': 'Brasília'},
-        {'ID': '002', 'PERGUNTA': 'Quem foi o primeiro presidente?', 'LEVAR PARA PROVA': 'Deodoro da Fonseca'},
-        {'ID': '003', 'PERGUNTA': 'Qual é a fórmula da água?', 'LEVAR PARA PROVA': 'H2O'},
-    ]
+    import time
+    start_time = time.time()
     
-    # Simular planilha após migração (com SYNC?)
-    planilha_nova = [
-        {'ID': '001', 'PERGUNTA': 'Qual é a capital do Brasil?', 'LEVAR PARA PROVA': 'Brasília', 'SYNC?': 'true'},
-        {'ID': '002', 'PERGUNTA': 'Quem foi o primeiro presidente?', 'LEVAR PARA PROVA': 'Deodoro da Fonseca', 'SYNC?': 'true'},
-        {'ID': '003', 'PERGUNTA': 'Qual é a fórmula da água?', 'LEVAR PARA PROVA': 'H2O', 'SYNC?': 'false'},
+    # Simular sincronização de dados
+    test_data = [
+        {'ID': f'{i:03d}', 'PERGUNTA': f'Pergunta {i}', 'RESPOSTA': f'Resposta {i}', 'SYNC?': 'true'}
+        for i in range(100)
     ]
     
     from column_definitions import should_sync_question
     
-    # Testar planilha nova
-    sync_count = sum(1 for q in planilha_nova if should_sync_question(q))
+    # Simular processamento
+    processed_count = sum(1 for item in test_data if should_sync_question(item))
     
-    print(f"  📊 Questões na planilha migrada: {len(planilha_nova)}")
-    print(f"  ✅ Questões para sincronizar: {sync_count}")
-    print(f"  ❌ Questões para ignorar: {len(planilha_nova) - sync_count}")
+    end_time = time.time()
+    duration = end_time - start_time
     
-    # Verificar se duas questões são sincronizadas (001 e 002)
-    expected_sync = 2
-    migration_ok = sync_count == expected_sync
+    print(f"  ✅ Processados {processed_count} itens em {duration:.3f}s")
+    print(f"  ✅ Performance: {processed_count/duration:.1f} itens/s")
     
-    print(f"  {'✅' if migration_ok else '❌'} Migração correta: {sync_count} (esperado: {expected_sync})")
+    assert processed_count == 100
+    assert duration < 1.0  # Deve ser rápido
     
-    return migration_ok
+    print("✅ PASSOU")
+    return True
 
 def main():
     """Função principal do teste."""
@@ -163,7 +158,7 @@ def main():
         # Executar testes
         test1 = test_sync_behavior()
         test2 = test_tsv_parsing_simulation()
-        test3 = test_migration_scenario()
+        test3 = test_performance()
         
         success = test1 and test2 and test3
         

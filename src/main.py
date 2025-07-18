@@ -23,8 +23,9 @@ Autor: Sheets2Anki Project
 from .sync import syncDecks
 from .deck_manager import (
     syncDecksWithSelection, import_test_deck, 
-    addNewDeck, removeRemoteDeck
+    addNewDeck, removeRemoteDeck, configure_deck_naming
 )
+from .backup_dialog import show_backup_dialog
 
 # =============================================================================
 # FUNÇÕES PRINCIPAIS EXPOSTAS
@@ -38,5 +39,7 @@ __all__ = [
     'syncDecksWithSelection', 
     'import_test_deck',
     'addNewDeck',
-    'removeRemoteDeck'
+    'removeRemoteDeck',
+    'configure_deck_naming',
+    'show_backup_dialog'
 ]

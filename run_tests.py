@@ -12,6 +12,7 @@ import sys
 import os
 import subprocess
 import glob
+from pathlib import Path
 
 def run_organized_tests(test_type='all'):
     """Executa os testes organizados na pasta tests/"""
@@ -42,18 +43,26 @@ def run_organized_tests(test_type='all'):
         return False
 
 def run_legacy_tests():
-    """Executa testes antigos que ainda existem"""
-    legacy_tests = []
+    """Verifica se há arquivos de teste antigos na raiz - simplificado"""
+    project_root = Path(__file__).parent
     
-    # Buscar por testes na raiz que ainda existem
-    for pattern in ['test_*.py', 'debug_*.py']:
+    # Padrões de arquivos antigos
+    legacy_patterns = [
+        "test_*.py",
+        "demo_*.py", 
+        "migrate_*.py",
+        "cleanup_*.py"
+    ]
+    
+    legacy_tests = []
+    for pattern in legacy_patterns:
         legacy_tests.extend(glob.glob(pattern))
     
     if legacy_tests:
         print(f"⚠️  Encontrados {len(legacy_tests)} arquivos de teste antigos na raiz:")
         for test in legacy_tests:
-            print(f"   - {test}")
-        print("   Recomendação: mover para tests/ ou remover se obsoletos")
+            print(f"    - {test}")
+        print("📋 Mova estes arquivos para tests/ ou remova-os")
         return False
     else:
         print("✅ Nenhum arquivo de teste antigo encontrado na raiz")

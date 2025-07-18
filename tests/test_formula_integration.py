@@ -17,28 +17,32 @@ def test_formula_errors_integration():
     print("🧪 Testando integração com arquivo TSV contendo erros de fórmulas...")
     
     # Ler o arquivo TSV de teste
-    tsv_file = os.path.join(os.path.dirname(__file__), 'test_formula_errors_data.tsv')
-    
-    if not os.path.exists(tsv_file):
-        print("❌ Arquivo de teste TSV não encontrado!")
-        return False
-    
-    # Ler dados do TSV
-    with open(tsv_file, 'r', encoding='utf-8') as f:
-        reader = csv.reader(f, delimiter='\t')
-        data = list(reader)
-    
-    print(f"📋 Arquivo TSV carregado com {len(data)} linhas (incluindo header)")
-    
-    if len(data) < 2:
-        print("❌ Arquivo TSV deve ter pelo menos headers e uma linha de dados")
-        return False
-    
-    # Simular o processamento que acontece em parseRemoteDeck.py
-    headers = [h.strip().upper() for h in data[0]]
-    header_indices = {header: idx for idx, header in enumerate(headers)}
-    
-    print(f"📋 Headers encontrados: {headers}")
+    def setup_test_data():
+        """Configura os dados de teste para o teste de integração"""
+        tsv_file = os.path.join(os.path.dirname(__file__), '..', 'sample data', 'test_formula_errors_data.tsv')
+        
+        if not os.path.exists(tsv_file):
+            print("❌ Arquivo de teste TSV não encontrado!")
+            return None, None, None
+        
+        # Ler dados do TSV
+        with open(tsv_file, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f, delimiter='\t')
+            data = list(reader)
+        
+        print(f"📋 Arquivo TSV carregado com {len(data)} linhas (incluindo header)")
+        
+        if len(data) < 2:
+            print("❌ Arquivo TSV deve ter pelo menos headers e uma linha de dados")
+            return None, None, None
+        
+        # Simular o processamento que acontece em parseRemoteDeck.py
+        headers = [h.strip().upper() for h in data[0]]
+        header_indices = {header: idx for idx, header in enumerate(headers)}
+        
+        print(f"📋 Headers encontrados: {headers}")
+        
+        return data, headers, header_indices
     
     # Função de detecção de fórmulas (cópia melhorada)
     def detect_formula_content(cell_value):
@@ -115,6 +119,13 @@ def test_formula_errors_integration():
             return ""
         
         return cell_value
+    
+    # Configurar dados de teste
+    data, headers, header_indices = setup_test_data()
+    
+    if data is None:
+        print("❌ Erro ao configurar dados de teste")
+        return False
     
     # Processar cada linha de dados
     errors_found = []
