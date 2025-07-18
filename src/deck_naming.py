@@ -16,12 +16,10 @@ def extract_deck_name_from_url(url):
     """
     Extrai o nome do deck automaticamente a partir da URL do Google Sheets.
     
-    Tenta várias estratégias para obter um nome significativo:
-    1. Nome do arquivo TSV baixado (a partir dos headers HTTP)
-    2. Nome da aba (se GID específico)
-    3. Nome da planilha (via título do documento)
-    4. Nome baseado no ID da planilha
-    5. Nome genérico como fallback
+    Prioridade de nomeação:
+    1. Nome do arquivo TSV baixado (removendo extensão .tsv)
+    2. Fallback para 'auto name fail - PlanilhaID xxxx AbaID xxxxx'
+    3. Fallback final para 'auto name fatal fail'
     
     Args:
         url (str): URL do Google Sheets
@@ -30,7 +28,7 @@ def extract_deck_name_from_url(url):
         str: Nome sugerido para o deck
     """
     try:
-        # Estratégia 1: Tentar obter nome do arquivo TSV baixado
+        # Estratégia 1: Obter nome do arquivo TSV baixado
         try:
             import urllib.request
             
@@ -50,64 +48,32 @@ def extract_deck_name_from_url(url):
                 match = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', content_disposition)
                 if match:
                     filename = match.group(1).strip('"\'')
-                    if filename and filename.endswith('.tsv'):
-                        # Remover extensão .tsv e limpar nome
-                        deck_name = filename[:-4]
-                        return clean_deck_name(deck_name)
-            
-            # Tentar extrair da URL se não há Content-Disposition
-            if 'export' in url and 'format=tsv' in url:
-                # Tentar obter nome da planilha fazendo uma requisição adicional
-                try:
-                    # Converter para URL de visualização para obter título
-                    spreadsheet_id = _extract_spreadsheet_id(url)
-                    if spreadsheet_id:
-                        title = _get_spreadsheet_title(spreadsheet_id)
-                        if title:
-                            return clean_deck_name(title)
-                except:
-                    pass
+                    if filename:
+                        # Remover extensão .tsv se existir
+                        if filename.lower().endswith('.tsv'):
+                            filename = filename[:-4]
+                        return clean_deck_name(filename)
             
             response.close()
             
         except Exception:
             pass
         
-        # Estratégia 2: Tentar obter dados do deck para extrair nome
-        try:
-            remote_deck = getRemoteDeck(url)
-            if hasattr(remote_deck, 'deckName') and remote_deck.deckName:
-                return clean_deck_name(remote_deck.deckName)
-        except:
-            pass
-        
-        # Estratégia 3: Extrair informações da URL
+        # Estratégia 2: Fallback para ID da planilha e GID
         spreadsheet_id = _extract_spreadsheet_id(url)
         gid = _extract_gid(url)
         
-        # Estratégia 4: Tentar obter nome da aba via GID
-        if gid and gid != "0":
-            try:
-                sheet_name = _get_sheet_name_from_gid(url, gid)
-                if sheet_name:
-                    return clean_deck_name(sheet_name)
-            except:
-                pass
-        
-        # Estratégia 5: Nome baseado no ID da planilha
         if spreadsheet_id:
-            # Usar apenas os primeiros 8 caracteres do ID para legibilidade
-            short_id = spreadsheet_id[:8]
-            deck_name = f"Sheets_Deck_{short_id}"
             if gid and gid != "0":
-                deck_name += f"_Sheet_{gid}"
-            return deck_name
+                return f"auto name fail - PlanilhaID {spreadsheet_id[:8]} AbaID {gid}"
+            else:
+                return f"auto name fail - PlanilhaID {spreadsheet_id[:8]} AbaID 0"
         
-        # Estratégia 6: Nome genérico
-        return "Imported_Deck"
+        # Estratégia 3: Fallback final
+        return "auto name fatal fail"
         
     except Exception:
-        return "Imported_Deck"
+        return "auto name fatal fail"
 
 
 def generate_automatic_deck_name(url):
@@ -141,26 +107,17 @@ def clean_deck_name(name):
         str: Nome limpo e normalizado
     """
     if not name:
-        return "Unnamed_Deck"
+        return "auto name fatal fail"
     
     # Converter para string se necessário
     name = str(name).strip()
     
-    # Remover caracteres problemáticos
+    # Remover caracteres problemáticos, mas manter espaços
     name = re.sub(r'[<>:"/\\|?*]', '_', name)
-    
-    # Remover espaços duplos e converter espaços em underscores
-    name = re.sub(r'\s+', '_', name)
-    
-    # Remover underscores duplos
-    name = re.sub(r'_+', '_', name)
-    
-    # Remover underscores no início e fim
-    name = name.strip('_')
     
     # Garantir que não está vazio
     if not name:
-        return "Unnamed_Deck"
+        return "auto name fatal fail"
     
     # Limitar tamanho
     if len(name) > 100:
@@ -306,87 +263,34 @@ def _extract_spreadsheet_id(url):
 
 def _extract_gid(url):
     """
-    Extrai o GID (ID da aba) da URL.
+    Extrai o ID da aba (GID) da URL.
     
     Args:
         url (str): URL do Google Sheets
         
     Returns:
-        str: GID da aba ou None se não encontrado
-    """
-    # Tentar extrair do fragmento (#gid=123)
-    if '#gid=' in url:
-        match = re.search(r'#gid=([^&\s]+)', url)
-        if match:
-            return match.group(1)
-    
-    # Tentar extrair dos parâmetros (?gid=123)
-    if '?gid=' in url or '&gid=' in url:
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query)
-        if 'gid' in params:
-            return params['gid'][0]
-    
-    return None
-
-
-def _get_spreadsheet_title(spreadsheet_id):
-    """
-    Tenta obter o título da planilha a partir do ID.
-    
-    Esta função faz uma requisição à URL de visualização da planilha
-    para tentar extrair o título da página HTML.
-    
-    Args:
-        spreadsheet_id (str): ID da planilha
-        
-    Returns:
-        str: Título da planilha ou None se não conseguir obter
+        str: GID da aba ou "0" se não encontrado
     """
     try:
-        import urllib.request
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
         
-        # URL de visualização da planilha
-        view_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+        # Verificar se há parâmetro gid
+        if 'gid' in query_params:
+            return query_params['gid'][0]
         
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Sheets2Anki) AnkiAddon'
-        }
-        request = urllib.request.Request(view_url, headers=headers)
+        # Verificar se há gid no fragmento da URL
+        if parsed_url.fragment:
+            # Tentar extrair do fragmento (#gid=123)
+            match = re.search(r'#gid=([^&\s]+)', parsed_url.fragment)
+            if match:
+                return match.group(1)
+            
+            # Tentar como query params no fragmento
+            fragment_params = parse_qs(parsed_url.fragment)
+            if 'gid' in fragment_params:
+                return fragment_params['gid'][0]
         
-        response = urllib.request.urlopen(request, timeout=10)
-        html_content = response.read().decode('utf-8')
-        response.close()
-        
-        # Tentar extrair título da tag <title>
-        match = re.search(r'<title[^>]*>([^<]+)</title>', html_content, re.IGNORECASE)
-        if match:
-            title = match.group(1).strip()
-            # Remover sufixos comuns do Google Sheets
-            title = re.sub(r'\s*-\s*Google\s+(Sheets|Planilhas).*$', '', title, flags=re.IGNORECASE)
-            if title:
-                return title
-        
-        return None
-        
+        return "0"  # GID padrão se não encontrado
     except Exception:
-        return None
-
-
-def _get_sheet_name_from_gid(url, gid):
-    """
-    Tenta obter o nome da aba a partir do GID.
-    
-    Esta função é um placeholder para uma futura implementação
-    que poderia usar a API do Google Sheets.
-    
-    Args:
-        url (str): URL do Google Sheets
-        gid (str): GID da aba
-        
-    Returns:
-        str: Nome da aba ou None se não conseguir obter
-    """
-    # Por enquanto, retornar None
-    # Futura implementação poderia usar a API do Google Sheets
-    return None
+        return "0"
