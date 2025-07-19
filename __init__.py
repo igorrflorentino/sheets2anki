@@ -75,7 +75,7 @@ Olá! Parece que ocorreu um erro durante a execução.
 
 O erro foi: {}.
 
-Se você quiser que eu corrija, por favor relate aqui: https://github.com/sebastianpaez/sheets2anki
+Se você quiser que eu corrija, por favor relate aqui: https://github.com/igorrflorentino/sheets2anki
 
 Certifique-se de fornecer o máximo de informações possível, especialmente o arquivo que causou o erro.
 """
