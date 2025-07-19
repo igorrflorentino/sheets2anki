@@ -16,6 +16,7 @@ from .validation import validate_url
 from .parseRemoteDeck import getRemoteDeck
 from .note_processor import create_or_update_notes
 from .exceptions import SyncError
+from .subdeck_manager import remove_empty_subdecks
 
 def syncDecks(selected_deck_names=None, selected_deck_urls=None):
     """
@@ -467,6 +468,10 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
     progress.setValue(total_decks * 3)
     mw.app.processEvents()
     
+    # Remover subdecks vazios após a sincronização
+    remote_decks = get_remote_decks()
+    removed_subdecks = remove_empty_subdecks(remote_decks)
+    
     # Preparar mensagem final para exibir na barra de progresso
     if sync_errors or total_stats['errors'] > 0:
         final_msg = f"Concluído com problemas: {decks_synced}/{total_decks} decks sincronizados"
@@ -478,6 +483,8 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
             final_msg += f", {total_stats['deleted']} deletados"
         if total_stats['ignored'] > 0:
             final_msg += f", {total_stats['ignored']} ignorados"
+        if removed_subdecks > 0:
+            final_msg += f", {removed_subdecks} subdecks vazios removidos"
         final_msg += f", {total_stats['errors'] + len(sync_errors)} erros"
     else:
         final_msg = f"Sincronização concluída com sucesso!"
@@ -489,6 +496,8 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
             final_msg += f", {total_stats['deleted']} deletados"
         if total_stats['ignored'] > 0:
             final_msg += f", {total_stats['ignored']} ignorados"
+        if removed_subdecks > 0:
+            final_msg += f", {removed_subdecks} subdecks vazios removidos"
     
     # Exibir mensagem final na barra e adicionar botão OK
     # Usar uma lista temporária para a mensagem final
@@ -505,9 +514,9 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
         time.sleep(0.1)
     
     # Mostrar resumo abrangente dos resultados da sincronização
-    _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks)
+    _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks)
 
-def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
+def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks=0):
     """Mostra resumo detalhado da sincronização com área de scroll para detalhes."""
     # Preparar o resumo básico
     if sync_errors or total_stats['errors'] > 0:
@@ -517,6 +526,8 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
         summary += f"Cards atualizados: {total_stats['updated']}\n"
         summary += f"Cards deletados: {total_stats['deleted']}\n"
         summary += f"Cards ignorados: {total_stats['ignored']}\n"
+        if removed_subdecks > 0:
+            summary += f"Subdecks vazios removidos: {removed_subdecks}\n"
         summary += f"Erros encontrados: {total_stats['errors'] + len(sync_errors)}\n\n"
         
         # Adicionar erros de nível de deck
@@ -537,6 +548,8 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
         summary += f"Cards atualizados: {total_stats['updated']}\n"
         summary += f"Cards deletados: {total_stats['deleted']}\n"
         summary += f"Cards ignorados: {total_stats['ignored']}\n"
+        if removed_subdecks > 0:
+            summary += f"Subdecks vazios removidos: {removed_subdecks}\n"
         summary += "Nenhum erro encontrado."
     
     # Se há detalhes de atualizações, mostrar em um diálogo com scroll
@@ -566,6 +579,11 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
             details += f"{i}. ID: {update['id']}\n"
             details += f"   Pergunta: {update['pergunta']}\n"
             details += f"   Mudanças: {'; '.join(update['changes'])}\n\n"
+        
+        # Adicionar informação sobre subdecks vazios removidos, se houver
+        if removed_subdecks > 0:
+            details += f"\n\nSubdecks vazios removidos: {removed_subdecks}\n"
+            details += "Subdecks sem cards foram automaticamente removidos para manter a organização."
         
         details_text.setPlainText(details)
         layout.addWidget(details_text)

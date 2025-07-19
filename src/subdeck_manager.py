@@ -12,7 +12,7 @@ except ImportError:
     from aqt import mw
 
 from . import column_definitions as cols
-from .config_manager import get_create_subdecks_setting
+from .config_manager import get_create_subdecks_setting, get_remote_decks
 from .constants import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
 
 def get_subdeck_name(main_deck_name, fields):
@@ -99,3 +99,66 @@ def move_note_to_subdeck(note_id, subdeck_id):
     except Exception as e:
         print(f"Erro ao mover nota para subdeck: {e}")
         return False
+
+
+def remove_empty_subdecks(remote_decks):
+    """
+    Remove subdecks vazios após a sincronização.
+    
+    Esta função verifica todos os subdecks dos decks remotos e remove aqueles
+    que não contêm nenhuma nota ou card.
+    
+    Args:
+        remote_decks (dict): Dicionário de decks remotos
+        
+    Returns:
+        int: Número de subdecks vazios removidos
+    """
+    if not mw or not hasattr(mw, 'col') or not mw.col:
+        return 0
+        
+    removed_count = 0
+    processed_decks = set()
+    
+    # Coletar todos os decks principais para verificar seus subdecks
+    main_deck_ids = []
+    for deck_info in remote_decks.values():
+        deck_id = deck_info.get("deck_id")
+        if deck_id and deck_id not in processed_decks:
+            main_deck_ids.append(deck_id)
+            processed_decks.add(deck_id)
+    
+    # Para cada deck principal, verificar seus subdecks
+    for deck_id in main_deck_ids:
+        deck = mw.col.decks.get(deck_id)
+        if not deck:
+            continue
+            
+        main_deck_name = deck["name"]
+        
+        # Encontrar todos os subdecks deste deck principal
+        all_decks = mw.col.decks.all_names_and_ids()
+        subdecks = [d for d in all_decks if d.name.startswith(main_deck_name + "::")] 
+        
+        # Ordenar subdecks do mais profundo para o menos profundo para evitar problemas de dependência
+        subdecks.sort(key=lambda d: d.name.count("::"), reverse=True)
+        
+        # Verificar cada subdeck
+        for subdeck in subdecks:
+            # Contar cards no subdeck
+            card_count = len(mw.col.find_cards(f'deck:"{subdeck.name}"'))
+            
+            # Se o subdeck estiver vazio, removê-lo
+            if card_count == 0:
+                try:
+                    mw.col.decks.remove([subdeck.id])
+                    removed_count += 1
+                except Exception as e:
+                    # Ignorar erros na remoção de subdecks
+                    pass
+    
+    # Atualizar a interface do Anki para refletir as mudanças
+    if removed_count > 0 and mw is not None and hasattr(mw, 'reset'):
+        mw.reset()
+    
+    return removed_count

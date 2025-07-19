@@ -143,6 +143,12 @@ Estrutura criada:
 
 Esta funcionalidade pode ser habilitada/desabilitada em `Ferramentas → Sheets2anki → Configurar Subdecks por Tópico`
 
+**Limpeza automática de subdecks vazios:**
+- Após cada sincronização, subdecks que ficaram vazios são automaticamente removidos
+- Apenas subdecks sem nenhum card são removidos
+- Subdecks com pelo menos um card são mantidos
+- Isso mantém a organização do deck limpa e evita subdecks desnecessários
+
 ### 🔧 **Limpeza Automática**
 O sistema remove automaticamente:
 - **Erros de fórmula**: `#NAME?`, `#REF!`, `#VALUE!`, `#DIV/0!`, etc.

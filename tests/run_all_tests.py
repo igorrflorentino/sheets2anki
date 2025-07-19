@@ -63,6 +63,7 @@ def run_organized_tests():
             'test_data_validation.py',
             'test_card_templates.py',
             'test_config.py',
+            'test_empty_subdeck_removal.py',
         ],
         'Integration Tests': [
             'test_formula_integration.py',
@@ -186,6 +187,7 @@ def run_quick_tests():
         'test_structure.py',
         'test_imports.py',
         'test_data_validation.py',
+        'test_empty_subdeck_removal.py',
         'integration/test_integration.py',
     ]
     
