@@ -40,6 +40,7 @@ import urllib.error
 import socket
 import re  # Para expressões regulares
 from . import column_definitions as cols  # Definições centralizadas de colunas
+from .constants import DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT, TAG_ROOT, TAG_TOPICS, TAG_SUBTOPICS, TAG_CONCEPTS
 
 # =============================================================================
 # CUSTOM EXCEPTIONS
@@ -374,8 +375,8 @@ def create_tags_from_fields(fields):
     hierárquico de tags para melhor organização no Anki.
     
     Estrutura de tags criadas (todas sob a tag raiz 'sheet2anki'):
-    - sheet2anki::topicos::topico1::subtopicos::subtopico1
-    - sheet2anki::topicos::topico1::conceitos::conceito1
+    - sheet2anki::topicos::topico1::subtopico1::conceito1
+    - sheet2anki::conceitos::conceito1 (tag extra para fácil filtragem)
     - sheet2anki::bancas::banca1
     - sheet2anki::provas::ano1
     - sheet2anki::carreiras::carreira1
@@ -387,40 +388,19 @@ def create_tags_from_fields(fields):
         
     Returns:
         list: Lista de tags hierárquicas compatíveis com o Anki
-        
-    Examples:
-        >>> fields = {'TOPICO': 'Direito Civil', 'SUBTOPICO': 'Contratos', 'CONCEITO': 'Responsabilidade'}
-        >>> create_tags_from_fields(fields)
-        ['sheet2anki::topicos::Direito_Civil::subtopicos::Contratos', 'sheet2anki::topicos::Direito_Civil::conceitos::Responsabilidade']
     """
     tags = []
-    ROOT_TAG = "sheet2anki"
     
     # Processar TOPICO, SUBTOPICO e CONCEITO de forma hierárquica
-    topico = clean_tag_text(fields.get(cols.TOPICO, ''))
-    subtopicos_raw = fields.get(cols.SUBTOPICO, '')
-    conceitos_raw = fields.get(cols.CONCEITO, '')
-    
-    if topico:
-        # Processar SUBTOPICO dentro do TOPICO
-        if subtopicos_raw:
-            # Dividir subtópicos por vírgula e processar cada um
-            for subtopico in subtopicos_raw.split(','):
-                subtopico_clean = clean_tag_text(subtopico)
-                if subtopico_clean:
-                    tags.append(f"{ROOT_TAG}::topicos::{topico}::subtopicos::{subtopico_clean}")
-        
-        # Processar CONCEITO dentro do TOPICO
-        if conceitos_raw:
-            # Dividir conceitos por vírgula e processar cada um
-            for conceito in conceitos_raw.split(','):
-                conceito_clean = clean_tag_text(conceito)
-                if conceito_clean:
-                    tags.append(f"{ROOT_TAG}::topicos::{topico}::conceitos::{conceito_clean}")
-        
-        # Se não há subtópicos nem conceitos, criar tag apenas com tópico principal
-        if not subtopicos_raw and not conceitos_raw:
-            tags.append(f"{ROOT_TAG}::topicos::{topico}")
+    topico = clean_tag_text(fields.get(cols.TOPICO, '') or DEFAULT_TOPIC)
+    subtopicos = [clean_tag_text(s) for s in (fields.get(cols.SUBTOPICO, '') or DEFAULT_SUBTOPIC).split(',') if clean_tag_text(s)]
+    conceitos = [clean_tag_text(c) for c in (fields.get(cols.CONCEITO, '') or DEFAULT_CONCEPT).split(',') if clean_tag_text(c)]
+
+    for subtopico in subtopicos:
+        tags.append(f"{TAG_ROOT}::{TAG_TOPICS}::{topico}::{subtopico}")
+        for conceito in conceitos:
+            tags.append(f"{TAG_ROOT}::{TAG_TOPICS}::{topico}::{subtopico}::{conceito}")
+            tags.append(f"{TAG_ROOT}::{TAG_CONCEPTS}::{conceito}")
             
     # Processar BANCAS (pode ter múltiplos valores separados por vírgula)
     bancas = fields.get(cols.BANCAS, '')
@@ -428,12 +408,12 @@ def create_tags_from_fields(fields):
         for banca in bancas.split(','):
             banca_clean = clean_tag_text(banca)
             if banca_clean:
-                tags.append(f"{ROOT_TAG}::bancas::{banca_clean}")
+                tags.append(f"{TAG_ROOT}::bancas::{banca_clean}")
                 
     # Processar ANO
     ano = clean_tag_text(fields.get(cols.ANO, ''))
     if ano:
-        tags.append(f"{ROOT_TAG}::provas::{ano}")
+        tags.append(f"{TAG_ROOT}::provas::{ano}")
         
     # Processar CARREIRA (pode ter múltiplos valores separados por vírgula)
     carreira = fields.get(cols.CARREIRA, '')
@@ -441,12 +421,12 @@ def create_tags_from_fields(fields):
         for carr in carreira.split(','):
             carr_clean = clean_tag_text(carr)
             if carr_clean:
-                tags.append(f"{ROOT_TAG}::carreiras::{carr_clean}")
+                tags.append(f"{TAG_ROOT}::carreiras::{carr_clean}")
         
     # Processar IMPORTANCIA
     importancia = clean_tag_text(fields.get(cols.IMPORTANCIA, ''))
     if importancia:
-        tags.append(f"{ROOT_TAG}::importancia::{importancia}")
+        tags.append(f"{TAG_ROOT}::importancia::{importancia}")
         
     # Processar MORE_TAGS (tags adicionais)
     more_tags = fields.get(cols.MORE_TAGS, '')
@@ -454,7 +434,7 @@ def create_tags_from_fields(fields):
         for tag in more_tags.split(','):
             tag_clean = clean_tag_text(tag)
             if tag_clean:
-                tags.append(f"{ROOT_TAG}::variado::{tag_clean}")
+                tags.append(f"{TAG_ROOT}::variado::{tag_clean}")
     
     return tags
 

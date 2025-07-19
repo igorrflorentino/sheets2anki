@@ -59,6 +59,7 @@ try:
     from .src.main import removeRemoteDeck as rDecks
     from .src.deck_manager import configure_deck_naming
     from .src.main import show_backup_dialog
+    from .src.main import show_subdeck_config_dialog
     from .libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
     
 except Exception as e:
@@ -119,6 +120,19 @@ def configureNaming():
     """
     try:
         configure_deck_naming()
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+        
+def configureSubdecks():
+    """
+    Configura as preferências de criação de subdecks.
+    
+    Esta função permite ao usuário habilitar ou desabilitar a criação
+    automática de subdecks baseados em TOPICO e SUBTOPICO.
+    """
+    try:
+        show_subdeck_config_dialog()
     except Exception as e:
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
@@ -218,6 +232,11 @@ if mw is not None:
     configureDeckNaming.setShortcut(QKeySequence("Ctrl+Shift+N"))
     qconnect(configureDeckNaming.triggered, configureNaming)
     remoteDecksSubMenu.addAction(configureDeckNaming)
+    
+    # Ação: Configurar subdecks
+    configureSubdecksAction = QAction("Configurar Subdecks por Tópico", mw)
+    qconnect(configureSubdecksAction.triggered, configureSubdecks)
+    remoteDecksSubMenu.addAction(configureSubdecksAction)
 
     # Separador
     remoteDecksSubMenu.addSeparator()

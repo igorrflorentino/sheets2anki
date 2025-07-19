@@ -95,6 +95,7 @@ try:
         QKeySequence,
         QAction,
         QMenu,
+        QDialogButtonBox,
         Qt
     )
     
@@ -137,6 +138,14 @@ else:
     Key_Return = Qt.Key_Return
     Key_Enter = Qt.Key_Enter
     Key_Escape = Qt.Key_Escape
+    
+# Constantes de formato de texto
+if QT_VERSION >= 6:
+    TextFormat_RichText = Qt.TextFormat.RichText
+    TextFormat_PlainText = Qt.TextFormat.PlainText
+else:
+    TextFormat_RichText = Qt.RichText
+    TextFormat_PlainText = Qt.PlainText
 
 # Constantes de diálogo
 if hasattr(QDialog, 'Accepted'):
@@ -145,6 +154,22 @@ if hasattr(QDialog, 'Accepted'):
 else:
     DialogAccepted = 1
     DialogRejected = 0
+    
+# Constantes de QDialogButtonBox
+if QT_VERSION >= 6:
+    ButtonBox_Ok = QDialogButtonBox.StandardButton.Ok
+    ButtonBox_Cancel = QDialogButtonBox.StandardButton.Cancel
+    ButtonBox_Yes = QDialogButtonBox.StandardButton.Yes
+    ButtonBox_No = QDialogButtonBox.StandardButton.No
+    ButtonBox_Apply = QDialogButtonBox.StandardButton.Apply
+    ButtonBox_Close = QDialogButtonBox.StandardButton.Close
+else:
+    ButtonBox_Ok = QDialogButtonBox.Ok
+    ButtonBox_Cancel = QDialogButtonBox.Cancel
+    ButtonBox_Yes = QDialogButtonBox.Yes
+    ButtonBox_No = QDialogButtonBox.No
+    ButtonBox_Apply = QDialogButtonBox.Apply
+    ButtonBox_Close = QDialogButtonBox.Close
 
 # Constantes de echo mode para QLineEdit
 if hasattr(QLineEdit, 'EchoMode'):
@@ -213,6 +238,23 @@ def show_message(title: str, message: str, message_type: str = "info") -> None:
         showCritical(full_message)
     else:
         showInfo(full_message)
+        
+def safe_exec_dialog(dialog) -> int:
+    """
+    Executa um diálogo de forma compatível entre versões do Qt.
+    
+    Args:
+        dialog: Diálogo Qt a ser executado
+        
+    Returns:
+        int: Código de resultado do diálogo (Accepted/Rejected)
+    """
+    if hasattr(dialog, "exec"):
+        # Qt6 style
+        return dialog.exec()
+    else:
+        # Qt5 style
+        return dialog.exec_()
 
 def show_tooltip(message: str, period: int = 3000) -> None:
     """

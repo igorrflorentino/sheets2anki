@@ -23,6 +23,7 @@
 - **17 colunas obrigatórias**: Estrutura completa para questões de estudo
 - **Cards Cloze**: Detecta automaticamente formatação `{{c1::...}}`
 - **Tags automáticas**: Geradas a partir de `TOPICO`, `SUBTOPICO`, `BANCAS`
+- **Subdecks automáticos**: Cria subdecks baseados em `TOPICO` e `SUBTOPICO`
 
 ## 📋 Estrutura da Planilha
 
@@ -119,12 +120,28 @@ O add-on criará automaticamente um card Cloze no Anki.
 Tags são geradas automaticamente a partir de:
 - `TOPICO` → tag principal
 - `SUBTOPICO` → tag secundária
-- `CONCEITO` → tag terciária
+- `CONCEITO` → tag terciária (com tag extra para fácil filtragem)
 - `BANCAS` → tag da banca
 - `ULTIMO ANO EM PROVA` → tag do ano
 - `CARREIRA` → tag do cargo
 - `IMPORTANCIA` → tag da importancia
 - `TAGS ADICIONAIS` → tags extras
+
+Estrutura hierárquica de tags:
+- `sheet2anki::topicos::topico::subtopicos::subtopico::conceitos::conceito`
+- `sheet2anki::conceitos::conceito` (tag extra para fácil filtragem)
+
+Valores padrão são usados quando campos estão vazios.
+
+### 📂 **Subdecks Automáticos**
+O add-on pode criar automaticamente subdecks baseados nos valores das colunas:
+- `TOPICO` e `SUBTOPICO` → Estrutura hierárquica de decks
+
+Estrutura criada:
+- `DeckPrincipal::Topico::Subtopico::Conceito` (sempre, usando valores padrão quando campos estão vazios)
+- Valores padrão: `Topic Missing`, `Subtopic Missing`, `Concept Missing`
+
+Esta funcionalidade pode ser habilitada/desabilitada em `Ferramentas → Sheets2anki → Configurar Subdecks por Tópico`
 
 ### 🔧 **Limpeza Automática**
 O sistema remove automaticamente:
@@ -246,6 +263,7 @@ sheets2anki/
 - ✅ Limpeza automática de fórmulas
 - ✅ Suporte a URLs publicadas
 - ✅ Validação case insensitive
+- ✅ Subdecks automáticos por TOPICO e SUBTOPICO
 - ✅ Compatibilidade Anki 25.x
 - ✅ Sistema de testes completo
 - ✅ Documentação profissional

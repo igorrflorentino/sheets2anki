@@ -34,7 +34,8 @@ DEFAULT_META = {
     "user_preferences": {
         "deck_naming_mode": "automatic",  # "automatic" ou "manual"
         "parent_deck_name": "Sheets2Anki",
-        "auto_update_names": True
+        "auto_update_names": True,
+        "create_subdecks": True  # Habilitar criação de subdecks por padrão
     },
     "remote_decks": {}
 }
@@ -320,6 +321,30 @@ def set_parent_deck_name(name):
     prefs = get_user_preferences()
     if prefs:
         prefs["parent_deck_name"] = name
+        save_user_preferences(prefs)
+        
+def get_create_subdecks_setting():
+    """
+    Verifica se a criação de subdecks está habilitada.
+    
+    Returns:
+        bool: True se a criação de subdecks está habilitada, False caso contrário
+    """
+    prefs = get_user_preferences()
+    if prefs:
+        return prefs.get("create_subdecks", True)
+    return True
+
+def set_create_subdecks_setting(enabled):
+    """
+    Define se a criação de subdecks está habilitada.
+    
+    Args:
+        enabled (bool): True para habilitar, False para desabilitar
+    """
+    prefs = get_user_preferences()
+    if prefs:
+        prefs["create_subdecks"] = enabled
         save_user_preferences(prefs)
 
 # =============================================================================

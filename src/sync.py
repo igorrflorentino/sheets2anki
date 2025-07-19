@@ -7,8 +7,8 @@ de decks com fontes remotas, usando o novo sistema de configuração.
 
 import time
 from .compat import (
-    mw, showInfo, QProgressDialog, QPushButton, QLabel,
-    AlignTop, AlignLeft
+    mw, showInfo, QProgressDialog, QPushButton, QLabel, QDialog, QVBoxLayout,
+    QTextEdit, QDialogButtonBox, AlignTop, AlignLeft, ButtonBox_Ok, safe_exec_dialog
 )
 from .config_manager import get_remote_decks, save_remote_decks, disconnect_deck, verify_and_update_deck_info
 from .deck_naming import update_deck_name_if_needed
@@ -508,7 +508,8 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
     _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks)
 
 def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
-    """Mostra resumo detalhado da sincronização."""
+    """Mostra resumo detalhado da sincronização com área de scroll para detalhes."""
+    # Preparar o resumo básico
     if sync_errors or total_stats['errors'] > 0:
         summary = f"Sincronização concluída com alguns problemas:\n\n"
         summary += f"Decks sincronizados: {decks_synced}/{total_decks}\n"
@@ -529,16 +530,6 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
             summary += "\n".join(total_stats['error_details'][:10])  # Limitar aos primeiros 10 erros
             if len(total_stats['error_details']) > 10:
                 summary += f"\n... e mais {len(total_stats['error_details']) - 10} erros."
-        
-        # Adicionar detalhes das atualizações se houver
-        if total_stats.get('updated_details'):
-            summary += "\n\nPrimeiras atualizações realizadas:\n"
-            for i, update in enumerate(total_stats['updated_details'], 1):
-                summary += f"{i}. ID: {update['id']}\n"
-                summary += f"   Pergunta: {update['pergunta']}\n"
-                summary += f"   Mudanças: {'; '.join(update['changes'])}\n\n"
-        
-        showInfo(summary)
     else:
         summary = f"Sincronização concluída com sucesso!\n\n"
         summary += f"Decks sincronizados: {decks_synced}\n"
@@ -547,13 +538,45 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks):
         summary += f"Cards deletados: {total_stats['deleted']}\n"
         summary += f"Cards ignorados: {total_stats['ignored']}\n"
         summary += "Nenhum erro encontrado."
+    
+    # Se há detalhes de atualizações, mostrar em um diálogo com scroll
+    if total_stats.get('updated_details'):
+        # Criar diálogo personalizado com área de scroll
+        dialog = QDialog(mw)
+        dialog.setWindowTitle("Resumo da Sincronização")
+        dialog.setMinimumWidth(600)
+        dialog.setMinimumHeight(500)
         
-        # Adicionar detalhes das atualizações se houver
-        if total_stats.get('updated_details'):
-            summary += "\n\nPrimeiras atualizações realizadas:\n"
-            for i, update in enumerate(total_stats['updated_details'], 1):
-                summary += f"{i}. ID: {update['id']}\n"
-                summary += f"   Pergunta: {update['pergunta']}\n"
-                summary += f"   Mudanças: {'; '.join(update['changes'])}\n\n"
+        layout = QVBoxLayout()
         
+        # Área de texto para o resumo principal
+        summary_text = QTextEdit()
+        summary_text.setReadOnly(True)
+        summary_text.setPlainText(summary)
+        summary_text.setMaximumHeight(200)
+        layout.addWidget(summary_text)
+        
+        # Área de texto com scroll para os detalhes das atualizações
+        details_text = QTextEdit()
+        details_text.setReadOnly(True)
+        
+        # Preparar texto detalhado das atualizações
+        details = "Detalhes das atualizações realizadas:\n\n"
+        for i, update in enumerate(total_stats['updated_details'], 1):
+            details += f"{i}. ID: {update['id']}\n"
+            details += f"   Pergunta: {update['pergunta']}\n"
+            details += f"   Mudanças: {'; '.join(update['changes'])}\n\n"
+        
+        details_text.setPlainText(details)
+        layout.addWidget(details_text)
+        
+        # Botões
+        button_box = QDialogButtonBox(ButtonBox_Ok)
+        button_box.accepted.connect(dialog.accept)
+        layout.addWidget(button_box)
+        
+        dialog.setLayout(layout)
+        safe_exec_dialog(dialog)
+    else:
+        # Se não há detalhes de atualizações, mostrar apenas o resumo
         showInfo(summary)

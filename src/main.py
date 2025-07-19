@@ -26,6 +26,7 @@ from .deck_manager import (
     addNewDeck, removeRemoteDeck, configure_deck_naming
 )
 from .backup_dialog import show_backup_dialog
+from .subdeck_config_dialog import show_subdeck_config_dialog
 
 # =============================================================================
 # FUNÇÕES PRINCIPAIS EXPOSTAS
@@ -41,5 +42,6 @@ __all__ = [
     'addNewDeck',
     'removeRemoteDeck',
     'configure_deck_naming',
-    'show_backup_dialog'
+    'show_backup_dialog',
+    'show_subdeck_config_dialog'
 ]

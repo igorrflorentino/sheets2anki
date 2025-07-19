@@ -9,6 +9,17 @@ from .card_templates import ensure_custom_models
 from .parseRemoteDeck import has_cloze_deletion
 from .exceptions import NoteProcessingError, CollectionSaveError, SyncError
 from . import column_definitions
+from .subdeck_manager import get_subdeck_name, ensure_subdeck_exists, move_note_to_subdeck
+
+# Importar mw de forma segura
+try:
+    from .compat import mw
+except ImportError:
+    # Fallback para importação direta
+    try:
+        from aqt import mw
+    except ImportError:
+        mw = None
 
 def create_or_update_notes(col, remoteDeck, deck_id):
     """
@@ -156,7 +167,21 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                                 note[field_name] = value
                         note.tags = tags
                         try:
-                            note.flush()
+                            # Verificar se devemos mover a nota para um subdeck
+                            main_deck_name = remoteDeck.deckName
+                            subdeck_name = get_subdeck_name(main_deck_name, fields)
+                            
+                            # Se o nome do subdeck é diferente do deck principal, mover para o subdeck
+                            if subdeck_name != main_deck_name:
+                                subdeck_id = ensure_subdeck_exists(subdeck_name)
+                                # Primeiro salvar as alterações na nota
+                                note.flush()
+                                # Depois mover para o subdeck correto
+                                move_note_to_subdeck(note.id, subdeck_id)
+                            else:
+                                # Apenas salvar a nota se não há subdeck
+                                note.flush()
+                                
                             stats['updated'] += 1
                         except Exception as e:
                             raise NoteProcessingError(f"Error updating note {key}: {str(e)}")
@@ -176,7 +201,19 @@ def create_or_update_notes(col, remoteDeck, deck_id):
                     note.tags = tags
                     
                     try:
-                        col.add_note(note, deck_id)
+                        # Verificar se devemos criar subdecks baseados em TOPICO e SUBTOPICO
+                        main_deck_name = remoteDeck.deckName
+                        subdeck_name = get_subdeck_name(main_deck_name, fields)
+                        
+                        # Se o nome do subdeck é diferente do deck principal, criar o subdeck
+                        if subdeck_name != main_deck_name:
+                            subdeck_id = ensure_subdeck_exists(subdeck_name)
+                            # Adicionar a nota ao subdeck em vez do deck principal
+                            col.add_note(note, subdeck_id)
+                        else:
+                            # Adicionar ao deck principal se não há subdeck
+                            col.add_note(note, deck_id)
+                            
                         stats['created'] += 1
                     except Exception as e:
                         raise NoteProcessingError(f"Error creating note {key}: {str(e)}")
@@ -207,6 +244,10 @@ def create_or_update_notes(col, remoteDeck, deck_id):
         # Adicionar contagem de cards ignorados às estatísticas
         if hasattr(remoteDeck, 'ignored_count'):
             stats['ignored'] = remoteDeck.ignored_count
+            
+        # Atualizar a interface do Anki para refletir os novos subdecks
+        if mw is not None and hasattr(mw, 'reset'):
+            mw.reset()
 
         # Retornar estatísticas sem mostrar info
         return stats
