@@ -204,10 +204,10 @@ class BackupManager:
             decks_to_export = {}
             if deck_urls:
                 for url in deck_urls:
-                    if url in meta_data.get('remote_decks', {}):
-                        decks_to_export[url] = meta_data['remote_decks'][url]
+                    if url in meta_data.get('decks', {}):
+                        decks_to_export[url] = meta_data['decks'][url]
             else:
-                decks_to_export = meta_data.get('remote_decks', {})
+                decks_to_export = meta_data.get('decks', {})
             
             # Criar estrutura de exportação
             export_data = {
@@ -329,7 +329,7 @@ class BackupManager:
     def _backup_remote_decks(self, temp_dir: Path) -> None:
         """Faz backup específico dos decks remotos"""
         meta_data = get_meta()
-        decks_data = meta_data.get('remote_decks', {})
+        decks_data = meta_data.get('decks', {})
         
         decks_dir = temp_dir / "decks"
         decks_dir.mkdir(exist_ok=True)
@@ -378,11 +378,11 @@ class BackupManager:
             'creation_date': datetime.now().isoformat(),
             'anki_version': "25.x",
             'sheets2anki_version': "3.0",
-            'total_decks': len(meta_data.get('remote_decks', {})),
+            'total_decks': len(meta_data.get('decks', {})),
             'has_media': False,  # Atualizar se implementar backup de mídia
             'contents': [
                 'configurations',
-                'remote_decks',
+                'decks',
                 'user_preferences'
             ]
         }

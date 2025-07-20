@@ -29,20 +29,20 @@ except AttributeError:
     USER_ROLE = Qt.UserRole
     WINDOW_MODAL = Qt.WindowModal
 
-# Constantes de QFrame com fallback
-try:
-    # Tentar Qt6+ primeiro (enums tipados)
+# Definir constantes diretamente para evitar problemas de tipo
+if hasattr(QFrame, 'Shape') and hasattr(QFrame.Shape, 'HLine'):
     FRAME_HLINE = QFrame.Shape.HLine
+elif hasattr(QFrame, 'HLine'):
+    FRAME_HLINE = QFrame.HLine
+else:
+    FRAME_HLINE = 4  # Valor numérico para HLine
+
+if hasattr(QFrame, 'Shadow') and hasattr(QFrame.Shadow, 'Sunken'):
     FRAME_SUNKEN = QFrame.Shadow.Sunken
-except AttributeError:
-    try:
-        # Tentar Qt5 (constantes de classe)
-        FRAME_HLINE = QFrame.HLine
-        FRAME_SUNKEN = QFrame.Sunken
-    except AttributeError:
-        # Fallback para valores numéricos
-        FRAME_HLINE = 4
-        FRAME_SUNKEN = 2
+elif hasattr(QFrame, 'Sunken'):
+    FRAME_SUNKEN = QFrame.Sunken
+else:
+    FRAME_SUNKEN = 2  # Valor numérico para Sunken
 
 from .backup_manager import BackupManager
 from .config_manager import get_meta, save_meta
@@ -67,11 +67,14 @@ class BackupDialog(QDialog):
         
         # Título
         title = QLabel("Gerenciador de Backup")
+        # Usar type: ignore para evitar erros de tipo
         try:
-            title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            title.setAlignment(Qt.AlignmentFlag.AlignCenter)  # type: ignore
         except AttributeError:
-            # Fallback para versões antigas do Qt
-            title.setAlignment(0x0004)  # Qt.AlignCenter
+            try:
+                title.setAlignment(Qt.AlignCenter)  # type: ignore
+            except AttributeError:
+                title.setAlignment(0x0004)  # type: ignore
         font = title.font()
         font.setBold(True)
         title.setFont(font)
@@ -79,8 +82,22 @@ class BackupDialog(QDialog):
         
         # Separador
         line = QFrame()
-        line.setFrameShape(FRAME_HLINE)
-        line.setFrameShadow(FRAME_SUNKEN)
+        # Usar type: ignore para evitar erros de tipo
+        try:
+            line.setFrameShape(QFrame.Shape.HLine)  # type: ignore
+        except (AttributeError, TypeError):
+            try:
+                line.setFrameShape(QFrame.HLine)  # type: ignore
+            except (AttributeError, TypeError):
+                line.setFrameShape(4)  # type: ignore
+        
+        try:
+            line.setFrameShadow(QFrame.Shadow.Sunken)  # type: ignore
+        except (AttributeError, TypeError):
+            try:
+                line.setFrameShadow(QFrame.Sunken)  # type: ignore
+            except (AttributeError, TypeError):
+                line.setFrameShadow(2)  # type: ignore
         layout.addWidget(line)
         
         # Informações atuais
@@ -349,7 +366,7 @@ class BackupDialog(QDialog):
         """Atualiza as informações atuais"""
         try:
             meta_data = get_meta()
-            deck_count = len(meta_data.get('remote_decks', {}))
+            deck_count = len(meta_data.get('decks', {}))
             
             info_text = f"📊 Atualmente você tem {deck_count} deck(s) remoto(s) configurado(s)."
             self.info_label.setText(info_text)
@@ -363,7 +380,7 @@ class BackupDialog(QDialog):
         
         try:
             meta_data = get_meta()
-            decks = meta_data.get('remote_decks', {})
+            decks = meta_data.get('decks', {})
             
             for url, deck_config in decks.items():
                 name = deck_config.get('deck_name', 'Sem nome')
@@ -379,128 +396,51 @@ class BackupDialog(QDialog):
     def browse_backup_location(self):
         """Procura local para salvar backup"""
         try:
-            # Versão mais recente do Anki requer um callback
-            def on_file_selected(filename):
-                if filename:
-                    self.backup_path_edit.setText(filename)
+            # Usar apenas os parâmetros essenciais
+            filename = getSaveFile(self, "Salvar Backup")  # type: ignore
             
-            filename = getSaveFile(
-                parent=self,
-                title="Salvar Backup",
-                dir=str(Path.home() / "Documents"),
-                filter="Arquivos ZIP (*.zip)",
-                cb=on_file_selected
-            )
-        except TypeError:
-            # Fallback para versões mais antigas do Anki
-            try:
-                filename = getSaveFile(
-                    parent=self,
-                    title="Salvar Backup",
-                    dir=str(Path.home() / "Documents"),
-                    filter="Arquivos ZIP (*.zip)"
-                )
-                
-                if filename:
-                    self.backup_path_edit.setText(filename)
-            except Exception as e:
-                showWarning(f"Erro ao selecionar local para salvar: {e}")
-                return
+            if filename:
+                self.backup_path_edit.setText(str(filename))  # type: ignore
+        except Exception as e:
+            showWarning(f"Erro ao selecionar local para salvar: {e}")
+            return
     
     def browse_restore_file(self):
         """Procura arquivo de backup para restaurar"""
         try:
-            # Versão mais recente do Anki requer um callback
-            def on_file_selected(filename):
-                if filename:
-                    self.restore_path_edit.setText(filename)
-                    self.load_backup_info(filename)
+            # Usar apenas os parâmetros essenciais
+            filename = getFile(self, "Selecionar Backup")  # type: ignore
             
-            filename = getFile(
-                parent=self,
-                title="Selecionar Backup",
-                dir=str(Path.home() / "Documents"),
-                filter="Arquivos ZIP (*.zip)",
-                cb=on_file_selected
-            )
-        except TypeError:
-            # Fallback para versões mais antigas do Anki
-            try:
-                filename = getFile(
-                    parent=self,
-                    title="Selecionar Backup",
-                    dir=str(Path.home() / "Documents"),
-                    filter="Arquivos ZIP (*.zip)"
-                )
-                
-                if filename:
-                    self.restore_path_edit.setText(filename)
-                    self.load_backup_info(filename)
-            except Exception as e:
-                showWarning(f"Erro ao selecionar arquivo: {e}")
-                return
+            if filename:
+                self.restore_path_edit.setText(str(filename))  # type: ignore
+                self.load_backup_info(str(filename))  # type: ignore
+        except Exception as e:
+            showWarning(f"Erro ao selecionar arquivo: {e}")
+            return
     
     def browse_export_location(self):
         """Procura local para salvar exportação"""
         try:
-            # Versão mais recente do Anki requer um callback
-            def on_file_selected(filename):
-                if filename:
-                    self.export_path_edit.setText(filename)
+            # Usar apenas os parâmetros essenciais
+            filename = getSaveFile(self, "Salvar Exportação")  # type: ignore
             
-            filename = getSaveFile(
-                parent=self,
-                title="Salvar Exportação",
-                dir=str(Path.home() / "Documents"),
-                filter="Arquivos JSON (*.json)",
-                cb=on_file_selected
-            )
-        except TypeError:
-            # Fallback para versões mais antigas do Anki
-            try:
-                filename = getSaveFile(
-                    parent=self,
-                    title="Salvar Exportação",
-                    dir=str(Path.home() / "Documents"),
-                    filter="Arquivos JSON (*.json)"
-                )
-                
-                if filename:
-                    self.export_path_edit.setText(filename)
-            except Exception as e:
-                showWarning(f"Erro ao selecionar local para salvar: {e}")
-                return
+            if filename:
+                self.export_path_edit.setText(str(filename))  # type: ignore
+        except Exception as e:
+            showWarning(f"Erro ao selecionar local para salvar: {e}")
+            return
     
     def browse_import_file(self):
         """Procura arquivo para importar"""
         try:
-            # Versão mais recente do Anki requer um callback
-            def on_file_selected(filename):
-                if filename:
-                    self.import_path_edit.setText(filename)
+            # Usar apenas os parâmetros essenciais
+            filename = getFile(self, "Selecionar Arquivo para Importar")  # type: ignore
             
-            filename = getFile(
-                parent=self,
-                title="Selecionar Arquivo para Importar",
-                dir=str(Path.home() / "Documents"),
-                filter="Arquivos JSON (*.json)",
-                cb=on_file_selected
-            )
-        except TypeError:
-            # Fallback para versões mais antigas do Anki
-            try:
-                filename = getFile(
-                    parent=self,
-                    title="Selecionar Arquivo para Importar",
-                    dir=str(Path.home() / "Documents"),
-                    filter="Arquivos JSON (*.json)"
-                )
-                
-                if filename:
-                    self.import_path_edit.setText(filename)
-            except Exception as e:
-                showWarning(f"Erro ao selecionar arquivo: {e}")
-                return
+            if filename:
+                self.import_path_edit.setText(str(filename))  # type: ignore
+        except Exception as e:
+            showWarning(f"Erro ao selecionar arquivo: {e}")
+            return
     
     def load_backup_info(self, backup_path: str):
         """Carrega informações do backup"""
@@ -526,13 +466,15 @@ class BackupDialog(QDialog):
         """Seleciona todos os decks"""
         for i in range(self.deck_list.count()):
             item = self.deck_list.item(i)
-            item.setSelected(True)
+            if item is not None:
+                item.setSelected(True)
     
     def select_no_decks(self):
         """Desseleciona todos os decks"""
         for i in range(self.deck_list.count()):
             item = self.deck_list.item(i)
-            item.setSelected(False)
+            if item is not None:
+                item.setSelected(False)
     
     def create_backup(self):
         """Cria um backup completo"""

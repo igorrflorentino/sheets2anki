@@ -2,6 +2,9 @@
 Função corrigida para restaurar decks remotos
 """
 
+import json
+from .config_manager import get_meta, save_meta
+
 def _restore_remote_decks(self, temp_dir):
     """Restaura configurações de decks remotos"""
     try:
@@ -11,7 +14,7 @@ def _restore_remote_decks(self, temp_dir):
         
         # Carregar configurações atuais
         meta_data = get_meta()
-        current_decks = meta_data.get('remote_decks', {})
+        current_decks = meta_data.get('decks', {})
         
         # Restaurar cada deck
         for deck_file in decks_dir.glob('*.json'):
@@ -25,7 +28,7 @@ def _restore_remote_decks(self, temp_dir):
             print(f"✅ Deck restaurado: {config.get('deck_name', url)}")
         
         # Salvar configurações atualizadas
-        meta_data['remote_decks'] = current_decks
+        meta_data['decks'] = current_decks
         save_meta(meta_data)
         
         return True

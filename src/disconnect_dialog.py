@@ -11,7 +11,7 @@ from .compat import (
     QCheckBox, QMessageBox, DialogAccepted, mw, QScrollArea, QWidget
 )
 from .fix_exec import safe_exec
-from .config_manager import get_remote_decks, disconnect_deck
+from .config_manager import get_remote_decks, disconnect_deck  # get_remote_decks agora usa 'decks' internamente
 
 
 class DisconnectDialog(QDialog):
@@ -163,13 +163,17 @@ class DisconnectDialog(QDialog):
         
         for url, deck_info in remote_decks.items():
             deck_id = deck_info["deck_id"]
-            deck = mw.col.decks.get(deck_id)
+            deck = None
+            if mw.col and hasattr(mw.col, 'decks'):
+                deck = mw.col.decks.get(deck_id)
             
             # Verificar se o deck existe localmente
             if deck and deck["name"].strip().lower() != "default":
                 # Deck existe localmente
                 deck_name = deck["name"]
-                card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
+                card_count = 0
+                if mw.col and hasattr(mw.col, 'find_cards'):
+                    card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
                 
                 checkbox_text = f"{deck_name} ({card_count} cards)"
                 checkbox = QCheckBox(checkbox_text)

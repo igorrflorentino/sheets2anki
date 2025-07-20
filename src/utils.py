@@ -17,7 +17,7 @@ def get_or_create_deck(col, deckName):
         deckName: Nome do deck
         
     Returns:
-        int: ID do deck
+        tuple: (deck_id, actual_name) onde deck_id é o ID do deck e actual_name é o nome real usado
         
     Raises:
         ValueError: Se o nome do deck for inválido
@@ -29,11 +29,15 @@ def get_or_create_deck(col, deckName):
     if deck is None:
         try:
             deck_id = col.decks.id(deckName)
+            # Obter o deck recém-criado para verificar o nome real usado
+            new_deck = col.decks.get(deck_id)
+            actual_name = new_deck["name"] if new_deck else deckName
         except Exception as e:
             raise ValueError(f"Não foi possível criar o deck '{deckName}': {str(e)}")
     else:
         deck_id = deck["id"]
-    return deck_id
+        actual_name = deck["name"]
+    return deck_id, actual_name
 
 def get_model_suffix_from_url(url):
     """

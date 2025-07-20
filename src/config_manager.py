@@ -37,7 +37,7 @@ DEFAULT_META = {
         "auto_update_names": True,
         "create_subdecks": True  # Habilitar criação de subdecks por padrão
     },
-    "remote_decks": {}
+    "decks": {}
 }
 
 # =============================================================================
@@ -146,7 +146,7 @@ def get_remote_decks():
         dict: Dicionário de decks remotos {url: deck_info}
     """
     meta = get_meta()
-    return meta.get("remote_decks", {})
+    return meta.get("decks", {})
 
 def save_remote_decks(remote_decks):
     """
@@ -156,7 +156,7 @@ def save_remote_decks(remote_decks):
         remote_decks (dict): Dicionário de decks remotos
     """
     meta = get_meta()
-    meta["remote_decks"] = remote_decks
+    meta["decks"] = remote_decks
     save_meta(meta)
 
 def add_remote_deck(url, deck_info):
@@ -192,12 +192,12 @@ def disconnect_deck(url):
         url (str): URL do deck a ser desconectado
     """
     meta = get_meta()
-    remote_decks = meta.get("remote_decks", {})
+    remote_decks = meta.get("decks", {})
     
     # Remover completamente o deck da lista de decks remotos
     if url in remote_decks:
         del remote_decks[url]
-        meta["remote_decks"] = remote_decks  # type: ignore
+        meta["decks"] = remote_decks  # type: ignore
         save_meta(meta)
         
         # TODO: Opcionalmente, podemos manter um log de decks desconectados
@@ -238,13 +238,13 @@ def reconnect_deck(url):
 def get_active_decks():
     """
     Obtém todos os decks remotos ativos.
-    Na nova lógica, todos os decks em remote_decks são considerados ativos.
+    Na nova lógica, todos os decks em decks são considerados ativos.
     
     Returns:
         dict: Dicionário com URLs como chaves e dados dos decks como valores
     """
     meta = get_meta()
-    return meta.get("remote_decks", {})
+    return meta.get("decks", {})
 
 def is_local_deck_missing(url):
     """
@@ -257,7 +257,7 @@ def is_local_deck_missing(url):
         bool: True se o deck remoto existe mas o deck local não
     """
     meta = get_meta()
-    remote_decks = meta.get("remote_decks", {})
+    remote_decks = meta.get("decks", {})
     
     if url not in remote_decks:
         return False  # Deck remoto não existe
@@ -270,8 +270,11 @@ def is_local_deck_missing(url):
     
     try:
         # Verificar se o deck local existe no Anki
-        deck = mw.col.decks.get(deck_id)
-        return deck is None or deck.get("name", "").strip().lower() == "default"
+        if mw.col and mw.col.decks:
+            deck = mw.col.decks.get(deck_id)
+            return deck is None or deck.get("name", "").strip().lower() == "default"
+        else:
+            return True  # Collection ou decks não disponível
     except:
         return True  # Erro ao acessar deck = deck não existe
 
@@ -439,6 +442,9 @@ def detect_deck_name_changes(skip_deleted=False):
             continue
             
         # Obter deck atual do Anki
+        if not mw.col or not mw.col.decks:
+            continue  # Collection ou decks não disponível
+            
         deck = mw.col.decks.get(deck_id)
         
         # Se o deck foi deletado e skip_deleted=True, pular
@@ -551,8 +557,16 @@ def _ensure_meta_structure(meta):
     if "user_preferences" not in meta:
         meta["user_preferences"] = DEFAULT_META["user_preferences"].copy()
     
-    if "remote_decks" not in meta:
-        meta["remote_decks"] = {}
+    if "decks" not in meta:
+        meta["decks"] = {}
+    
+    # Migrar dados de remote_decks para decks se necessário
+    if "remote_decks" in meta and meta["remote_decks"] and not meta.get("decks"):
+        meta["decks"] = meta["remote_decks"]
+    
+    # Remover chave antiga
+    if "remote_decks" in meta:
+        del meta["remote_decks"]
     
     # Garantir preferências do usuário
     user_prefs = meta["user_preferences"]
@@ -563,7 +577,7 @@ def _ensure_meta_structure(meta):
             user_prefs[key] = value
     
     # Garantir que todos os decks têm o atributo is_sync
-    for url, deck_info in meta["remote_decks"].items():
+    for url, deck_info in meta["decks"].items():
         if "is_sync" not in deck_info:
             deck_info["is_sync"] = True  # Padrão: selecionado para sincronização
     

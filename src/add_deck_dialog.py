@@ -16,10 +16,7 @@ from .config_manager import (
     get_remote_decks, add_remote_deck, is_deck_disconnected,
     get_deck_naming_mode, get_parent_deck_name
 )
-from .deck_naming import (
-    extract_deck_name_from_url, get_available_deck_name,
-    check_deck_name_conflict, clean_deck_name
-)
+from .deck_naming import DeckNamer
 from .validation import validate_url
 from .parseRemoteDeck import getRemoteDeck, RemoteDeckError
 from .utils import get_or_create_deck
@@ -217,9 +214,8 @@ class AddDeckDialog(QDialog):
         
         if current_name and self.suggested_name:
             # Se checkbox foi marcado e há conflito, aplicar resolução
-            if self.resolve_conflicts_checkbox.isChecked() and check_deck_name_conflict(current_name):
-                from .deck_naming import resolve_deck_name_conflict
-                alternative = resolve_deck_name_conflict(current_name)
+            if self.resolve_conflicts_checkbox.isChecked() and DeckNamer.check_conflict(current_name):
+                alternative = DeckNamer.resolve_conflict(current_name)
                 self.name_edit.setText(alternative)
                 self._show_status(f"Nome ajustado para evitar conflito:\n{alternative}", "info")
             # Se checkbox foi desmarcado, voltar ao nome original sugerido
@@ -260,7 +256,7 @@ class AddDeckDialog(QDialog):
             self.remote_deck = getRemoteDeck(url)
             
             # Extrair nome sugerido
-            self.suggested_name = extract_deck_name_from_url(url)
+            self.suggested_name = DeckNamer.extract_name_from_url(url)
             
             # Mostrar informações
             self._show_deck_info()
@@ -341,13 +337,12 @@ class AddDeckDialog(QDialog):
         if not name:
             return
         
-        if check_deck_name_conflict(name):
+        if DeckNamer.check_conflict(name):
             self._show_status("⚠️ Já existe um deck com este nome.", "warning")
             
             if self.resolve_conflicts_checkbox.isChecked():
                 # Sugerir nome alternativo
-                from .deck_naming import resolve_deck_name_conflict
-                alternative = resolve_deck_name_conflict(name)
+                alternative = DeckNamer.resolve_conflict(name)
                 self.name_edit.setText(alternative)
                 self._show_status(f"Nome ajustado para evitar conflito:\n{alternative}", "info")
         else:
@@ -376,7 +371,7 @@ class AddDeckDialog(QDialog):
             return
         
         # Verificar conflito final
-        if check_deck_name_conflict(name) and not self.resolve_conflicts_checkbox.isChecked():
+        if DeckNamer.check_conflict(name) and not self.resolve_conflicts_checkbox.isChecked():
             QMessageBox.warning(
                 self, 
                 "Conflito de Nome", 
@@ -387,17 +382,16 @@ class AddDeckDialog(QDialog):
         try:
             # Resolver conflito se necessário
             if self.resolve_conflicts_checkbox.isChecked():
-                from .deck_naming import resolve_deck_name_conflict
-                name = resolve_deck_name_conflict(name)
+                name = DeckNamer.resolve_conflict(name)
             
             # Criar deck no Anki
-            deck_id = get_or_create_deck(mw.col, name)
+            deck_id, actual_name = get_or_create_deck(mw.col, name)
             
             # Adicionar à configuração
             deck_info = {
                 "url": url,
                 "deck_id": deck_id,
-                "deck_name": name,
+                "deck_name": actual_name,  # Usar o nome real usado pelo Anki
                 "created_at": self._get_current_timestamp()
             }
             
@@ -420,9 +414,19 @@ class AddDeckDialog(QDialog):
     
     def get_deck_info(self):
         """Retorna informações do deck adicionado."""
+        # Obter o nome real do deck da configuração
+        url = self.url_edit.text().strip()
+        from .config_manager import get_remote_decks
+        remote_decks = get_remote_decks()
+        
+        if url in remote_decks:
+            actual_name = remote_decks[url].get("deck_name", self.name_edit.text().strip())
+        else:
+            actual_name = self.name_edit.text().strip()
+            
         return {
-            "url": self.url_edit.text().strip(),
-            "name": self.name_edit.text().strip(),
+            "url": url,
+            "name": actual_name,  # Usar o nome real do deck
             "is_automatic": self.auto_naming_radio.isChecked()
         }
 

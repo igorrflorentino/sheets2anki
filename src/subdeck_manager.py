@@ -12,7 +12,7 @@ except ImportError:
     from aqt import mw
 
 from . import column_definitions as cols
-from .config_manager import get_create_subdecks_setting, get_remote_decks
+from .config_manager import get_create_subdecks_setting, get_remote_decks  # get_remote_decks agora usa 'decks' internamente
 from .constants import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
 
 def get_subdeck_name(main_deck_name, fields):
@@ -151,10 +151,14 @@ def remove_empty_subdecks(remote_decks):
             # Se o subdeck estiver vazio, removê-lo
             if card_count == 0:
                 try:
-                    mw.col.decks.remove([subdeck.id])
-                    removed_count += 1
+                    # Converter o ID para o tipo esperado pelo Anki
+                    subdeck_id = mw.col.decks.id(subdeck.name)
+                    if subdeck_id is not None:
+                        mw.col.decks.remove([subdeck_id])
+                        removed_count += 1
                 except Exception as e:
                     # Ignorar erros na remoção de subdecks
+                    print(f"Erro ao remover subdeck: {e}")
                     pass
     
     # Atualizar a interface do Anki para refletir as mudanças

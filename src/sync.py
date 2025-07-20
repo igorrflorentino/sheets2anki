@@ -6,12 +6,13 @@ de decks com fontes remotas, usando o novo sistema de configuração.
 """
 
 import time
+from typing import Optional, Dict, List, Any, Tuple, Union, cast
 from .compat import (
     mw, showInfo, QProgressDialog, QPushButton, QLabel, QDialog, QVBoxLayout,
     QTextEdit, QDialogButtonBox, AlignTop, AlignLeft, ButtonBox_Ok, safe_exec_dialog
 )
 from .config_manager import get_remote_decks, save_remote_decks, disconnect_deck, verify_and_update_deck_info
-from .deck_naming import update_deck_name_if_needed
+from .deck_naming import DeckNamer
 from .validation import validate_url
 from .parseRemoteDeck import getRemoteDeck
 from .note_processor import create_or_update_notes
@@ -35,6 +36,11 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         selected_deck_urls: Lista de URLs de decks para sincronizar.
                           Se fornecida, tem precedência sobre selected_deck_names.
     """
+    # Verificar se mw.col está disponível
+    if not mw or not hasattr(mw, 'col') or not mw.col:
+        showInfo("Anki não está pronto. Tente novamente em alguns instantes.")
+        return
+        
     col = mw.col
     remote_decks = get_remote_decks()
 
@@ -119,12 +125,16 @@ def _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls
                 filtered_keys.append(url)
         return filtered_keys
     
+    # Verificar se mw.col e mw.col.decks estão disponíveis
+    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+        return []
+        
     # Criar mapeamento de nomes para chaves
     name_to_key = {}
     for key, deck_info in remote_decks.items():
         # Verificar se o deck ainda existe
         deck_id = deck_info["deck_id"]
-        deck = mw.col.decks.get(deck_id)
+        deck = mw.col.decks.get(deck_id) if deck_id is not None else None
         
         if deck:
             # Usar nome atual do deck
@@ -157,12 +167,16 @@ def _build_name_to_key_mapping(config):
     Returns:
         dict: Mapeamento de nomes para chaves
     """
+    # Verificar se mw.col e mw.col.decks estão disponíveis
+    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+        return {}
+        
     name_to_key = {}
     for key, deck_info in get_remote_decks().items():
         # Obter o nome real do deck no Anki, não o nome salvo na config
         deck_id = deck_info.get("deck_id")
         if deck_id:
-            deck = mw.col.decks.get(deck_id)
+            deck = mw.col.decks.get(deck_id) if deck_id is not None else None
             if deck:
                 actual_deck_name = deck["name"]
                 name_to_key[actual_deck_name] = key
@@ -277,11 +291,15 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
     Returns:
         tuple: (step_updated, decks_synced_increment, deck_stats)
     """
+    # Verificar se mw.col e mw.col.decks estão disponíveis
+    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+        raise SyncError("Anki não está pronto. Tente novamente em alguns instantes.")
+        
     currentRemoteInfo = remote_decks[deckKey]
     deck_id = currentRemoteInfo["deck_id"]
 
     # Obter nome do deck para exibição
-    deck = mw.col.decks.get(deck_id)
+    deck = mw.col.decks.get(deck_id) if deck_id is not None else None
     
     # Se o deck não existe, recriar usando o nome salvo na configuração
     if not deck or deck["name"].strip().lower() == "default":
@@ -298,21 +316,28 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
             new_deck_id = mw.col.decks.id(saved_deck_name)
             
             # Verificar se o nome foi mantido ou alterado pelo Anki
-            new_deck = mw.col.decks.get(new_deck_id)
-            actual_name = new_deck["name"]
-            
-            if actual_name != saved_deck_name:
-                # O nome foi alterado pelo Anki (provavelmente já existe)
-                msg = f"Nome '{saved_deck_name}' já existe, usando '{actual_name}' em vez disso"
-                status_msgs.append(msg)
-                _update_progress_text(progress, status_msgs)
+            new_deck = mw.col.decks.get(new_deck_id) if new_deck_id is not None else None
+            if new_deck:
+                actual_name = new_deck["name"]
+                
+                if actual_name != saved_deck_name:
+                    # O nome foi alterado pelo Anki (provavelmente já existe)
+                    msg = f"Nome '{saved_deck_name}' já existe, usando '{actual_name}' em vez disso"
+                    status_msgs.append(msg)
+                    _update_progress_text(progress, status_msgs)
+            else:
+                raise ValueError(f"Falha ao criar deck: {saved_deck_name}")
         except Exception as e:
             # Em caso de erro, usar um nome genérico
             msg = f"Erro ao recriar deck: {str(e)}"
             status_msgs.append(msg)
             _update_progress_text(progress, status_msgs)
             new_deck_id = mw.col.decks.id(f"Deck_{deck_id}")
-            actual_name = mw.col.decks.get(new_deck_id)["name"]
+            new_deck = mw.col.decks.get(new_deck_id) if new_deck_id is not None else None
+            if new_deck:
+                actual_name = new_deck["name"]
+            else:
+                raise ValueError(f"Falha ao criar deck genérico")
         
         # Atualizar o deck_id na configuração
         if new_deck_id != deck_id:
@@ -320,7 +345,9 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
             deck_id = new_deck_id
         
         # Obter o deck recriado
-        deck = mw.col.decks.get(deck_id)
+        deck = mw.col.decks.get(deck_id) if deck_id is not None else None
+        if not deck:
+            raise ValueError(f"Falha ao obter deck recriado: {deck_id}")
         
         # Atualizar informações na configuração com o nome real usado (silenciosamente)
         verify_and_update_deck_info(deckKey, deck_id, deck["name"], silent=True)
@@ -355,7 +382,8 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
     remoteDeck.deckName = deckName
     
     # Atualizar nome do deck se necessário (modo automático)
-    updated_name = update_deck_name_if_needed(currentRemoteInfo["url"], deck_id, deckName)
+    # A classe DeckNamer já verifica internamente se o nome tem sufixo numérico
+    updated_name = DeckNamer.update_name_if_needed(currentRemoteInfo["url"], deck_id, deckName)
     if updated_name != deckName:
         # Atualizar informações do deck na configuração
         currentRemoteInfo["deck_name"] = updated_name
@@ -385,24 +413,6 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
     mw.app.processEvents()
 
     return step, 1, deck_stats
-    
-    remoteDeck.deckName = deckName
-    # remoteDeck.url = currentRemoteInfo["url"]  # Comentado devido ao erro
-    step += 1
-    progress.setValue(step)
-    mw.app.processEvents()
-
-    # 3. Escrita no banco
-    msg = f"{deckName}: escrevendo no banco de dados..."
-    status_msgs.append(msg)
-    _update_progress_text(progress, status_msgs)
-    
-    deck_stats = create_or_update_notes(mw.col, remoteDeck, deck_id)
-    step += 1
-    progress.setValue(step)
-    mw.app.processEvents()
-    
-    return step, 1, deck_stats
 
 def _accumulate_stats(total_stats, deck_stats):
     """Acumula estatísticas de um deck nas estatísticas totais."""
@@ -425,14 +435,18 @@ def _accumulate_stats(total_stats, deck_stats):
 
 def _handle_sync_error(e, deckKey, remote_decks, progress, status_msgs, sync_errors, step):
     """Trata erros de sincronização de deck."""
-    # Tentar obter o nome do deck para a mensagem de erro
-    try:
-        deck_info = remote_decks[deckKey]
-        deck_id = deck_info["deck_id"]
-        deck = mw.col.decks.get(deck_id)
-        deckName = deck["name"] if deck else deck_info.get("deck_name", str(deck_id))
-    except:
+    # Verificar se mw.col e mw.col.decks estão disponíveis
+    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
         deckName = "Unknown"
+    else:
+        # Tentar obter o nome do deck para a mensagem de erro
+        try:
+            deck_info = remote_decks[deckKey]
+            deck_id = deck_info["deck_id"]
+            deck = mw.col.decks.get(deck_id) if deck_id is not None else None
+            deckName = deck["name"] if deck else deck_info.get("deck_name", str(deck_id) if deck_id is not None else "Unknown")
+        except:
+            deckName = "Unknown"
     
     error_msg = f"Failed to sync deck '{deckName}': {str(e)}"
     sync_errors.append(error_msg)
@@ -445,14 +459,18 @@ def _handle_sync_error(e, deckKey, remote_decks, progress, status_msgs, sync_err
 
 def _handle_unexpected_error(e, deckKey, remote_decks, progress, status_msgs, sync_errors, step):
     """Trata erros inesperados durante sincronização."""
-    # Tentar obter o nome do deck para a mensagem de erro
-    try:
-        deck_info = remote_decks[deckKey]
-        deck_id = deck_info["deck_id"]
-        deck = mw.col.decks.get(deck_id)
-        deckName = deck["name"] if deck else deck_info.get("deck_name", str(deck_id))
-    except:
+    # Verificar se mw.col e mw.col.decks estão disponíveis
+    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
         deckName = "Unknown"
+    else:
+        # Tentar obter o nome do deck para a mensagem de erro
+        try:
+            deck_info = remote_decks[deckKey]
+            deck_id = deck_info["deck_id"]
+            deck = mw.col.decks.get(deck_id) if deck_id is not None else None
+            deckName = deck["name"] if deck else deck_info.get("deck_name", str(deck_id) if deck_id is not None else "Unknown")
+        except:
+            deckName = "Unknown"
     
     error_msg = f"Unexpected error syncing deck '{deckName}': {str(e)}"
     sync_errors.append(error_msg)
@@ -554,6 +572,11 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, remo
     
     # Se há detalhes de atualizações, mostrar em um diálogo com scroll
     if total_stats.get('updated_details'):
+        # Verificar se mw está disponível
+        if not mw:
+            showInfo(summary)
+            return
+            
         # Criar diálogo personalizado com área de scroll
         dialog = QDialog(mw)
         dialog.setWindowTitle("Resumo da Sincronização")

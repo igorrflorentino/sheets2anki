@@ -25,7 +25,7 @@ from .add_deck_dialog import show_add_deck_dialog
 from .sync_dialog import show_sync_dialog
 from .disconnect_dialog import show_disconnect_dialog
 from .deck_naming_dialog import show_deck_naming_dialog
-from .deck_naming import get_available_deck_name, update_deck_name_if_needed
+from .deck_naming import DeckNamer
 
 def syncDecksWithSelection():
     """
@@ -106,15 +106,20 @@ def _get_valid_deck_info(config):
     
     for url, deck_info in get_remote_decks().items():
         deck_id = deck_info["deck_id"]
-        deck = mw.col.decks.get(deck_id)
-        
-        # Verificar se o deck ainda existe e não é o deck padrão
-        if deck and deck["name"].strip().lower() != "default":
-            deck_name = deck["name"]
-            # Contar cards no deck
-            card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
-            deck_info_list.append((deck_name, card_count))
-            valid_decks[deck_name] = deck_info
+        # Verificar se a coleção e o gerenciador de decks estão disponíveis
+        if mw and mw.col and mw.col.decks:
+            deck = mw.col.decks.get(deck_id)
+            
+            # Verificar se o deck ainda existe e não é o deck padrão
+            if deck and deck["name"].strip().lower() != "default":
+                deck_name = deck["name"]
+                # Contar cards no deck (verificando se find_cards está disponível)
+                if mw.col.find_cards:
+                    card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
+                else:
+                    card_count = 0  # Fallback se find_cards não estiver disponível
+                deck_info_list.append((deck_name, card_count))
+                valid_decks[deck_name] = deck_info
     
     return deck_info_list, valid_decks
 
@@ -164,7 +169,7 @@ def import_test_deck():
     url = dict(TEST_SHEETS_URLS)[selection]
 
     # Gerar nome automático para o deck
-    deck_name = get_available_deck_name(url)
+    deck_name = DeckNamer.get_available_name(url)
     
     # Verificar se URL já está configurada
     remote_decks = get_remote_decks()
@@ -174,13 +179,13 @@ def import_test_deck():
 
     try:
         # Criar deck no Anki
-        deck_id = get_or_create_deck(mw.col, deck_name)
+        deck_id, actual_name = get_or_create_deck(mw.col, deck_name)
         
         # Adicionar à configuração
         deck_info = {
             "url": url,
             "deck_id": deck_id,
-            "deck_name": deck_name,
+            "deck_name": actual_name,  # Usar o nome real usado pelo Anki
             "is_test_deck": True
         }
         
@@ -189,7 +194,14 @@ def import_test_deck():
         # Sincronizar o deck
         syncDecks(selected_deck_urls=[url])
         
-        showInfo(f"Deck de teste '{deck_name}' importado e sincronizado com sucesso!")
+        # Obter o nome final do deck após a sincronização (pode ter sido alterado)
+        remote_decks = get_remote_decks()
+        if url in remote_decks:
+            final_deck_name = remote_decks[url].get("deck_name", actual_name)
+        else:
+            final_deck_name = actual_name
+            
+        showInfo(f"Deck de teste '{final_deck_name}' importado e sincronizado com sucesso!")
         
     except Exception as e:
         showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
@@ -210,7 +222,15 @@ def addNewDeck():
         url = deck_info["url"]
         syncDecks(selected_deck_urls=[url])
         
-        showInfo(f"Deck '{deck_info['name']}' adicionado e sincronizado com sucesso!")
+        # Obter o nome final do deck após a sincronização (pode ter sido alterado)
+        from .config_manager import get_remote_decks
+        remote_decks = get_remote_decks()
+        if url in remote_decks:
+            final_deck_name = remote_decks[url].get("deck_name", deck_info['name'])
+        else:
+            final_deck_name = deck_info['name']
+            
+        showInfo(f"Deck '{final_deck_name}' adicionado e sincronizado com sucesso!")
 
 def configure_deck_naming():
     """
@@ -252,7 +272,10 @@ def removeRemoteDeck():
             if url in remote_decks:
                 deck_info = remote_decks[url]
                 deck_id = deck_info["deck_id"]
-                deck = mw.col.decks.get(deck_id)
+                deck = None
+                # Verificar se a coleção e o gerenciador de decks estão disponíveis
+                if mw and mw.col and mw.col.decks:
+                    deck = mw.col.decks.get(deck_id)
                 deck_name = deck["name"] if deck else deck_info.get("deck_name", "Deck Desconhecido")
                 
                 # Desconectar o deck
