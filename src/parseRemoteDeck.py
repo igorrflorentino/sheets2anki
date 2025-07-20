@@ -284,28 +284,54 @@ def parse_tsv_data(tsv_data):
 
 def clean_formula_errors(cell_value):
     """
-    Preserva valores de célula do TSV exatamente como foram capturados.
+    Limpa erros de fórmula e expressões de fórmula do Google Sheets.
     
-    MODIFICAÇÃO: Esta função agora retorna SEMPRE o valor original sem nenhuma 
-    conversão para string vazia. Os dados do TSV devem ser entregues para as 
-    notas do Anki tal qual como foram capturados.
+    Esta função remove erros de fórmula como #NAME?, #REF!, etc. e
+    expressões de fórmula como =SUM(), =VLOOKUP(), etc.
     
     Args:
-        cell_value (str): Valor da célula a ser preservado
+        cell_value (str): Valor da célula a ser limpo
         
     Returns:
-        str: Valor original sem modificações
+        str: Valor limpo sem erros de fórmula ou expressões de fórmula
         
     Examples:
         >>> clean_formula_errors('#NAME?')
-        '#NAME?'
+        ''
         >>> clean_formula_errors('=SUM(A1:A10)')
-        '=SUM(A1:A10)'
+        ''
         >>> clean_formula_errors('Conteúdo normal')
         'Conteúdo normal'
     """
-    # Retornar sempre o valor original sem nenhuma modificação
-    return cell_value
+    if not cell_value or not isinstance(cell_value, str):
+        return ""
+    
+    # Padrões de erro de fórmula
+    error_patterns = [
+        r'#NAME\?', r'#REF!', r'#VALUE!', r'#DIV/0!', 
+        r'#N/A', r'#NULL!', r'#NUM!'
+    ]
+    
+    # Verificar se é um erro de fórmula completo
+    for pattern in error_patterns:
+        if re.match(f'^{pattern}$', cell_value):
+            return ""
+    
+    # Verificar se é uma expressão de fórmula completa
+    if cell_value.startswith('='):
+        # Verificar se é uma fórmula completa
+        if re.match(r'^=\w+\(.*\)$', cell_value) or re.match(r'^=[A-Z0-9+\-*/]+$', cell_value):
+            return ""
+    
+    # Limpar erros de fórmula dentro do texto
+    cleaned_value = cell_value
+    for pattern in error_patterns:
+        cleaned_value = re.sub(pattern, '', cleaned_value)
+    
+    # Limpar expressões de fórmula dentro do texto
+    cleaned_value = re.sub(r'=\w+\([^)]*\)', '', cleaned_value)
+    
+    return cleaned_value
 
 def clean_formula_errors_with_logging(cell_value, field_name="", row_num=None):
     """

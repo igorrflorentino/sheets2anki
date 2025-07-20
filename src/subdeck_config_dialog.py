@@ -2,7 +2,7 @@
 Diálogo de configuração de subdecks para o addon Sheets2Anki.
 
 Este módulo implementa um diálogo para configurar a criação
-automática de subdecks baseados em TOPICO e SUBTOPICO.
+automática de subdecks baseados em IMPORTANCIA, TOPICO, SUBTOPICO e CONCEITO.
 """
 
 from .compat import (
@@ -12,7 +12,7 @@ from .compat import (
     safe_exec_dialog
 )
 from .config_manager import get_create_subdecks_setting, set_create_subdecks_setting
-from .constants import DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
+from .constants import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
 
 class SubdeckConfigDialog(QDialog):
     """
@@ -32,7 +32,7 @@ class SubdeckConfigDialog(QDialog):
         title_label = QLabel("<h3>Configuração de Subdecks</h3>")
         desc_label = QLabel(
             "Configure como os cards serão organizados em subdecks "
-            "com base nos valores das colunas TOPICO e SUBTOPICO."
+            "com base nos valores das colunas IMPORTANCIA, TOPICO, SUBTOPICO e CONCEITO."
         )
         desc_label.setWordWrap(True)
         
@@ -43,8 +43,9 @@ class SubdeckConfigDialog(QDialog):
         # Descrição da estrutura
         structure_label = QLabel(
             f"<b>Estrutura de subdecks:</b><br>"
-            f"• <code>DeckPrincipal::Topico::Subtopico::Conceito</code> (sempre, usando valores padrão quando campos estão vazios)<br><br>"
+            f"• <code>DeckPrincipal::Importancia::Topico::Subtopico::Conceito</code> (sempre, usando valores padrão quando campos estão vazios)<br><br>"
             f"<b>Valores padrão:</b><br>"
+            f"• Importância vazia: <code>{DEFAULT_IMPORTANCE}</code><br>"
             f"• Tópico vazio: <code>{DEFAULT_TOPIC}</code><br>"
             f"• Subtópico vazio: <code>{DEFAULT_SUBTOPIC}</code><br>"
             f"• Conceito vazio: <code>{DEFAULT_CONCEPT}</code>"
@@ -68,7 +69,7 @@ class SubdeckConfigDialog(QDialog):
         layout.addWidget(button_box)
         
         self.setLayout(layout)
-        self.resize(400, 300)
+        self.resize(450, 350)
         
     def accept(self):
         """Salva as configurações quando o usuário clica em OK."""

@@ -1,0 +1,17 @@
+[project]
+name = "sheets2anki"
+version = "0.1.0"
+description = "sincroniza um deck remoto usando google sheet como referencia"
+readme = "README.md"
+requires-python = ">=3.9.23"
+dependencies = [
+    "aqt>=25.7.2",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "mypy>=1.17.0",
+    "pytest>=8.4.1",
+    "ruff>=0.12.4",
+]

@@ -28,10 +28,10 @@ CARD_SHOW_HIDE_TEMPLATE = """
 """
 
 # Valores padrão para campos vazios
-DEFAULT_IMPORTANCE = "Importance Missing"
-DEFAULT_TOPIC = "Topic Missing"
-DEFAULT_SUBTOPIC = "Subtopic Missing"
-DEFAULT_CONCEPT = "Concept Missing"
+DEFAULT_IMPORTANCE = "MISSING I."
+DEFAULT_TOPIC = "MISSING T."
+DEFAULT_SUBTOPIC = "MISSING S."
+DEFAULT_CONCEPT = "MISSING C."
 
 # Prefixos para tags
 TAG_ROOT = "sheet2anki"

@@ -48,16 +48,7 @@ try:
     from aqt.utils import showInfo, showWarning, showCritical, tooltip
     from aqt.qt import qconnect, QAction, QMenu, QKeySequence
 except ImportError as e:
-    # Fallback para desenvolvimento
-    import os
-    stubs_path = os.path.join(os.path.dirname(__file__), '..', 'stubs')
-    if os.path.exists(stubs_path):
-        sys.path.insert(0, stubs_path)
-        from aqt import mw
-        from aqt.utils import showInfo, showWarning, showCritical, tooltip
-        from aqt.qt import qconnect, QAction, QMenu, QKeySequence
-    else:
-        raise ImportError(f"Não foi possível importar módulos do Anki: {e}")
+    raise ImportError(f"Não foi possível importar módulos do Anki: {e}")
 
 # Exportar qconnect para uso direto
 safe_qconnect = qconnect
