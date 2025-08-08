@@ -29,8 +29,8 @@ from .compat import (
     QDialogButtonBox, QTextEdit, ButtonBox_Ok, ButtonBox_Cancel,
     safe_exec_dialog, DialogAccepted
 )
-from .config_manager import get_meta, save_meta, get_enabled_students, is_student_sync_enabled
-from . import column_definitions as cols
+from .config_manager import get_meta, save_meta, get_enabled_students, is_student_filter_active
+from . import templates_and_definitions as cols
 
 def get_students_to_sync(all_students: Set[str]) -> Set[str]:
     """
@@ -43,9 +43,9 @@ def get_students_to_sync(all_students: Set[str]) -> Set[str]:
     Returns:
         Set[str]: Alunos que devem ser sincronizados (nomes normalizados)
     """
-    # Verificar se o filtro global está ativo
-    if not is_student_sync_enabled():
-        # Filtro desabilitado - sincronizar todos (já normalizados)
+    # Verificar se o filtro está ativo (baseado na lista de alunos habilitados)
+    if not is_student_filter_active():
+        # Filtro inativo - sincronizar todos (já normalizados)
         return all_students
     
     # Obter alunos habilitados globalmente (case-sensitive)
@@ -353,7 +353,7 @@ def get_student_subdeck_name(main_deck_name: str, student: str, fields: Dict) ->
     Returns:
         str: Nome completo do subdeck do aluno
     """
-    from .constants import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
+    from .utils import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
     
     # Obter valores dos campos, usando valores padrão se estiverem vazios
     importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE
@@ -378,7 +378,7 @@ def get_missing_students_subdeck_name(main_deck_name: str, fields: Dict) -> str:
     Returns:
         str: Nome completo do subdeck [MISSING A.]
     """
-    from .constants import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
+    from .utils import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
     
     # Obter valores dos campos, usando valores padrão se estiverem vazios
     importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE
@@ -679,6 +679,9 @@ def get_disabled_students_for_cleanup(current_enabled: Set[str], previous_enable
     """
     Identifica alunos que foram removidos da lista de habilitados e precisam ter dados limpos.
     
+    NOTA: [MISSING A.] não é considerado um "aluno" para propósitos de limpeza.
+    Sua presença depende da configuração sync_missing_students_notes, não da lista de alunos habilitados.
+    
     Args:
         current_enabled (Set[str]): Alunos atualmente habilitados
         previous_enabled (Set[str]): Alunos habilitados anteriormente
@@ -686,12 +689,18 @@ def get_disabled_students_for_cleanup(current_enabled: Set[str], previous_enable
     Returns:
         Set[str]: Alunos que foram desabilitados e precisam ter dados removidos
     """
-    disabled_students = previous_enabled - current_enabled
+    # Remover [MISSING A.] da comparação, pois não é um "aluno real"
+    current_real_students = {s for s in current_enabled if s != "[MISSING A.]"}
+    previous_real_students = {s for s in previous_enabled if s != "[MISSING A.]"}
+    
+    disabled_students = previous_real_students - current_real_students
     
     if disabled_students:
         print(f"🔍 CLEANUP: Detectados alunos desabilitados: {sorted(disabled_students)}")
     else:
         print(f"✅ CLEANUP: Nenhum aluno foi desabilitado")
+    
+    print(f"🔍 CLEANUP: [MISSING A.] excluído da comparação (não é aluno real)")
     
     return disabled_students
 
@@ -747,7 +756,8 @@ def show_cleanup_confirmation_dialog(disabled_students: Set[str]) -> bool:
         no_btn.setStyleSheet("QPushButton { background-color: #4575b4; color: white; font-weight: bold; }")
     
     # Executar diálogo
-    result = msg_box.exec()
+    from .compat import safe_exec_dialog
+    result = safe_exec_dialog(msg_box)
     
     confirmed = result == MessageBox_Yes
     
@@ -887,7 +897,8 @@ def show_missing_cleanup_confirmation_dialog() -> bool:
         no_btn.setStyleSheet("QPushButton { background-color: #4575b4; color: white; font-weight: bold; }")
     
     # Executar diálogo
-    result = msg_box.exec()
+    from .compat import safe_exec_dialog
+    result = safe_exec_dialog(msg_box)
     
     confirmed = result == MessageBox_Yes
     

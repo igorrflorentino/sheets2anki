@@ -1,0 +1,168 @@
+
+============================================================
+=== NOVA SESSÃO DEBUG - 2025-08-08 17:15:07 ===
+============================================================
+[17:15:07.876] [SYSTEM] 🚀 Sheets2Anki addon carregado
+[17:15:26.309] [Config Manager] === SALVANDO DECK INFO NO META.JSON ===
+[17:15:26.309] [Config Manager] Hash 3f67c1cb: local_deck_id=1754684125092, local_deck_name='Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:15:26.309] [Config Manager] ✓ Deck info salvo no meta.json com sucesso
+[17:15:26.366] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 1
+[17:15:26.369] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[17:15:26.370] [SYNC] 📋 Local Deck ID: 1754684125092
+[17:15:26.370] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[17:15:26.370] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754684125092
+[17:15:26.370] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684125092)
+[17:15:26.370] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:15:26.370] [DECK_RECREATION] ✅ Deck existe e nome confere
+[17:15:26.370] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684125092)
+[17:15:27.792] [SYSTEM] 🎬 Sincronização finalizada
+[17:15:27.792] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[17:15:27.795] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[17:15:27.795] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[17:15:27.795] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+
+============================================================
+=== NOVA SESSÃO DEBUG - 2025-08-08 17:18:49 ===
+============================================================
+[17:18:49.640] [SYSTEM] 🚀 Sheets2Anki addon carregado
+[17:18:57.065] [Config Manager] === SALVANDO DECK INFO NO META.JSON ===
+[17:18:57.066] [Config Manager] Hash 3f67c1cb: local_deck_id=1754684335932, local_deck_name='Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:18:57.067] [Config Manager] ✓ Deck info salvo no meta.json com sucesso
+[17:18:57.137] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 1
+[17:18:57.140] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[17:18:57.140] [SYNC] 📋 Local Deck ID: 1754684335932
+[17:18:57.140] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[17:18:57.140] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754684335932
+[17:18:57.140] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684335932)
+[17:18:57.140] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:18:57.140] [DECK_RECREATION] ✅ Deck existe e nome confere
+[17:18:57.140] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684335932)
+[17:18:58.438] [STUDENTS] 🎓 Estudantes habilitados para este deck: []
+[17:19:00.271] [REMOTE_DECK] 📊 Questões carregadas do deck remoto: 0
+[17:19:01.321] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template 7'
+[17:19:01.329] [SYNC] [NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...
+[17:19:01.329] [SYNC] [NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados
+[17:19:01.331] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 0 questions
+[17:19:01.346] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 6, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 1, 'total_remote': 6}
+[17:19:01.347] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:19:01.348] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:19:01.348] [SYNC] ✅ Deck concluído: 3f67c1cb
+[17:19:01.357] [SYSTEM] 🎬 Sincronização finalizada
+[17:19:01.357] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[17:19:01.359] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[17:19:01.359] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[17:19:01.359] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+
+============================================================
+=== NOVA SESSÃO DEBUG - 2025-08-08 17:27:52 ===
+============================================================
+[17:27:52.112] [SYSTEM] 🚀 Sheets2Anki addon carregado
+[17:27:59.314] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 1
+[17:27:59.316] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[17:27:59.316] [SYNC] 📋 Local Deck ID: 1754684335932
+[17:27:59.316] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[17:27:59.316] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754684335932
+[17:27:59.316] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684335932)
+[17:27:59.317] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:27:59.317] [DECK_RECREATION] ✅ Deck existe e nome confere
+[17:27:59.317] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684335932)
+[17:28:00.578] [STUDENTS] 🎓 Estudantes habilitados para este deck: []
+[17:28:01.977] [REMOTE_DECK] 📊 Questões carregadas do deck remoto: 0
+[17:28:02.985] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template 7'
+[17:28:02.994] [SYNC] [NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...
+[17:28:02.994] [SYNC] [NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados
+[17:28:02.997] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 0 questions
+[17:28:03.010] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 1, 'updated': 6, 'deleted': 0, 'errors': 0, 'skipped': 0, 'total_remote': 6}
+[17:28:03.011] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:28:03.012] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:28:03.012] [SYNC] ✅ Deck concluído: 3f67c1cb
+[17:28:03.023] [SYSTEM] 🎬 Sincronização finalizada
+[17:28:03.023] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[17:28:03.025] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[17:28:03.025] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[17:28:03.026] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+[17:34:37.271] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 1
+[17:34:37.274] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[17:34:37.274] [SYNC] 📋 Local Deck ID: 1754684335932
+[17:34:37.274] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[17:34:37.274] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754684335932
+[17:34:37.275] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684335932)
+[17:34:37.275] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:34:37.275] [DECK_RECREATION] ✅ Deck existe e nome confere
+[17:34:37.275] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754684335932)
+[17:34:38.603] [STUDENTS] 🎓 Estudantes habilitados para este deck: []
+[17:34:40.697] [REMOTE_DECK] 📊 Questões carregadas do deck remoto: 0
+[17:34:41.656] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template 7'
+[17:34:41.664] [SYNC] [NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...
+[17:34:41.664] [SYNC] [NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados
+[17:34:41.669] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 0 questions
+[17:34:41.679] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 0, 'updated': 7, 'deleted': 0, 'errors': 0, 'skipped': 0, 'total_remote': 6}
+[17:34:41.681] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:34:41.682] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:34:41.682] [SYNC] ✅ Deck concluído: 3f67c1cb
+[17:34:41.696] [SYSTEM] 🎬 Sincronização finalizada
+[17:34:41.696] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[17:34:41.699] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[17:34:41.699] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[17:34:41.700] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+
+============================================================
+=== NOVA SESSÃO DEBUG - 2025-08-08 17:35:12 ===
+============================================================
+[17:35:12.816] [SYSTEM] 🚀 Sheets2Anki addon carregado
+
+============================================================
+=== NOVA SESSÃO DEBUG - 2025-08-08 17:35:40 ===
+============================================================
+[17:35:40.694] [SYSTEM] 🚀 Sheets2Anki addon carregado
+[17:35:51.219] [Config Manager] === SALVANDO DECK INFO NO META.JSON ===
+[17:35:51.219] [Config Manager] Hash 3f67c1cb: local_deck_id=1754685350097, local_deck_name='Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:35:51.221] [Config Manager] ✓ Deck info salvo no meta.json com sucesso
+[17:35:51.290] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 1
+[17:35:51.293] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[17:35:51.294] [SYNC] 📋 Local Deck ID: 1754685350097
+[17:35:51.294] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[17:35:51.294] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754685350097
+[17:35:51.294] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754685350097)
+[17:35:51.294] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:35:51.294] [DECK_RECREATION] ✅ Deck existe e nome confere
+[17:35:51.294] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754685350097)
+[17:35:52.428] [STUDENTS] 🎓 Estudantes habilitados para este deck: []
+[17:35:53.933] [REMOTE_DECK] 📊 Questões carregadas do deck remoto: 0
+[17:35:55.106] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template 7'
+[17:35:55.119] [SYNC] [NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...
+[17:35:55.120] [SYNC] [NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados
+[17:35:55.125] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 0 questions
+[17:35:55.150] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 7, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'total_remote': 6}
+[17:35:55.152] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:35:55.152] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:35:55.152] [SYNC] ✅ Deck concluído: 3f67c1cb
+[17:35:55.164] [SYSTEM] 🎬 Sincronização finalizada
+[17:35:55.164] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[17:35:55.166] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[17:35:55.166] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[17:35:55.166] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+[17:36:09.105] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 1
+[17:36:09.108] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[17:36:09.108] [SYNC] 📋 Local Deck ID: 1754685350097
+[17:36:09.108] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[17:36:09.108] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754685350097
+[17:36:09.108] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754685350097)
+[17:36:09.108] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 7'
+[17:36:09.108] [DECK_RECREATION] ✅ Deck existe e nome confere
+[17:36:09.108] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 7' (ID: 1754685350097)
+[17:36:10.297] [STUDENTS] 🎓 Estudantes habilitados para este deck: []
+[17:36:11.501] [REMOTE_DECK] 📊 Questões carregadas do deck remoto: 0
+[17:36:12.270] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template 7'
+[17:36:12.280] [SYNC] [NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...
+[17:36:12.281] [SYNC] [NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados
+[17:36:12.284] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 0 questions
+[17:36:12.292] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 0, 'updated': 7, 'deleted': 0, 'errors': 0, 'skipped': 0, 'total_remote': 6}
+[17:36:12.295] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:36:12.296] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template 7
+[17:36:12.296] [SYNC] ✅ Deck concluído: 3f67c1cb
+[17:36:12.308] [SYSTEM] 🎬 Sincronização finalizada
+[17:36:12.308] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[17:36:12.308] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[17:36:12.309] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[17:36:12.309] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída

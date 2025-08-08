@@ -11,14 +11,13 @@ from .compat import (
     QRadioButton, QProgressBar, QTextEdit, QTimer,
     DialogAccepted, mw
 )
-from .fix_exec import safe_exec
+from .compat import safe_exec
 from .config_manager import (
     get_remote_decks, add_remote_deck, is_deck_disconnected
 )
-from .constants import DEFAULT_PARENT_DECK_NAME
-from .deck_naming import DeckNamer
-from .validation import validate_url
-from .parseRemoteDeck import getRemoteDeck, RemoteDeckError
+from .utils import DEFAULT_PARENT_DECK_NAME
+from .utils import validate_url
+from .data_processor import getRemoteDeck, RemoteDeckError
 from .utils import get_or_create_deck
 
 
@@ -233,6 +232,8 @@ class AddDeckDialog(QDialog):
     
     def _validate_url_auto(self):
         """Valida a URL automaticamente (chamada pelo timer)."""
+        from .deck_manager import DeckNameManager
+        
         url = self.url_edit.text().strip()
         
         if not url:
@@ -259,7 +260,7 @@ class AddDeckDialog(QDialog):
             self.remote_deck = getRemoteDeck(url)
             
             # Extrair nome sugerido
-            self.suggested_name = DeckNamer.extract_name_from_url(url)
+            self.suggested_name = DeckNameManager.extract_remote_name_from_url(url)
             
             # Mostrar informações de forma compacta
             self._show_deck_preview()
@@ -311,13 +312,14 @@ class AddDeckDialog(QDialog):
     
     def _update_deck_name_preview(self):
         """Atualiza preview do nome do deck."""
+        from .deck_manager import DeckNameManager
+        
         if not self.suggested_name:
             return
         
-        # Gerar nome final com resolução de conflitos
-        from .config_manager import resolve_remote_deck_name_conflict
+        # Gerar nome final com resolução de conflitos usando DeckNameManager
         current_url = self.url_edit.text().strip()
-        final_remote_name = resolve_remote_deck_name_conflict(current_url, self.suggested_name)
+        final_remote_name = DeckNameManager.resolve_remote_name_conflict(current_url, self.suggested_name)
         
         # Nome completo hierárquico
         parent_name = DEFAULT_PARENT_DECK_NAME
@@ -387,16 +389,17 @@ class AddDeckDialog(QDialog):
     
     def _add_deck(self):
         """Adiciona o deck remoto."""
+        from .deck_manager import DeckNameManager
+        
         url = self.url_edit.text().strip()
         
         if not url or not self.remote_deck:
             QMessageBox.warning(self, "Erro", "Por favor, valide a URL primeiro.")
             return
         
-        # Gerar nome do deck
+        # Gerar nome do deck usando DeckNameManager
         parent_name = DEFAULT_PARENT_DECK_NAME
-        from .config_manager import resolve_remote_deck_name_conflict
-        final_remote_name = resolve_remote_deck_name_conflict(url, self.suggested_name)
+        final_remote_name = DeckNameManager.resolve_remote_name_conflict(url, self.suggested_name)
         full_name = f"{parent_name}::{final_remote_name}"
         
         self._show_progress(True)
@@ -418,12 +421,19 @@ class AddDeckDialog(QDialog):
             
             add_remote_deck(url, deck_info)
             
-            # Sincronizar nome do deck no Anki com a configuração
-            from .utils import sync_deck_name_with_config
-            sync_result = sync_deck_name_with_config(mw.col, url, debug_messages=[])
+            # Sincronizar nome do deck no Anki com a configuração usando DeckNameManager
+            sync_result = DeckNameManager.sync_deck_with_config(url)
             if sync_result:
                 synced_deck_id, synced_name = sync_result
                 print(f"[ADD_DECK] Deck sincronizado: {actual_name} → {synced_name}")
+            
+            # Aplicar opções Sheets2Anki ao deck recém-criado
+            try:
+                from .utils import apply_sheets2anki_options_to_deck
+                apply_sheets2anki_options_to_deck(deck_id)
+                print(f"[ADD_DECK] Opções Sheets2Anki aplicadas ao deck '{actual_name}'")
+            except Exception as e:
+                print(f"[ADD_DECK] Aviso: Erro ao aplicar opções: {e}")
             
             # Reconectar se estava desconectado
             if is_deck_disconnected(url):
@@ -445,11 +455,13 @@ class AddDeckDialog(QDialog):
     
     def get_deck_info(self):
         """Retorna informações do deck adicionado."""
-        url = self.url_edit.text().strip()
-        from .config_manager import get_deck_local_name, resolve_remote_deck_name_conflict
+        from .deck_manager import DeckNameManager
         
-        # Nome final com resolução de conflitos
-        final_remote_name = resolve_remote_deck_name_conflict(url, self.suggested_name)
+        url = self.url_edit.text().strip()
+        from .config_manager import get_deck_local_name
+        
+        # Nome final com resolução de conflitos usando DeckNameManager
+        final_remote_name = DeckNameManager.resolve_remote_name_conflict(url, self.suggested_name)
         parent_name = DEFAULT_PARENT_DECK_NAME
         full_name = f"{parent_name}::{final_remote_name}"
         

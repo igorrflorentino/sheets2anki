@@ -16,7 +16,7 @@ from .compat import (
 )
 from .config_manager import (
     get_global_student_config, save_global_student_config,
-    get_enabled_students, is_student_sync_enabled,
+    get_enabled_students, is_student_filter_active,
     update_available_students_from_discovery, is_auto_remove_disabled_students,
     set_auto_remove_disabled_students, is_sync_missing_students_notes,
     set_sync_missing_students_notes
@@ -498,8 +498,8 @@ class GlobalStudentConfigDialog(QDialog):
         # Obter configuração de sincronização de notas sem alunos
         sync_missing_enabled = self.sync_missing_checkbox.isChecked()
         
-        # Salvar configuração (sempre com filtro ativo)
-        save_global_student_config(selected_students, available_students, True, auto_remove_enabled, sync_missing_enabled)
+        # Salvar configuração
+        save_global_student_config(selected_students, available_students, auto_remove_enabled, sync_missing_enabled)
         
         # Configuração salva silenciosamente - sem mensagem de confirmação
         super().accept()

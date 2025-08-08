@@ -3,27 +3,426 @@ Funções de sincronização principal para o addon Sheets2Anki.
 
 Este módulo contém as funções centrais para sincronização
 de decks com fontes remotas, usando o novo sistema de configuração.
+Inclui também classes para gerenciamento de estatísticas e finalização.
 """
 
 import time
+import traceback
 from typing import Optional, Dict, List, Any, Tuple, Union, cast
+from dataclasses import dataclass, field
 from .compat import (
     mw, showInfo, QProgressDialog, QPushButton, QLabel, QDialog, QVBoxLayout,
     QTextEdit, QDialogButtonBox, AlignTop, AlignLeft, ButtonBox_Ok, safe_exec_dialog,
-    QSpinBox, QHBoxLayout, QFrame
+    QSpinBox, QHBoxLayout, QFrame, QTabWidget, QWidget, QFont, QSizePolicy,
+    QMessageBox, MessageBox_Yes, MessageBox_No
 )
-try:
-    from .compat import QTabWidget, QWidget, QFont
-    HAS_ADVANCED_WIDGETS = True
-except ImportError:
-    HAS_ADVANCED_WIDGETS = False
 from .config_manager import get_remote_decks, save_remote_decks, disconnect_deck, verify_and_update_deck_info
-from .deck_naming import DeckNamer
-from .validation import validate_url
-from .parseRemoteDeck import getRemoteDeck
-from .note_processor import create_or_update_notes
-from .exceptions import SyncError
-from .subdeck_manager import remove_empty_subdecks
+from .utils import remove_empty_subdecks
+from .utils import validate_url
+from .data_processor import getRemoteDeck
+from .data_processor import create_or_update_notes
+from .utils import SyncError
+from .utils import add_debug_message, get_debug_messages, clear_debug_messages
+
+# ========================================================================================
+# CLASSES DE ESTATÍSTICAS DE SINCRONIZAÇÃO (consolidado de sync_stats.py)
+# ========================================================================================
+
+@dataclass
+class SyncStats:
+    """Estatísticas de uma sincronização."""
+    created: int = 0
+    updated: int = 0
+    deleted: int = 0
+    ignored: int = 0
+    errors: int = 0
+    error_details: List[str] = field(default_factory=list)
+    updated_details: List[str] = field(default_factory=list)
+    
+    def add_error(self, error_msg: str) -> None:
+        """Adiciona um erro às estatísticas."""
+        self.errors += 1
+        self.error_details.append(error_msg)
+    
+    def add_update_detail(self, detail: str) -> None:
+        """Adiciona um detalhe de atualização."""
+        self.updated_details.append(detail)
+    
+    def merge(self, other: 'SyncStats') -> None:
+        """Merge com outras estatísticas."""
+        self.created += other.created
+        self.updated += other.updated
+        self.deleted += other.deleted
+        self.ignored += other.ignored
+        self.errors += other.errors
+        self.error_details.extend(other.error_details)
+        self.updated_details.extend(other.updated_details)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Converte para dicionário (compatibilidade com código antigo)."""
+        return {
+            'created': self.created,
+            'updated': self.updated,
+            'deleted': self.deleted,
+            'ignored': self.ignored,
+            'errors': self.errors,
+            'error_details': self.error_details,
+            'updated_details': self.updated_details
+        }
+    
+    def get_total_operations(self) -> int:
+        """Retorna o total de operações realizadas."""
+        return self.created + self.updated + self.deleted + self.ignored
+    
+    def has_changes(self) -> bool:
+        """Verifica se houve mudanças."""
+        return self.created > 0 or self.updated > 0 or self.deleted > 0
+    
+    def has_errors(self) -> bool:
+        """Verifica se houve erros."""
+        return self.errors > 0
+
+@dataclass 
+class DeckSyncResult:
+    """Resultado da sincronização de um deck específico."""
+    deck_name: str
+    deck_key: str
+    success: bool
+    stats: SyncStats
+    error_message: Optional[str] = None
+    
+    def __post_init__(self):
+        """Inicialização após criação."""
+        if self.stats is None:
+            self.stats = SyncStats()
+
+class SyncStatsManager:
+    """Gerenciador de estatísticas de sincronização."""
+    
+    def __init__(self):
+        self.total_stats = SyncStats()
+        self.deck_results: List[DeckSyncResult] = []
+    
+    def add_deck_result(self, result: DeckSyncResult) -> None:
+        """Adiciona resultado de sincronização de um deck."""
+        self.deck_results.append(result)
+        self.total_stats.merge(result.stats)
+    
+    def create_deck_result(self, deck_name: str, deck_key: str) -> DeckSyncResult:
+        """Cria um novo resultado de deck."""
+        return DeckSyncResult(
+            deck_name=deck_name,
+            deck_key=deck_key,
+            success=False,
+            stats=SyncStats()
+        )
+    
+    def get_successful_decks(self) -> List[DeckSyncResult]:
+        """Retorna decks sincronizados com sucesso."""
+        return [r for r in self.deck_results if r.success]
+    
+    def get_failed_decks(self) -> List[DeckSyncResult]:
+        """Retorna decks que falharam na sincronização."""
+        return [r for r in self.deck_results if not r.success]
+    
+    def get_summary(self) -> Dict[str, Any]:
+        """Retorna um resumo das estatísticas."""
+        successful = len(self.get_successful_decks())
+        failed = len(self.get_failed_decks())
+        
+        return {
+            'total_decks': len(self.deck_results),
+            'successful_decks': successful,
+            'failed_decks': failed,
+            'total_stats': self.total_stats.to_dict(),
+            'has_changes': self.total_stats.has_changes(),
+            'has_errors': self.total_stats.has_errors()
+        }
+    
+    def reset(self) -> None:
+        """Reseta todas as estatísticas."""
+        self.total_stats = SyncStats()
+        self.deck_results.clear()
+
+# ========================================================================================
+# FUNÇÕES DE FINALIZAÇÃO DE SINCRONIZAÇÃO (consolidado de sync_finalization.py)
+# ========================================================================================
+
+def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, sync_errors, cleanup_result=None, missing_cleanup_result=None):
+    """
+    Finaliza o processo de sincronização usando o novo sistema de estatísticas.
+    
+    Args:
+        progress: QProgressDialog instance
+        total_decks: Total de decks para sync
+        successful_decks: Número de decks sincronizados com sucesso
+        total_stats: Estatísticas totais da sincronização
+        sync_errors: Lista de erros de sincronização
+        cleanup_result: Resultado da limpeza (opcional) 
+        missing_cleanup_result: Resultado da limpeza de decks ausentes (opcional)
+        
+    Returns:
+        Resultado consolidado da sincronização
+    """
+    
+    progress.setLabelText("Limpando subdecks vazios...")
+    from .config_manager import get_remote_decks
+    
+    # Remover subdecks vazios
+    remote_decks = get_remote_decks()
+    removed_subdecks = remove_empty_subdecks(remote_decks)
+    
+    # Preparar mensagem final para exibir na barra de progresso
+    cleanup_info = ""
+    if cleanup_result:
+        cleanup_info = f", {cleanup_result['disabled_students_count']} alunos removidos"
+    
+    if missing_cleanup_result:
+        if cleanup_info:
+            cleanup_info += f", dados [MISSING A.] removidos"
+        else:
+            cleanup_info = f", dados [MISSING A.] removidos"
+    
+    # Gerar mensagem final baseada nas estatísticas
+    if sync_errors or total_stats.get('errors', 0) > 0:
+        final_msg = f"Concluído com problemas: {successful_decks}/{total_decks} decks sincronizados"
+        if total_stats.get('created', 0) > 0:
+            final_msg += f", {total_stats['created']} notas criadas"
+        if total_stats.get('updated', 0) > 0:
+            final_msg += f", {total_stats['updated']} atualizadas"
+        if total_stats.get('deleted', 0) > 0:
+            final_msg += f", {total_stats['deleted']} deletadas"
+        if total_stats.get('ignored', 0) > 0:
+            final_msg += f", {total_stats['ignored']} ignoradas"
+        if removed_subdecks > 0:
+            final_msg += f", {removed_subdecks} subdecks vazios removidos"
+        if cleanup_info:
+            final_msg += cleanup_info
+        final_msg += f", {total_stats.get('errors', 0) + len(sync_errors)} erros"
+    else:
+        final_msg = f"Sincronização concluída com sucesso!"
+        if total_stats.get('created', 0) > 0:
+            final_msg += f" {total_stats['created']} notas criadas"
+        if total_stats.get('updated', 0) > 0:
+            final_msg += f", {total_stats['updated']} atualizadas"
+        if total_stats.get('deleted', 0) > 0:
+            final_msg += f", {total_stats['deleted']} deletadas"
+        if total_stats.get('ignored', 0) > 0:
+            final_msg += f", {total_stats['ignored']} ignoradas"
+        if removed_subdecks > 0:
+            final_msg += f", {removed_subdecks} subdecks vazios removidos"
+        if cleanup_info:
+            final_msg += cleanup_info
+    
+    # Adicionar mensagem final de debug
+    add_debug_message("🎬 Sincronização finalizada", "SYSTEM")
+    
+    # Atualizar a interface do Anki para mostrar as mudanças
+    ensure_interface_refresh()
+    
+    # Atualizar progresso final
+    progress.setValue(total_decks)
+    progress.setLabelText(final_msg)
+    
+    # Aguardar um momento para mostrar a mensagem final
+    import time
+    time.sleep(1)
+    
+    # Mostrar resumo detalhado
+    _show_sync_summary_new(sync_errors, total_stats, successful_decks, total_decks, removed_subdecks, cleanup_result, missing_cleanup_result)
+
+def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks=0, cleanup_result=None, missing_cleanup_result=None):
+    """
+    Mostra resumo da sincronização usando o novo sistema.
+    """
+    from .compat import showInfo
+    from .utils import get_debug_messages, is_debug_enabled
+    
+    summary = []
+    
+    # Estatísticas principais
+    if sync_errors or total_stats.get('errors', 0) > 0:
+        summary.append("❌ Sincronização concluída com problemas!")
+        summary.append(f"📊 Decks: {decks_synced}/{total_decks} sincronizados com sucesso")
+    else:
+        summary.append("✅ Sincronização concluída com sucesso!")
+        summary.append(f"📊 Decks: {decks_synced}/{total_decks} sincronizados")
+    
+    # Estatísticas de notas
+    if total_stats.get('created', 0) > 0:
+        summary.append(f"➕ {total_stats['created']} notas criadas")
+    if total_stats.get('updated', 0) > 0:
+        summary.append(f"✏️ {total_stats['updated']} notas atualizadas")
+    if total_stats.get('deleted', 0) > 0:
+        summary.append(f"🗑️ {total_stats['deleted']} notas deletadas")
+    if total_stats.get('ignored', 0) > 0:
+        summary.append(f"⏭️ {total_stats['ignored']} notas ignoradas")
+    
+    # Limpezas
+    if removed_subdecks > 0:
+        summary.append(f"🧹 {removed_subdecks} subdecks vazios removidos")
+    
+    if cleanup_result and cleanup_result.get('disabled_students_count', 0) > 0:
+        summary.append(f"🧹 {cleanup_result['disabled_students_count']} alunos desabilitados removidos")
+    
+    if missing_cleanup_result:
+        summary.append("🧹 Dados [MISSING A.] removidos")
+    
+    # Erros
+    total_errors = total_stats.get('errors', 0) + len(sync_errors)
+    if total_errors > 0:
+        summary.append(f"⚠️ {total_errors} erros encontrados")
+        
+        # Mostrar detalhes dos erros se debug estiver habilitado
+        if is_debug_enabled() and (sync_errors or total_stats.get('error_details')):
+            summary.append("\nDetalhes dos erros:")
+            for error in sync_errors:
+                summary.append(f"  • {error}")
+            for error in total_stats.get('error_details', []):
+                summary.append(f"  • {error}")
+    
+    # Informações de debug se habilitado
+    if is_debug_enabled():
+        debug_messages = get_debug_messages()
+        summary.append(f"\n🐛 Debug: {len(debug_messages)} mensagens capturadas")
+        summary.append("(Verificar console para detalhes)")
+    
+    showInfo("\n".join(summary))
+
+# ========================================================================================
+# FUNÇÕES DE ATUALIZAÇÃO DA INTERFACE (consolidado de interface_updater.py) 
+# ========================================================================================
+
+def refresh_anki_interface():
+    """
+    Atualiza a interface do Anki após a sincronização.
+    
+    Atualiza:
+    - Lista de decks na tela principal
+    - Contador de cards
+    - Interface do reviewer se estiver ativo
+    - Browser se estiver aberto
+    """
+    if not mw:
+        add_debug_message("❌ MainWindow não disponível para atualização", "INTERFACE_UPDATE")
+        return
+    
+    try:
+        add_debug_message("🔄 Iniciando atualização da interface do Anki", "INTERFACE_UPDATE")
+        
+        # 1. Atualizar a lista de decks na tela principal
+        if hasattr(mw, 'deckBrowser') and mw.deckBrowser:
+            add_debug_message("📂 Atualizando lista de decks", "INTERFACE_UPDATE")
+            mw.deckBrowser.refresh()
+        
+        # 2. Atualizar o reviewer se estiver ativo
+        if hasattr(mw, 'reviewer') and mw.reviewer and mw.state == "review":
+            add_debug_message("📝 Atualizando reviewer", "INTERFACE_UPDATE")
+            # Forçar recalculo do número de cards
+            if hasattr(mw.reviewer, '_updateCounts'):
+                mw.reviewer._updateCounts()
+        
+        # 3. Atualizar o browser se estiver aberto
+        if hasattr(mw, 'browser') and mw.browser:
+            add_debug_message("🔍 Atualizando browser", "INTERFACE_UPDATE")
+            mw.browser.model.reset()
+            mw.browser.form.tableView.selectRow(0)
+        
+        # 4. Atualizar a barra de título e interface geral
+        if hasattr(mw, 'setWindowTitle') and mw.col:
+            # Manter o título original mas forçar recalculo interno
+            mw.col.reset()
+        
+        # 5. Trigger geral de reset da interface
+        if hasattr(mw, 'reset'):
+            add_debug_message("🔄 Executando reset geral da interface", "INTERFACE_UPDATE")
+            mw.reset()
+        
+        add_debug_message("✅ Interface do Anki atualizada com sucesso", "INTERFACE_UPDATE")
+        
+    except Exception as e:
+        add_debug_message(f"❌ Erro ao atualizar interface: {e}", "INTERFACE_UPDATE")
+
+def refresh_deck_list():
+    """
+    Atualiza especificamente a lista de decks na tela principal.
+    """
+    if not mw or not hasattr(mw, 'deckBrowser'):
+        return
+    
+    try:
+        add_debug_message("📂 Atualizando lista de decks", "INTERFACE_UPDATE")
+        mw.deckBrowser.refresh()
+    except Exception as e:
+        add_debug_message(f"❌ Erro ao atualizar lista de decks: {e}", "INTERFACE_UPDATE")
+
+def refresh_counts():
+    """
+    Atualiza os contadores de cards em todas as interfaces.
+    """
+    if not mw:
+        return
+        
+    try:
+        add_debug_message("🔢 Atualizando contadores de cards", "INTERFACE_UPDATE")
+        
+        # Forçar recálculo dos counts na collection
+        if mw.col:
+            mw.col.sched.reset()
+        
+        # Atualizar deck browser
+        if hasattr(mw, 'deckBrowser') and mw.deckBrowser:
+            mw.deckBrowser.refresh()
+            
+        # Atualizar reviewer se ativo
+        if hasattr(mw, 'reviewer') and mw.reviewer and mw.state == "review":
+            if hasattr(mw.reviewer, '_updateCounts'):
+                mw.reviewer._updateCounts()
+                
+    except Exception as e:
+        add_debug_message(f"❌ Erro ao atualizar contadores: {e}", "INTERFACE_UPDATE")
+
+def ensure_interface_refresh():
+    """
+    Garante que a interface seja atualizada, usando múltiplas estratégias.
+    
+    Esta função usa diferentes métodos para garantir que a interface
+    seja atualizada independente do estado atual do Anki.
+    """
+    if not mw:
+        return
+        
+    try:
+        add_debug_message("🎯 Executando atualização completa da interface", "INTERFACE_UPDATE")
+        
+        # Método 1: Reset da collection (mais completo)
+        if mw.col:
+            mw.col.reset()
+        
+        # Método 2: Reset da interface principal
+        if hasattr(mw, 'reset'):
+            mw.reset()
+        
+        # Método 3: Atualização específica dos componentes
+        refresh_deck_list()
+        refresh_counts()
+        
+        add_debug_message("✅ Atualização completa da interface concluída", "INTERFACE_UPDATE")
+        
+    except Exception as e:
+        add_debug_message(f"❌ Erro na atualização completa: {e}", "INTERFACE_UPDATE")
+
+# ========================================================================================
+# FUNÇÕES PRINCIPAIS DE SINCRONIZAÇÃO
+# ========================================================================================
+
+def _is_anki_ready():
+    """Verifica se o Anki está pronto para operações."""
+    return mw and hasattr(mw, 'col') and mw.col
+
+def _is_anki_decks_ready():
+    """Verifica se o Anki está pronto para operações com decks."""
+    return _is_anki_ready() and hasattr(mw.col, 'decks')
 
 def syncDecks(selected_deck_names=None, selected_deck_urls=None):
     """
@@ -44,32 +443,24 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
                           Se fornecida, tem precedência sobre selected_deck_names.
     """
     # Verificar se mw.col está disponível
-    if not mw or not hasattr(mw, 'col') or not mw.col:
+    if not _is_anki_ready():
         showInfo("Anki não está pronto. Tente novamente em alguns instantes.")
         return
         
     col = mw.col
     remote_decks = get_remote_decks()
     
+    # Limpar mensagens de debug anteriores
+    clear_debug_messages()
+    
     # **NOVO**: Gerenciar limpezas de forma consolidada para evitar múltiplas confirmações
     missing_cleanup_result, cleanup_result = _handle_consolidated_cleanup(remote_decks)
 
-    # Inicializar estatísticas e controles
+    # Inicializar sistema de estatísticas
+    stats_manager = SyncStatsManager()
     sync_errors = []
     status_msgs = []
-    debug_messages = []  # NOVO: Lista para acumular mensagens de debug
-    decks_synced = 0
-    total_stats = {
-        'created': 0,
-        'updated': 0,
-        'deleted': 0,
-        'ignored': 0,
-        'errors': 0,
-        'error_details': [],
-        'updated_details': [],
-        'debug_messages': debug_messages  # NOVO: Adicionar debug_messages às stats
-    }
-
+    
     # Determinar quais decks sincronizar
     deck_keys = _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls)
     total_decks = len(deck_keys)
@@ -83,10 +474,8 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
     progress = _setup_progress_dialog(total_decks)
     
     # Adicionar mensagem de debug inicial
-    from datetime import datetime
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    debug_messages.append(f"[{timestamp}] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: {total_decks}")
-    _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
+    add_debug_message(f"🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: {total_decks}", "SYNC")
+    _update_progress_text(progress, status_msgs)
     
     step = 0
     try:
@@ -94,28 +483,55 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         for deckKey in deck_keys:
             try:
                 step, deck_sync_increment, current_stats = _sync_single_deck(
-                    remote_decks, deckKey, progress, status_msgs, step, debug_messages
+                    remote_decks, deckKey, progress, status_msgs, step
                 )
                 
-                # Acumular estatísticas
-                _accumulate_stats(total_stats, current_stats)
-                decks_synced += deck_sync_increment
+                # Criar resultado do deck
+                deck_name = remote_decks[deckKey].get("local_deck_name", "Unknown")
+                deck_result = DeckSyncResult(
+                    deck_name=deck_name,
+                    deck_key=deckKey,
+                    success=True,
+                    stats=current_stats
+                )
+                stats_manager.add_deck_result(deck_result)
                 
-                # Debug: deck concluído
-                from datetime import datetime
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                debug_messages.append(f"[{timestamp}] [SYNC] ✅ Deck concluído: {deckKey}")
-                _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
+                add_debug_message(f"✅ Deck concluído: {deckKey}", "SYNC")
 
             except SyncError as e:
                 step, sync_errors = _handle_sync_error(
                     e, deckKey, remote_decks, progress, status_msgs, sync_errors, step
                 )
+                
+                # Adicionar resultado de falha
+                deck_name = remote_decks[deckKey].get("local_deck_name", "Unknown")
+                failed_result = DeckSyncResult(
+                    deck_name=deck_name,
+                    deck_key=deckKey,
+                    success=False,
+                    stats=SyncStats(),
+                    error_message=str(e)
+                )
+                failed_result.stats.add_error(str(e))
+                stats_manager.add_deck_result(failed_result)
                 continue
+                
             except Exception as e:
                 step, sync_errors = _handle_unexpected_error(
                     e, deckKey, remote_decks, progress, status_msgs, sync_errors, step
                 )
+                
+                # Adicionar resultado de erro inesperado
+                deck_name = remote_decks[deckKey].get("local_deck_name", "Unknown")
+                failed_result = DeckSyncResult(
+                    deck_name=deck_name,
+                    deck_key=deckKey,
+                    success=False,
+                    stats=SyncStats(),
+                    error_message=f"Erro inesperado: {str(e)}"
+                )
+                failed_result.stats.add_error(f"Erro inesperado: {str(e)}")
+                stats_manager.add_deck_result(failed_result)
                 continue
         
         # Não precisamos salvar remote_decks aqui porque add_note_type_id_to_deck já salva individualmente
@@ -129,8 +545,12 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         except Exception as e:
             print(f"[WARNING] Erro ao salvar configurações após sincronização: {e}")
         
+        # Obter resumo das estatísticas
+        summary = stats_manager.get_summary()
+        successful_decks = len(stats_manager.get_successful_decks())
+        
         # Finalizar progresso e mostrar resultados
-        _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors, debug_messages, cleanup_result, missing_cleanup_result)
+        _finalize_sync_new(progress, total_decks, successful_decks, summary['total_stats'], sync_errors, cleanup_result, missing_cleanup_result)
     
     finally:
         # Garantir que o dialog de progresso seja fechado
@@ -164,8 +584,10 @@ def _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls
         return filtered_keys
     
     # Verificar se mw.col e mw.col.decks estão disponíveis
-    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+    if not _is_anki_decks_ready():
         return []
+    
+    assert mw.col is not None  # Type hint para o checker
         
     # Criar mapeamento de nomes para hash keys
     name_to_key = {}
@@ -206,8 +628,10 @@ def _build_name_to_key_mapping(config):
         dict: Mapeamento de nomes para hash keys
     """
     # Verificar se mw.col e mw.col.decks estão disponíveis
-    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+    if not _is_anki_decks_ready():
         return {}
+    
+    assert mw.col is not None  # Type hint para o checker
         
     name_to_key = {}
     for hash_key, deck_info in get_remote_decks().items():
@@ -219,7 +643,7 @@ def _build_name_to_key_mapping(config):
                 actual_deck_name = deck["name"]
                 name_to_key[actual_deck_name] = hash_key
             else:
-                # Fallback para o nome salvo na config se o deck não existir
+                # Usar o nome salvo na config se o deck não existir
                 config_deck_name = deck_info.get("local_deck_name")
                 if config_deck_name:
                     name_to_key[config_deck_name] = hash_key
@@ -338,7 +762,7 @@ def _update_progress_text(progress, status_msgs, max_lines=3, debug_messages=Non
     # Forçar atualização da interface
     mw.app.processEvents()
 
-def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_messages=None):
+def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
     """
     Sincroniza um único deck.
     
@@ -348,105 +772,70 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
         progress: Dialog de progresso
         status_msgs: Lista de mensagens de status
         step: Passo atual do progresso
-        debug_messages: Lista para acumular mensagens de debug
         
     Returns:
         tuple: (step, deck_sync_increment, current_stats)
     """
-    if debug_messages is None:
-        debug_messages = []
-    
-    def add_debug_msg(message, category="DEBUG"):
-        """Helper para adicionar mensagens de debug com timestamp."""
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        formatted_msg = f"[{timestamp}] [{category}] {message}"
-        debug_messages.append(formatted_msg)
-        print(formatted_msg)  # Também imprimir no console para debug
-        # Não atualizar interface - debug messages só são mostradas sob demanda
+    from .utils import add_debug_message
+    from .deck_manager import DeckRecreationManager, DeckNameManager
     
     # Início da lógica de sincronização
-    add_debug_msg(f"🚀 INICIANDO sincronização para deck hash: {deckKey}", "SYNC")
+    add_debug_message(f"🚀 INICIANDO sincronização para deck hash: {deckKey}", "SYNC")
     
     # Verificar se mw.col e mw.col.decks estão disponíveis
-    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+    if not _is_anki_decks_ready():
         raise SyncError("Anki não está pronto. Tente novamente em alguns instantes.")
+    
+    assert mw.col is not None  # Type hint para o checker
         
     currentRemoteInfo = remote_decks[deckKey]
     local_deck_id = currentRemoteInfo["local_deck_id"]
     remote_deck_url = currentRemoteInfo["remote_deck_url"]
-    add_debug_msg(f"📋 Local Deck ID: {local_deck_id}", "SYNC")
-    add_debug_msg(f"🔗 Remote URL: {remote_deck_url}", "SYNC")
+    add_debug_message(f"📋 Local Deck ID: {local_deck_id}", "SYNC")
+    add_debug_message(f"🔗 Remote URL: {remote_deck_url}", "SYNC")
 
-    # Obter nome do deck para exibição
-    deck = mw.col.decks.get(local_deck_id) if local_deck_id is not None else None
+    # Verificar se o deck existe ou precisa ser recriado
+    was_recreated, current_deck_id, current_deck_name = DeckRecreationManager.recreate_deck_if_missing(currentRemoteInfo)
     
-    # Se o deck não existe, recriar usando a lógica de nomeação inteligente
-    if not deck or deck["name"].strip().lower() == "default":
-        # Obter o nome remoto atual
-        current_remote_name = currentRemoteInfo.get("remote_deck_name")
+    if was_recreated and current_deck_id is not None and current_deck_name is not None:
+        # Capturar o ID antigo antes da atualização para log correto
+        old_deck_id = local_deck_id
         
-        # Se temos o nome remoto, gerar o nome local baseado no padrão
-        if current_remote_name:
-            desired_local_name = DeckNamer.generate_local_deck_name(current_remote_name)
-        else:
-            # Fallback para o nome salvo na configuração
-            desired_local_name = currentRemoteInfo.get("local_deck_name") or f"Sheets2Anki::Deck_{local_deck_id}"
+        # Atualizar informações na configuração
+        DeckRecreationManager.update_deck_info_after_recreation(currentRemoteInfo, current_deck_id, current_deck_name)
         
-        # Recriar o deck com o nome desejado
-        msg = f"Recriando deck '{desired_local_name}' (foi deletado localmente)..."
+        # IMPORTANTE: Salvar imediatamente as mudanças de local_deck_id após recriação
+        # Isso garante que o novo ID seja persistido mesmo se houver erro posterior
+        save_remote_decks(remote_decks)
+        add_debug_message(f"[CONFIG_SAVE] local_deck_id atualizado e salvo após recriação: {old_deck_id} -> {current_deck_id}", "SYNC")
+        
+        # Atualizar variáveis locais
+        local_deck_id = current_deck_id
+        
+        # Informar sobre a recriação
+        msg = f"Deck recriado: '{current_deck_name}'"
         status_msgs.append(msg)
-        _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
-        
-        # Verificar se o nome desejado ainda está disponível
-        try:
-            # Tentar criar o deck com o nome desejado
-            new_deck_id = mw.col.decks.id(desired_local_name)
-            
-            # Verificar se o nome foi mantido ou alterado pelo Anki
-            new_deck = mw.col.decks.get(new_deck_id) if new_deck_id is not None else None
-            if new_deck:
-                actual_name = new_deck["name"]
-                
-                if actual_name != desired_local_name:
-                    # O nome foi alterado pelo Anki (provavelmente já existe)
-                    msg = f"Nome '{desired_local_name}' já existe, usando '{actual_name}' em vez disso"
-                    status_msgs.append(msg)
-                    _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
-            else:
-                raise ValueError(f"Falha ao criar deck: {desired_local_name}")
-        except Exception as e:
-            # Em caso de erro, usar um nome genérico
-            msg = f"Erro ao recriar deck: {str(e)}"
-            status_msgs.append(msg)
-            _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
-            new_deck_id = mw.col.decks.id(f"Sheets2Anki::Deck_{local_deck_id}")
-            new_deck = mw.col.decks.get(new_deck_id) if new_deck_id is not None else None
-            if new_deck:
-                actual_name = new_deck["name"]
-            else:
-                raise ValueError(f"Falha ao criar deck genérico")
-        
-        # Atualizar o local_deck_id na configuração
-        if new_deck_id != local_deck_id:
-            currentRemoteInfo["local_deck_id"] = new_deck_id
-            local_deck_id = new_deck_id
-        
-        # Obter o deck recriado
-        deck = mw.col.decks.get(local_deck_id) if local_deck_id is not None else None
-        if not deck:
-            raise ValueError(f"Falha ao obter deck recriado: {local_deck_id}")
-        
-        # Atualizar informações na configuração com o nome real usado (silenciosamente)
-        currentRemoteInfo["local_deck_name"] = deck["name"]
+        _update_progress_text(progress, status_msgs)
         
         step += 1
         progress.setValue(step)
         mw.app.processEvents()
     
+    # Obter o deck atual (pode ser o original ou o recriado)
+    if local_deck_id is None:
+        raise ValueError("ID do deck local é None")
+    
+    # Garantir que o ID seja do tipo correto para o Anki
+    from anki.decks import DeckId
+    deck_id: DeckId = DeckId(local_deck_id)
+    deck = mw.col.decks.get(deck_id)
+    if not deck:
+        raise ValueError(f"Falha ao obter deck: {deck_id}")
+        
     deckName = deck["name"]
+    add_debug_message(f"📋 Deck atual: '{deckName}' (ID: {deck_id})", "SYNC")
 
-    # Atualizar informações na configuração com o nome real usado (silenciosamente)
+    # Atualizar informações na configuração com o nome real usado
     currentRemoteInfo["local_deck_name"] = deckName
 
     # Validar URL antes de tentar sincronizar
@@ -455,93 +844,108 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
     # 1. Download
     msg = f"{deckName}: baixando arquivo..."
     status_msgs.append(msg)
-    _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
+    _update_progress_text(progress, status_msgs)
     
-    remoteDeck = getRemoteDeck(remote_deck_url)
+    # Obter lista de estudantes habilitados para este deck
+    from .student_manager import get_selected_students_for_deck
+    enabled_students = get_selected_students_for_deck(remote_deck_url)
+    add_debug_message(f"🎓 Estudantes habilitados para este deck: {list(enabled_students)}", "STUDENTS")
+    
+    remoteDeck = getRemoteDeck(remote_deck_url, enabled_students=list(enabled_students))
     
     # NOVO: Debug para verificar questões carregadas
     questions_count = len(remoteDeck.questions) if hasattr(remoteDeck, 'questions') and remoteDeck.questions else 0
-    debug_messages.append(f"[REMOTE_DECK] 📊 Questões carregadas do deck remoto: {questions_count}")
+    add_debug_message(f"📊 Questões carregadas do deck remoto: {questions_count}", "REMOTE_DECK")
     
     step += 1
     progress.setValue(step)
     mw.app.processEvents()
 
-    # Atualizar remote_deck_name com o nome real do arquivo baixado
-    if remoteDeck.remote_filename:
-        new_remote_name_from_url = remoteDeck.remote_filename
-        stored_remote_name = currentRemoteInfo.get("remote_deck_name")
-        
-        # IMPORTANTE: Lógica aprimorada para resolver conflitos dinâmicamente
-        # Verificar se o nome remoto mudou e reavaliar resolução de conflitos
-        should_update = False
-        if stored_remote_name != new_remote_name_from_url:
-            # Verificar se o nome armazenado tem sufixo de conflito
-            if stored_remote_name and ' #conflito' in stored_remote_name:
-                # Nome tem sufixo de conflito - verificar se ainda é necessário
-                debug_messages.append(f"[CONFLICT_REEVALUATE] Reavaliando conflito: '{stored_remote_name}' vs novo nome '{new_remote_name_from_url}'")
+    # Atualizar remote_deck_name com o nome extraído da URL
+    new_remote_name_from_url = DeckNameManager.extract_remote_name_from_url(remote_deck_url)
+    stored_remote_name = currentRemoteInfo.get("remote_deck_name")
+    
+    # IMPORTANTE: Lógica aprimorada para resolver conflitos dinâmicamente
+    # Verificar se o nome remoto mudou e reavaliar resolução de conflitos
+    should_update = False
+    if stored_remote_name != new_remote_name_from_url:
+        # Verificar se o nome armazenado tem sufixo de conflito
+        if stored_remote_name and ' #conflito' in stored_remote_name:
+            # Nome tem sufixo de conflito - verificar se ainda é necessário
+            add_debug_message(f"[CONFLICT_REEVALUATE] Reavaliando conflito: '{stored_remote_name}' vs novo nome '{new_remote_name_from_url}'", "SYNC")
+            
+            # Usar DeckNameManager centralizado para resolução de conflitos
+            resolved_new_name = DeckNameManager.resolve_remote_name_conflict(remote_deck_url, new_remote_name_from_url)
+            
+            # Se o nome resolvido é igual ao nome original, não há mais conflito
+            if resolved_new_name == new_remote_name_from_url:
+                # Conflito foi resolvido - pode usar nome original
+                should_update = True
+                current_remote_name = new_remote_name_from_url
+                add_debug_message(f"[CONFLICT_RESOLVED] Conflito resolvido! '{stored_remote_name}' → '{new_remote_name_from_url}'", "SYNC")
                 
-                # Verificar se o novo nome ainda gera conflito
-                from .config_manager import resolve_remote_deck_name_conflict
-                resolved_new_name = resolve_remote_deck_name_conflict(remote_deck_url, new_remote_name_from_url)
-                
-                # Se o nome resolvido é igual ao nome original, não há mais conflito
-                if resolved_new_name == new_remote_name_from_url:
-                    # Conflito foi resolvido - pode usar nome original
-                    should_update = True
-                    current_remote_name = new_remote_name_from_url
-                    debug_messages.append(f"[CONFLICT_RESOLVED] Conflito resolvido! '{stored_remote_name}' → '{new_remote_name_from_url}'")
+                # Também atualizar local_deck_name para remover o sufixo
+                old_local_name = currentRemoteInfo.get("local_deck_name", "")
+                if old_local_name and ' #conflito' in old_local_name:
+                    # Remover sufixo do nome local também
+                    new_local_name = old_local_name.split(' #conflito')[0]
+                    add_debug_message(f"[CONFLICT_RESOLVED] Atualizando local_deck_name: '{old_local_name}' → '{new_local_name}'", "SYNC")
                     
-                    # Também atualizar local_deck_name para remover o sufixo
-                    old_local_name = currentRemoteInfo.get("local_deck_name", "")
-                    if old_local_name and ' #conflito' in old_local_name:
-                        # Remover sufixo do nome local também
-                        new_local_name = old_local_name.split(' #conflito')[0]
-                        debug_messages.append(f"[CONFLICT_RESOLVED] Atualizando local_deck_name: '{old_local_name}' → '{new_local_name}'")
-                        
-                        # Atualizar nome do deck no Anki
-                        try:
-                            deck_id = currentRemoteInfo.get("local_deck_id")
-                            if deck_id and mw and mw.col:
-                                deck = mw.col.decks.get(deck_id)
-                                if deck:
-                                    old_anki_name = deck.get('name', '')
-                                    deck['name'] = new_local_name
-                                    mw.col.decks.save(deck)
-                                    debug_messages.append(f"[ANKI_UPDATE] Deck renomeado no Anki: '{old_anki_name}' → '{new_local_name}'")
-                        except Exception as e:
-                            debug_messages.append(f"[ANKI_ERROR] Erro ao renomear deck no Anki: {e}")
-                        
-                        # Atualizar na configuração
-                        currentRemoteInfo["local_deck_name"] = new_local_name
-                        remote_decks[deckKey]["local_deck_name"] = new_local_name
-                        
-                else:
-                    # Ainda há conflito, mas pode ter mudado o sufixo
-                    if resolved_new_name != stored_remote_name:
-                        should_update = True
-                        current_remote_name = resolved_new_name
-                        debug_messages.append(f"[CONFLICT_UPDATE] Atualizando sufixo de conflito: '{stored_remote_name}' → '{resolved_new_name}'")
-                    else:
-                        debug_messages.append(f"[CONFLICT_UNCHANGED] Mantendo resolução existente: '{stored_remote_name}'")
-                        
+                    # Atualizar nome do deck no Anki
+                    try:
+                        deck_id = currentRemoteInfo.get("local_deck_id")
+                        if deck_id and mw and mw.col:
+                            from anki.decks import DeckId
+                            deck = mw.col.decks.get(DeckId(deck_id))
+                            if deck:
+                                old_anki_name = deck.get('name', '')
+                                deck['name'] = new_local_name
+                                mw.col.decks.save(deck)
+                                add_debug_message(f"[ANKI_UPDATE] Deck renomeado no Anki: '{old_anki_name}' → '{new_local_name}'", "SYNC")
+                    except Exception as e:
+                        add_debug_message(f"[ANKI_ERROR] Erro ao renomear deck no Anki: {e}", "SYNC")
+                    
+                    # Atualizar na configuração
+                    currentRemoteInfo["local_deck_name"] = new_local_name
+                    remote_decks[deckKey]["local_deck_name"] = new_local_name
+                    
             else:
-                # Nome não tem conflito, aplicar resolução normal
-                from .config_manager import resolve_remote_deck_name_conflict
-                resolved_remote_name = resolve_remote_deck_name_conflict(remote_deck_url, new_remote_name_from_url)
-                
-                if resolved_remote_name != stored_remote_name:
+                # Ainda há conflito, mas pode ter mudado o sufixo
+                if resolved_new_name != stored_remote_name:
                     should_update = True
-                    current_remote_name = resolved_remote_name
-                    debug_messages.append(f"[CONFLICT_RESOLVE] Aplicando resolução: '{new_remote_name_from_url}' → '{resolved_remote_name}'")
-                
-        if should_update:
-            # Atualizar na configuração local (temporariamente)
+                    current_remote_name = resolved_new_name
+                    add_debug_message(f"[CONFLICT_UPDATE] Atualizando sufixo de conflito: '{stored_remote_name}' → '{resolved_new_name}'", "SYNC")
+                else:
+                    add_debug_message(f"[CONFLICT_UNCHANGED] Mantendo resolução existente: '{stored_remote_name}'", "SYNC")
+                    
+        else:
+            # Nome não tem conflito, aplicar resolução normal com DeckNameManager
+            resolved_remote_name = DeckNameManager.resolve_remote_name_conflict(remote_deck_url, new_remote_name_from_url)
+            
+            if resolved_remote_name != stored_remote_name:
+                should_update = True
+                current_remote_name = resolved_remote_name
+                add_debug_message(f"[CONFLICT_RESOLVE] Aplicando resolução: '{new_remote_name_from_url}' → '{resolved_remote_name}'", "SYNC")
+    
+    else:
+        # Nome não mudou, não precisa atualizar
+        add_debug_message(f"[CONFLICT_SKIP] Nome remoto não mudou, mantendo: '{stored_remote_name}'", "SYNC")
+        current_remote_name = stored_remote_name
+        
+    # Aplicar atualização se necessário
+    if should_update:
+            # Usar DeckNameManager para sincronizar
+            sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
+            
+            # Atualizar configuração
             currentRemoteInfo["remote_deck_name"] = current_remote_name
-            # Atualizar na configuração global persistente
             remote_decks[deckKey]["remote_deck_name"] = current_remote_name
+            
+            add_debug_message(f"[CONFIG_UPDATE] Configuração atualizada - remote: '{current_remote_name}'", "SYNC")
+            
+            # Salvar configuração usando o método existente
             save_remote_decks(remote_decks)
-            print(f"[Sheets2Anki] Remote deck name updated from '{stored_remote_name}' to '{current_remote_name}'")
+            add_debug_message(f"[CONFIG_SAVE] Configuração salva após atualização de nomes", "SYNC")
             
             # Atualizar os nomes dos note types no meta.json para refletir o novo remote_deck_name
             try:
@@ -557,82 +961,81 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
                     remote_deck_url, 
                     stored_remote_name, 
                     current_remote_name, 
-                    debug_messages
+                    None,  # enabled_students não é necessário para a captura de IDs
                 )
                 if updated_count > 0:
-                    debug_messages.append(f"[NOTE_TYPE_RENAME] {updated_count} note types atualizados para novo remote_deck_name")
+                    add_debug_message(f"[NOTE_TYPE_RENAME] {updated_count} note types atualizados para novo remote_deck_name", "SYNC")
                     
                     # Garantir que as mudanças sejam persistidas no meta.json antes da sincronização
-                    import time
                     time.sleep(0.1)  # Pequeno delay para garantir que o arquivo seja salvo
                     
                     # Sincronizar imediatamente os nomes no Anki após atualização na config
                     from .utils import sync_note_type_names_with_config
                     try:
-                        debug_messages.append(f"[NOTE_TYPE_SYNC] Iniciando sincronização imediata após rename...")
-                        sync_stats = sync_note_type_names_with_config(mw.col, remote_deck_url, debug_messages)
+                        add_debug_message(f"[NOTE_TYPE_SYNC] Iniciando sincronização imediata após rename...", "SYNC")
+                        sync_stats = sync_note_type_names_with_config(mw.col, remote_deck_url)
                         if sync_stats['synced_note_types'] > 0:
-                            debug_messages.append(f"[NOTE_TYPE_SYNC] {sync_stats['synced_note_types']} note types sincronizados no Anki imediatamente")
+                            add_debug_message(f"[NOTE_TYPE_SYNC] {sync_stats['synced_note_types']} note types sincronizados no Anki imediatamente", "SYNC")
                         else:
-                            debug_messages.append(f"[NOTE_TYPE_SYNC] Nenhuma mudança necessária na sincronização imediata")
+                            add_debug_message(f"[NOTE_TYPE_SYNC] Nenhuma mudança necessária na sincronização imediata", "SYNC")
                     except Exception as sync_error:
-                        debug_messages.append(f"[NOTE_TYPE_SYNC] Erro na sincronização imediata: {sync_error}")
-                        import traceback
-                        debug_messages.append(f"[NOTE_TYPE_SYNC] Traceback: {traceback.format_exc()}")
+                        add_debug_message(f"[NOTE_TYPE_SYNC] Erro na sincronização imediata: {sync_error}", "SYNC")
+                        add_debug_message(f"[NOTE_TYPE_SYNC] Traceback: {traceback.format_exc()}", "SYNC")
                 
             except Exception as e:
                 print(f"[Sheets2Anki] Erro ao atualizar nomes de note types no meta.json: {e}")
-                debug_messages.append(f"[NOTE_TYPE_RENAME] Erro ao atualizar note types: {e}")
+                add_debug_message(f"[NOTE_TYPE_RENAME] Erro ao atualizar note types: {e}", "SYNC")
 
     # 2. Processamento (já incluído no getRemoteDeck)
     msg = f"{deckName}: processando dados..."
     status_msgs.append(msg)
-    _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
+    _update_progress_text(progress, status_msgs)
     
     remoteDeck.deckName = deckName
     
-    # Atualizar nome do deck se necessário (modo automático)
-    # A classe DeckNamer já verifica internamente se o nome tem sufixo numérico
+    # Atualizar nome do deck se necessário usando DeckNameManager
     current_remote_name = currentRemoteInfo.get("remote_deck_name")
-    updated_name = DeckNamer.update_name_if_needed(remote_deck_url, local_deck_id, deckName, current_remote_name)
-    if updated_name != deckName:
-        # Atualizar informações do deck na configuração
-        currentRemoteInfo["local_deck_name"] = updated_name
-        deckName = updated_name
-        remoteDeck.deckName = updated_name
+    sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
+    if sync_result:
+        sync_deck_id, updated_name = sync_result
+        if updated_name != deckName:
+            # Atualizar informações do deck na configuração
+            currentRemoteInfo["local_deck_name"] = updated_name
+            deckName = updated_name
+            remoteDeck.deckName = updated_name
         
         msg = f"{deckName}: nome do deck atualizado automaticamente..."
         status_msgs.append(msg)
-        _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
+        _update_progress_text(progress, status_msgs)
     
-    # Sincronizar nome do deck no Anki com a configuração (source of truth)
-    from .utils import sync_deck_name_with_config, sync_note_type_names_with_config
-    sync_result = sync_deck_name_with_config(mw.col, remote_deck_url, debug_messages)
+    # Sincronizar nome do deck no Anki com a configuração usando DeckNameManager
+    from .utils import sync_note_type_names_with_config
+    sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
     if sync_result:
         synced_deck_id, synced_name = sync_result
         if synced_name != deckName:
             msg = f"{deckName}: nome sincronizado no Anki para '{synced_name}'"
             status_msgs.append(msg)
-            debug_messages.append(f"[DECK_SYNC] Deck renomeado no Anki: {deckName} → {synced_name}")
+            add_debug_message(f"[DECK_SYNC] Deck renomeado no Anki: {deckName} → {synced_name}", "SYNC")
     
     # Sincronizar nomes dos note types no Anki com a configuração (source of truth) - FINAL
-    debug_messages.append(f"[NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...")
-    note_sync_stats = sync_note_type_names_with_config(mw.col, remote_deck_url, debug_messages)
+    add_debug_message(f"[NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...", "SYNC")
+    note_sync_stats = sync_note_type_names_with_config(mw.col, remote_deck_url)
     if note_sync_stats:
         if note_sync_stats['synced_note_types'] > 0:
             msg = f"{deckName}: {note_sync_stats['synced_note_types']} note types sincronizados"
             status_msgs.append(msg)
-            debug_messages.append(f"[NOTE_TYPE_SYNC] FINAL: {note_sync_stats['synced_note_types']} note types atualizados no Anki")
+            add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: {note_sync_stats['synced_note_types']} note types atualizados no Anki", "SYNC")
         else:
-            debug_messages.append(f"[NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados")
+            add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados", "SYNC")
             
         if note_sync_stats['error_note_types'] > 0:
-            debug_messages.append(f"[NOTE_TYPE_SYNC] FINAL: {note_sync_stats['error_note_types']} erros durante sincronização")
+            add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: {note_sync_stats['error_note_types']} erros durante sincronização", "SYNC")
             for error in note_sync_stats.get('errors', []):
-                debug_messages.append(f"[NOTE_TYPE_SYNC] ERRO: {error}")
+                add_debug_message(f"[NOTE_TYPE_SYNC] ERRO: {error}", "SYNC")
     else:
-        debug_messages.append(f"[NOTE_TYPE_SYNC] FINAL: Nenhuma estatística retornada")
-        debug_messages.append(f"[NOTE_TYPE_SYNC] {note_sync_stats['synced_note_types']} note types atualizados no Anki")
+        add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: Nenhuma estatística retornada", "SYNC")
+        add_debug_message(f"[NOTE_TYPE_SYNC] {note_sync_stats['synced_note_types']} note types atualizados no Anki", "SYNC")
     
     step += 1
     progress.setValue(step)
@@ -641,13 +1044,30 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
     # 3. Escrita no banco
     msg = f"{deckName}: escrevendo no banco de dados..."
     status_msgs.append(msg)
-    _update_progress_text(progress, status_msgs, debug_messages=debug_messages)
+    _update_progress_text(progress, status_msgs)
     
-    add_debug_msg(f"🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has {len(remoteDeck.questions) if hasattr(remoteDeck, 'questions') and remoteDeck.questions else 0} questions", "SYNC")
+    add_debug_message(f"🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has {len(remoteDeck.questions) if hasattr(remoteDeck, 'questions') and remoteDeck.questions else 0} questions", "SYNC")
     
-    deck_stats = create_or_update_notes(mw.col, remoteDeck, local_deck_id, deck_url=remote_deck_url, debug_messages=debug_messages)
+    deck_stats_dict = create_or_update_notes(mw.col, remoteDeck, local_deck_id, deck_url=remote_deck_url)
     
-    add_debug_msg(f"✅ create_or_update_notes COMPLETED - returned: {deck_stats}", "SYNC")
+    add_debug_message(f"✅ create_or_update_notes COMPLETED - returned: {deck_stats_dict}", "SYNC")
+    
+    # Converter para o novo formato SyncStats
+    deck_stats = SyncStats(
+        created=deck_stats_dict.get('created', 0),
+        updated=deck_stats_dict.get('updated', 0),
+        deleted=deck_stats_dict.get('deleted', 0),
+        ignored=deck_stats_dict.get('ignored', 0),
+        errors=deck_stats_dict.get('errors', 0)
+    )
+    
+    # Adicionar detalhes de erros se existirem
+    for error in deck_stats_dict.get('error_details', []):
+        deck_stats.add_error(error)
+    
+    # Adicionar detalhes de atualizações se existirem
+    for detail in deck_stats_dict.get('updated_details', []):
+        deck_stats.add_update_detail(detail)
     
     step += 1
     progress.setValue(step)
@@ -657,24 +1077,23 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
     try:
         from .utils import capture_deck_note_type_ids
         
-        add_debug_msg(f"Iniciando captura de note type IDs para deck: {deckName}", "SYNC")
+        add_debug_message(f"Iniciando captura de note type IDs para deck: {deckName}", "SYNC")
         
         # Capturar IDs dos note types criados/atualizados
         capture_deck_note_type_ids(
             remote_deck_url,  # Usar a URL real em vez da hash key
             currentRemoteInfo.get("remote_deck_name", "RemoteDeck"),
             None,  # enabled_students não é necessário para a captura de IDs
-            debug_messages  # Passar lista de debug messages
+            None  # enabled_students não é necessário para a captura de IDs
         )
         
-        add_debug_msg(f"✅ IDs de note types capturados e armazenados para deck: {deckName}", "SYNC")
+        add_debug_message(f"✅ IDs de note types capturados e armazenados para deck: {deckName}", "SYNC")
         
     except Exception as e:
         # Não falhar a sincronização por causa da captura de IDs
-        add_debug_msg(f"❌ ERRO na captura de note type IDs para {deckName}: {e}", "SYNC")
-        import traceback
+        add_debug_message(f"❌ ERRO na captura de note type IDs para {deckName}: {e}", "SYNC")
         error_details = traceback.format_exc()
-        add_debug_msg(f"Detalhes do erro: {error_details}", "SYNC")
+        add_debug_message(f"Detalhes do erro: {error_details}", "SYNC")
 
     return step, 1, deck_stats
 
@@ -696,9 +1115,10 @@ def _accumulate_stats(total_stats, deck_stats):
 def _handle_sync_error(e, deckKey, remote_decks, progress, status_msgs, sync_errors, step):
     """Trata erros de sincronização de deck."""
     # Verificar se mw.col e mw.col.decks estão disponíveis
-    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+    if not _is_anki_decks_ready():
         deckName = "Unknown"
     else:
+        assert mw.col is not None  # Type hint para o checker
         # Tentar obter o nome do deck para a mensagem de erro
         try:
             deck_info = remote_decks[deckKey]
@@ -720,16 +1140,17 @@ def _handle_sync_error(e, deckKey, remote_decks, progress, status_msgs, sync_err
 def _handle_unexpected_error(e, deckKey, remote_decks, progress, status_msgs, sync_errors, step):
     """Trata erros inesperados durante sincronização."""
     # Verificar se mw.col e mw.col.decks estão disponíveis
-    if not mw or not hasattr(mw, 'col') or not mw.col or not hasattr(mw.col, 'decks'):
+    if not _is_anki_decks_ready():
         deckName = "Unknown"
     else:
+        assert mw.col is not None  # Type hint para o checker
         # Tentar obter o nome do deck para a mensagem de erro
         try:
             deck_info = remote_decks[deckKey]
-            deck_id = deck_info["deck_id"]
-            deck = mw.col.decks.get(deck_id) if deck_id is not None else None
+            local_deck_id = deck_info["local_deck_id"]
+            deck = mw.col.decks.get(local_deck_id) if local_deck_id is not None else None
             from .config_manager import get_deck_local_name
-            deckName = deck["name"] if deck else (get_deck_local_name(deckKey) or str(deck_id) if deck_id is not None else "Unknown")
+            deckName = deck["name"] if deck else (get_deck_local_name(deckKey) or str(local_deck_id) if local_deck_id is not None else "Unknown")
         except:
             deckName = "Unknown"
     
@@ -746,6 +1167,22 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
     """Finaliza a sincronização mostrando resultados."""
     progress.setValue(total_decks * 3)
     mw.app.processEvents()
+    
+    # Aplicar opções compartilhadas automaticamente após sincronização
+    try:
+        if mw and mw.col:  # Verificar se Anki está disponível
+            from .utils import apply_sheets2anki_options_to_all_remote_decks, ensure_parent_deck_has_shared_options
+            
+            # 1. Aplicar ao deck raiz "Sheets2Anki" (sempre)
+            ensure_parent_deck_has_shared_options()
+            
+            # 2. Aplicar a todos os decks remotos sincronizados
+            options_stats = apply_sheets2anki_options_to_all_remote_decks()
+            if options_stats['success'] and options_stats['updated_decks'] > 0:
+                print(f"[SYNC_OPTIONS] Opções aplicadas a {options_stats['updated_decks']} decks remotos")
+                
+    except Exception as e:
+        print(f"[SYNC_OPTIONS] Aviso: Erro ao aplicar opções compartilhadas: {e}")
     
     # Remover subdecks vazios após a sincronização
     remote_decks = get_remote_decks()
@@ -798,7 +1235,7 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
     if debug_messages is not None:
         from datetime import datetime
         timestamp = datetime.now().strftime("%H:%M:%S")
-        debug_messages.append(f"[{timestamp}] [SYSTEM] 🎬 FIM - Total de mensagens de debug capturadas: {len(debug_messages)}")
+        add_debug_message("🎬 FIM - Sincronização finalizada", "SYSTEM")
     
     # Exibir mensagem final na barra SEM debug messages (interface limpa)
     final_status_msgs = [final_msg]
@@ -809,6 +1246,9 @@ def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors
     
     # Mostrar resumo abrangente dos resultados da sincronização com botão de debug integrado
     _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks, cleanup_result, debug_messages, missing_cleanup_result)
+    
+    # Atualizar a interface do Anki após mostrar o resumo
+    ensure_interface_refresh()
 
 def _show_debug_messages_window(debug_messages):
     """
@@ -826,30 +1266,10 @@ def _show_debug_messages_window(debug_messages):
     
     layout = QVBoxLayout(dialog)
     
-    # Detectar se estamos em dark mode usando métodos mais robustos
+    # Detectar dark mode usando método mais direto
     is_dark_mode = False
-    try:
-        # Tentar método 1: theme_manager
-        from aqt.theme import theme_manager
-        is_dark_mode = getattr(theme_manager, 'night_mode', False)
-    except:
-        try:
-            # Tentar método 2: verificar através do mw
-            if hasattr(mw, 'pm') and hasattr(mw.pm, 'night_mode'):
-                is_dark_mode = mw.pm.night_mode()
-            elif hasattr(mw, 'col') and mw.col and hasattr(mw.col, 'get_config'):
-                # Tentar método 3: config do collection
-                night_mode = mw.col.get_config('nightMode', False)
-                is_dark_mode = night_mode
-        except:
-            # Fallback: detectar pela cor de fundo da janela principal
-            try:
-                palette = mw.palette()
-                bg_color = palette.color(palette.ColorRole.Window)
-                # Se a cor de fundo for escura (soma dos RGB < 384), assumir dark mode
-                is_dark_mode = (bg_color.red() + bg_color.green() + bg_color.blue()) < 384
-            except:
-                is_dark_mode = False  # Default para light mode
+    if hasattr(mw, 'pm') and hasattr(mw.pm, 'night_mode'):
+        is_dark_mode = mw.pm.night_mode()
     
     # Definir cores baseadas no tema
     if is_dark_mode:
@@ -958,7 +1378,8 @@ def _show_debug_messages_window(debug_messages):
         }}
     """)
     
-    dialog.exec()
+    from .compat import safe_exec_dialog
+    safe_exec_dialog(dialog)
 
 def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks=0, cleanup_result=None, debug_messages=None, missing_cleanup_result=None):
     """Mostra resumo detalhado da sincronização com controles de visualização para detalhes."""
@@ -1056,7 +1477,6 @@ def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, remo
 
 def _show_detailed_summary_dialog(summary, total_stats, removed_subdecks, cleanup_result=None, debug_messages=None, missing_cleanup_result=None):
     """Mostra diálogo detalhado com controles de visualização."""
-    from .compat import QSpinBox, QHBoxLayout, QFrame, QSizePolicy
     
     # Criar diálogo personalizado
     dialog = QDialog(mw)
@@ -1072,8 +1492,8 @@ def _show_detailed_summary_dialog(summary, total_stats, removed_subdecks, cleanu
     
     debug_messages = total_stats.get('debug_messages', [])
     
-    # Se temos widgets avançados, usar abas
-    if HAS_ADVANCED_WIDGETS and debug_messages:
+    # Sempre usar abas quando há debug messages ou detalhes de atualizações
+    if debug_messages or total_stats.get('updated_details'):
         # Criar widget de abas
         tab_widget = QTabWidget()
         layout.addWidget(tab_widget)
@@ -1147,10 +1567,7 @@ def _show_detailed_summary_dialog(summary, total_stats, removed_subdecks, cleanu
             
             debug_text = QTextEdit()
             debug_text.setReadOnly(True)
-            try:
-                debug_text.setFont(QFont("Courier", 9))
-            except:
-                pass  # Se QFont não estiver disponível, usar fonte padrão
+            debug_text.setFont(QFont("Courier", 9))
             
             debug_content = "\n".join(debug_messages)
             debug_text.setPlainText(debug_content)
@@ -1166,44 +1583,9 @@ def _show_detailed_summary_dialog(summary, total_stats, removed_subdecks, cleanu
             default_layout.addWidget(QLabel("Nenhum detalhe adicional disponível."))
             default_tab.setLayout(default_layout)
             tab_widget.addTab(default_tab, "Resumo")
-    
     else:
-        # Versão simples sem abas - apenas mostrar tudo em texto único
-        all_content = []
-        
-        # Adicionar detalhes das atualizações se houver
-        if total_stats.get('updated_details'):
-            total_updates = len(total_stats['updated_details'])
-            all_content.append(f"=== DETALHES DAS ATUALIZAÇÕES ({total_updates}) ===")
-            
-            for i, update in enumerate(total_stats['updated_details'][:20], 1):  # Limitar a 20
-                all_content.append(f"{i}. ID: {update['id']}")
-                all_content.append(f"   Pergunta: {update['pergunta']}")
-                all_content.append(f"   Mudanças:")
-                for change in update['changes']:
-                    all_content.append(f"     • {change}")
-                all_content.append("")
-            
-            if total_updates > 20:
-                all_content.append(f"... e mais {total_updates - 20} atualizações")
-        
-        # Adicionar mensagens de debug se houver
-        if debug_messages:
-            all_content.append(f"\n=== MENSAGENS DE DEBUG ({len(debug_messages)}) ===")
-            all_content.extend(debug_messages)
-        
-        # Adicionar informação sobre subdecks removidos
-        if removed_subdecks > 0:
-            all_content.append(f"\n=== SUBDECKS VAZIOS REMOVIDOS ===")
-            all_content.append(f"Removidos {removed_subdecks} subdecks vazios")
-        
-        if all_content:
-            content_text = QTextEdit()
-            content_text.setReadOnly(True)
-            content_text.setPlainText("\n".join(all_content))
-            layout.addWidget(content_text)
-        else:
-            layout.addWidget(QLabel("Nenhum detalhe adicional disponível."))
+        # Caso simples: apenas o resumo básico  
+        layout.addWidget(QLabel("Nenhum detalhe adicional disponível."))
     total_updates = len(total_stats['updated_details'])
     controls_layout.addWidget(QLabel(f"Mostrar detalhes (total: {total_updates}):"))
     
@@ -1346,10 +1728,11 @@ def _needs_missing_students_cleanup(remote_decks):
     deck_names = [deck_info.get('remote_deck_name', '') for deck_info in remote_decks.values()]
     deck_names = [name for name in deck_names if name]
     
-    if not deck_names or not mw or not hasattr(mw, 'col') or not mw.col:
+    if not deck_names or not _is_anki_ready():
         print(f"🔍 [MISSING A.]: Sem decks ou sem conexão com Anki")
         return False
     
+    assert mw.col is not None  # Type hint para o checker
     col = mw.col
     has_missing_data = False
     
@@ -1452,9 +1835,10 @@ def _get_students_from_anki_data():
     """
     students_found = set()
     
-    if not mw or not hasattr(mw, 'col') or not mw.col:
+    if not _is_anki_ready():
         return students_found
     
+    assert mw.col is not None  # Type hint para o checker
     col = mw.col
     
     try:
@@ -1496,7 +1880,6 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
     Returns:
         tuple: (missing_cleanup_result, cleanup_result)
     """
-    from .compat import QMessageBox, MessageBox_Yes, MessageBox_No
     from .config_manager import get_global_student_config
     from .student_manager import (
         cleanup_missing_students_data,
@@ -1571,7 +1954,8 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
         no_btn.setStyleSheet("QPushButton { background-color: #4575b4; color: white; font-weight: bold; }")
     
     # Executar diálogo
-    result = msg_box.exec()
+    from .compat import safe_exec_dialog
+    result = safe_exec_dialog(msg_box)
     confirmed = result == MessageBox_Yes
     
     if confirmed:
@@ -1629,9 +2013,10 @@ def _handle_missing_students_cleanup(remote_decks):
     print(f"🔍 CLEANUP: Sync [MISSING A.] está DESATIVADA, verificando dados para limpeza...")
     
     # Verificar se existem decks ou note types [MISSING A.]
-    if not mw or not hasattr(mw, 'col') or not mw.col:
+    if not _is_anki_ready():
         return None
     
+    assert mw.col is not None  # Type hint para o checker
     col = mw.col
     deck_names = [deck_info.get('remote_deck_name', '') for deck_info in remote_decks.values()]
     deck_names = [name for name in deck_names if name]  # Filtrar nomes vazios
@@ -1725,6 +2110,15 @@ def _handle_disabled_students_cleanup(remote_decks):
     config = get_global_student_config()
     current_enabled = set(config.get("enabled_students", []))
     
+    # Incluir [MISSING A.] na lista se a funcionalidade estiver ativa
+    # (isso evita que seja considerado como "removido" quando está apenas controlado por configuração)
+    from .config_manager import is_sync_missing_students_notes
+    if is_sync_missing_students_notes():
+        current_enabled.add("[MISSING A.]")
+        print(f"🔍 CLEANUP: [MISSING A.] incluído na lista atual (funcionalidade ativa)")
+    else:
+        print(f"🔍 CLEANUP: [MISSING A.] não incluído na lista atual (funcionalidade inativa)")
+    
     # Para detectar alunos desabilitados, precisamos comparar com uma versão anterior
     # Como não temos histórico, vamos usar os note types existentes como referência
     previous_enabled = _get_students_from_existing_note_types(remote_decks)
@@ -1771,9 +2165,10 @@ def _get_students_from_existing_note_types(remote_decks):
     Returns:
         Set[str]: Conjunto de alunos encontrados nos note types existentes
     """
-    if not mw or not hasattr(mw, 'col') or not mw.col:
+    if not _is_anki_ready():
         return set()
     
+    assert mw.col is not None  # Type hint para o checker
     students = set()
     col = mw.col
     

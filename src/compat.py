@@ -69,10 +69,12 @@ try:
         QLabel,
         QLineEdit,
         QTextEdit,
+        QTextBrowser,
         QCheckBox,
         QComboBox,
         QSpinBox,
         QRadioButton,
+        QButtonGroup,
         QGroupBox,
         QListWidget,
         QListWidgetItem,
@@ -81,6 +83,7 @@ try:
         QProgressDialog,
         QInputDialog,
         QMessageBox,
+        QFileDialog,
         QWidget,
         QFrame,
         QScrollArea,
@@ -92,6 +95,7 @@ try:
         QFont,
         QDialogButtonBox,
         QTimer,
+        QAbstractItemView,
         Qt
     )
     
@@ -213,6 +217,51 @@ else:
     EchoModeNormal = QLineEdit.Normal
     EchoModePassword = QLineEdit.Password
 
+# Constantes de QAbstractItemView
+if QT_VERSION >= 6:
+    MultiSelection = QAbstractItemView.SelectionMode.MultiSelection
+    SingleSelection = QAbstractItemView.SelectionMode.SingleSelection
+    NoSelection = QAbstractItemView.SelectionMode.NoSelection
+    ExtendedSelection = QAbstractItemView.SelectionMode.ExtendedSelection
+    ContiguousSelection = QAbstractItemView.SelectionMode.ContiguousSelection
+else:
+    MultiSelection = QAbstractItemView.MultiSelection
+    SingleSelection = QAbstractItemView.SingleSelection
+    NoSelection = QAbstractItemView.NoSelection
+    ExtendedSelection = QAbstractItemView.ExtendedSelection
+    ContiguousSelection = QAbstractItemView.ContiguousSelection
+
+# Constantes de QFrame
+if QT_VERSION >= 6:
+    Frame_HLine = QFrame.Shape.HLine
+    Frame_VLine = QFrame.Shape.VLine
+    Frame_NoFrame = QFrame.Shape.NoFrame
+    Frame_Sunken = QFrame.Shadow.Sunken
+    Frame_Raised = QFrame.Shadow.Raised
+    Frame_Plain = QFrame.Shadow.Plain
+else:
+    Frame_HLine = QFrame.HLine
+    Frame_VLine = QFrame.VLine
+    Frame_NoFrame = QFrame.NoFrame
+    Frame_Sunken = QFrame.Sunken
+    Frame_Raised = QFrame.Raised
+    Frame_Plain = QFrame.Plain
+
+# Constantes de QFont
+if QT_VERSION >= 6:
+    try:
+        Font_Bold = QFont.Weight.Bold
+        Font_Normal = QFont.Weight.Normal
+        Font_Light = QFont.Weight.Light
+    except AttributeError:
+        Font_Bold = 75
+        Font_Normal = 50
+        Font_Light = 25
+else:
+    Font_Bold = QFont.Bold
+    Font_Normal = QFont.Normal
+    Font_Light = QFont.Light
+
 # =============================================================================
 # FUNÇÕES DE UTILIDADE
 # =============================================================================
@@ -321,6 +370,55 @@ def show_tooltip(message: str, period: int = 3000) -> None:
     except:
         # Fallback para showInfo se tooltip não estiver disponível
         showInfo(message)
+
+# =============================================================================
+# EXECUÇÃO DE DIÁLOGOS (antigo fix_exec.py)
+# =============================================================================
+
+def safe_exec(dialog):
+    """
+    Executa um diálogo de forma compatível com diferentes versões do Qt
+    
+    Args:
+        dialog: O diálogo a ser executado
+        
+    Returns:
+        O resultado da execução do diálogo
+    """
+    try:
+        # Tentar método mais novo primeiro (Qt6+)
+        return dialog.exec()
+    except AttributeError:
+        # Fallback para versões antigas
+        return dialog.exec_()
+
+# =============================================================================
+# CONSTANTES DE SELEÇÃO (antigo fix_multiselection.py)
+# =============================================================================
+
+# Constantes de QAbstractItemView com fallback
+try:
+    # Tentar Qt6+ primeiro (enums tipados)
+    MULTI_SELECTION = QAbstractItemView.SelectionMode.MultiSelection
+    SINGLE_SELECTION = QAbstractItemView.SelectionMode.SingleSelection
+    NO_SELECTION = QAbstractItemView.SelectionMode.NoSelection
+    EXTENDED_SELECTION = QAbstractItemView.SelectionMode.ExtendedSelection
+    CONTIGUOUS_SELECTION = QAbstractItemView.SelectionMode.ContiguousSelection
+except AttributeError:
+    try:
+        # Tentar Qt5 (constantes de classe)
+        MULTI_SELECTION = QAbstractItemView.MultiSelection
+        SINGLE_SELECTION = QAbstractItemView.SingleSelection
+        NO_SELECTION = QAbstractItemView.NoSelection
+        EXTENDED_SELECTION = QAbstractItemView.ExtendedSelection
+        CONTIGUOUS_SELECTION = QAbstractItemView.ContiguousSelection
+    except AttributeError:
+        # Fallback para valores numéricos
+        MULTI_SELECTION = 2
+        SINGLE_SELECTION = 1
+        NO_SELECTION = 0
+        EXTENDED_SELECTION = 3
+        CONTIGUOUS_SELECTION = 4
 
 # =============================================================================
 # INFORMAÇÕES DE DEBUG

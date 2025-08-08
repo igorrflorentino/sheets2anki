@@ -53,12 +53,12 @@ except ImportError as e:
 
 # Imports dos módulos internos com tratamento de erro robusto
 try:
-    from .src.main import import_test_deck
-    from .src.main import addNewDeck
-    from .src.main import syncDecksWithSelection as sDecks
-    from .src.main import removeRemoteDeck as rDecks
-    from .src.main import show_backup_dialog
-    from .src.constants import DEFAULT_PARENT_DECK_NAME
+    from .src.deck_manager import import_test_deck
+    from .src.deck_manager import addNewDeck
+    from .src.deck_manager import syncDecksWithSelection as sDecks
+    from .src.deck_manager import removeRemoteDeck as rDecks
+    from .src.backup_system import show_backup_dialog
+    from .src.utils import DEFAULT_PARENT_DECK_NAME
     from .libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
     
 except Exception as e:
@@ -179,6 +179,22 @@ def configure_global_students():
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
 
+def configure_deck_options_mode():
+    """
+    Abre o diálogo de configuração de modo de opções de deck.
+    
+    Esta função permite ao usuário escolher entre três modos:
+    1. Compartilhado - Todos os decks usam "Sheets2Anki - Default"
+    2. Individual - Cada deck tem seu próprio grupo "Sheets2Anki - [Nome]"
+    3. Manual - Nenhuma aplicação automática de opções
+    """
+    try:
+        from .src.deck_options_config_dialog import show_deck_options_config_dialog
+        show_deck_options_config_dialog(mw)
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
 # =============================================================================
 # CONFIGURAÇÃO DA INTERFACE DO ANKI
 # =============================================================================
@@ -226,9 +242,18 @@ if mw is not None:
     qconnect(backupDecksAction.triggered, backup_decks)
     remoteDecksSubMenu.addAction(backupDecksAction)
 
+    # Separador
+    remoteDecksSubMenu.addSeparator()
+
+    # Ação: Configurar modo de opções de deck
+    deckOptionsConfigAction = QAction("Configurar Opções de Deck", mw)
+    deckOptionsConfigAction.setShortcut(QKeySequence("Ctrl+Shift+O"))
+    qconnect(deckOptionsConfigAction.triggered, configure_deck_options_mode)
+    remoteDecksSubMenu.addAction(deckOptionsConfigAction)
+
     # Ação: Importar deck de teste (apenas para desenvolvimento/debug)
     try:
-        from .src.constants import IS_DEVELOPMENT_MODE
+        from .src.utils import IS_DEVELOPMENT_MODE
         if IS_DEVELOPMENT_MODE:
             importTestDeckAction = QAction("Importar Deck de Teste", mw)
             importTestDeckAction.setShortcut(QKeySequence("Ctrl+Shift+T"))

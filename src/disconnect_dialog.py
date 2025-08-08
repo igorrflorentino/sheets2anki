@@ -10,7 +10,7 @@ from .compat import (
     QListWidget, QListWidgetItem, QGroupBox, QTextEdit,
     QCheckBox, QMessageBox, DialogAccepted, mw, QScrollArea, QWidget, QApplication
 )
-from .fix_exec import safe_exec
+from .compat import safe_exec
 from .config_manager import get_remote_decks, disconnect_deck, get_deck_local_name, get_deck_remote_name, remove_remote_deck
 import webbrowser
 

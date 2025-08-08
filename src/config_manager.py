@@ -54,12 +54,12 @@ DEFAULT_META = {
         "backup_before_sync": True,
         "max_sync_retries": 3,
         "sync_timeout_seconds": 30,
-        "show_sync_notifications": True
+        "show_sync_notifications": True,
+        "deck_options_mode": "shared"  # "shared", "individual", "manual"
     },
     "students": {
         "available_students": [],
         "enabled_students": [],
-        "student_sync_enabled": False,
         "last_updated": None
     },
     "decks": {}
@@ -164,9 +164,19 @@ def save_remote_decks(remote_decks):
     Args:
         remote_decks (dict): Dicionário {hash_key: deck_info}
     """
+    # Debug: Log do que está sendo salvo
+    from .utils import add_debug_message
+    add_debug_message("=== SALVANDO DECK INFO NO META.JSON ===", "Config Manager")
+    for hash_key, deck_info in remote_decks.items():
+        local_deck_id = deck_info.get("local_deck_id", "N/A")
+        local_deck_name = deck_info.get("local_deck_name", "N/A")
+        add_debug_message(f"Hash {hash_key}: local_deck_id={local_deck_id}, local_deck_name='{local_deck_name}'", "Config Manager")
+    
     meta = get_meta()
     meta["decks"] = remote_decks
     save_meta(meta)
+    
+    add_debug_message("✓ Deck info salvo no meta.json com sucesso", "Config Manager")
 
 def add_remote_deck(url, deck_info):
     """
@@ -183,58 +193,6 @@ def add_remote_deck(url, deck_info):
     remote_decks[url_hash] = deck_info
     save_remote_decks(remote_decks)
 
-def resolve_remote_deck_name_conflict(url, remote_deck_name):
-    """
-    Centraliza a resolução de conflitos para remote_deck_name.
-    Se já existe outro deck com o mesmo nome, adiciona sufixo " #conflito1", " #conflito2", etc.
-    
-    Args:
-        url (str): URL do deck sendo adicionado/atualizado
-        remote_deck_name (str): Nome do deck remoto original
-        
-    Returns:
-        str: Nome do deck remoto com sufixo se necessário
-    """
-    if not remote_deck_name:
-        return "RemoteDeck"
-    
-    clean_name = remote_deck_name.strip()
-    current_hash = get_deck_hash(url)
-    
-    try:
-        remote_decks = get_remote_decks()
-        if not remote_decks:
-            return clean_name
-        
-        # Coletar todos os remote_deck_names existentes (exceto o deck atual)
-        existing_names = []
-        for deck_hash, deck_info in remote_decks.items():
-            if deck_hash != current_hash:  # Excluir o próprio deck
-                deck_remote_name = deck_info.get('remote_deck_name', '')
-                if deck_remote_name:
-                    existing_names.append(deck_remote_name)
-        
-        # Se não há conflito, retornar nome original
-        if clean_name not in existing_names:
-            return clean_name
-        
-        # Encontrar sufixo disponível
-        conflict_index = 1
-        while True:
-            candidate_name = f"{clean_name} #conflito{conflict_index}"  # Adicionado espaço
-            if candidate_name not in existing_names:
-                return candidate_name
-            conflict_index += 1
-            
-            # Proteção contra loop infinito
-            if conflict_index > 100:
-                return f"{clean_name} #conflito{conflict_index}"  # Adicionado espaço
-                
-    except Exception:
-        return clean_name
-    
-    return clean_name
-
 def create_deck_info(url, local_deck_id, local_deck_name, remote_deck_name=None, **additional_info):
     """
     Cria um dicionário de informações do deck com a nova estrutura.
@@ -249,8 +207,9 @@ def create_deck_info(url, local_deck_id, local_deck_name, remote_deck_name=None,
     Returns:
         dict: Estrutura completa do deck
     """
-    # Resolver conflitos no remote_deck_name
-    resolved_remote_name = resolve_remote_deck_name_conflict(url, remote_deck_name)
+    # Resolver conflitos no remote_deck_name usando DeckNameManager
+    from .deck_manager import DeckNameManager
+    resolved_remote_name = DeckNameManager.resolve_remote_name_conflict(url, remote_deck_name or "")
     
     deck_info = {
         "remote_deck_url": url,
@@ -321,8 +280,9 @@ def get_deck_remote_name(url):
     
     # Fallback: extrair da URL se não existe
     if url:
-        from .deck_naming import DeckNamer
-        return DeckNamer.extract_remote_name_from_url(url)
+        # Se o prefixo mudou, extrair novamente da URL para manter consistência
+        from .deck_manager import DeckNameManager
+        return DeckNameManager.extract_remote_name_from_url(url)
     
     return None
 
@@ -414,7 +374,7 @@ def is_local_deck_missing(url):
         # Verificar se o deck local existe no Anki
         if mw.col and mw.col.decks:
             deck = mw.col.decks.get(deck_id)
-            return deck is None or deck.get("name", "").strip().lower() == "default"
+            return deck is None
         else:
             return True  # Collection ou decks não disponível
     except:
@@ -481,8 +441,6 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
     Returns:
         bool: True se houve atualizações, False caso contrário
     """
-    from .deck_naming import DeckNamer
-    
     # Gerar hash da chave de publicação
     url_hash = get_deck_hash(url)
     
@@ -505,11 +463,12 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
         deck_info["local_deck_name"] = local_deck_name
         updated = True
     
-    # Verificar se o remote_deck_name precisa ser atualizado
-    current_remote_name = DeckNamer.extract_remote_name_from_url(url)
+    # Verificar se o remote_deck_name precisa ser atualizado usando DeckNameManager
+    from .deck_manager import DeckNameManager
+    current_remote_name = DeckNameManager.extract_remote_name_from_url(url)
     stored_remote_name = deck_info.get("remote_deck_name")
     if stored_remote_name != current_remote_name:
-        resolved_remote_name = resolve_remote_deck_name_conflict(url, current_remote_name)
+        resolved_remote_name = DeckNameManager.resolve_remote_name_conflict(url, current_remote_name)
         deck_info["remote_deck_name"] = resolved_remote_name
         updated = True
         if not silent:
@@ -723,20 +682,18 @@ def get_global_student_config():
     return meta.get("students", {
         "available_students": [],
         "enabled_students": [],
-        "student_sync_enabled": False,
         "auto_remove_disabled_students": False,
         "sync_missing_students_notes": False,
         "last_updated": None
     })
 
-def save_global_student_config(enabled_students, available_students=None, student_sync_enabled=True, auto_remove_disabled_students=None, sync_missing_students_notes=None):
+def save_global_student_config(enabled_students, available_students=None, auto_remove_disabled_students=None, sync_missing_students_notes=None):
     """
     Salva a configuração global de alunos.
     
     Args:
         enabled_students (list): Lista de alunos habilitados para sincronização
         available_students (list): Lista de todos os alunos conhecidos (opcional)
-        student_sync_enabled (bool): Se o filtro de alunos deve ser aplicado
         auto_remove_disabled_students (bool): Se deve remover dados de alunos desabilitados (opcional)
         sync_missing_students_notes (bool): Se deve sincronizar notas sem alunos específicos (opcional)
     """
@@ -773,7 +730,6 @@ def save_global_student_config(enabled_students, available_students=None, studen
     meta["students"] = {
         "available_students": final_available,
         "enabled_students": final_enabled,
-        "student_sync_enabled": bool(student_sync_enabled),
         "auto_remove_disabled_students": final_auto_remove,
         "sync_missing_students_notes": final_sync_missing,
         "last_updated": int(time.time())
@@ -791,15 +747,16 @@ def get_enabled_students():
     config = get_global_student_config()
     return config.get("enabled_students", [])
 
-def is_student_sync_enabled():
+def is_student_filter_active():
     """
-    Verifica se o filtro de alunos está ativo.
+    Verifica se o filtro de alunos está ativo baseado na lista de alunos habilitados.
     
     Returns:
-        bool: True se o filtro deve ser aplicado, False caso contrário
+        bool: True se há alunos específicos selecionados (filtro ativo), False caso contrário
     """
     config = get_global_student_config()
-    return config.get("student_sync_enabled", False)
+    enabled_students = config.get("enabled_students", [])
+    return len(enabled_students) > 0
 
 def add_enabled_student(student_name):
     """
@@ -813,8 +770,7 @@ def add_enabled_student(student_name):
     enabled.add(student_name)
     save_global_student_config(
         list(enabled), 
-        config.get("available_students", []),
-        config.get("student_sync_enabled", True)
+        config.get("available_students", [])
     )
 
 def remove_enabled_student(student_name):
@@ -829,22 +785,7 @@ def remove_enabled_student(student_name):
     enabled.discard(student_name)
     save_global_student_config(
         list(enabled), 
-        config.get("available_students", []),
-        config.get("student_sync_enabled", True)
-    )
-
-def set_student_sync_enabled(enabled):
-    """
-    Ativa ou desativa o filtro de alunos.
-    
-    Args:
-        enabled (bool): Se o filtro deve estar ativo
-    """
-    config = get_global_student_config()
-    save_global_student_config(
-        config.get("enabled_students", []), 
-        config.get("available_students", []),
-        enabled
+        config.get("available_students", [])
     )
 
 def is_auto_remove_disabled_students():
@@ -868,7 +809,6 @@ def set_auto_remove_disabled_students(enabled):
     save_global_student_config(
         config.get("enabled_students", []), 
         config.get("available_students", []),
-        config.get("student_sync_enabled", True),
         enabled,
         config.get("sync_missing_students_notes", False)
     )
@@ -894,7 +834,6 @@ def set_sync_missing_students_notes(enabled):
     save_global_student_config(
         config.get("enabled_students", []), 
         config.get("available_students", []),
-        config.get("student_sync_enabled", True),
         config.get("auto_remove_disabled_students", False),
         enabled
     )
@@ -979,8 +918,7 @@ def update_available_students_from_discovery():
     # Atualizar configuração mantendo estudantes habilitados
     save_global_student_config(
         config.get("enabled_students", []),
-        final_available,
-        config.get("student_sync_enabled", False)
+        final_available
     )
     
     print(f"✅ DEBUG: Atualização concluída com sucesso!")
@@ -1439,3 +1377,37 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
         print(f"[UPDATE_META] ❌ Erro ao atualizar nomes no meta.json: {e}")
         import traceback
         traceback.print_exc()
+
+
+# =============================================================================
+# GERENCIAMENTO DE CONFIGURAÇÕES DE OPÇÕES DE DECK
+# =============================================================================
+
+def get_deck_options_mode():
+    """
+    Obtém o modo atual de configuração de opções de deck.
+    
+    Returns:
+        str: "shared", "individual", ou "manual"
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    return config.get("deck_options_mode", "shared")
+
+def set_deck_options_mode(mode):
+    """
+    Define o modo de configuração de opções de deck.
+    
+    Args:
+        mode (str): "shared", "individual", ou "manual"
+    """
+    if mode not in ["shared", "individual", "manual"]:
+        raise ValueError(f"Modo inválido: {mode}. Use 'shared', 'individual' ou 'manual'")
+    
+    meta = get_meta()
+    if "config" not in meta:
+        meta["config"] = {}
+    
+    meta["config"]["deck_options_mode"] = mode
+    save_meta(meta)
+    print(f"[DECK_OPTIONS_MODE] Modo alterado para: {mode}")
