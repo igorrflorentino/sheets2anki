@@ -3,7 +3,7 @@ Gerenciamento de decks para o addon Sheets2Anki.
 
 Este módulo contém funções para adicionar, remover e gerenciar
 decks remotos no Anki com suporte a nomeação automática e
-desconexão de decks.
+desconexão de decks, incluindo gerenciamento de alunos.
 """
 
 from .compat import (
@@ -13,8 +13,10 @@ from .compat import (
 from .fix_exec import safe_exec
 from .constants import TEST_SHEETS_URLS
 from .config_manager import (
-    get_remote_decks, add_remote_deck, disconnect_deck, detect_deck_name_changes
+    get_remote_decks, add_remote_deck, disconnect_deck, detect_deck_name_changes,
+    get_deck_local_name, create_deck_info
 )
+from .deck_naming import DeckNamer
 from .validation import validate_url
 from .utils import get_or_create_deck
 from .parseRemoteDeck import getRemoteDeck
@@ -24,8 +26,171 @@ from .dialogs import DeckSelectionDialog
 from .add_deck_dialog import show_add_deck_dialog
 from .sync_dialog import show_sync_dialog
 from .disconnect_dialog import show_disconnect_dialog
-from .deck_naming_dialog import show_deck_naming_dialog
 from .deck_naming import DeckNamer
+
+
+def _delete_local_deck_data(deck_id, deck_name, url):
+    """
+    Deleta completamente os dados locais de um deck (deck, cards, notas e note types).
+    
+    Args:
+        deck_id: ID do deck no Anki
+        deck_name: Nome do deck para logs
+        url: URL do deck remoto para identificação de note types
+    """
+    if not mw or not mw.col:
+        return
+    
+    try:
+        from .config_manager import get_deck_note_type_ids, get_deck_remote_name
+        
+        # Obter note types configurados para este deck
+        note_types_config = get_deck_note_type_ids(url)
+        remote_deck_name = get_deck_remote_name(url) or "RemoteDeck"
+        print(f"[DEBUG] URL: {url}")
+        print(f"[DEBUG] Remote deck name: {remote_deck_name}")
+        print(f"[DEBUG] Configured note types: {note_types_config}")
+        
+        # 1. Identificar note types específicos deste deck baseado na configuração
+        models_to_delete = []
+        for note_type_id_str, note_type_name in note_types_config.items():
+            try:
+                note_type_id = int(note_type_id_str)
+                model = mw.col.models.get(note_type_id)
+                
+                if not model:
+                    print(f"[DEBUG] Note type ID {note_type_id} não encontrado no Anki")
+                    continue
+                    
+                model_name = model['name']
+                print(f"[DEBUG] Found note type: {model_name} (ID: {note_type_id})")
+                
+                # Verificar se o note type é usado apenas por este deck
+                notes_with_model = mw.col.find_notes(f'note:"{model_name}"')
+                print(f"[DEBUG] Notes with model '{model_name}': {len(notes_with_model)}")
+                
+                # Se há notas, verificar se são apenas deste deck
+                if notes_with_model:
+                    cards_from_other_decks = []
+                    for note_id in notes_with_model:
+                        card_ids = mw.col.card_ids_of_note(note_id)
+                        for card_id in card_ids:
+                            card = mw.col.get_card(card_id)
+                            if card.did != deck_id:  # Card de outro deck
+                                cards_from_other_decks.append(card_id)
+                    
+                    # Se não há cartas de outros decks, pode deletar o note type
+                    if not cards_from_other_decks:
+                        models_to_delete.append(model)
+                        print(f"[DEBUG] Note type '{model_name}' marcado para deleção")
+                    else:
+                        print(f"[DEBUG] Note type '{model_name}' usado em outros decks, mantendo")
+                else:
+                    # Nenhuma nota usando este model, pode deletar
+                    models_to_delete.append(model)
+                    print(f"[DEBUG] Note type '{model_name}' sem notas, marcado para deleção")
+                    
+            except Exception as e:
+                print(f"[DEBUG] Erro ao verificar note type {note_type_id_str}: {e}")
+        
+        # 2. Deletar todas as notas do deck
+        card_ids = mw.col.find_cards(f'deck:"{deck_name}"')
+        print(f"[DEBUG] Cards encontrados para deletar: {len(card_ids)}")
+        if card_ids:
+            mw.col.remove_cards_and_orphaned_notes(card_ids)
+        
+        # 3. Deletar o deck (isso remove automaticamente subdecks)
+        if mw.col.decks.get(deck_id):
+            mw.col.decks.rem(deck_id, cardsToo=True)  # cardsToo=True força remoção de cards restantes
+            print(f"[DEBUG] Deck {deck_name} deletado")
+        
+        # 4. Agora deletar os note types identificados
+        for model in models_to_delete:
+            try:
+                mw.col.models.rem(model)
+                print(f"[DEBUG] Note type '{model['name']}' deletado com sucesso")
+            except Exception as e:
+                print(f"[DEBUG] Erro ao deletar note type '{model['name']}': {e}")
+        
+        # 5. Forçar salvar e atualizar a interface
+        mw.col.save()
+        if hasattr(mw, 'deckBrowser'):
+            mw.deckBrowser.refresh()
+        if hasattr(mw, 'reset'):
+            mw.reset()  # Força reload completo da interface
+        
+        print(f"[DEBUG] Deleção completa do deck '{deck_name}' finalizada")
+        
+    except Exception as e:
+        # Em caso de erro, continuar mas reportar
+        print(f"Erro ao deletar dados locais do deck '{deck_name}': {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+
+def _force_delete_note_types_by_suffix(suffix, remote_deck_name=None, url=None):
+    """
+    Força a deleção de note types usando IDs armazenados (preferido) ou padrões de nome.
+    Usado como fallback se a deleção segura falhar.
+    
+    Args:
+        suffix (str): Sufixo do hash da URL
+        remote_deck_name (str, optional): Nome do deck remoto para busca específica
+        url (str, optional): URL para extrair informações adicionais
+    """
+    if not mw or not mw.col:
+        return
+    
+    try:
+        # Primeiro, tentar deletar usando IDs armazenados se temos a URL
+        if url:
+            from .utils import delete_deck_note_types_by_ids
+            deleted_by_ids = delete_deck_note_types_by_ids(url)
+            
+            if deleted_by_ids > 0:
+                print(f"[FORCE DELETE] Deletados {deleted_by_ids} note types usando IDs armazenados")
+                # Forçar salvar e reset
+                mw.col.save()
+                if hasattr(mw, 'reset'):
+                    mw.reset()
+                return
+            
+            print(f"[FORCE DELETE] Nenhum note type encontrado via IDs, tentando método direto...")
+        
+        # Fallback: buscar note types diretamente no Anki baseado no nome do deck remoto
+        from .config_manager import get_deck_remote_name
+        
+        if not remote_deck_name and url:
+            remote_deck_name = get_deck_remote_name(url) or "RemoteDeck"
+        
+        print(f"[FORCE DELETE] Buscando note types para deck remoto: '{remote_deck_name}'")
+        
+        models_to_delete = []
+        for model in mw.col.models.all():
+            model_name = model['name']
+            
+            # Verificar se é um note type do Sheets2Anki e contém o nome do deck remoto
+            if (model_name.startswith("Sheets2Anki - ") and 
+                remote_deck_name and remote_deck_name in model_name):
+                models_to_delete.append(model)
+                print(f"[FORCE DELETE] Forçando deleção do note type: {model_name}")
+        
+        # Deletar os note types encontrados
+        for model in models_to_delete:
+            try:
+                mw.col.models.rem(model)
+                print(f"[FORCE DELETE] Note type '{model['name']}' deletado com sucesso")
+            except Exception as e:
+                print(f"[FORCE DELETE] Erro ao deletar note type '{model['name']}': {e}")
+        
+        # Forçar salvar
+        mw.col.save()
+        if hasattr(mw, 'reset'):
+            mw.reset()
+            
+    except Exception as e:
+        print(f"[FORCE DELETE] Erro na deleção forçada: {e}")
+
 
 def syncDecksWithSelection():
     """
@@ -44,8 +209,6 @@ def syncDecksWithSelection():
         # Sincronizar apenas os decks selecionados
         # As atualizações de nomes serão feitas silenciosamente durante a sincronização
         syncDecks(selected_deck_urls=selected_urls)
-    elif not selected_urls:
-        showInfo("Nenhum deck selecionado para sincronização.")
     
     return
 
@@ -74,7 +237,8 @@ def check_and_update_deck_names(silent=False):
             
             for url in updated_urls:
                 deck_info = remote_decks.get(url, {})
-                deck_name = deck_info.get("deck_name", "Deck")
+                # Usar local_deck_name da nova estrutura, com fallback para deck_name antigo
+                deck_name = get_deck_local_name(url) or "Deck"
                 deck_names.append(deck_name)
             
             if len(deck_names) == 1:
@@ -174,20 +338,25 @@ def import_test_deck():
     # Verificar se URL já está configurada
     remote_decks = get_remote_decks()
     if url in remote_decks:
-        showInfo(f"Este deck de teste já está configurado como '{remote_decks[url]['deck_name']}'.")
+        local_name = get_deck_local_name(url) or "Deck"
+        showInfo(f"Este deck de teste já está configurado como '{local_name}'.")
         return
 
     try:
         # Criar deck no Anki
         deck_id, actual_name = get_or_create_deck(mw.col, deck_name)
         
-        # Adicionar à configuração
-        deck_info = {
-            "url": url,
-            "deck_id": deck_id,
-            "deck_name": actual_name,  # Usar o nome real usado pelo Anki
-            "is_test_deck": True
-        }
+        # Extrair nome remoto da URL
+        remote_deck_name = DeckNamer.extract_remote_name_from_url(url)
+        
+        # Adicionar à configuração usando a nova estrutura modular
+        deck_info = create_deck_info(
+            url=url,
+            local_deck_id=deck_id,
+            local_deck_name=actual_name,
+            remote_deck_name=remote_deck_name,
+            is_test_deck=True
+        )
         
         add_remote_deck(url, deck_info)
         
@@ -197,11 +366,9 @@ def import_test_deck():
         # Obter o nome final do deck após a sincronização (pode ter sido alterado)
         remote_decks = get_remote_decks()
         if url in remote_decks:
-            final_deck_name = remote_decks[url].get("deck_name", actual_name)
+            final_deck_name = get_deck_local_name(url) or actual_name
         else:
             final_deck_name = actual_name
-            
-        showInfo(f"Deck de teste '{final_deck_name}' importado e sincronizado com sucesso!")
         
     except Exception as e:
         showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
@@ -226,31 +393,9 @@ def addNewDeck():
         from .config_manager import get_remote_decks
         remote_decks = get_remote_decks()
         if url in remote_decks:
-            final_deck_name = remote_decks[url].get("deck_name", deck_info['name'])
+            final_deck_name = get_deck_local_name(url) or deck_info['name']
         else:
             final_deck_name = deck_info['name']
-            
-        showInfo(f"Deck '{final_deck_name}' adicionado e sincronizado com sucesso!")
-
-def configure_deck_naming():
-    """
-    Mostra o diálogo para configurar as preferências de nomeação de decks.
-    
-    Esta função permite ao usuário escolher entre nomeação automática e manual,
-    além de configurar o nome do deck pai para hierarquias.
-    """
-    success = show_deck_naming_dialog(mw)
-    
-    if success:
-        from .config_manager import get_deck_naming_mode
-        mode = get_deck_naming_mode()
-        
-        if mode == "automatic":
-            showInfo("Configuração salva! Novos decks usarão nomeação automática com hierarquia.")
-        else:
-            showInfo("Configuração salva! Novos decks usarão nomeação manual.")
-    else:
-        showInfo("Configuração cancelada. Nenhuma alteração foi feita.")
 
 def removeRemoteDeck():
     """
@@ -260,7 +405,7 @@ def removeRemoteDeck():
     múltiplos decks para desconexão simultânea, mantendo os decks locais.
     """
     # Usar o novo diálogo de desconexão
-    success, selected_urls = show_disconnect_dialog(mw)
+    success, selected_urls, delete_local_data = show_disconnect_dialog(mw)
     
     if success and selected_urls:
         # Processar desconexão dos decks selecionados
@@ -268,15 +413,35 @@ def removeRemoteDeck():
         
         for url in selected_urls:
             # Obter informações do deck antes de desconectar
+            from .utils import get_publication_key_hash
+            
+            # Gerar hash da chave de publicação
+            url_hash = get_publication_key_hash(url)
+            
             remote_decks = get_remote_decks()
-            if url in remote_decks:
-                deck_info = remote_decks[url]
-                deck_id = deck_info["deck_id"]
+            if url_hash in remote_decks:
+                deck_info = remote_decks[url_hash]
+                deck_id = deck_info["local_deck_id"]
                 deck = None
                 # Verificar se a coleção e o gerenciador de decks estão disponíveis
                 if mw and mw.col and mw.col.decks:
                     deck = mw.col.decks.get(deck_id)
-                deck_name = deck["name"] if deck else deck_info.get("deck_name", "Deck Desconhecido")
+                deck_name = deck["name"] if deck else (get_deck_local_name(url) or "Deck Desconhecido")
+                
+                # Se deve deletar dados locais, fazê-lo antes da desconexão
+                if delete_local_data and deck:
+                    _delete_local_deck_data(deck_id, deck_name, url)
+                    
+                    # Fallback: tentar deleção forçada dos note types
+                    try:
+                        from .utils import get_model_suffix_from_url
+                        from .config_manager import get_deck_remote_name
+                        
+                        suffix = get_model_suffix_from_url(url)
+                        remote_deck_name = get_deck_remote_name(url)
+                        _force_delete_note_types_by_suffix(suffix, remote_deck_name, url)
+                    except Exception as fallback_error:
+                        print(f"[DEBUG] Fallback também falhou: {fallback_error}")
                 
                 # Desconectar o deck
                 disconnect_deck(url)
@@ -284,21 +449,173 @@ def removeRemoteDeck():
         
         # Mostrar mensagem de sucesso
         if len(disconnected_decks) == 1:
-            message = (
-                f"O deck '{disconnected_decks[0]}' foi desconectado de sua fonte remota.\n\n"
-                f"O deck local permanece no Anki e pode ser gerenciado normalmente.\n"
-                f"Para reconectar, você precisará adicioná-lo novamente."
-            )
+            if delete_local_data:
+                message = (
+                    f"O deck '{disconnected_decks[0]}' foi desconectado e todos os dados locais foram deletados.\n\n"
+                    f"Dados deletados:\n"
+                    f"• Deck local e subdecks\n"
+                    f"• Todas as cartas e notas\n"
+                    f"• Note types específicos (se não usados em outros decks)\n\n"
+                    f"Para reconectar, você precisará adicioná-lo novamente."
+                )
+            else:
+                message = (
+                    f"O deck '{disconnected_decks[0]}' foi desconectado de sua fonte remota.\n\n"
+                    f"O deck local permanece no Anki e pode ser gerenciado normalmente.\n"
+                    f"Para reconectar, você precisará adicioná-lo novamente."
+                )
         else:
             decks_list = "', '".join(disconnected_decks)
-            message = (
-                f"Os decks '{decks_list}' foram desconectados de suas fontes remotas.\n\n"
-                f"Os decks locais permanecem no Anki e podem ser gerenciados normalmente.\n"
-                f"Para reconectar, você precisará adicioná-los novamente."
-            )
+            if delete_local_data:
+                message = (
+                    f"Os decks '{decks_list}' foram desconectados e todos os dados locais foram deletados.\n\n"
+                    f"Dados deletados para cada deck:\n"
+                    f"• Decks locais e subdecks\n"
+                    f"• Todas as cartas e notas\n"
+                    f"• Note types específicos (se não usados em outros decks)\n\n"
+                    f"Para reconectar, você precisará adicioná-los novamente."
+                )
+            else:
+                message = (
+                    f"Os decks '{decks_list}' foram desconectados de suas fontes remotas.\n\n"
+                    f"Os decks locais permanecem no Anki e podem ser gerenciados normalmente.\n"
+                    f"Para reconectar, você precisará adicioná-los novamente."
+                )
         
         showInfo(message)
-    elif not selected_urls:
-        showInfo("Nenhum deck selecionado para desconexão.")
     
     return
+
+
+def manage_deck_students():
+    """
+    Permite ao usuário gerenciar quais alunos deseja sincronizar para cada deck remoto.
+    """
+    from .student_manager import (
+        extract_students_from_remote_data, 
+        get_selected_students_for_deck,
+        show_student_selection_dialog
+    )
+    
+    remote_decks = get_remote_decks()
+    
+    if not remote_decks:
+        showInfo("Nenhum deck remoto configurado. Adicione um deck primeiro.")
+        return
+    
+    # Criar lista de opções para o usuário selecionar um deck
+    deck_options = []
+    deck_urls = []
+    
+    for url, deck_info in remote_decks.items():
+        try:
+            deck_name = get_deck_local_name(url) or "Deck sem nome"
+            deck_options.append(f"{deck_name} ({url[:50]}...)")
+            deck_urls.append(url)
+        except Exception as e:
+            deck_options.append(f"Deck com erro ({url[:50]}...)")
+            deck_urls.append(url)
+    
+    # Mostrar dialog de seleção de deck
+    from .compat import QInputDialog
+    
+    deck_choice, ok = QInputDialog.getItem(
+        None,
+        "Gerenciar Alunos - Selecionar Deck",
+        "Selecione o deck para gerenciar alunos:",
+        deck_options,
+        0,
+        False
+    )
+    
+    if not ok:
+        return
+    
+    # Obter URL do deck selecionado
+    deck_index = deck_options.index(deck_choice)
+    selected_url = deck_urls[deck_index]
+    
+    try:
+        # Baixar dados remotos para extrair alunos
+        showInfo("Baixando dados da planilha para obter lista de alunos...")
+        
+        remote_deck = getRemoteDeck(selected_url)
+        available_students = extract_students_from_remote_data(remote_deck)
+        
+        if not available_students:
+            showInfo("Não foram encontrados alunos na coluna ALUNOS desta planilha.\n\n"
+                    "Certifique-se de que a planilha contém a coluna ALUNOS com nomes de alunos.")
+            return
+        
+        # Mostrar dialog de seleção de alunos
+        selected_students = show_student_selection_dialog(selected_url, available_students)
+        
+        if selected_students is not None:
+            deck_name = get_deck_local_name(selected_url) or "Deck remoto"
+            selected_count = len(selected_students)
+            total_count = len(available_students)
+            
+            if selected_count == 0:
+                showInfo(f"Nenhum aluno foi selecionado para o deck '{deck_name}'.\n\n"
+                        "Nenhuma nota será sincronizada para este deck até que você selecione ao menos um aluno.")
+            else:
+                alunos_list = ", ".join(sorted(selected_students))
+                showInfo(f"Configuração salva para o deck '{deck_name}'!\n\n"
+                        f"Alunos selecionados ({selected_count} de {total_count}):\n{alunos_list}\n\n"
+                        "Na próxima sincronização, apenas as notas dos alunos selecionados serão incluídas.")
+        
+    except Exception as e:
+        showInfo(f"Erro ao gerenciar alunos: {str(e)}\n\n"
+                "Verifique se a URL do deck está correta e se a planilha está acessível.")
+
+
+def reset_student_selection():
+    """
+    Remove a seleção de alunos de todos os decks, voltando ao comportamento padrão.
+    """
+    from .compat import QMessageBox, MessageBox_Yes, MessageBox_No
+    
+    remote_decks = get_remote_decks()
+    
+    if not remote_decks:
+        showInfo("Nenhum deck remoto configurado.")
+        return
+    
+    # Confirmar com o usuário
+    reply = QMessageBox.question(
+        None,
+        "Resetar Seleção de Alunos",
+        "Tem certeza de que deseja remover a seleção de alunos de todos os decks?\n\n"
+        "Isso fará com que todos os decks voltem ao comportamento padrão "
+        "(sincronizar todas as notas independentemente da coluna ALUNOS).",
+        MessageBox_Yes | MessageBox_No,
+        MessageBox_No
+    )
+    
+    if reply != MessageBox_Yes:
+        return
+    
+    try:
+        from .config_manager import get_meta, save_meta
+        
+        meta = get_meta()
+        removed_count = 0
+        
+        # Remover student_selection de todos os decks
+        if 'decks' in meta:
+            for deck_url in meta['decks']:
+                if 'student_selection' in meta['decks'][deck_url]:
+                    del meta['decks'][deck_url]['student_selection']
+                    removed_count += 1
+        
+        save_meta(meta)
+        
+        if removed_count > 0:
+            showInfo(f"Seleção de alunos removida de {removed_count} deck(s).\n\n"
+                    "Todos os decks agora voltarão ao comportamento padrão na próxima sincronização.")
+        else:
+            showInfo("Nenhuma seleção de alunos foi encontrada para remover.")
+    
+    except Exception as e:
+        showInfo(f"Erro ao resetar seleção de alunos: {str(e)}")
+

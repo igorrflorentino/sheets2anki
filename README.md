@@ -71,7 +71,7 @@ A coluna **SYNC?** é **completamente case insensitive** e aceita:
 
 1. **Baixe o add-on** do AnkiWeb ou instale manualmente
 2. **Reinicie o Anki**
-3. **Acesse o menu**: "Ferramentas → Sheets2anki"
+3. **Acesse o menu**: "Ferramentas → Sheets2Anki"
 
 ## 📖 Como Usar
 
@@ -86,17 +86,17 @@ A coluna **SYNC?** é **completamente case insensitive** e aceita:
    - Copie o link gerado
 
 ### 2. **Adicionar Deck Remoto**
-1. No Anki: `Ferramentas → Sheets2anki → Adicionar Novo Deck Remoto` (Ctrl+Shift+A)
+1. No Anki: `Ferramentas → Sheets2Anki → Adicionar Novo Deck Remoto` (Ctrl+Shift+A)
 2. Cole a URL da planilha publicada
 3. Digite um nome para seu deck
 4. O add-on criará automaticamente o deck e sincronizará
 
 ### 3. **Sincronizar**
-- **Manual**: `Ferramentas → Sheets2anki → Sincronizar Decks` (Ctrl+Shift+S)
+- **Manual**: `Ferramentas → Sheets2Anki → Sincronizar Decks` (Ctrl+Shift+S)
 - **Automática**: Execute sempre que quiser atualizar com a planilha
 
 ### 4. **Gerenciar Decks**
-- **Desconectar**: `Ferramentas → Sheets2anki → Desconectar um Deck Remoto` (Ctrl+Shift+D)
+- **Desconectar**: `Ferramentas → Sheets2Anki → Desconectar um Deck Remoto` (Ctrl+Shift+D)
 
 ## ⌨️ Atalhos de Teclado
 
@@ -128,26 +128,30 @@ Tags são geradas automaticamente a partir de:
 - `TAGS ADICIONAIS` → tags extras
 
 Estrutura hierárquica de tags:
-- `sheet2anki::topicos::topico::subtopicos::subtopico::conceitos::conceito`
-- `sheet2anki::conceitos::conceito` (tag extra para fácil filtragem)
+- `Sheets2Anki::topicos::topico::subtopicos::subtopico::conceitos::conceito`
+- `Sheets2Anki::conceitos::conceito` (tag extra para fácil filtragem)
 
 Valores padrão são usados quando campos estão vazios.
 
 ### 📂 **Subdecks Automáticos**
-O add-on pode criar automaticamente subdecks baseados nos valores das colunas:
-- `TOPICO` e `SUBTOPICO` → Estrutura hierárquica de decks
+O add-on cria automaticamente subdecks baseados nos valores das colunas:
+- `IMPORTANCIA`, `TOPICO`, `SUBTOPICO` e `CONCEITO` → Estrutura hierárquica de decks
 
 Estrutura criada:
-- `DeckPrincipal::Topico::Subtopico::Conceito` (sempre, usando valores padrão quando campos estão vazios)
-- Valores padrão: `Topic Missing`, `Subtopic Missing`, `Concept Missing`
-
-Esta funcionalidade pode ser habilitada/desabilitada em `Ferramentas → Sheets2anki → Configurar Subdecks por Tópico`
+- `DeckPrincipal::Importancia::Topico::Subtopico::Conceito` (sempre, usando valores padrão quando campos estão vazios)
+- Valores padrão: `Importance Missing`, `Topic Missing`, `Subtopic Missing`, `Concept Missing`
 
 **Limpeza automática de subdecks vazios:**
 - Após cada sincronização, subdecks que ficaram vazios são automaticamente removidos
 - Apenas subdecks sem nenhum card são removidos
 - Subdecks com pelo menos um card são mantidos
 - Isso mantém a organização do deck limpa e evita subdecks desnecessários
+
+### 🎯 **Nomeação Automática de Decks**
+- Os nomes dos decks são extraídos automaticamente das planilhas
+- Organização hierárquica: `Sheets2Anki::Nome_Extraído_da_Planilha`
+- Resolução automática de conflitos de nomes
+- Atualização automática dos nomes quando a planilha muda
 
 ### 🔧 **Limpeza Automática**
 O sistema remove automaticamente:

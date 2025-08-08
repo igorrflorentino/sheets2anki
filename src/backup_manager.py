@@ -3,7 +3,17 @@
 Gerenciador de Backup para Sheets2Anki
 
 Este módulo fornece funcionalidades para:
-- Exportar configurações de decks remotos
+- Exportar con                if restore_options.get('configurations', True):
+                    success &= self._restore_configurations(temp_dir)
+                
+                if restore_options.get('decks', True):
+                    success &= self._restore_remote_decks(temp_dir)
+                
+                if restore_options.get('preferences', True):
+                    success &= self._restore_user_preferences(temp_dir)
+                
+                if restore_options.get('media', True):
+                    success &= self._restore_media_files(temp_dir)de decks remotos
 - Importar configurações de decks remotos
 - Backup completo das configurações do usuário
 - Restauração de configurações
@@ -53,7 +63,7 @@ class BackupManager:
                 # 2. Backup dos decks remotos
                 self._backup_remote_decks(temp_dir)
                 
-                # 3. Backup das preferências do usuário
+                # 3. Backup das preferências do usuário (descontinuado)
                 self._backup_user_preferences(temp_dir)
                 
                 # 4. Backup de mídia (opcional)
@@ -215,7 +225,6 @@ class BackupManager:
                 'export_date': datetime.now().isoformat(),
                 'export_type': 'decks_config',
                 'decks': decks_to_export,
-                'user_preferences': meta_data.get('user_preferences', {}),
                 'deck_count': len(decks_to_export)
             }
             
@@ -352,13 +361,9 @@ class BackupManager:
                 json.dump(deck_backup, f, indent=2, ensure_ascii=False)
     
     def _backup_user_preferences(self, temp_dir: Path) -> None:
-        """Faz backup das preferências do usuário"""
-        meta_data = get_meta()
-        preferences = meta_data.get('user_preferences', {})
-        
-        prefs_file = temp_dir / "user_preferences.json"
-        with open(prefs_file, 'w', encoding='utf-8') as f:
-            json.dump(preferences, f, indent=2, ensure_ascii=False)
+        """Faz backup das preferências do usuário (funcionalidade removida - sempre automático)"""
+        # As preferências do usuário foram removidas - comportamento sempre automático
+        pass
     
     def _backup_media_files(self, temp_dir: Path) -> None:
         """Faz backup de arquivos de mídia (se existirem)"""
@@ -489,26 +494,9 @@ class BackupManager:
             return False
     
     def _restore_user_preferences(self, temp_dir: Path) -> bool:
-        """Restaura preferências do usuário"""
-        try:
-            prefs_file = temp_dir / "user_preferences.json"
-            if not prefs_file.exists():
-                return True  # Não há preferências para restaurar
-            
-            with open(prefs_file, 'r', encoding='utf-8') as f:
-                preferences = json.load(f)
-            
-            # Carregar e atualizar configurações
-            meta_data = get_meta()
-            meta_data['user_preferences'] = preferences
-            save_meta(meta_data)
-            
-            print("✅ Preferências do usuário restauradas")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Erro ao restaurar preferências: {e}")
-            return False
+        """Restaura preferências do usuário (funcionalidade removida - sempre automático)"""
+        # As preferências do usuário foram removidas - comportamento sempre automático
+        return True
     
     def _restore_media_files(self, temp_dir: Path) -> bool:
         """Restaura arquivos de mídia"""

@@ -57,13 +57,12 @@ try:
     from .src.main import addNewDeck
     from .src.main import syncDecksWithSelection as sDecks
     from .src.main import removeRemoteDeck as rDecks
-    from .src.deck_manager import configure_deck_naming
     from .src.main import show_backup_dialog
-    from .src.main import show_subdeck_config_dialog
+    from .src.constants import DEFAULT_PARENT_DECK_NAME
     from .libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
     
 except Exception as e:
-    showInfo(f"Erro ao importar módulos do plugin sheets2anki:\n{e}")
+    showInfo(f"Erro ao importar módulos do plugin Sheets2Anki:\n{e}")
     raise
 
 # =============================================================================
@@ -110,32 +109,6 @@ def addDeck():
     finally:
         if ankiBridge:
             ankiBridge.stopEditing()
-
-def configureNaming():
-    """
-    Configura as preferências de nomeação de decks.
-    
-    Esta função permite ao usuário escolher entre nomeação automática e manual,
-    além de definir configurações de hierarquia.
-    """
-    try:
-        configure_deck_naming()
-    except Exception as e:
-        error_msg = errorTemplate.format(str(e))
-        showInfo(error_msg)
-        
-def configureSubdecks():
-    """
-    Configura as preferências de criação de subdecks.
-    
-    Esta função permite ao usuário habilitar ou desabilitar a criação
-    automática de subdecks baseados em TOPICO e SUBTOPICO.
-    """
-    try:
-        show_subdeck_config_dialog()
-    except Exception as e:
-        error_msg = errorTemplate.format(str(e))
-        showInfo(error_msg)
 
 def backup_decks():
     """
@@ -192,6 +165,20 @@ def removeRemote():
         if ankiBridge:
             ankiBridge.stopEditing()
 
+def configure_global_students():
+    """
+    Abre o diálogo de configuração global de alunos.
+    
+    Esta função permite ao usuário configurar globalmente quais alunos
+    devem ser sincronizados em todos os decks remotos.
+    """
+    try:
+        from .src.global_student_config_dialog import show_global_student_config_dialog
+        show_global_student_config_dialog(mw)
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
 # =============================================================================
 # CONFIGURAÇÃO DA INTERFACE DO ANKI
 # =============================================================================
@@ -199,7 +186,7 @@ def removeRemote():
 # Verificar se o Anki está disponível antes de configurar a interface
 if mw is not None:
     # Criar submenu principal para funcionalidades do Sheets2Anki
-    remoteDecksSubMenu = QMenu("Sheets2anki", mw)
+    remoteDecksSubMenu = QMenu(DEFAULT_PARENT_DECK_NAME, mw)
     mw.form.menuTools.addMenu(remoteDecksSubMenu)
 
     # =========================================================================
@@ -227,19 +214,11 @@ if mw is not None:
     # Separador
     remoteDecksSubMenu.addSeparator()
 
-    # Ação: Configurar nomeação de decks
-    configureDeckNaming = QAction("Configurar Nomeação de Decks", mw)
-    configureDeckNaming.setShortcut(QKeySequence("Ctrl+Shift+N"))
-    qconnect(configureDeckNaming.triggered, configureNaming)
-    remoteDecksSubMenu.addAction(configureDeckNaming)
-    
-    # Ação: Configurar subdecks
-    configureSubdecksAction = QAction("Configurar Subdecks por Tópico", mw)
-    qconnect(configureSubdecksAction.triggered, configureSubdecks)
-    remoteDecksSubMenu.addAction(configureSubdecksAction)
-
-    # Separador
-    remoteDecksSubMenu.addSeparator()
+    # Ação: Configuração Global de Alunos
+    studentConfigAction = QAction("Configurar Alunos Globalmente", mw)
+    studentConfigAction.setShortcut(QKeySequence("Ctrl+Shift+G"))
+    qconnect(studentConfigAction.triggered, configure_global_students)
+    remoteDecksSubMenu.addAction(studentConfigAction)
 
     # Ação: Backup de decks remotos
     backupDecksAction = QAction("Backup de Decks Remotos", mw)

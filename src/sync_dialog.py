@@ -8,10 +8,72 @@ selecionar e sincronizar decks ativos do sistema.
 from .compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QListWidget, QListWidgetItem, QGroupBox, QTextEdit,
-    QCheckBox, QMessageBox, DialogAccepted, mw, QScrollArea, QWidget
+    QCheckBox, DialogAccepted, mw, QScrollArea, QWidget, QApplication
 )
 from .fix_exec import safe_exec
-from .config_manager import get_active_decks, get_sync_selection, save_sync_selection
+from .config_manager import get_active_decks, get_deck_local_name, get_deck_remote_name
+
+
+def clean_url_for_browser(url):
+    """
+    Remove a terminação '&output=tsv' da URL para permitir visualização no navegador.
+    
+    Args:
+        url (str): URL completa com terminação TSV
+        
+    Returns:
+        str: URL limpa para visualização no navegador
+    """
+    if url.endswith('&output=tsv'):
+        return url[:-11]  # Remove '&output=tsv'
+    elif url.endswith('&single=true&output=tsv'):
+        return url[:-23]  # Remove '&single=true&output=tsv'
+    return url
+
+
+def copy_url_to_clipboard(url):
+    """
+    Copia a URL limpa para o clipboard do sistema.
+    
+    Args:
+        url (str): URL para copiar
+    """
+    try:
+        clean_url = clean_url_for_browser(url)
+        clipboard = QApplication.clipboard()
+        if clipboard:
+            clipboard.setText(clean_url)
+            return True
+        return False
+    except Exception as e:
+        print(f"Erro ao copiar URL: {e}")
+        return False
+
+
+def get_copy_button_style():
+    """
+    Retorna estilo do botão Copy URL que se adapta ao tema (claro/escuro) do Anki.
+    
+    Usa palette do sistema com ajustes para melhor contraste em dark mode.
+    """
+    return (
+        "QPushButton { "
+        "font-size: 11px; padding: 2px 6px; border-radius: 3px; "
+        "background-color: palette(alternateBase); "  # Mais claro que button
+        "border: 1px solid palette(text); "           # Borda mais contrastante
+        "color: palette(text); "                      # Texto bem contrastante
+        "} "
+        "QPushButton:hover { "
+        "background-color: palette(highlight); "      # Destaque no hover
+        "color: palette(highlightedText); "           # Texto do highlight
+        "border: 1px solid palette(highlight); "
+        "} "
+        "QPushButton:pressed { "
+        "background-color: palette(shadow); "         # Cor pressed distinta
+        "color: palette(base); "                      # Texto contrastante
+        "border: 1px solid palette(shadow); "
+        "}"
+    )
 
 
 class SyncDialog(QDialog):
@@ -30,8 +92,8 @@ class SyncDialog(QDialog):
         self.setMinimumHeight(600)
         
         self.active_decks = []
-        self.deck_checkboxes = {}  # URL -> QCheckBox
-        self.sync_selection = {}   # URL -> bool
+        self.deck_checkboxes = {}  # hash_key -> QCheckBox
+        self.deck_hash_mapping = {}   # URL -> hash_key (para compatibilidade)
         
         self._setup_ui()
         self._load_decks()
@@ -50,6 +112,8 @@ class SyncDialog(QDialog):
         # Descrição
         desc_label = QLabel(
             "Selecione quais decks remotos deseja sincronizar. "
+            "Os nomes mostrados são dos arquivos TSV remotos. "
+            "Use o botão 'Copy URL' para visualizar o deck no navegador. "
             "Sua seleção será lembrada para próximas sincronizações."
         )
         desc_label.setStyleSheet("margin-bottom: 15px; color: #666;")
@@ -143,108 +207,167 @@ class SyncDialog(QDialog):
         # Carregar decks ativos
         active_decks = get_active_decks()
         
-        for url, deck_info in active_decks.items():
-            deck_id = deck_info["deck_id"]
+        for hash_key, deck_info in active_decks.items():
+            local_deck_id = deck_info["local_deck_id"]
+            remote_deck_url = deck_info.get("remote_deck_url", "")
             deck = None
             if mw and hasattr(mw, 'col') and mw.col and hasattr(mw.col, 'decks'):
-                deck = mw.col.decks.get(deck_id)
+                deck = mw.col.decks.get(local_deck_id)
+            
+            # Obter nome remoto do deck
+            remote_name = get_deck_remote_name(remote_deck_url) or "Deck Remoto"
             
             # Verificar se o deck existe localmente
             if deck and deck["name"].strip().lower() != "default":
                 # Deck existe localmente
-                deck_name = deck["name"]
+                local_deck_name = deck["name"]
                 card_count = 0
                 if mw and hasattr(mw, 'col') and mw.col and hasattr(mw.col, 'find_cards'):
-                    card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
+                    card_count = len(mw.col.find_cards(f'deck:"{local_deck_name}"'))
                 
-                checkbox_text = f"{deck_name} ({card_count} cards)"
+                # Usar nome remoto com contador de cards
+                checkbox_text = f"{remote_name} ({card_count} cards)"
+                
+                # Criar layout horizontal para checkbox + botão
+                row_layout = QHBoxLayout()
+                
                 checkbox = QCheckBox(checkbox_text)
-                checkbox.setToolTip(f"URL: {url}")
+                checkbox.setToolTip(f"Deck remoto: {remote_name}\nDeck local: {local_deck_name}\nURL: {remote_deck_url}")
                 
-                # Adicionar ao layout
-                self.checkboxes_layout.addWidget(checkbox)
+                # Botão Copy URL
+                copy_button = QPushButton("Copy URL")
+                copy_button.setMaximumWidth(80)
+                copy_button.setMaximumHeight(25)
+                copy_button.setToolTip("Copiar URL para visualizar no navegador")
+                copy_button.setStyleSheet(get_copy_button_style())
+                copy_button.clicked.connect(lambda checked, u=remote_deck_url: self._copy_url(u))
                 
-                # Armazenar referências
-                self.deck_checkboxes[url] = checkbox
+                row_layout.addWidget(checkbox)
+                row_layout.addWidget(copy_button)
+                row_layout.addStretch()
+                
+                # Criar widget container para o layout
+                row_widget = QWidget()
+                row_widget.setLayout(row_layout)
+                
+                # Adicionar ao layout principal
+                self.checkboxes_layout.addWidget(row_widget)
+                
+                # Armazenar referências - usar hash_key como chave principal
+                self.deck_checkboxes[hash_key] = checkbox
+                self.deck_hash_mapping[remote_deck_url] = hash_key
                 self.active_decks.append({
-                    "url": url,
+                    "url": remote_deck_url,
+                    "hash_key": hash_key,
                     "deck_info": deck_info,
-                    "deck_name": deck_name,
+                    "local_deck_name": local_deck_name,
+                    "remote_deck_name": remote_name,
                     "card_count": card_count
                 })
                 
-                # Conectar sinal de mudança
-                checkbox.toggled.connect(lambda checked, u=url: self._on_checkbox_changed(u, checked))
+                # Conectar sinal de mudança - passar hash_key
+                checkbox.toggled.connect(lambda checked, hk=hash_key: self._on_checkbox_changed(hk, checked))
                 
             else:
-                # Deck foi deletado localmente - mostrar como "a ser recriado"
-                saved_deck_name = deck_info.get("deck_name", "Deck Remoto")
+                # Deck foi deletado localmente, mas pode ser recriado
+                local_deck_name = get_deck_local_name(remote_deck_url) or "Deck Local Deletado"
                 
-                checkbox_text = f"⚠️ {saved_deck_name} (será recriado)"
+                # Usar nome remoto com aviso
+                checkbox_text = f"⚠️ {remote_name} (será recriado)"
+                
+                # Criar layout horizontal para checkbox + botão
+                row_layout = QHBoxLayout()
+                
                 checkbox = QCheckBox(checkbox_text)
-                checkbox.setToolTip(f"Deck local foi deletado. Será recriado durante a sincronização.\nURL: {url}")
-                checkbox.setStyleSheet("color: #e67e22; font-weight: bold;")
+                checkbox.setToolTip(f"Deck remoto: {remote_name}\nDeck local foi deletado: {local_deck_name}\nSerá recriado durante a sincronização.\nURL: {remote_deck_url}")
+                checkbox.setStyleSheet("color: palette(bright-text); font-weight: bold; background-color: rgba(230, 126, 34, 0.2);")
                 
-                # Adicionar ao layout
-                self.checkboxes_layout.addWidget(checkbox)
+                # Botão Copy URL
+                copy_button = QPushButton("Copy URL")
+                copy_button.setMaximumWidth(80)
+                copy_button.setMaximumHeight(25)
+                copy_button.setToolTip("Copiar URL para visualizar no navegador")
+                copy_button.setStyleSheet(get_copy_button_style())
+                copy_button.clicked.connect(lambda checked, u=remote_deck_url: self._copy_url(u))
                 
-                # Armazenar referências
-                self.deck_checkboxes[url] = checkbox
+                row_layout.addWidget(checkbox)
+                row_layout.addWidget(copy_button)
+                row_layout.addStretch()
+                
+                # Criar widget container para o layout
+                row_widget = QWidget()
+                row_widget.setLayout(row_layout)
+                
+                # Adicionar ao layout principal
+                self.checkboxes_layout.addWidget(row_widget)
+                
+                # Armazenar referências - usar hash_key como chave principal
+                self.deck_checkboxes[hash_key] = checkbox
+                self.deck_hash_mapping[remote_deck_url] = hash_key
                 self.active_decks.append({
-                    "url": url,
+                    "url": remote_deck_url,
+                    "hash_key": hash_key,
                     "deck_info": deck_info,
-                    "deck_name": saved_deck_name,
+                    "local_deck_name": local_deck_name,
+                    "remote_deck_name": remote_name,
                     "card_count": 0
                 })
                 
-                # Conectar sinal de mudança
-                checkbox.toggled.connect(lambda checked, u=url: self._on_checkbox_changed(u, checked))
+                # Conectar sinal de mudança - passar hash_key
+                checkbox.toggled.connect(lambda checked, hk=hash_key: self._on_checkbox_changed(hk, checked))
         
         # Atualizar informações
         self._update_selection_info()
     
     def _load_persistent_selection(self):
-        """Carrega a seleção persistente salva."""
-        from .config_manager import get_sync_selection
+        """Carrega a seleção persistente salva baseada no is_sync do meta.json."""
+        from .config_manager import get_meta
         
-        self.sync_selection = get_sync_selection()
+        meta = get_meta()
+        decks = meta.get("decks", {})
         
-        # Aplicar seleção salva aos checkboxes
-        for url, checkbox in self.deck_checkboxes.items():
-            is_selected = self.sync_selection.get(url, False)
+        # Aplicar seleção salva aos checkboxes baseado no is_sync de cada deck
+        for hash_key, checkbox in self.deck_checkboxes.items():
+            deck_info = decks.get(hash_key, {})
+            is_selected = deck_info.get("is_sync", True)  # Padrão: True
             checkbox.setChecked(is_selected)
-    
-    def _save_persistent_selection(self):
-        """Salva a seleção atual de forma persistente."""
-        from .config_manager import save_sync_selection
         
-        save_sync_selection(self.sync_selection)
-    
-    def _on_checkbox_changed(self, url, checked):
-        """Callback para quando um checkbox é alterado."""
-        self.sync_selection[url] = checked
         self._update_selection_info()
-        self._save_persistent_selection()
+    
+    def _on_checkbox_changed(self, hash_key, checked):
+        """Callback para quando um checkbox é alterado."""
+        from .config_manager import get_meta, save_meta
+        
+        # Atualizar o is_sync no meta.json
+        meta = get_meta()
+        if "decks" not in meta:
+            meta["decks"] = {}
+        
+        if hash_key in meta["decks"]:
+            meta["decks"][hash_key]["is_sync"] = checked
+            save_meta(meta)
+        
+        self._update_selection_info()
     
     def _select_all(self):
         """Seleciona todos os decks."""
-        for url, checkbox in self.deck_checkboxes.items():
+        for hash_key, checkbox in self.deck_checkboxes.items():
             checkbox.setChecked(True)
     
     def _select_none(self):
         """Desmarca todos os decks."""
-        for url, checkbox in self.deck_checkboxes.items():
+        for hash_key, checkbox in self.deck_checkboxes.items():
             checkbox.setChecked(False)
     
     def _invert_selection(self):
         """Inverte a seleção atual."""
-        for url, checkbox in self.deck_checkboxes.items():
+        for hash_key, checkbox in self.deck_checkboxes.items():
             checkbox.setChecked(not checkbox.isChecked())
     
     def _update_selection_info(self):
         """Atualiza as informações de seleção."""
-        # Contar seleções
-        selected_count = sum(1 for checked in self.sync_selection.values() if checked)
+        # Contar seleções baseado nos checkboxes
+        selected_count = sum(1 for checkbox in self.deck_checkboxes.values() if checkbox.isChecked())
         total_count = len(self.deck_checkboxes)
         
         # Atualizar texto informativo
@@ -267,10 +390,26 @@ class SyncDialog(QDialog):
         # Habilitar/desabilitar botão de sincronização
         self.sync_button.setEnabled(selected_count > 0)
     
+    def _copy_url(self, url):
+        """
+        Copia a URL limpa para o clipboard.
+        
+        Args:
+            url (str): URL do deck remoto
+        """
+        copy_url_to_clipboard(url)
+    
     def _sync_selected(self):
         """Sincroniza os decks selecionados."""
-        # Coletar URLs selecionadas
-        selected_urls = [url for url, checked in self.sync_selection.items() if checked]
+        # Coletar URLs selecionadas baseado nos checkboxes
+        selected_urls = []
+        for hash_key, checkbox in self.deck_checkboxes.items():
+            if checkbox.isChecked():
+                # Encontrar a URL correspondente ao hash_key
+                for deck_info in self.active_decks:
+                    if deck_info["hash_key"] == hash_key:
+                        selected_urls.append(deck_info["url"])
+                        break
         
         # Armazenar URLs selecionadas para uso posterior
         self.selected_urls = selected_urls

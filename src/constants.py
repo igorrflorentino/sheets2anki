@@ -11,7 +11,7 @@ IS_DEVELOPMENT_MODE = True
 
 # URLs hardcoded para testes e simulações
 TEST_SHEETS_URLS = [
-    ("sheet2anki Layout - Notas", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSART0Xw_lDq5bn4bylNox7vxOmU6YkoOjOwqdS3kZ-O1JEBLR8paqDv_bcGTW55yXchaO0jzK2cB8x/pub?gid=36065074&single=true&output=tsv"),
+    ("Sheets2Anki Template", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv"),
 ]
 
 # Template constants para geração de cards
@@ -28,13 +28,16 @@ CARD_SHOW_HIDE_TEMPLATE = """
 """
 
 # Valores padrão para campos vazios
-DEFAULT_IMPORTANCE = "MISSING I."
-DEFAULT_TOPIC = "MISSING T."
-DEFAULT_SUBTOPIC = "MISSING S."
-DEFAULT_CONCEPT = "MISSING C."
+DEFAULT_IMPORTANCE = "[MISSING I.]"
+DEFAULT_TOPIC = "[MISSING T.]"
+DEFAULT_SUBTOPIC = "[MISSING S.]"
+DEFAULT_CONCEPT = "[MISSING C.]"
+
+# Nome do deck raiz - constante não modificável pelo usuário
+DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
 
 # Prefixos para tags
-TAG_ROOT = "sheet2anki"
+TAG_ROOT = "Sheets2Anki"
 TAG_TOPICS = "topicos"
 TAG_SUBTOPICS = "subtopicos"
 TAG_CONCEPTS = "conceitos"

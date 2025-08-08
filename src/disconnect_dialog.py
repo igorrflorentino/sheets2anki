@@ -8,10 +8,73 @@ selecionar e desconectar múltiplos decks remotos usando checkboxes.
 from .compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QListWidget, QListWidgetItem, QGroupBox, QTextEdit,
-    QCheckBox, QMessageBox, DialogAccepted, mw, QScrollArea, QWidget
+    QCheckBox, QMessageBox, DialogAccepted, mw, QScrollArea, QWidget, QApplication
 )
 from .fix_exec import safe_exec
-from .config_manager import get_remote_decks, disconnect_deck  # get_remote_decks agora usa 'decks' internamente
+from .config_manager import get_remote_decks, disconnect_deck, get_deck_local_name, get_deck_remote_name, remove_remote_deck
+import webbrowser
+
+
+def clean_url_for_browser(url):
+    """
+    Remove a terminação '&output=tsv' da URL para permitir visualização no navegador.
+    
+    Args:
+        url (str): URL completa com terminação TSV
+        
+    Returns:
+        str: URL limpa para visualização no navegador
+    """
+    if url.endswith('&output=tsv'):
+        return url[:-11]  # Remove '&output=tsv'
+    elif url.endswith('&single=true&output=tsv'):
+        return url[:-23]  # Remove '&single=true&output=tsv'
+    return url
+
+
+def copy_url_to_clipboard(url):
+    """
+    Copia a URL limpa para o clipboard do sistema.
+    
+    Args:
+        url (str): URL para copiar
+    """
+    try:
+        clean_url = clean_url_for_browser(url)
+        clipboard = QApplication.clipboard()
+        if clipboard:
+            clipboard.setText(clean_url)
+            return True
+        return False
+    except Exception as e:
+        print(f"Erro ao copiar URL: {e}")
+        return False
+
+
+def get_copy_button_style():
+    """
+    Retorna estilo do botão Copy URL que se adapta ao tema (claro/escuro) do Anki.
+    
+    Usa palette do sistema com ajustes para melhor contraste em dark mode.
+    """
+    return (
+        "QPushButton { "
+        "font-size: 11px; padding: 2px 6px; border-radius: 3px; "
+        "background-color: palette(alternateBase); "  # Mais claro que button
+        "border: 1px solid palette(text); "           # Borda mais contrastante
+        "color: palette(text); "                      # Texto bem contrastante
+        "} "
+        "QPushButton:hover { "
+        "background-color: palette(highlight); "      # Destaque no hover
+        "color: palette(highlightedText); "           # Texto do highlight
+        "border: 1px solid palette(highlight); "
+        "} "
+        "QPushButton:pressed { "
+        "background-color: palette(shadow); "         # Cor pressed distinta
+        "color: palette(base); "                      # Texto contrastante
+        "border: 1px solid palette(shadow); "
+        "}"
+    )
 
 
 class DisconnectDialog(QDialog):
@@ -49,6 +112,8 @@ class DisconnectDialog(QDialog):
         # Descrição
         desc_label = QLabel(
             "Selecione quais decks remotos deseja desconectar. "
+            "Os nomes mostrados são dos arquivos TSV remotos. "
+            "Use o botão 'Copy URL' para visualizar o deck no navegador. "
             "Os decks locais permanecerão no Anki, mas não serão mais sincronizados."
         )
         desc_label.setStyleSheet("margin-bottom: 15px; color: #666;")
@@ -113,6 +178,35 @@ class DisconnectDialog(QDialog):
         )
         layout.addWidget(self.selection_info)
         
+        # Opção para deletar dados locais
+        self.delete_local_data_checkbox = QCheckBox("🗑️ Deletar dados locais (decks, cards, notas e note types)")
+        self.delete_local_data_checkbox.setToolTip(
+            "ATENÇÃO: Esta ação é irreversível!\n\n"
+            "Se marcada, todos os dados locais dos decks selecionados serão deletados:\n"
+            "• Decks locais e subdecks\n"
+            "• Todas as cartas e notas\n"
+            "• Note types específicos (se não usados em outros decks)\n\n"
+            "Use com cuidado!"
+        )
+        self.delete_local_data_checkbox.setStyleSheet(
+            "QCheckBox {"
+            "margin: 10px 0; padding: 10px; "
+            "background-color: palette(alternateBase); "
+            "border: 2px solid palette(mid); "
+            "border-radius: 6px; "
+            "color: palette(text); "
+            "font-weight: bold;"
+            "}"
+            "QCheckBox:hover {"
+            "border: 2px solid palette(highlight); "
+            "background-color: palette(base);"
+            "}"
+            "QCheckBox::indicator {"
+            "width: 18px; height: 18px;"
+            "}"
+        )
+        layout.addWidget(self.delete_local_data_checkbox)
+        
         # Botões principais
         main_buttons_layout = QHBoxLayout()
         
@@ -161,65 +255,119 @@ class DisconnectDialog(QDialog):
             self.checkboxes_layout.addWidget(no_decks_label)
             return
         
-        for url, deck_info in remote_decks.items():
-            deck_id = deck_info["deck_id"]
+        for hash_key, deck_info in remote_decks.items():
+            local_deck_id = deck_info["local_deck_id"]
             deck = None
             if mw.col and hasattr(mw.col, 'decks'):
-                deck = mw.col.decks.get(deck_id)
+                deck = mw.col.decks.get(local_deck_id)
+            
+            # Obter URL e nome remoto do deck
+            remote_deck_url = deck_info.get("remote_deck_url", "")
+            remote_name = get_deck_remote_name(remote_deck_url) or "Deck Remoto"
             
             # Verificar se o deck existe localmente
             if deck and deck["name"].strip().lower() != "default":
                 # Deck existe localmente
-                deck_name = deck["name"]
+                local_deck_name = deck["name"]
                 card_count = 0
                 if mw.col and hasattr(mw.col, 'find_cards'):
-                    card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
+                    card_count = len(mw.col.find_cards(f'deck:"{local_deck_name}"'))
                 
-                checkbox_text = f"{deck_name} ({card_count} cards)"
+                # Usar nome remoto com contador de cards
+                checkbox_text = f"{remote_name} ({card_count} cards)"
+                
+                # Criar layout horizontal para checkbox + botão
+                row_layout = QHBoxLayout()
+                
                 checkbox = QCheckBox(checkbox_text)
-                checkbox.setToolTip(f"URL: {url}")
+                checkbox.setToolTip(f"Deck remoto: {remote_name}\nDeck local: {local_deck_name}\nURL: {remote_deck_url}")
                 
-                # Adicionar ao layout
-                self.checkboxes_layout.addWidget(checkbox)
+                # Botão Copy URL
+                copy_button = QPushButton("Copy URL")
+                copy_button.setMaximumWidth(80)
+                copy_button.setMaximumHeight(25)
+                copy_button.setToolTip("Copiar URL para visualizar no navegador")
+                copy_button.setStyleSheet(get_copy_button_style())
+                copy_button.clicked.connect(lambda checked, u=remote_deck_url: self._copy_url(u))
                 
-                # Armazenar referências
-                self.deck_checkboxes[url] = checkbox
+                row_layout.addWidget(checkbox)
+                row_layout.addWidget(copy_button)
+                row_layout.addStretch()
+                
+                # Criar widget container para o layout
+                row_widget = QWidget()
+                row_widget.setLayout(row_layout)
+                
+                # Adicionar ao layout principal
+                self.checkboxes_layout.addWidget(row_widget)
+                
+                # Armazenar referências - usar URL como chave para compatibilidade
+                self.deck_checkboxes[remote_deck_url] = checkbox
                 self.remote_decks.append({
-                    "url": url,
+                    "url": remote_deck_url,
+                    "hash_key": hash_key,
                     "deck_info": deck_info,
-                    "deck_name": deck_name,
+                    "local_deck_name": local_deck_name,
+                    "remote_deck_name": remote_name,
                     "card_count": card_count
                 })
                 
                 # Conectar sinal de mudança
-                checkbox.toggled.connect(lambda checked, u=url: self._on_checkbox_changed(u, checked))
+                checkbox.toggled.connect(lambda checked, u=remote_deck_url: self._on_checkbox_changed(u, checked))
                 
             else:
                 # Deck foi deletado localmente
-                saved_deck_name = deck_info.get("deck_name", "Deck Remoto")
+                local_deck_name = get_deck_local_name(remote_deck_url) or "Deck Local Deletado"
                 
-                checkbox_text = f"🗑️ {saved_deck_name} (deck local deletado)"
+                # Usar nome remoto com aviso
+                checkbox_text = f"🗑️ {remote_name} (deck local deletado)"
+                
+                # Criar layout horizontal para checkbox + botão
+                row_layout = QHBoxLayout()
+                
                 checkbox = QCheckBox(checkbox_text)
-                checkbox.setToolTip(f"Deck local foi deletado. Configuração ainda existe.\nURL: {url}")
-                checkbox.setStyleSheet("color: #95a5a6; font-style: italic;")
+                checkbox.setToolTip(f"Deck remoto: {remote_name}\nDeck local foi deletado: {local_deck_name}\nConfiguração ainda existe.\nURL: {remote_deck_url}")
+                checkbox.setStyleSheet("color: palette(bright-text); font-style: italic; background-color: rgba(149, 165, 166, 0.2);")
                 
-                # Adicionar ao layout
-                self.checkboxes_layout.addWidget(checkbox)
+                # Botão Copy URL
+                copy_button = QPushButton("Copy URL")
+                copy_button.setMaximumWidth(80)
+                copy_button.setMaximumHeight(25)
+                copy_button.setToolTip("Copiar URL para visualizar no navegador")
+                copy_button.setStyleSheet(get_copy_button_style())
+                copy_button.clicked.connect(lambda checked, u=remote_deck_url: self._copy_url(u))
                 
-                # Armazenar referências
-                self.deck_checkboxes[url] = checkbox
+                row_layout.addWidget(checkbox)
+                row_layout.addWidget(copy_button)
+                row_layout.addStretch()
+                
+                # Criar widget container para o layout
+                row_widget = QWidget()
+                row_widget.setLayout(row_layout)
+                
+                # Adicionar ao layout principal
+                self.checkboxes_layout.addWidget(row_widget)
+                
+                # Armazenar referências - usar URL como chave para compatibilidade
+                self.deck_checkboxes[remote_deck_url] = checkbox
                 self.remote_decks.append({
-                    "url": url,
+                    "url": remote_deck_url,
+                    "hash_key": hash_key,
                     "deck_info": deck_info,
-                    "deck_name": saved_deck_name,
+                    "local_deck_name": local_deck_name,
+                    "remote_deck_name": remote_name,
                     "card_count": 0
                 })
                 
                 # Conectar sinal de mudança
-                checkbox.toggled.connect(lambda checked, u=url: self._on_checkbox_changed(u, checked))
+                checkbox.toggled.connect(lambda checked, u=remote_deck_url: self._on_checkbox_changed(u, checked))
         
         # Atualizar informações
         self._update_selection_info()
+    
+    def _copy_url(self, url):
+        """Copia URL para o clipboard e abre no navegador"""
+        copy_url_to_clipboard(url)
     
     def _on_checkbox_changed(self, url, checked):
         """Callback para quando um checkbox é alterado."""
@@ -277,6 +425,9 @@ class DisconnectDialog(QDialog):
         if not self.selected_urls:
             return
         
+        # Verificar se deve deletar dados locais
+        delete_local_data = self.delete_local_data_checkbox.isChecked()
+        
         # Mostrar confirmação
         selected_count = len(self.selected_urls)
         
@@ -285,14 +436,28 @@ class DisconnectDialog(QDialog):
             deck_name = None
             for deck in self.remote_decks:
                 if deck["url"] == self.selected_urls[0]:
-                    deck_name = deck["deck_name"]
+                    # Usar local_deck_name da nova estrutura
+                    deck_name = get_deck_local_name(deck["url"]) or deck.get("local_deck_name", "Deck")
                     break
             
-            msg = f"Desconectar o deck '{deck_name}' da fonte remota?"
+            if delete_local_data:
+                msg = f"Desconectar o deck '{deck_name}' e DELETAR todos os dados locais?"
+            else:
+                msg = f"Desconectar o deck '{deck_name}' da fonte remota?"
         else:
-            msg = f"Desconectar {selected_count} decks das suas fontes remotas?"
+            if delete_local_data:
+                msg = f"Desconectar {selected_count} decks e DELETAR todos os dados locais?"
+            else:
+                msg = f"Desconectar {selected_count} decks das suas fontes remotas?"
         
-        msg += "\n\nEsta ação não pode ser desfeita. Os decks locais permanecerão no Anki."
+        if delete_local_data:
+            msg += "\n\n⚠️ ATENÇÃO: TODOS OS DADOS LOCAIS SERÃO DELETADOS PERMANENTEMENTE!"
+            msg += "\n• Decks locais e subdecks"
+            msg += "\n• Todas as cartas e notas"  
+            msg += "\n• Note types específicos (se não usados em outros decks)"
+            msg += "\n\nEsta ação NÃO PODE ser desfeita!"
+        else:
+            msg += "\n\nEsta ação não pode ser desfeita. Os decks locais permanecerão no Anki."
         
         reply = QMessageBox.question(
             self,
@@ -308,6 +473,10 @@ class DisconnectDialog(QDialog):
     def get_selected_urls(self):
         """Retorna as URLs selecionadas para desconexão."""
         return self.selected_urls
+    
+    def should_delete_local_data(self):
+        """Retorna se deve deletar os dados locais junto com a desconexão."""
+        return self.delete_local_data_checkbox.isChecked()
 
 
 def show_disconnect_dialog(parent=None):
@@ -318,11 +487,14 @@ def show_disconnect_dialog(parent=None):
         parent: Widget pai para o diálogo
         
     Returns:
-        tuple: (success, selected_urls) onde success é bool e selected_urls é list
+        tuple: (success, selected_urls, delete_local_data) onde:
+            - success: bool indicando se o usuário confirmou
+            - selected_urls: list de URLs selecionadas
+            - delete_local_data: bool indicando se deve deletar dados locais
     """
     dialog = DisconnectDialog(parent)
     
     if safe_exec(dialog) == DialogAccepted:
-        return True, dialog.get_selected_urls()
+        return True, dialog.get_selected_urls(), dialog.should_delete_local_data()
     
-    return False, []
+    return False, [], False

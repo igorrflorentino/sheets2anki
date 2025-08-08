@@ -71,10 +71,12 @@ try:
         QTextEdit,
         QCheckBox,
         QComboBox,
+        QSpinBox,
         QRadioButton,
         QGroupBox,
         QListWidget,
         QListWidgetItem,
+        QTabWidget,
         QProgressBar,
         QProgressDialog,
         QInputDialog,
@@ -83,10 +85,13 @@ try:
         QFrame,
         QScrollArea,
         QSizePolicy,
+        QSplitter,
         QKeySequence,
         QAction,
         QMenu,
+        QFont,
         QDialogButtonBox,
+        QTimer,
         Qt
     )
     
@@ -138,6 +143,24 @@ else:
     TextFormat_RichText = Qt.RichText
     TextFormat_PlainText = Qt.PlainText
 
+# Constantes de orientação
+if QT_VERSION >= 6:
+    Horizontal = Qt.Orientation.Horizontal
+    Vertical = Qt.Orientation.Vertical
+else:
+    Horizontal = Qt.Horizontal
+    Vertical = Qt.Vertical
+
+# Constantes de Context Menu Policy
+if QT_VERSION >= 6:
+    CustomContextMenu = Qt.ContextMenuPolicy.CustomContextMenu
+    NoContextMenu = Qt.ContextMenuPolicy.NoContextMenu
+    DefaultContextMenu = Qt.ContextMenuPolicy.DefaultContextMenu
+else:
+    CustomContextMenu = Qt.CustomContextMenu
+    NoContextMenu = Qt.NoContextMenu
+    DefaultContextMenu = Qt.DefaultContextMenu
+
 # Constantes de diálogo
 if hasattr(QDialog, 'Accepted'):
     DialogAccepted = QDialog.Accepted
@@ -161,6 +184,26 @@ else:
     ButtonBox_No = QDialogButtonBox.No
     ButtonBox_Apply = QDialogButtonBox.Apply
     ButtonBox_Close = QDialogButtonBox.Close
+
+# Constantes de QMessageBox
+if QT_VERSION >= 6:
+    MessageBox_Yes = QMessageBox.StandardButton.Yes
+    MessageBox_No = QMessageBox.StandardButton.No
+    MessageBox_Ok = QMessageBox.StandardButton.Ok
+    MessageBox_Cancel = QMessageBox.StandardButton.Cancel
+    MessageBox_Information = QMessageBox.Icon.Information
+    MessageBox_Warning = QMessageBox.Icon.Warning
+    MessageBox_Critical = QMessageBox.Icon.Critical
+    MessageBox_Question = QMessageBox.Icon.Question
+else:
+    MessageBox_Yes = QMessageBox.Yes
+    MessageBox_No = QMessageBox.No
+    MessageBox_Ok = QMessageBox.Ok
+    MessageBox_Cancel = QMessageBox.Cancel
+    MessageBox_Information = QMessageBox.Information
+    MessageBox_Warning = QMessageBox.Warning
+    MessageBox_Critical = QMessageBox.Critical
+    MessageBox_Question = QMessageBox.Question
 
 # Constantes de echo mode para QLineEdit
 if hasattr(QLineEdit, 'EchoMode'):
@@ -246,6 +289,24 @@ def safe_exec_dialog(dialog) -> int:
     else:
         # Qt5 style
         return dialog.exec_()
+
+def safe_exec_menu(menu, position) -> Any:
+    """
+    Executa um menu de contexto de forma compatível entre versões do Qt.
+    
+    Args:
+        menu: QMenu a ser executado
+        position: Posição onde mostrar o menu
+        
+    Returns:
+        QAction selecionada ou None
+    """
+    if hasattr(menu, "exec"):
+        # Qt6 style
+        return menu.exec(position)
+    else:
+        # Qt5 style
+        return menu.exec_(position)
 
 def show_tooltip(message: str, period: int = 3000) -> None:
     """

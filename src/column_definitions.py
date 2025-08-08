@@ -32,6 +32,7 @@ ID = 'ID'                           # Identificador único da questão
 PERGUNTA = 'PERGUNTA'               # Texto principal da questão/frente do cartão
 MATCH = 'LEVAR PARA PROVA'          # Resposta sucinta e atômica da pergunta (núcleo da resposta)
 SYNC = 'SYNC?'                      # Campo de controle de sincronização (true/false/1/0)
+ALUNOS = 'ALUNOS'                   # Indica quais alunos têm interesse em estudar esta nota
 
 # =============================================================================
 # CAMPOS INFORMATIVOS E COMPLEMENTARES
@@ -76,6 +77,7 @@ REQUIRED_COLUMNS = [
     PERGUNTA,              # Texto da questão
     MATCH,                 # Resposta sucinta (núcleo da resposta)
     SYNC,                  # Controle de sincronização
+    ALUNOS,                # Controle de alunos interessados
     EXTRA_INFO_1,          # Info complementar
     EXTRA_INFO_2,          # Info detalhada
     EXEMPLO_1,             # Primeiro exemplo

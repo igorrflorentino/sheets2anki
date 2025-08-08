@@ -23,10 +23,10 @@ Autor: Sheets2Anki Project
 from .sync import syncDecks
 from .deck_manager import (
     syncDecksWithSelection, import_test_deck, 
-    addNewDeck, removeRemoteDeck, configure_deck_naming
+    addNewDeck, removeRemoteDeck, manage_deck_students, reset_student_selection
 )
+from .sync_dialog import show_sync_dialog
 from .backup_dialog import show_backup_dialog
-from .subdeck_config_dialog import show_subdeck_config_dialog
 
 # =============================================================================
 # FUNÇÕES PRINCIPAIS EXPOSTAS
@@ -41,7 +41,7 @@ __all__ = [
     'import_test_deck',
     'addNewDeck',
     'removeRemoteDeck',
-    'configure_deck_naming',
-    'show_backup_dialog',
-    'show_subdeck_config_dialog'
+    'manage_deck_students',
+    'reset_student_selection',
+    'show_backup_dialog'
 ]

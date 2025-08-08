@@ -25,7 +25,8 @@ def _restore_remote_decks(self, temp_dir):
             config = deck_backup['config']
             
             current_decks[url] = config
-            print(f"✅ Deck restaurado: {config.get('deck_name', url)}")
+            deck_name = config.get('local_deck_name') or config.get('deck_name', url)
+            print(f"✅ Deck restaurado: {deck_name}")
         
         # Salvar configurações atualizadas
         meta_data['decks'] = current_decks

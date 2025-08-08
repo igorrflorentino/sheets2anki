@@ -11,12 +11,10 @@ class TestSubdeckManager:
         ('Estudos', {'IMPORTANCIA': 'Alta', 'TOPICO': 'Matemática', 'SUBTOPICO': 'Álgebra', 'CONCEITO': 'Equações'}, 
          ['Estudos', 'Alta', 'Matemática', 'Álgebra', 'Equações']),
         ('Estudos', {'IMPORTANCIA': '', 'TOPICO': '', 'SUBTOPICO': '', 'CONCEITO': ''}, 
-         ['Estudos']),
+         ['Estudos', 'Importance Missing', 'Topic Missing', 'Subtopic Missing', 'Concept Missing']),
     ])
-    def test_get_subdeck_name(self, main_deck, fields, expected_parts, mocker):
-        """Testa a criação de nomes de subdeck."""
-        # Mock para get_create_subdecks_setting para retornar True
-        mocker.patch('src.subdeck_manager.get_create_subdecks_setting', return_value=True)
+    def test_get_subdeck_name(self, main_deck, fields, expected_parts):
+        """Testa a criação de nomes de subdeck (sempre automático)."""
         
         result = get_subdeck_name(main_deck, fields)
         

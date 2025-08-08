@@ -63,9 +63,9 @@ class RemoteDeck:
     
     Attributes:
         deckName (str): Nome do deck
-        questions (list): Lista de questões/cards do deck
+        questions (list): Lista de questões/notas do deck
         media (list): Lista de arquivos de mídia associados
-        ignored_count (int): Número de cards ignorados devido à coluna SYNC?
+        ignored_count (int): Número de notas ignoradas devido à coluna SYNC?
     """
     
     def __init__(self):
@@ -73,7 +73,8 @@ class RemoteDeck:
         self.deckName = ""
         self.questions = []  # Mantém o atributo 'questions' para compatibilidade
         self.media = []
-        self.ignored_count = 0  # Contador de cards ignorados
+        self.ignored_count = 0  # Contador de notas ignoradas
+        self.remote_filename = None  # Nome do arquivo TSV baixado (sem extensão)
 
     def getMedia(self):
         """
@@ -136,6 +137,7 @@ def getRemoteDeck(url):
     # 3. Tentar download com cada URL
     last_error = None
     successful_url = None
+    extracted_filename = None
     
     for attempt, try_url in enumerate(urls_to_try, 1):
         try:
@@ -149,6 +151,16 @@ def getRemoteDeck(url):
             
             if response.getcode() != 200:
                 raise Exception(f"Código de status inesperado: {response.getcode()}")
+            
+            # Extrair nome do arquivo do Content-Disposition header se disponível
+            content_disposition = response.headers.get('Content-Disposition', '')
+            if content_disposition:
+                import re
+                match = re.search(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', content_disposition)
+                if match:
+                    filename = match.group(1).strip('"\'')
+                    if filename and filename.lower().endswith('.tsv'):
+                        extracted_filename = filename[:-4]  # Remove .tsv
             
             successful_url = try_url
             break  # Sucesso! Sair do loop
@@ -216,6 +228,26 @@ def getRemoteDeck(url):
         # Armazenar URLs para uso posterior
         remoteDeck.url = original_url
         remoteDeck.successful_url = successful_url
+        
+        # Priorizar nomeação inteligente que preserva espaços e extrai títulos semânticos
+        try:
+            from .deck_naming import DeckNamer
+            intelligent_name = DeckNamer.extract_name_from_url(original_url)
+            
+            if intelligent_name and intelligent_name.strip() and intelligent_name != "auto name fatal fail":
+                # Usar nome inteligente (título da planilha com espaços preservados)
+                remoteDeck.remote_filename = intelligent_name
+            elif extracted_filename and extracted_filename.strip():
+                # Fallback para o nome extraído do header HTTP
+                remoteDeck.remote_filename = extracted_filename
+            else:
+                # Fallback final
+                remoteDeck.remote_filename = "RemoteDeck"
+                
+        except Exception:
+            # Fallback para o nome extraído do header HTTP
+            remoteDeck.remote_filename = extracted_filename or "RemoteDeck"
+            
         return remoteDeck
     except Exception as e:
         raise RemoteDeckError(f"Erro ao processar deck remoto: {e}")
@@ -400,14 +432,14 @@ def create_tags_from_fields(fields):
     Esta função processa diferentes campos do card e cria um sistema
     hierárquico de tags para melhor organização no Anki.
     
-    Estrutura de tags criadas (todas sob a tag raiz 'sheet2anki'):
-    - sheet2anki::topicos::topico1::subtopico1::conceito1
-    - sheet2anki::conceitos::conceito1 (tag extra para fácil filtragem)
-    - sheet2anki::bancas::banca1
-    - sheet2anki::provas::ano1
-    - sheet2anki::carreiras::carreira1
-    - sheet2anki::importancia::nivel_importancia
-    - sheet2anki::variado::tag_adicional1
+    Estrutura de tags criadas (todas sob a tag raiz 'Sheets2Anki'):
+    - Sheets2Anki::topicos::topico1::subtopico1::conceito1
+    - Sheets2Anki::conceitos::conceito1 (tag extra para fácil filtragem)
+    - Sheets2Anki::bancas::banca1
+    - Sheets2Anki::provas::ano1
+    - Sheets2Anki::carreiras::carreira1
+    - Sheets2Anki::importancia::nivel_importancia
+    - Sheets2Anki::variado::tag_adicional1
     
     Args:
         fields (dict): Dicionário contendo os campos do card
@@ -478,7 +510,7 @@ def build_remote_deck_from_tsv(data):
     3. Validação de campos obrigatórios
     4. Criação de tags hierárquicas
     5. Construção das questões finais
-    6. Contagem de cards ignorados devido à coluna SYNC?
+    6. Contagem de notas ignoradas devido à coluna SYNC?
     
     Args:
         data (list): Lista de listas contendo os dados TSV (headers + rows)

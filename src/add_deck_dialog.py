@@ -8,14 +8,14 @@ com suporte a nomeação automática e resolução de conflitos.
 from .compat import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QPushButton, QGroupBox, QFormLayout, QMessageBox,
-    QRadioButton, QCheckBox, QProgressBar, QTextEdit,
+    QRadioButton, QProgressBar, QTextEdit, QTimer,
     DialogAccepted, mw
 )
 from .fix_exec import safe_exec
 from .config_manager import (
-    get_remote_decks, add_remote_deck, is_deck_disconnected,
-    get_deck_naming_mode, get_parent_deck_name
+    get_remote_decks, add_remote_deck, is_deck_disconnected
 )
+from .constants import DEFAULT_PARENT_DECK_NAME
 from .deck_naming import DeckNamer
 from .validation import validate_url
 from .parseRemoteDeck import getRemoteDeck, RemoteDeckError
@@ -29,208 +29,213 @@ class AddDeckDialog(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Adicionar Novo Deck Remoto")
+        self.setWindowTitle("Adicionar Deck Remoto")
         self.setModal(True)
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(400)
+        self.setMinimumWidth(480)
+        self.setMaximumWidth(520)
         
         self.remote_deck = None
         self.suggested_name = ""
+        self.validation_timer = QTimer()  # Inicializar aqui
         
         self._setup_ui()
         self._connect_signals()
     
     def _setup_ui(self):
-        """Configura a interface do usuário."""
+        """Configura a interface do usuário de forma mais compacta."""
         layout = QVBoxLayout()
+        layout.setSpacing(12)  # Espaçamento reduzido
         
-        # Título
-        title_label = QLabel("Adicionar Novo Deck Remoto")
-        title_label.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 10px;")
-        layout.addWidget(title_label)
+        # Seção de URL - Mais compacta
+        url_group = QGroupBox("URL da Planilha Google Sheets")
+        url_layout = QVBoxLayout()
+        url_layout.setSpacing(8)
         
-        # Seção de URL
-        url_group = QGroupBox("URL da Planilha")
-        url_layout = QFormLayout()
-        
-        self.url_edit = QLineEdit()
-        self.url_edit.setPlaceholderText("https://docs.google.com/spreadsheets/d/...")
-        
-        self.validate_button = QPushButton("Validar URL")
-        self.validate_button.setMaximumWidth(120)
-        
+        # Input de URL com validação visual inline
         url_row = QHBoxLayout()
+        self.url_edit = QLineEdit()
+        self.url_edit.setPlaceholderText("Cole aqui o link da planilha do Google Sheets...")
+        self.url_edit.setMinimumHeight(32)
+        
+        # Status visual inline (mais compacto)
+        self.status_indicator = QLabel("⚪")  # Indicador visual simples
+        self.status_indicator.setFixedWidth(20)
+        self.status_indicator.setToolTip("Status da validação")
+        
         url_row.addWidget(self.url_edit)
-        url_row.addWidget(self.validate_button)
+        url_row.addWidget(self.status_indicator)
+        url_layout.addLayout(url_row)
         
-        url_layout.addRow("URL:", url_row)
-        
-        # Status da validação
+        # Status message (mais compacto)
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("margin-top: 5px;")
-        url_layout.addRow(self.status_label)
+        self.status_label.setStyleSheet("font-size: 11px; margin: 2px 0;")
+        self.status_label.setWordWrap(True)
+        url_layout.addWidget(self.status_label)
         
         url_group.setLayout(url_layout)
         layout.addWidget(url_group)
         
-        # Seção de nomeação
-        naming_group = QGroupBox("Configurações do Deck")
-        naming_layout = QVBoxLayout()
+        # Seção de preview - Apenas quando necessário
+        self.preview_group = QGroupBox("Preview do Deck")
+        self.preview_group.setVisible(False)
+        preview_layout = QVBoxLayout()
+        preview_layout.setSpacing(6)
         
-        # Opções de nomeação
-        self.auto_naming_radio = QRadioButton("Usar nomeação automática")
-        self.manual_naming_radio = QRadioButton("Definir nome manualmente")
+        # Informações compactas em formato de lista
+        self.info_label = QLabel("")
+        self.info_label.setStyleSheet("font-size: 11px; line-height: 1.4;")
+        self.info_label.setWordWrap(True)
+        preview_layout.addWidget(self.info_label)
         
-        naming_layout.addWidget(self.auto_naming_radio)
-        naming_layout.addWidget(self.manual_naming_radio)
+        # Aviso de conflito de nome (inicialmente oculto)
+        self.conflict_warning = QLabel("")
+        self.conflict_warning.setVisible(False)
+        self.conflict_warning.setStyleSheet("""
+            font-size: 12px;
+            font-weight: bold;
+            color: #ff6600;
+            background-color: #fff8dc;
+            border: 2px solid #ffcc99;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin: 4px 0px;
+        """)
+        self.conflict_warning.setWordWrap(True)
+        preview_layout.addWidget(self.conflict_warning)
         
-        # Campo de nome do deck
-        name_form = QFormLayout()
-        self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("Nome do deck será sugerido automaticamente")
+        # Nome do deck preview - Layout melhorado para evitar corte
+        deck_name_container = QVBoxLayout()
+        deck_name_container.setSpacing(8)
         
-        name_form.addRow("Nome do Deck:", self.name_edit)
+        # Label do título
+        deck_name_title = QLabel("Será criado como:")
+        deck_name_title.setStyleSheet("font-size: 11px; color: #666; margin-bottom: 2px;")
+        deck_name_container.addWidget(deck_name_title)
         
-        # Informações sobre hierarquia
-        self.hierarchy_label = QLabel("")
-        self.hierarchy_label.setStyleSheet("color: #666; font-size: 11px; margin-top: 5px;")
-        self.hierarchy_label.setWordWrap(True)  # Permitir quebra de linha
-        self.hierarchy_label.setMaximumWidth(450)  # Limitar largura para forçar quebra
-        name_form.addRow(self.hierarchy_label)
+        # Label do nome com padding adequado
+        self.name_preview = QLabel("")
+        self.name_preview.setStyleSheet("""
+            font-weight: bold; 
+            color: #2166ac; 
+            font-size: 12px;
+            padding: 4px 8px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 3px;
+            margin: 2px 0px;
+        """)
+        self.name_preview.setWordWrap(True)
+        self.name_preview.setMinimumHeight(24)  # Altura mínima para evitar corte
+        deck_name_container.addWidget(self.name_preview)
         
-        naming_layout.addLayout(name_form)
+        preview_layout.addLayout(deck_name_container)
         
-        # Opção de resolver conflitos
-        self.resolve_conflicts_checkbox = QCheckBox("Resolver conflitos de nome automaticamente")
-        self.resolve_conflicts_checkbox.setChecked(True)
-        naming_layout.addWidget(self.resolve_conflicts_checkbox)
+        self.preview_group.setLayout(preview_layout)
+        layout.addWidget(self.preview_group)
         
-        naming_group.setLayout(naming_layout)
-        layout.addWidget(naming_group)
-        
-        # Seção de informações do deck (inicialmente oculta)
-        self.info_group = QGroupBox("Informações do Deck")
-        self.info_group.setVisible(False)
-        
-        info_layout = QVBoxLayout()
-        self.info_text = QTextEdit()
-        self.info_text.setMaximumHeight(100)
-        self.info_text.setReadOnly(True)
-        info_layout.addWidget(self.info_text)
-        
-        self.info_group.setLayout(info_layout)
-        layout.addWidget(self.info_group)
-        
-        # Barra de progresso
+        # Barra de progresso compacta
         self.progress_bar = QProgressBar()
+        self.progress_bar.setMaximumHeight(4)  # Muito mais fina
         self.progress_bar.setVisible(False)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: none;
+                background-color: #e0e0e0;
+                border-radius: 2px;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                border-radius: 2px;
+            }
+        """)
         layout.addWidget(self.progress_bar)
         
-        # Botões
+        # Botões - Layout mais limpo
         buttons_layout = QHBoxLayout()
+        buttons_layout.setContentsMargins(0, 8, 0, 0)
+        
+        self.cancel_button = QPushButton("Cancelar")
+        self.cancel_button.setMaximumWidth(80)
         
         self.add_button = QPushButton("Adicionar Deck")
         self.add_button.setEnabled(False)
-        self.cancel_button = QPushButton("Cancelar")
+        self.add_button.setMinimumWidth(120)  # Garantir largura mínima
+        self.add_button.setMaximumWidth(140)  # Aumentar largura máxima
+        self.add_button.setStyleSheet("""
+            QPushButton:enabled {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+                padding: 8px 16px;
+                border-radius: 4px;
+            }
+        """)
         
         buttons_layout.addStretch()
-        buttons_layout.addWidget(self.add_button)
         buttons_layout.addWidget(self.cancel_button)
+        buttons_layout.addWidget(self.add_button)
         
         layout.addLayout(buttons_layout)
         
         self.setLayout(layout)
         
         # Configurar estado inicial
-        self._update_naming_mode()
+        self._show_status("Digite ou cole a URL da planilha", "waiting")
+        self.conflict_warning.setVisible(False)  # Inicialmente oculto
     
     def _connect_signals(self):
         """Conecta os sinais da interface."""
-        self.validate_button.clicked.connect(self._validate_url)
+        # Configurar timer para validação automática com debounce
+        self.validation_timer.setSingleShot(True)
+        self.validation_timer.timeout.connect(self._validate_url_auto)
+        
         self.url_edit.textChanged.connect(self._on_url_changed)
-        
-        self.auto_naming_radio.toggled.connect(self._update_naming_mode)
-        self.manual_naming_radio.toggled.connect(self._update_naming_mode)
-        
-        self.name_edit.textChanged.connect(self._on_name_changed)
-        
-        # Conectar checkbox para recalcular nome quando alterado
-        self.resolve_conflicts_checkbox.toggled.connect(self._on_resolve_conflicts_changed)
-        
         self.add_button.clicked.connect(self._add_deck)
         self.cancel_button.clicked.connect(self.reject)
     
-    def _update_naming_mode(self):
-        """Atualiza a interface baseada no modo de nomeação."""
-        # Definir modo padrão baseado na configuração
-        default_mode = get_deck_naming_mode()
-        
-        if not self.auto_naming_radio.isChecked() and not self.manual_naming_radio.isChecked():
-            if default_mode == "automatic":
-                self.auto_naming_radio.setChecked(True)
-            else:
-                self.manual_naming_radio.setChecked(True)
-        
-        # Atualizar interface
-        is_auto = self.auto_naming_radio.isChecked()
-        
-        if is_auto:
-            self.name_edit.setEnabled(False)
-            self.name_edit.setPlaceholderText("Nome será extraído automaticamente da planilha")
-            
-            # Mostrar informações sobre hierarquia
-            parent_name = get_parent_deck_name()
-            self.hierarchy_label.setText(f"Deck será criado como: {parent_name}::Nome_Extraído")
-        else:
-            self.name_edit.setEnabled(True)
-            self.name_edit.setPlaceholderText("Digite o nome do deck")
-            self.hierarchy_label.setText("Deck será criado com o nome especificado")
-        
-        # Atualizar nome sugerido se já validado
-        if self.remote_deck and self.suggested_name:
-            self._update_suggested_name()
-    
     def _on_url_changed(self):
-        """Chamado quando a URL é alterada."""
+        """Chamado quando a URL é alterada - inicia validação automática."""
         self.add_button.setEnabled(False)
-        self.info_group.setVisible(False)
-        self.status_label.setText("")
-        self.status_label.setStyleSheet("color: #666;")
+        self.preview_group.setVisible(False)
         self.remote_deck = None
         self.suggested_name = ""
         
-        # Ajustar tamanho da janela automaticamente quando a seção de informações é ocultada
-        self.adjustSize()
-    
-    def _on_name_changed(self):
-        """Chamado quando o nome é alterado."""
-        if self.manual_naming_radio.isChecked():
-            self._check_name_conflict()
-    
-    def _on_resolve_conflicts_changed(self):
-        """Chamado quando o checkbox de resolução de conflitos é alterado."""
-        # Recalcular nome se há um nome atual e conflito
-        current_name = self.name_edit.text().strip()
-        
-        if current_name and self.suggested_name:
-            # Se checkbox foi marcado e há conflito, aplicar resolução
-            if self.resolve_conflicts_checkbox.isChecked() and DeckNamer.check_conflict(current_name):
-                alternative = DeckNamer.resolve_conflict(current_name)
-                self.name_edit.setText(alternative)
-                self._show_status(f"Nome ajustado para evitar conflito:\n{alternative}", "info")
-            # Se checkbox foi desmarcado, voltar ao nome original sugerido
-            elif not self.resolve_conflicts_checkbox.isChecked():
-                self._update_suggested_name()
-        
-        # Recalcular conflitos com o estado atual
-        self._check_name_conflict()
-    
-    def _validate_url(self):
-        """Valida a URL e carrega informações do deck."""
         url = self.url_edit.text().strip()
         
         if not url:
-            self._show_status("Por favor, informe uma URL.", "error")
+            self._show_status("Digite ou cole a URL da planilha", "waiting")
+            self.validation_timer.stop()
+            return
+        
+        # Feedback imediato para URLs obviamente inválidas
+        if not url.startswith(('http://', 'https://')):
+            self._show_status("URL deve começar com http:// ou https://", "error")
+            self.validation_timer.stop()
+            return
+        
+        if 'docs.google.com/spreadsheets' not in url:
+            self._show_status("URL deve ser de uma planilha do Google Sheets", "error")
+            self.validation_timer.stop()
+            return
+        
+        # Iniciar timer para validação automática (debounce de 1.5 segundos)
+        self._show_status("Validando URL...", "validating")
+        self.validation_timer.stop()
+        self.validation_timer.start(1500)
+    
+    def _validate_url_auto(self):
+        """Valida a URL automaticamente (chamada pelo timer)."""
+        url = self.url_edit.text().strip()
+        
+        if not url:
             return
         
         # Verificar se URL já está em uso
@@ -238,15 +243,13 @@ class AddDeckDialog(QDialog):
         if url in remote_decks:
             # Verificar se foi desconectado
             if is_deck_disconnected(url):
-                self._show_status("URL encontrada na lista de decks desconectados. Será reconectada.", "warning")
+                self._show_status("✓ URL reconectará deck desconectado", "warning")
             else:
-                self._show_status("Esta URL já está cadastrada como deck remoto.", "error")
+                self._show_status("❌ Esta URL já está cadastrada", "error")
                 return
         
-        # Mostrar progresso
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # Indeterminado
-        self.validate_button.setEnabled(False)
+        # Mostrar progresso sutil
+        self._show_progress(True)
         
         try:
             # Validar formato da URL
@@ -258,144 +261,169 @@ class AddDeckDialog(QDialog):
             # Extrair nome sugerido
             self.suggested_name = DeckNamer.extract_name_from_url(url)
             
-            # Mostrar informações
-            self._show_deck_info()
-            self._update_suggested_name()
+            # Mostrar informações de forma compacta
+            self._show_deck_preview()
             
-            self._show_status("URL validada com sucesso!", "success")
+            self._show_status("✓ URL validada com sucesso!", "success")
             self.add_button.setEnabled(True)
             
         except RemoteDeckError as e:
-            self._show_status(f"Erro ao acessar a planilha: {str(e)}", "error")
+            self._show_status(f"❌ Erro ao acessar planilha: {str(e)}", "error")
         except Exception as e:
-            self._show_status(f"Erro na validação: {str(e)}", "error")
+            self._show_status(f"❌ Erro na validação: {str(e)}", "error")
         finally:
-            self.progress_bar.setVisible(False)
-            self.validate_button.setEnabled(True)
+            self._show_progress(False)
     
-    def _show_deck_info(self):
-        """Mostra informações do deck validado."""
+    def _show_progress(self, show):
+        """Mostra/oculta a barra de progresso."""
+        if show:
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setRange(0, 0)  # Indeterminado
+        else:
+            self.progress_bar.setVisible(False)
+    
+    def _show_deck_preview(self):
+        """Mostra preview compacto do deck validado."""
         if not self.remote_deck:
             return
         
-        info_lines = []
+        # Informações básicas em formato compacto
+        info_items = []
         
         # Número de questões
         question_count = len(self.remote_deck.questions) if self.remote_deck.questions else 0
-        info_lines.append(f"Questões encontradas: {question_count}")
+        info_items.append(f"📝 {question_count} questões encontradas")
         
         # Questões ignoradas
         if hasattr(self.remote_deck, 'ignored_count') and self.remote_deck.ignored_count > 0:
-            info_lines.append(f"Questões ignoradas (SYNC? = não): {self.remote_deck.ignored_count}")
+            info_items.append(f"⚠️ {self.remote_deck.ignored_count} questões ignoradas")
         
         # Arquivos de mídia
         if hasattr(self.remote_deck, 'media') and self.remote_deck.media:
-            info_lines.append(f"Arquivos de mídia: {len(self.remote_deck.media)}")
+            info_items.append(f"🖼️ {len(self.remote_deck.media)} arquivos de mídia")
         
-        # Nome sugerido
-        if self.suggested_name:
-            info_lines.append(f"Nome sugerido: {self.suggested_name}")
+        self.info_label.setText(" • ".join(info_items))
         
-        self.info_text.setText("\n".join(info_lines))
-        self.info_group.setVisible(True)
+        # Mostrar nome final do deck com resolução de conflitos
+        self._update_deck_name_preview()
         
-        # Ajustar tamanho da janela automaticamente para acomodar as novas informações
-        self.adjustSize()
+        self.preview_group.setVisible(True)
     
-    def _update_suggested_name(self):
-        """Atualiza o nome sugerido no campo de nome."""
+    def _update_deck_name_preview(self):
+        """Atualiza preview do nome do deck."""
         if not self.suggested_name:
             return
         
-        if self.auto_naming_radio.isChecked():
-            # Modo automático: mostrar nome com hierarquia
-            parent_name = get_parent_deck_name()
-            full_name = f"{parent_name}::{self.suggested_name}"
-            self.name_edit.setText(full_name)
+        # Gerar nome final com resolução de conflitos
+        from .config_manager import resolve_remote_deck_name_conflict
+        current_url = self.url_edit.text().strip()
+        final_remote_name = resolve_remote_deck_name_conflict(current_url, self.suggested_name)
+        
+        # Nome completo hierárquico
+        parent_name = DEFAULT_PARENT_DECK_NAME
+        full_name = f"{parent_name}::{final_remote_name}"
+        
+        # Verificar se há conflito e mostrar aviso apropriado
+        if final_remote_name != self.suggested_name:
+            # CONFLITO DETECTADO - Mostrar aviso destacado
+            conflict_message = (
+                f"🚨 <b>Conflito de nome do deck remoto detectado!</b><br>"
+                f"📝 <b>Nome original:</b> '{self.suggested_name}'<br>"
+                f"🔄 <b>Renomeação automática aplicada</b>"
+            )
+            self.conflict_warning.setText(conflict_message)
+            self.conflict_warning.setVisible(True)
             
-            # Mostrar informações detalhadas no hierarchy_label
-            hierarchy_info = f"Deck criado como: {parent_name}::{self.suggested_name}"
-            if len(hierarchy_info) > 60:  # Se muito longo, quebrar linha
-                hierarchy_info = f"Deck criado como:\n{parent_name}::\n{self.suggested_name}"
-            self.hierarchy_label.setText(hierarchy_info)
+            # Nome com estilo de conflito
+            self.name_preview.setText(f"{full_name}")
+            self.name_preview.setStyleSheet("""
+                font-weight: bold; 
+                color: #ff9900; 
+                font-size: 12px;
+                padding: 6px 10px;
+                background-color: #fff8dc;
+                border: 1px solid #ffcc99;
+                border-radius: 3px;
+                margin: 2px 0px;
+            """)
+            
         else:
-            # Modo manual: mostrar apenas o nome base
-            self.name_edit.setText(self.suggested_name)
+            # SEM CONFLITO - Ocultar aviso
+            self.conflict_warning.setVisible(False)
             
-            # Mostrar informações no hierarchy_label
-            hierarchy_info = f"Deck será criado com nome: {self.suggested_name}"
-            if len(hierarchy_info) > 60:  # Se muito longo, quebrar linha
-                hierarchy_info = f"Deck será criado com nome:\n{self.suggested_name}"
-            self.hierarchy_label.setText(hierarchy_info)
-        
-        self._check_name_conflict()
-    
-    def _check_name_conflict(self):
-        """Verifica se há conflito de nome."""
-        name = self.name_edit.text().strip()
-        
-        if not name:
-            return
-        
-        if DeckNamer.check_conflict(name):
-            self._show_status("⚠️ Já existe um deck com este nome.", "warning")
-            
-            if self.resolve_conflicts_checkbox.isChecked():
-                # Sugerir nome alternativo
-                alternative = DeckNamer.resolve_conflict(name)
-                self.name_edit.setText(alternative)
-                self._show_status(f"Nome ajustado para evitar conflito:\n{alternative}", "info")
-        else:
-            self._show_status("✓ Nome disponível.", "success")
+            # Nome com estilo normal
+            self.name_preview.setText(f"{full_name}")
+            self.name_preview.setStyleSheet("""
+                font-weight: bold; 
+                color: #2166ac; 
+                font-size: 12px;
+                padding: 6px 10px;
+                background-color: #f0f8ff;
+                border: 1px solid #cce7ff;
+                border-radius: 3px;
+                margin: 2px 0px;
+            """)
     
     def _show_status(self, message, status_type="info"):
-        """Mostra mensagem de status."""
-        colors = {
-            "info": "#0066cc",
-            "success": "#009900",
-            "warning": "#ff9900",
-            "error": "#cc0000"
+        """Mostra mensagem de status com indicador visual."""
+        # Indicadores visuais
+        indicators = {
+            "waiting": ("⚪", "#999999"),
+            "validating": ("🔄", "#0066cc"),
+            "success": ("✅", "#009900"),
+            "warning": ("⚠️", "#ff9900"),
+            "error": ("❌", "#cc0000")
         }
         
-        color = colors.get(status_type, "#666")
+        indicator, color = indicators.get(status_type, ("ℹ️", "#666666"))
+        
+        # Atualizar indicador visual
+        self.status_indicator.setText(indicator)
+        self.status_indicator.setStyleSheet(f"color: {color};")
+        
+        # Atualizar mensagem
         self.status_label.setText(message)
-        self.status_label.setStyleSheet(f"color: {color}; margin-top: 5px;")
+        self.status_label.setStyleSheet(f"color: {color}; font-size: 11px; margin: 2px 0;")
     
     def _add_deck(self):
         """Adiciona o deck remoto."""
         url = self.url_edit.text().strip()
-        name = self.name_edit.text().strip()
         
-        if not url or not name:
-            QMessageBox.warning(self, "Erro", "Por favor, preencha a URL e o nome do deck.")
+        if not url or not self.remote_deck:
+            QMessageBox.warning(self, "Erro", "Por favor, valide a URL primeiro.")
             return
         
-        # Verificar conflito final
-        if DeckNamer.check_conflict(name) and not self.resolve_conflicts_checkbox.isChecked():
-            QMessageBox.warning(
-                self, 
-                "Conflito de Nome", 
-                "Já existe um deck com este nome. Ative a opção de resolver conflitos automaticamente ou escolha outro nome."
-            )
-            return
+        # Gerar nome do deck
+        parent_name = DEFAULT_PARENT_DECK_NAME
+        from .config_manager import resolve_remote_deck_name_conflict
+        final_remote_name = resolve_remote_deck_name_conflict(url, self.suggested_name)
+        full_name = f"{parent_name}::{final_remote_name}"
+        
+        self._show_progress(True)
+        self.add_button.setEnabled(False)
         
         try:
-            # Resolver conflito se necessário
-            if self.resolve_conflicts_checkbox.isChecked():
-                name = DeckNamer.resolve_conflict(name)
-            
             # Criar deck no Anki
-            deck_id, actual_name = get_or_create_deck(mw.col, name)
+            deck_id, actual_name = get_or_create_deck(mw.col, full_name)
             
-            # Adicionar à configuração
-            deck_info = {
-                "url": url,
-                "deck_id": deck_id,
-                "deck_name": actual_name,  # Usar o nome real usado pelo Anki
-                "created_at": self._get_current_timestamp()
-            }
+            # Adicionar à configuração usando a nova estrutura modular
+            from .config_manager import create_deck_info
+            deck_info = create_deck_info(
+                url=url,
+                local_deck_id=deck_id,
+                local_deck_name=actual_name,
+                remote_deck_name=final_remote_name,
+                created_at=self._get_current_timestamp()
+            )
             
             add_remote_deck(url, deck_info)
+            
+            # Sincronizar nome do deck no Anki com a configuração
+            from .utils import sync_deck_name_with_config
+            sync_result = sync_deck_name_with_config(mw.col, url, debug_messages=[])
+            if sync_result:
+                synced_deck_id, synced_name = sync_result
+                print(f"[ADD_DECK] Deck sincronizado: {actual_name} → {synced_name}")
             
             # Reconectar se estava desconectado
             if is_deck_disconnected(url):
@@ -405,7 +433,10 @@ class AddDeckDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao adicionar deck: {str(e)}")
+            QMessageBox.critical(self, "Erro", f"Erro ao adicionar deck:\n{str(e)}")
+            self.add_button.setEnabled(True)
+        finally:
+            self._show_progress(False)
     
     def _get_current_timestamp(self):
         """Obtém timestamp atual."""
@@ -414,20 +445,21 @@ class AddDeckDialog(QDialog):
     
     def get_deck_info(self):
         """Retorna informações do deck adicionado."""
-        # Obter o nome real do deck da configuração
         url = self.url_edit.text().strip()
-        from .config_manager import get_remote_decks
-        remote_decks = get_remote_decks()
+        from .config_manager import get_deck_local_name, resolve_remote_deck_name_conflict
         
-        if url in remote_decks:
-            actual_name = remote_decks[url].get("deck_name", self.name_edit.text().strip())
-        else:
-            actual_name = self.name_edit.text().strip()
+        # Nome final com resolução de conflitos
+        final_remote_name = resolve_remote_deck_name_conflict(url, self.suggested_name)
+        parent_name = DEFAULT_PARENT_DECK_NAME
+        full_name = f"{parent_name}::{final_remote_name}"
+        
+        # Tentar obter o nome real da configuração
+        actual_name = get_deck_local_name(url) or full_name
             
         return {
             "url": url,
-            "name": actual_name,  # Usar o nome real do deck
-            "is_automatic": self.auto_naming_radio.isChecked()
+            "name": actual_name,
+            "is_automatic": True
         }
 
 

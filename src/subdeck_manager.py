@@ -12,32 +12,34 @@ except ImportError:
     from aqt import mw
 
 from . import column_definitions as cols
-from .config_manager import get_create_subdecks_setting, get_remote_decks  # get_remote_decks agora usa 'decks' internamente
+from .config_manager import get_remote_decks  # get_remote_decks agora usa 'decks' internamente
 from .constants import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
 
-def get_subdeck_name(main_deck_name, fields):
+def get_subdeck_name(main_deck_name, fields, student=None):
     """
     Gera o nome do subdeck baseado no deck principal e nos campos IMPORTANCIA, TOPICO, SUBTOPICO e CONCEITO.
     
     Args:
         main_deck_name (str): Nome do deck principal
         fields (dict): Campos da nota com IMPORTANCIA, TOPICO, SUBTOPICO e CONCEITO
+        student (str, optional): Nome do aluno para incluir na hierarquia
         
     Returns:
-        str: Nome completo do subdeck no formato "DeckPrincipal::Importancia::Topico::Subtopico::Conceito"
+        str: Nome completo do subdeck no formato "DeckPrincipal::[Aluno::]Importancia::Topico::Subtopico::Conceito"
     """
-    # Verificar se a criação de subdecks está habilitada
-    if not get_create_subdecks_setting():
-        return main_deck_name
-    
     # Obter valores dos campos, usando valores padrão se estiverem vazios
     importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE
     topico = fields.get(cols.TOPICO, "").strip() or DEFAULT_TOPIC
     subtopico = fields.get(cols.SUBTOPICO, "").strip() or DEFAULT_SUBTOPIC
     conceito = fields.get(cols.CONCEITO, "").strip() or DEFAULT_CONCEPT
     
-    # Criar hierarquia completa de subdecks incluindo importância, tópico, subtópico e conceito
-    return f"{main_deck_name}::{importancia}::{topico}::{subtopico}::{conceito}"
+    # Criar hierarquia completa de subdecks
+    if student:
+        # Com aluno: Deck::Aluno::Importancia::Topico::Subtopico::Conceito
+        return f"{main_deck_name}::{student}::{importancia}::{topico}::{subtopico}::{conceito}"
+    else:
+        # Sem aluno: Deck::Importancia::Topico::Subtopico::Conceito (compatibilidade)
+        return f"{main_deck_name}::{importancia}::{topico}::{subtopico}::{conceito}"
 
 def ensure_subdeck_exists(deck_name):
     """
@@ -123,14 +125,14 @@ def remove_empty_subdecks(remote_decks):
     # Coletar todos os decks principais para verificar seus subdecks
     main_deck_ids = []
     for deck_info in remote_decks.values():
-        deck_id = deck_info.get("deck_id")
-        if deck_id and deck_id not in processed_decks:
-            main_deck_ids.append(deck_id)
-            processed_decks.add(deck_id)
+        local_deck_id = deck_info.get("local_deck_id")
+        if local_deck_id and local_deck_id not in processed_decks:
+            main_deck_ids.append(local_deck_id)
+            processed_decks.add(local_deck_id)
     
     # Para cada deck principal, verificar seus subdecks
-    for deck_id in main_deck_ids:
-        deck = mw.col.decks.get(deck_id)
+    for local_deck_id in main_deck_ids:
+        deck = mw.col.decks.get(local_deck_id)
         if not deck:
             continue
             

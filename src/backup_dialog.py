@@ -18,6 +18,7 @@ from aqt.qt import (
 
 # Importar constantes de seleção compatíveis
 from .fix_multiselection import MULTI_SELECTION
+from .constants import DEFAULT_PARENT_DECK_NAME
 from aqt.utils import showInfo, showWarning, askUser, getFile, getSaveFile
 
 # Compatibilidade com diferentes versões do Qt
@@ -59,7 +60,7 @@ class BackupDialog(QDialog):
         
     def setup_ui(self):
         """Configura a interface do diálogo"""
-        self.setWindowTitle("Backup de Decks Remotos - Sheets2Anki")
+        self.setWindowTitle(f"Backup de Decks Remotos - {DEFAULT_PARENT_DECK_NAME}")
         self.setMinimumSize(500, 400)
         
         # Layout principal
@@ -179,7 +180,7 @@ class BackupDialog(QDialog):
         
         self.backup_path_edit = QLineEdit()
         # Caminho padrão
-        default_path = str(Path.home() / "Documents" / f"sheets2anki_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip")
+        default_path = str(Path.home() / "Documents" / f"{DEFAULT_PARENT_DECK_NAME}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip")
         self.backup_path_edit.setText(default_path)
         location_layout.addWidget(self.backup_path_edit)
         
@@ -296,7 +297,7 @@ class BackupDialog(QDialog):
         export_path_layout.addWidget(QLabel("Arquivo:"))
         
         self.export_path_edit = QLineEdit()
-        default_export = str(Path.home() / "Documents" / f"sheets2anki_decks_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        default_export = str(Path.home() / "Documents" / f"{DEFAULT_PARENT_DECK_NAME}_decks_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
         self.export_path_edit.setText(default_export)
         export_path_layout.addWidget(self.export_path_edit)
         
