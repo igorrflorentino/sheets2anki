@@ -71,45 +71,170 @@ class RemoteDeck:
         self.url = url
         self.notes = []  # Lista de dicionários representando as notas
         self.headers = []  # Lista dos headers da planilha
-        self.total_notes = 0
-        self.valid_notes = 0
-        self.sync_notes = 0
+        
+        # Métricas refatoradas conforme especificação
+        self.total_table_lines = 0  # 1. Total de linhas da tabela
+        self.valid_note_lines = 0   # 2. Linhas com ID preenchido
+        self.invalid_note_lines = 0 # 3. Linhas com ID vazio
+        self.sync_marked_lines = 0  # 4. Linhas marcadas para sync
+        self.total_potential_anki_notes = 0  # 5. Total potencial de notas no Anki
+        self.potential_student_notes = 0     # 6. Notas para alunos específicos
+        self.potential_missing_a_notes = 0   # 7. Notas para [MISSING A.]
+        self.unique_students = set()         # 8. Set de alunos únicos
+        self.notes_per_student = {}          # 9. Notas por aluno individual
+        
         self.enabled_students = set()  # Conjunto de alunos habilitados
         
     def add_note(self, note_data):
         """
-        Adiciona uma nota ao deck.
+        Adiciona uma nota ao deck e atualiza métricas.
         
         Args:
             note_data (dict): Dados da nota
         """
-        if note_data:
-            self.notes.append(note_data)
-            self.total_notes += 1
+        if not note_data:
+            return
             
-            # Contabilizar se é uma nota válida (tem ID e pergunta)
-            if note_data.get(cols.ID) and note_data.get(cols.PERGUNTA):
-                self.valid_notes += 1
+        self.notes.append(note_data)
+        
+        # 1. Total de linhas da tabela (sempre incrementa)
+        self.total_table_lines += 1
+        
+        # 2 e 3. Linhas válidas vs inválidas (baseado no ID)
+        note_id = note_data.get(cols.ID, '').strip()
+        if note_id:
+            self.valid_note_lines += 1
+        else:
+            self.invalid_note_lines += 1
+            # Log de debug para linhas inválidas
+            print(f"[DEBUG] Linha inválida encontrada: ID='{note_data.get(cols.ID, '')}', PERGUNTA='{note_data.get(cols.PERGUNTA, '')[:50]}...'")
+            # Para linhas inválidas, não processar métricas adicionais
+            # mas continuar para permitir outras contabilizações se necessário
+            return
+        
+        # 4. Linhas marcadas para sincronizar (apenas para linhas válidas)
+        sync_value = str(note_data.get(cols.SYNC, '')).strip().lower()
+        if sync_value in ['true', '1', 'yes', 'sim']:
+            self.sync_marked_lines += 1
+        
+        # Análise de alunos para métricas 5-9 (apenas para linhas válidas)
+        alunos_str = note_data.get(cols.ALUNOS, '').strip()
+        
+        if not alunos_str:
+            # 7. Nota para [MISSING A.]
+            self.potential_missing_a_notes += 1
+            self.total_potential_anki_notes += 1
+            
+            # Adicionar [MISSING A.] às estatísticas por aluno
+            if '[MISSING A.]' not in self.notes_per_student:
+                self.notes_per_student['[MISSING A.]'] = 0
+            self.notes_per_student['[MISSING A.]'] += 1
+        else:
+            # Extrair alunos da string
+            students_in_note = [s.strip() for s in alunos_str.split(',') if s.strip()]
+            
+            # 8. Adicionar alunos únicos
+            for student in students_in_note:
+                self.unique_students.add(student)
                 
-                # Contabilizar se está marcada para sync
-                sync_value = str(note_data.get(cols.SYNC, '')).strip().lower()
-                if sync_value in ['true', '1', 'yes', 'sim']:
-                    self.sync_notes += 1
+                # 9. Contar notas por aluno individual
+                if student not in self.notes_per_student:
+                    self.notes_per_student[student] = 0
+                self.notes_per_student[student] += 1
+            
+            # 6. Total potencial de notas para alunos específicos
+            self.potential_student_notes += len(students_in_note)
+            
+            # 5. Somar ao total potencial de notas no Anki
+            self.total_potential_anki_notes += len(students_in_note)
+    
+    def finalize_metrics(self):
+        """
+        Finaliza o cálculo das métricas após todas as notas terem sido adicionadas.
+        Deve ser chamado no final do processamento do deck.
+        """
+        # Calcular métricas derivadas
+        self.unique_students.discard('[MISSING A.]')  # Não contar [MISSING A.] como aluno único real
+        
+        # Validar automaticamente
+        try:
+            self.validate_metrics()
+        except ValueError as e:
+            # Log de aviso mas não falha
+            print(f"⚠️ Aviso: Inconsistência detectada nas métricas do deck remoto: {e}")
     
     def get_statistics(self):
         """
-        Retorna estatísticas do deck remoto.
+        Retorna estatísticas do deck remoto - REFATORADAS.
         
         Returns:
-            dict: Estatísticas do deck
+            dict: Estatísticas do deck conforme nova especificação
         """
         return {
-            'total_notes': self.total_notes,
-            'valid_notes': self.valid_notes,
-            'sync_notes': self.sync_notes,
-            'enabled_students': len(self.enabled_students),
+            # Métricas básicas da tabela
+            'total_table_lines': self.total_table_lines,          # 1. Total de linhas
+            'valid_note_lines': self.valid_note_lines,            # 2. Linhas com ID preenchido
+            'invalid_note_lines': self.invalid_note_lines,        # 3. Linhas com ID vazio
+            'sync_marked_lines': self.sync_marked_lines,          # 4. Linhas marcadas para sync
+            
+            # Métricas de potencial do Anki
+            'total_potential_anki_notes': self.total_potential_anki_notes,  # 5. Total potencial no Anki
+            'potential_student_notes': self.potential_student_notes,        # 6. Notas para alunos específicos
+            'potential_missing_a_notes': self.potential_missing_a_notes,    # 7. Notas para [MISSING A.]
+            
+            # Métricas de alunos
+            'unique_students_count': len(self.unique_students),               # 8. Total de alunos únicos
+            'notes_per_student': self.notes_per_student.copy(),              # 9. Notas por aluno
+            
+            # Informações adicionais
+            'unique_students_list': sorted(list(self.unique_students)),
+            'enabled_students_count': len(self.enabled_students),
             'headers': self.headers
         }
+    
+    def validate_metrics(self):
+        """
+        Valida a consistência das métricas calculadas.
+        
+        Raises:
+            ValueError: Se houver inconsistências nas métricas
+        """
+        # 1. Validar que linhas válidas + inválidas = total
+        total_calculated = self.valid_note_lines + self.invalid_note_lines
+        if total_calculated != self.total_table_lines:
+            raise ValueError(f"Inconsistência: válidas({self.valid_note_lines}) + inválidas({self.invalid_note_lines}) != total({self.total_table_lines})")
+        
+        # 2. Validar que sync_marked_lines não excede valid_note_lines
+        if self.sync_marked_lines > self.valid_note_lines:
+            raise ValueError(f"Inconsistência: linhas marcadas para sync({self.sync_marked_lines}) > linhas válidas({self.valid_note_lines})")
+        
+        # 3. Validar que total potencial = student notes + missing_a notes
+        total_potential_calculated = self.potential_student_notes + self.potential_missing_a_notes
+        if total_potential_calculated != self.total_potential_anki_notes:
+            raise ValueError(f"Inconsistência: student({self.potential_student_notes}) + missing_a({self.potential_missing_a_notes}) != total_potential({self.total_potential_anki_notes})")
+        
+        # 4. Validar soma das notas por aluno
+        total_notes_per_student = sum(self.notes_per_student.values())
+        if total_notes_per_student != self.total_potential_anki_notes:
+            raise ValueError(f"Inconsistência: soma notas por aluno({total_notes_per_student}) != total_potential({self.total_potential_anki_notes})")
+        
+        # 5. Validar contagem de alunos únicos
+        expected_unique_count = len(self.unique_students)
+        if expected_unique_count != len(self.notes_per_student):
+            # Ajuste para [MISSING A.] que pode estar no notes_per_student mas não no unique_students
+            if '[MISSING A.]' in self.notes_per_student and '[MISSING A.]' not in self.unique_students:
+                expected_unique_count += 1
+            if expected_unique_count != len(self.notes_per_student):
+                raise ValueError(f"Inconsistência: alunos únicos({len(self.unique_students)}) != alunos no dict({len(self.notes_per_student)})")
+        
+        # 4. Validar que soma das notas por aluno individual = total potencial
+        total_per_student = sum(self.notes_per_student.values())
+        if total_per_student != self.total_potential_anki_notes:
+            raise ValueError(f"Inconsistência: soma individual({total_per_student}) != total potencial({self.total_potential_anki_notes})")
+        
+        # 5. Validar que contagem de alunos únicos confere com o dicionário
+        if len(self.unique_students) != len(self.notes_per_student):
+            raise ValueError(f"Inconsistência: alunos únicos({len(self.unique_students)}) != chaves do dicionário({len(self.notes_per_student)})")
 
 # =============================================================================
 # FUNÇÕES DE ANÁLISE DE DECKS REMOTOS
@@ -162,7 +287,8 @@ def getRemoteDeck(url, enabled_students=None, debug_messages=None):
         )
         
         stats = remote_deck.get_statistics()
-        add_debug_msg(f"Deck construído: {stats['sync_notes']}/{stats['valid_notes']} notas para sync")
+        add_debug_msg(f"Deck construído: {stats['sync_marked_lines']}/{stats['valid_note_lines']} linhas marcadas para sync")
+        add_debug_msg(f"Métricas finais: {stats['total_potential_anki_notes']} notas potenciais para {stats['unique_students_count']} alunos únicos")
         
         return remote_deck
         
@@ -306,7 +432,11 @@ def build_remote_deck_from_tsv(parsed_data, url, enabled_students=None, debug_me
                 else:
                     note_data[header] = ""
             
-            # Validar nota básica
+            # SEMPRE adicionar ao deck para contabilização correta de métricas
+            # A validação de ID vazio será feita dentro do método add_note()
+            remote_deck.add_note(note_data)
+            
+            # Validar se é uma nota processável (tem ID e PERGUNTA)
             if not note_data.get(cols.ID) or not note_data.get(cols.PERGUNTA):
                 add_debug_msg(f"Linha {row_index + 2}: nota inválida (ID ou PERGUNTA vazio)")
                 continue
@@ -315,8 +445,6 @@ def build_remote_deck_from_tsv(parsed_data, url, enabled_students=None, debug_me
             sync_value = str(note_data.get(cols.SYNC, '')).strip().lower()
             if sync_value not in ['true', '1', 'yes', 'sim']:
                 add_debug_msg(f"Linha {row_index + 2}: nota não marcada para sync")
-                # Ainda adiciona ao deck, mas não conta como sync
-                remote_deck.add_note(note_data)
                 continue
             
             # Verificar filtro de alunos
@@ -329,11 +457,8 @@ def build_remote_deck_from_tsv(parsed_data, url, enabled_students=None, debug_me
                         add_debug_msg(f"Linha {row_index + 2}: nota filtrada por aluno")
                         continue
             
-            # Processamento adicional dos campos
+            # Processamento adicional dos campos para notas válidas
             process_note_fields(note_data)
-            
-            # Adicionar ao deck
-            remote_deck.add_note(note_data)
             
         except Exception as e:
             add_debug_msg(f"Erro ao processar linha {row_index + 2}: {e}")
@@ -343,8 +468,18 @@ def build_remote_deck_from_tsv(parsed_data, url, enabled_students=None, debug_me
     if enabled_students:
         remote_deck.enabled_students = set(enabled_students)
     
+    # Finalizar cálculo das métricas
+    remote_deck.finalize_metrics()
+    
+    # Validar consistência das métricas calculadas
+    try:
+        remote_deck.validate_metrics()
+        add_debug_msg("✅ Métricas validadas - todas consistentes")
+    except ValueError as e:
+        add_debug_msg(f"⚠️ Inconsistência nas métricas: {e}")
+    
     stats = remote_deck.get_statistics()
-    add_debug_msg(f"Deck final: {stats['sync_notes']} notas marcadas para sync")
+    add_debug_msg(f"Deck final: {stats['sync_marked_lines']} linhas marcadas para sync, {stats['total_potential_anki_notes']} notas potenciais no Anki")
     
     return remote_deck
 
@@ -451,19 +586,23 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
     add_debug_msg(f"🔧 Iniciando sincronização de notas com lógica refatorada")
     add_debug_msg(f"🔧 remoteDeck contém {len(remoteDeck.notes)} notas")
     
-    stats = {
-        'created': 0,
-        'updated': 0,
-        'deleted': 0,
-        'errors': 0,
-        'skipped': 0,
-        'unchanged': 0,
-        'total_remote': len(remoteDeck.notes),
-        # Detalhes das mudanças para relatório ao usuário
-        'update_details': [],  # Lista com detalhes de cada nota atualizada
-        'creation_details': [],  # Lista com detalhes de cada nota criada
-        'deletion_details': []  # Lista com detalhes de cada nota removida
-    }
+    # Importar SyncStats
+    from .sync import SyncStats
+    
+    # Criar objeto de estatísticas com métricas refatoradas
+    stats = SyncStats()
+    
+    # Copiar métricas já calculadas do RemoteDeck
+    deck_stats = remoteDeck.get_statistics()
+    stats.remote_total_table_lines = deck_stats['total_table_lines']
+    stats.remote_valid_note_lines = deck_stats['valid_note_lines'] 
+    stats.remote_invalid_note_lines = deck_stats['invalid_note_lines']
+    stats.remote_sync_marked_lines = deck_stats['sync_marked_lines']
+    stats.remote_total_potential_anki_notes = deck_stats['total_potential_anki_notes']
+    stats.remote_potential_student_notes = deck_stats['potential_student_notes']
+    stats.remote_potential_missing_a_notes = deck_stats['potential_missing_a_notes']
+    stats.remote_unique_students_count = deck_stats['unique_students_count']
+    stats.remote_notes_per_student = deck_stats['notes_per_student'].copy()
     
     try:
         # 1. Obter alunos habilitados do sistema de configuração
@@ -486,14 +625,16 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
             add_debug_msg("⚠️ Nenhum aluno habilitado e [MISSING A.] desabilitado - nenhuma nota será sincronizada")
             return stats
         
-        # 4. Criar conjunto de todos os student_note_ids esperados
+        # 4. Criar conjunto de todos os student_note_ids esperados para sincronização
         expected_student_note_ids = set()
         
         for note_data in remoteDeck.notes:
             note_id = note_data.get(cols.ID, '').strip()
+            
+            # Pular linhas inválidas (sem ID)
             if not note_id:
                 continue
-                
+            
             # Verificar se deve sincronizar esta nota
             sync_value = str(note_data.get(cols.SYNC, '')).strip().lower()
             if sync_value not in ['true', '1', 'yes', 'sim']:
@@ -501,9 +642,8 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
             
             # Obter lista de alunos desta nota
             alunos_str = note_data.get(cols.ALUNOS, '').strip()
-            
             if not alunos_str:
-                # Nota sem alunos específicos - verificar se deve processar como [MISSING A.]
+                # Nota sem alunos específicos - verificar [MISSING A.]
                 if sync_missing_students:
                     student_note_id = f"[MISSING A.]_{note_id}"
                     expected_student_note_ids.add(student_note_id)
@@ -522,7 +662,17 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                     student_note_id = f"{student}_{note_id}"
                     expected_student_note_ids.add(student_note_id)
         
-        add_debug_msg(f"Total de notas esperadas (student_note_id): {len(expected_student_note_ids)}")
+        add_debug_msg(f"=== MÉTRICAS DO DECK REMOTO - REFATORADAS ===")
+        add_debug_msg(f"📊 Total de linhas na tabela: {stats.remote_total_table_lines}")
+        add_debug_msg(f"✅ Linhas válidas (com ID preenchido): {stats.remote_valid_note_lines}")
+        add_debug_msg(f"❌ Linhas inválidas (sem ID): {stats.remote_invalid_note_lines}")
+        add_debug_msg(f"🔄 Linhas marcadas para sync: {stats.remote_sync_marked_lines}")
+        add_debug_msg(f"� Total potencial de notas no Anki: {stats.remote_total_potential_anki_notes}")
+        add_debug_msg(f"🎓 Potencial de notas para alunos específicos: {stats.remote_potential_student_notes}")
+        add_debug_msg(f"👤 Potencial de notas para [MISSING A.]: {stats.remote_potential_missing_a_notes}")
+        add_debug_msg(f"👥 Total de alunos únicos: {stats.remote_unique_students_count}")
+        add_debug_msg(f"📋 Notas por aluno: {dict(stats.remote_notes_per_student)}")
+        add_debug_msg(f"🎯 Total de student_note_ids para sincronização: {len(expected_student_note_ids)}")
         
         # 3. Garantir que os note types existem para todos os alunos necessários
         students_to_create_note_types = set()
@@ -542,14 +692,14 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
         for note_data in remoteDeck.notes:
             note_id = note_data.get(cols.ID, '').strip()
             if not note_id:
-                stats['errors'] += 1
-                add_debug_msg(f"❌ Nota sem ID válido")
+                # Linha com ID vazio não é erro, é situação normal já contabilizada nas métricas
+                # stats.errors += 1  # REMOVIDO - não é erro
                 continue
             
             # Verificar se deve sincronizar
             sync_value = str(note_data.get(cols.SYNC, '')).strip().lower()
             if sync_value not in ['true', '1', 'yes', 'sim']:
-                stats['skipped'] += 1
+                stats.skipped += 1
                 continue
             
             # Obter lista de alunos da nota
@@ -571,7 +721,7 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                             )
                             if success:
                                 if was_updated:
-                                    stats['updated'] += 1
+                                    stats.updated += 1
                                     # Capturar detalhes da mudança
                                     update_detail = {
                                         'student_note_id': student_note_id,
@@ -579,18 +729,18 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                                         'note_id': note_data.get(cols.ID, '').strip(),
                                         'changes': changes
                                     }
-                                    stats['update_details'].append(update_detail)
+                                    stats.update_details.append(update_detail)
                                     add_debug_msg(f"✅ Nota [MISSING A.] atualizada: {student_note_id}")
                                 else:
-                                    stats['unchanged'] += 1
+                                    stats.unchanged += 1
                                     add_debug_msg(f"⏭️ Nota [MISSING A.] inalterada: {student_note_id}")
                             else:
-                                stats['errors'] += 1
+                                stats.errors += 1
                                 add_debug_msg(f"❌ Erro ao atualizar nota [MISSING A.]: {student_note_id}")
                         else:
                             # Criar nova nota
                             if create_new_note_for_student(col, note_data, student, deck_id, deck_url, debug_messages):
-                                stats['created'] += 1
+                                stats.created += 1
                                 # Capturar detalhes da criação
                                 creation_detail = {
                                     'student_note_id': f"{student}_{note_data.get(cols.ID, '').strip()}",
@@ -598,10 +748,10 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                                     'note_id': note_data.get(cols.ID, '').strip(),
                                     'pergunta': note_data.get(cols.PERGUNTA, '')[:100] + ('...' if len(note_data.get(cols.PERGUNTA, '')) > 100 else '')
                                 }
-                                stats['creation_details'].append(creation_detail)
+                                stats.creation_details.append(creation_detail)
                                 add_debug_msg(f"✅ Nota [MISSING A.] criada: {student_note_id}")
                             else:
-                                stats['errors'] += 1
+                                stats.errors += 1
                                 add_debug_msg(f"❌ Erro ao criar nota [MISSING A.]: {student_note_id}")
                                 
                     except Exception as e:
@@ -609,10 +759,10 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                         error_details = traceback.format_exc()
                         add_debug_msg(f"❌ Erro ao processar {student_note_id}: {e}")
                         add_debug_msg(f"❌ Stack trace: {error_details}")
-                        stats['errors'] += 1
+                        stats.errors += 1
                 else:
                     # Funcionalidade [MISSING A.] desabilitada
-                    stats['skipped'] += 1
+                    stats.skipped += 1
                     add_debug_msg(f"Nota {note_id}: sem alunos definidos, pulando (funcionalidade [MISSING A.] desabilitada)")
                 continue
             
@@ -635,7 +785,7 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                         )
                         if success:
                             if was_updated:
-                                stats['updated'] += 1
+                                stats.updated += 1
                                 # Capturar detalhes da mudança
                                 update_detail = {
                                     'student_note_id': student_note_id,
@@ -643,18 +793,18 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                                     'note_id': note_data.get(cols.ID, '').strip(),
                                     'changes': changes
                                 }
-                                stats['update_details'].append(update_detail)
+                                stats.update_details.append(update_detail)
                                 add_debug_msg(f"✅ Nota atualizada: {student_note_id}")
                             else:
-                                stats['unchanged'] += 1
+                                stats.unchanged += 1
                                 add_debug_msg(f"⏭️ Nota inalterada: {student_note_id}")
                         else:
-                            stats['errors'] += 1
+                            stats.errors += 1
                             add_debug_msg(f"❌ Erro ao atualizar nota: {student_note_id}")
                     else:
                         # Criar nova nota
                         if create_new_note_for_student(col, note_data, student, deck_id, deck_url, debug_messages):
-                            stats['created'] += 1
+                            stats.created += 1
                             # Capturar detalhes da criação
                             creation_detail = {
                                 'student_note_id': student_note_id,
@@ -662,10 +812,10 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                                 'note_id': note_data.get(cols.ID, '').strip(),
                                 'pergunta': note_data.get(cols.PERGUNTA, '')[:100] + ('...' if len(note_data.get(cols.PERGUNTA, '')) > 100 else '')
                             }
-                            stats['creation_details'].append(creation_detail)
+                            stats.creation_details.append(creation_detail)
                             add_debug_msg(f"✅ Nota criada: {student_note_id}")
                         else:
-                            stats['errors'] += 1
+                            stats.errors += 1
                             add_debug_msg(f"❌ Erro ao criar nota: {student_note_id}")
                             
                 except Exception as e:
@@ -673,48 +823,16 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                     error_details = traceback.format_exc()
                     add_debug_msg(f"❌ Erro ao processar {student_note_id}: {e}")
                     add_debug_msg(f"❌ Stack trace: {error_details}")
-                    stats['errors'] += 1
+                    stats.errors += 1
         
         # 6. Remover notas que não existem mais na fonte remota
-        # NOVA LÓGICA: Só remover notas realmente obsoletas, não de alunos desabilitados
         notes_to_delete = set(existing_notes.keys()) - expected_student_note_ids
-        
-        # Filtrar para não remover notas de alunos desabilitados se auto-remove estiver ativo
-        # (essas serão tratadas pelo sistema de limpeza com confirmação)
-        from .config_manager import is_auto_remove_disabled_students
-        if is_auto_remove_disabled_students():
-            # Se auto-remove estiver ativo, preservar notas de alunos desabilitados 
-            # para serem tratadas pelo processo de confirmação
-            filtered_notes_to_delete = set()
-            all_available_students = set(get_enabled_students() or [])
-            
-            # Adicionar alunos disponíveis (mesmo se não habilitados) para evitar remoção prematura
-            from .config_manager import get_global_student_config
-            config = get_global_student_config()
-            available_students = set(config.get("available_students", []))
-            all_known_students = enabled_students.union(available_students)
-            
-            for student_note_id in notes_to_delete:
-                student = student_note_id.split('_')[0] 
-                # Só remover se não for de nenhum aluno conhecido (realmente obsoleta)
-                if student not in all_known_students and student != "[MISSING A.]":
-                    filtered_notes_to_delete.add(student_note_id)
-                    add_debug_msg(f"Nota {student_note_id}: marcada para remoção (aluno desconhecido)")
-                else:
-                    add_debug_msg(f"Nota {student_note_id}: preservada (aluno conhecido ou [MISSING A.])")
-            
-            notes_to_delete = filtered_notes_to_delete
-            add_debug_msg(f"Auto-remove ativo: preservando notas de alunos conhecidos, removendo apenas {len(notes_to_delete)} realmente obsoletas")
-        else:
-            add_debug_msg(f"Auto-remove inativo: removendo {len(notes_to_delete)} notas obsoletas normalmente")
-        
-        add_debug_msg(f"Removendo {len(notes_to_delete)} notas obsoletas")
-        
+        add_debug_msg(f"Removendo {len(notes_to_delete)} notas obsoletas (não encontradas no deck remoto)")
         for student_note_id in notes_to_delete:
             try:
                 note_to_delete = existing_notes[student_note_id]
                 if delete_note_by_id(col, note_to_delete):
-                    stats['deleted'] += 1
+                    stats.deleted += 1
                     # Capturar detalhes da exclusão
                     deletion_detail = {
                         'student_note_id': student_note_id,
@@ -722,14 +840,14 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
                         'note_id': student_note_id.split('_', 1)[1] if '_' in student_note_id else student_note_id,
                         'pergunta': note_to_delete[cols.PERGUNTA][:100] + ('...' if len(note_to_delete[cols.PERGUNTA]) > 100 else '') if cols.PERGUNTA in note_to_delete else 'N/A'
                     }
-                    stats['deletion_details'].append(deletion_detail)
+                    stats.deletion_details.append(deletion_detail)
                     add_debug_msg(f"🗑️ Nota removida: {student_note_id}")
                 else:
-                    stats['errors'] += 1
+                    stats.errors += 1
                     add_debug_msg(f"❌ Erro ao remover nota: {student_note_id}")
             except Exception as e:
                 add_debug_msg(f"❌ Erro ao deletar nota {student_note_id}: {e}")
-                stats['errors'] += 1
+                stats.errors += 1
         
         # 7. Salvar alterações
         try:
@@ -738,7 +856,7 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
         except Exception as e:
             raise CollectionSaveError(f"Falha ao salvar coleção: {e}")
         
-        add_debug_msg(f"🎯 Sincronização concluída: +{stats['created']} ~{stats['updated']} ={stats['unchanged']} -{stats['deleted']} !{stats['errors']}")
+        add_debug_msg(f"🎯 Sincronização concluída: +{stats.created} ~{stats.updated} ={stats.unchanged} -{stats.deleted} !{stats.errors}")
         
         return stats
         
@@ -749,7 +867,9 @@ def create_or_update_notes(col, remoteDeck, deck_id, deck_url=None, debug_messag
         add_debug_msg(f"❌ Stack trace completo: {error_details}")
         
         # Retornar stats com erro
-        stats['errors'] = stats.get('total_remote', 1)
+        if stats.remote_total_table_lines == 0:
+            stats.remote_total_table_lines = len(remoteDeck.notes) if remoteDeck and remoteDeck.notes else 0
+        stats.errors = max(stats.remote_sync_marked_lines, 1)
         return stats
 
 def get_existing_notes_by_student_id(col, deck_id):

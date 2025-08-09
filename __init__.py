@@ -195,6 +195,22 @@ def configure_deck_options_mode():
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
 
+def configure_ankiweb_sync():
+    """
+    Abre o diálogo de configuração de sincronização automática com AnkiWeb.
+    
+    Esta função permite ao usuário escolher entre três modos:
+    1. Desabilitado - Não fazer sincronização automática
+    2. Sincronização Normal - Executar sync normal após sincronização de decks
+    3. Forçar Upload - Sempre enviar dados locais para AnkiWeb
+    """
+    try:
+        from .src.ankiweb_sync_config_dialog import show_ankiweb_sync_config
+        show_ankiweb_sync_config()
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
 # =============================================================================
 # CONFIGURAÇÃO DA INTERFACE DO ANKI
 # =============================================================================
@@ -250,6 +266,12 @@ if mw is not None:
     deckOptionsConfigAction.setShortcut(QKeySequence("Ctrl+Shift+O"))
     qconnect(deckOptionsConfigAction.triggered, configure_deck_options_mode)
     remoteDecksSubMenu.addAction(deckOptionsConfigAction)
+
+    # Ação: Configurar sincronização AnkiWeb
+    ankiWebSyncConfigAction = QAction("Configurar Sincronização AnkiWeb", mw)
+    ankiWebSyncConfigAction.setShortcut(QKeySequence("Ctrl+Shift+W"))
+    qconnect(ankiWebSyncConfigAction.triggered, configure_ankiweb_sync)
+    remoteDecksSubMenu.addAction(ankiWebSyncConfigAction)
 
     # Ação: Importar deck de teste (apenas para desenvolvimento/debug)
     try:

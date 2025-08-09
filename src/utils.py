@@ -694,6 +694,74 @@ def cleanup_orphaned_note_types():
 # GERENCIAMENTO DE OPÇÕES DE DECK COMPARTILHADAS
 # =============================================================================
 
+def _is_default_config(config, config_type="default"):
+    """
+    Verifica se a configuração ainda está com valores padrão do Sheets2Anki.
+    
+    Args:
+        config (dict): Configuração do deck
+        config_type (str): Tipo da configuração ("root" ou "default")
+        
+    Returns:
+        bool: True se ainda estiver com valores padrão do addon
+    """
+    try:
+        if config_type == "root":
+            # Valores padrão para o deck raiz
+            expected_values = {
+                'new_perDay': 30,
+                'rev_perDay': 150,
+                'new_delays': [1, 10],
+                'lapse_delays': [10],
+                'lapse_minInt': 1,
+                'lapse_mult': 0.0
+            }
+        else:
+            # Valores padrão para decks remotos
+            expected_values = {
+                'new_perDay': 50,
+                'rev_perDay': 200,
+                'new_delays': [1, 10],
+                'lapse_delays': [10],
+                'lapse_minInt': 1,
+                'lapse_mult': 0.0
+            }
+        
+        # Verificar cada valor esperado
+        checks = [
+            config['new']['perDay'] == expected_values['new_perDay'],
+            config['rev']['perDay'] == expected_values['rev_perDay'],
+            config['new']['delays'] == expected_values['new_delays'],
+            config['lapse']['delays'] == expected_values['lapse_delays'],
+            config['lapse']['minInt'] == expected_values['lapse_minInt'],
+            config['lapse']['mult'] == expected_values['lapse_mult']
+        ]
+        
+        return all(checks)
+    except (KeyError, TypeError):
+        # Se houver erro ao acessar algum campo, considerar como personalizada
+        return False
+
+def _should_update_config_version(config):
+    """
+    Verifica se a configuração precisa ser atualizada para uma nova versão do addon.
+    Esta função pode ser usada no futuro para aplicar atualizações de configuração
+    sem sobrescrever personalizações do usuário.
+    
+    Args:
+        config (dict): Configuração do deck
+        
+    Returns:
+        bool: True se precisa atualizar para nova versão
+    """
+    # Para versões futuras, podemos adicionar lógica aqui para detectar
+    # configurações antigas que precisam ser atualizadas
+    config_version = config.get('sheets2anki_version', '1.0.0')
+    addon_version = "1.0.0"  # Esta seria obtida do manifest.json
+    
+    # Por enquanto, sempre retorna False para não forçar atualizações
+    return False
+
 def get_or_create_sheets2anki_options_group(deck_name=None):
     """
     Obtém ou cria o grupo de opções baseado no modo configurado.
@@ -707,50 +775,82 @@ def get_or_create_sheets2anki_options_group(deck_name=None):
     from .config_manager import get_deck_options_mode
     
     if not mw or not mw.col:
+        add_debug_message("❌ Anki não disponível", "DECK_OPTIONS")
         return None
     
     # Verificar modo configurado
     mode = get_deck_options_mode()
     
     if mode == "manual":
-        print(f"[DECK_OPTIONS] Modo manual ativo - não aplicando opções automáticas")
+        add_debug_message(f"Modo manual ativo - não aplicando opções automáticas", "DECK_OPTIONS")
         return None
     elif mode == "individual" and deck_name:
         options_group_name = f"Sheets2Anki - {deck_name}"
+        add_debug_message(f"Modo individual: criando/obtendo grupo '{options_group_name}'", "DECK_OPTIONS")
     else:  # mode == "shared" ou fallback
-        options_group_name = "Sheets2Anki - Default"
+        options_group_name = "Sheets2Anki - Default Options"
+        add_debug_message(f"Modo shared: criando/obtendo grupo '{options_group_name}'", "DECK_OPTIONS")
         
     try:
         # Procurar por grupo de opções existente
         all_option_groups = mw.col.decks.all_config()
         
+        add_debug_message(f"Buscando grupo '{options_group_name}' entre {len(all_option_groups)} grupos existentes", "DECK_OPTIONS")
+        
         for group in all_option_groups:
             if group['name'] == options_group_name:
-                print(f"[DECK_OPTIONS] Grupo '{options_group_name}' já existe (ID: {group['id']})")
+                add_debug_message(f"✅ Grupo '{options_group_name}' já existe (ID: {group['id']})", "DECK_OPTIONS")
+                
+                # Verificar se as configurações foram personalizadas pelo usuário
+                try:
+                    existing_config = mw.col.decks.get_config(group['id'])
+                    if existing_config and not _is_default_config(existing_config, "default" if mode == "shared" else "default"):
+                        add_debug_message(f"🔒 Grupo '{options_group_name}' tem configurações personalizadas - preservando", "DECK_OPTIONS")
+                    else:
+                        add_debug_message(f"📋 Grupo '{options_group_name}' ainda tem configurações padrão", "DECK_OPTIONS")
+                except Exception as check_error:
+                    add_debug_message(f"⚠️ Erro ao verificar configurações do grupo existente: {check_error}", "DECK_OPTIONS")
+                
                 return group['id']
         
         # Se não existe, criar novo grupo
+        add_debug_message(f"Grupo não existe, criando novo: '{options_group_name}'", "DECK_OPTIONS")
         new_group = mw.col.decks.add_config_returning_id(options_group_name)
-        print(f"[DECK_OPTIONS] Criado novo grupo '{options_group_name}' (ID: {new_group})")
+        add_debug_message(f"✅ Criado novo grupo '{options_group_name}' (ID: {new_group})", "DECK_OPTIONS")
+        
+        # IMPORTANTE: Só aplicamos configurações padrão em grupos NOVOS
+        # Grupos existentes podem ter sido personalizados pelo usuário
+        add_debug_message(f"🔧 Aplicando configurações padrão ao grupo novo '{options_group_name}'", "DECK_OPTIONS")
         
         # Configurar opções padrão otimizadas para flashcards de planilhas
-        config = mw.col.decks.config(new_group)
-        
-        # Configurações otimizadas para estudo de planilhas
-        config['new']['perDay'] = 50  # 50 novos cards por dia (bom para planilhas)
-        config['rev']['perDay'] = 200  # 200 revisões por dia
-        config['new']['delays'] = [1, 10]  # Intervalos curtos iniciais
-        config['lapse']['delays'] = [10]  # Intervalo para cards esquecidos
-        config['lapse']['minInt'] = 1  # Intervalo mínimo após lapse
-        config['lapse']['mult'] = 0.0  # Redução do intervalo após lapse
-        
-        mw.col.decks.save(config)
-        print(f"[DECK_OPTIONS] Configurações padrão aplicadas ao grupo '{options_group_name}'")
+        try:
+            config = mw.col.decks.get_config(new_group)
+            if not config:
+                add_debug_message(f"❌ Não foi possível obter config do grupo {new_group}", "DECK_OPTIONS")
+                return None
+            
+            # Configurações otimizadas para estudo de planilhas
+            config['new']['perDay'] = 50  # 50 novos cards por dia (bom para planilhas)
+            config['rev']['perDay'] = 200  # 200 revisões por dia
+            config['new']['delays'] = [1, 10]  # Intervalos curtos iniciais
+            config['lapse']['delays'] = [10]  # Intervalo para cards esquecidos
+            config['lapse']['minInt'] = 1  # Intervalo mínimo após lapse
+            config['lapse']['mult'] = 0.0  # Redução do intervalo após lapse
+            
+            mw.col.decks.update_config(config)
+            add_debug_message(f"✅ Configurações padrão aplicadas ao grupo novo '{options_group_name}'", "DECK_OPTIONS")
+            add_debug_message(f"📊 Valores aplicados: new/day={config['new']['perDay']}, rev/day={config['rev']['perDay']}", "DECK_OPTIONS")
+        except Exception as config_error:
+            add_debug_message(f"⚠️ Erro ao configurar grupo {new_group}: {config_error}", "DECK_OPTIONS")
+            # Ainda retornamos o ID do grupo mesmo se a configuração falhou
+            add_debug_message(f"Retornando grupo {new_group} mesmo com erro de configuração", "DECK_OPTIONS")
         
         return new_group
         
     except Exception as e:
-        print(f"[DECK_OPTIONS] Erro ao criar/obter grupo de opções: {e}")
+        add_debug_message(f"❌ Erro ao criar/obter grupo de opções: {e}", "DECK_OPTIONS")
+        import traceback
+        traceback.print_exc()
         return None
 
 def apply_sheets2anki_options_to_deck(deck_id, deck_name=None):
@@ -767,73 +867,58 @@ def apply_sheets2anki_options_to_deck(deck_id, deck_name=None):
     from .config_manager import get_deck_options_mode
     
     if not mw or not mw.col or not deck_id:
+        add_debug_message("❌ Anki ou deck_id inválido", "DECK_OPTIONS")
         return False
     
     # Verificar se modo manual está ativo
     mode = get_deck_options_mode()
     if mode == "manual":
-        print(f"[DECK_OPTIONS] Modo manual ativo - não aplicando opções ao deck {deck_id}")
+        add_debug_message(f"Modo manual ativo - não aplicando opções ao deck {deck_id}", "DECK_OPTIONS")
         return False
         
     try:
+        add_debug_message(f"Aplicando opções ao deck {deck_id} (nome para opções: {deck_name})", "DECK_OPTIONS")
+        
         # Obter ou criar grupo de opções baseado no modo
         options_group_id = get_or_create_sheets2anki_options_group(deck_name)
         
         if not options_group_id:
-            print(f"[DECK_OPTIONS] Falha ao obter grupo de opções")
+            add_debug_message(f"❌ Falha ao obter grupo de opções", "DECK_OPTIONS")
             return False
         
         # Obter informações do deck
         deck = mw.col.decks.get(deck_id)
         if not deck:
-            print(f"[DECK_OPTIONS] Deck não encontrado: {deck_id}")
+            add_debug_message(f"❌ Deck não encontrado: {deck_id}", "DECK_OPTIONS")
             return False
             
         deck_full_name = deck['name']
+        
+        add_debug_message(f"Grupo de opções obtido: {options_group_id} para deck '{deck_full_name}'", "DECK_OPTIONS")
         
         # Aplicar o grupo de opções ao deck
         deck['conf'] = options_group_id
         mw.col.decks.save(deck)
         
-        print(f"[DECK_OPTIONS] Grupo aplicado ao deck '{deck_full_name}' (ID: {deck_id})")
+        add_debug_message(f"✅ Grupo aplicado ao deck '{deck_full_name}' (ID: {deck_id})", "DECK_OPTIONS")
         return True
         
     except Exception as e:
-        print(f"[DECK_OPTIONS] Erro ao aplicar opções ao deck {deck_id}: {e}")
+        add_debug_message(f"❌ Erro ao aplicar opções ao deck {deck_id}: {e}", "DECK_OPTIONS")
+        import traceback
+        traceback.print_exc()
         return False
 
 def ensure_parent_deck_has_shared_options():
     """
-    Garante que o deck pai 'Sheets2Anki' também use as opções compartilhadas.
+    DEPRECATED: Use ensure_root_deck_has_root_options() instead.
+    Esta função está mantida apenas para compatibilidade.
     
     Returns:
         bool: True se aplicado com sucesso, False caso contrário
     """
-    
-    if not mw or not mw.col:
-        return False
-        
-    try:
-        # Obter ou criar o deck pai se não existir
-        parent_deck = mw.col.decks.by_name(DEFAULT_PARENT_DECK_NAME)
-        
-        if not parent_deck:
-            # Criar o deck pai se não existir
-            parent_deck_id = mw.col.decks.id(DEFAULT_PARENT_DECK_NAME)
-            if parent_deck_id:
-                parent_deck = mw.col.decks.get(parent_deck_id)
-        
-        if parent_deck:
-            result = apply_sheets2anki_options_to_deck(parent_deck['id'])
-            if result:
-                print(f"[DECK_OPTIONS] Opções aplicadas ao deck pai '{DEFAULT_PARENT_DECK_NAME}'")
-            return result
-        
-        return False
-        
-    except Exception as e:
-        print(f"[DECK_OPTIONS] Erro ao aplicar opções ao deck pai: {e}")
-        return False
+    print("[DECK_OPTIONS] DEPRECATED: Using ensure_root_deck_has_root_options() instead")
+    return ensure_root_deck_has_root_options()
 
 def apply_sheets2anki_options_to_all_remote_decks():
     """
@@ -845,12 +930,13 @@ def apply_sheets2anki_options_to_all_remote_decks():
     from .config_manager import get_remote_decks, get_deck_options_mode
     
     if not mw or not mw.col:
+        add_debug_message("❌ Anki não disponível", "DECK_OPTIONS")
         return {'success': False, 'error': 'Anki não disponível'}
     
     # Verificar se modo manual está ativo
     mode = get_deck_options_mode()
     if mode == "manual":
-        print("[DECK_OPTIONS] Modo manual ativo - não aplicando opções automaticamente")
+        add_debug_message("Modo manual ativo - não aplicando opções automaticamente", "DECK_OPTIONS")
         return {
             'success': True,
             'total_decks': 0,
@@ -872,8 +958,10 @@ def apply_sheets2anki_options_to_all_remote_decks():
         remote_decks = get_remote_decks()
         stats['total_decks'] = len(remote_decks)
         
+        add_debug_message(f"Decks remotos encontrados: {len(remote_decks)}", "DECK_OPTIONS")
+        
         if not remote_decks:
-            print("[DECK_OPTIONS] Nenhum deck remoto encontrado")
+            add_debug_message("Nenhum deck remoto encontrado", "DECK_OPTIONS")
             return stats
         
         mode_desc = {
@@ -881,7 +969,11 @@ def apply_sheets2anki_options_to_all_remote_decks():
             "individual": "opções individuais por deck"
         }
         
-        print(f"[DECK_OPTIONS] Aplicando {mode_desc.get(mode, 'opções')} a {len(remote_decks)} decks remotos...")
+        add_debug_message(f"Aplicando {mode_desc.get(mode, 'opções')} a {len(remote_decks)} decks remotos...", "DECK_OPTIONS")
+        
+        # Log detalhado dos decks encontrados
+        for deck_hash, deck_info in remote_decks.items():
+            add_debug_message(f"Deck Hash: {deck_hash}, Info: {deck_info}", "DECK_OPTIONS")
         
         # Aplicar opções a cada deck remoto
         for deck_hash, deck_info in remote_decks.items():
@@ -890,35 +982,43 @@ def apply_sheets2anki_options_to_all_remote_decks():
                 local_deck_name = deck_info.get('local_deck_name', 'Unknown')
                 remote_deck_name = deck_info.get('remote_deck_name', 'Unknown')
                 
+                add_debug_message(f"Processando deck: {local_deck_name} (ID: {local_deck_id}, Remote: {remote_deck_name})", "DECK_OPTIONS")
+                
                 if not local_deck_id:
                     error_msg = f"Deck '{local_deck_name}' não tem local_deck_id"
                     stats['errors'].append(error_msg)
                     stats['failed_decks'] += 1
+                    add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS")
                     continue
                 
                 # Para modo individual, usar o nome do deck remoto
                 deck_name_for_options = remote_deck_name if mode == "individual" else None
                 
+                add_debug_message(f"Nome para opções: {deck_name_for_options} (modo: {mode})", "DECK_OPTIONS")
+                
                 # Aplicar opções ao deck principal
                 if apply_sheets2anki_options_to_deck(local_deck_id, deck_name_for_options):
                     stats['updated_decks'] += 1
+                    add_debug_message(f"✅ Deck {local_deck_name} configurado com sucesso", "DECK_OPTIONS")
                     
                     # Aplicar também aos subdecks (se existirem)
                     apply_options_to_subdecks(local_deck_name, remote_deck_name if mode == "individual" else None)
                 else:
                     stats['failed_decks'] += 1
+                    add_debug_message(f"❌ Falha ao configurar deck {local_deck_name}", "DECK_OPTIONS")
                     
             except Exception as e:
                 error_msg = f"Erro no deck {deck_hash}: {e}"
                 stats['errors'].append(error_msg)
                 stats['failed_decks'] += 1
+                add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS")
         
-        print(f"[DECK_OPTIONS] Operação concluída: {stats['updated_decks']}/{stats['total_decks']} decks atualizados")
+        add_debug_message(f"Operação concluída: {stats['updated_decks']}/{stats['total_decks']} decks atualizados", "DECK_OPTIONS")
         
         if stats['errors']:
-            print(f"[DECK_OPTIONS] {len(stats['errors'])} erros encontrados:")
+            add_debug_message(f"{len(stats['errors'])} erros encontrados:", "DECK_OPTIONS")
             for error in stats['errors']:
-                print(f"  - {error}")
+                add_debug_message(f"  - {error}", "DECK_OPTIONS")
         
         return stats
         
@@ -940,28 +1040,423 @@ def apply_options_to_subdecks(parent_deck_name, remote_deck_name=None):
     from .config_manager import get_deck_options_mode
     
     if not mw or not mw.col or not parent_deck_name:
+        add_debug_message("❌ Parâmetros inválidos para subdecks", "DECK_OPTIONS")
         return
     
     # Verificar se modo manual está ativo
     mode = get_deck_options_mode()
     if mode == "manual":
+        add_debug_message("Modo manual ativo - não aplicando opções aos subdecks", "DECK_OPTIONS")
         return
     
     try:
+        add_debug_message(f"Buscando subdecks de: {parent_deck_name}", "DECK_OPTIONS")
+        
         # Buscar todos os decks que começam com o nome do deck pai
         all_decks = mw.col.decks.all()
+        subdeck_count = 0
         
         for deck in all_decks:
             deck_name = deck['name']
             
             # Verificar se é subdeck (contém :: após o nome pai)
             if deck_name.startswith(parent_deck_name + "::"):
+                add_debug_message(f"Encontrado subdeck: {deck_name}", "DECK_OPTIONS")
                 deck_name_for_options = remote_deck_name if mode == "individual" else None
+                
                 if apply_sheets2anki_options_to_deck(deck['id'], deck_name_for_options):
-                    print(f"[DECK_OPTIONS] Opções aplicadas ao subdeck: {deck_name}")
+                    add_debug_message(f"✅ Opções aplicadas ao subdeck: {deck_name}", "DECK_OPTIONS")
+                    subdeck_count += 1
+                else:
+                    add_debug_message(f"❌ Falha ao aplicar opções ao subdeck: {deck_name}", "DECK_OPTIONS")
+        
+        add_debug_message(f"Total de subdecks processados: {subdeck_count}", "DECK_OPTIONS")
                     
     except Exception as e:
-        print(f"[DECK_OPTIONS] Erro ao aplicar opções aos subdecks de '{parent_deck_name}': {e}")
+        add_debug_message(f"❌ Erro ao aplicar opções aos subdecks de '{parent_deck_name}': {e}", "DECK_OPTIONS")
+        import traceback
+        traceback.print_exc()
+
+def cleanup_orphaned_deck_option_groups():
+    """
+    Remove grupos de opções de deck órfãos que começam com "Sheets2Anki" e não estão 
+    atrelados a nenhum deck (total de zero decks atrelados).
+    
+    Returns:
+        int: Número de grupos de opções órfãos removidos
+    """
+    if not mw or not mw.col:
+        print("[DECK_OPTIONS_CLEANUP] Anki não está disponível")
+        return 0
+        
+    try:
+        print("[DECK_OPTIONS_CLEANUP] Iniciando limpeza de grupos de opções órfãos...")
+        
+        # Obter todos os grupos de opções
+        all_option_groups = mw.col.decks.all_config()
+        sheets2anki_groups = []
+        
+        # Filtrar apenas grupos que começam com "Sheets2Anki"
+        for group in all_option_groups:
+            if group['name'].startswith('Sheets2Anki'):
+                sheets2anki_groups.append(group)
+        
+        if not sheets2anki_groups:
+            print("[DECK_OPTIONS_CLEANUP] Nenhum grupo Sheets2Anki encontrado")
+            return 0
+        
+        # Obter todos os decks para verificar quais grupos estão em uso
+        all_decks = mw.col.decks.all()
+        groups_in_use = set()
+        
+        for deck in all_decks:
+            conf_id = deck.get('conf', None)
+            if conf_id:
+                groups_in_use.add(conf_id)
+        
+        # Identificar grupos órfãos (não utilizados por nenhum deck)
+        orphaned_groups = []
+        for group in sheets2anki_groups:
+            group_id = group['id']
+            if group_id not in groups_in_use:
+                orphaned_groups.append(group)
+                print(f"[DECK_OPTIONS_CLEANUP] Grupo órfão encontrado: '{group['name']}' (ID: {group_id})")
+        
+        # Remover grupos órfãos
+        removed_count = 0
+        for group in orphaned_groups:
+            try:
+                mw.col.decks.remove_config(group['id'])
+                print(f"[DECK_OPTIONS_CLEANUP] Removido: '{group['name']}' (ID: {group['id']})")
+                removed_count += 1
+            except Exception as e:
+                print(f"[DECK_OPTIONS_CLEANUP] Erro ao remover grupo '{group['name']}': {e}")
+        
+        if removed_count > 0:
+            print(f"[DECK_OPTIONS_CLEANUP] Limpeza concluída: {removed_count} grupos órfãos removidos")
+        else:
+            print("[DECK_OPTIONS_CLEANUP] Nenhum grupo órfão encontrado")
+            
+        return removed_count
+        
+    except Exception as e:
+        print(f"[DECK_OPTIONS_CLEANUP] Erro na limpeza de grupos órfãos: {e}")
+        return 0
+
+def apply_automatic_deck_options_system():
+    """
+    Aplica o sistema automático completo de configuração de opções de deck.
+    Esta função deve ser chamada ao final da sincronização e quando o usuário 
+    clicar no botão "Aplicar" nas configurações de deck.
+    
+    Executa as seguintes ações (quando modo automático estiver ativo):
+    1. Aplica opções ao deck raiz "Sheets2Anki"
+    2. Aplica opções a todos os decks remotos e subdecks
+    3. Remove grupos de opções órfãos (limpeza)
+    
+    Returns:
+        dict: Estatísticas da operação
+    """
+    add_debug_message("🚀 INICIANDO sistema automático de opções de deck...", "DECK_OPTIONS_SYSTEM")
+    
+    from .config_manager import get_deck_options_mode
+    
+    if not mw or not mw.col:
+        add_debug_message("❌ Anki não disponível", "DECK_OPTIONS_SYSTEM")
+        return {'success': False, 'error': 'Anki não disponível'}
+    
+    try:
+        mode = get_deck_options_mode()
+        add_debug_message(f"📋 Modo atual: '{mode}'", "DECK_OPTIONS_SYSTEM")
+    except Exception as e:
+        add_debug_message(f"❌ Erro ao obter modo: {e}", "DECK_OPTIONS_SYSTEM")
+        return {'success': False, 'error': f'Erro ao obter modo: {e}'}
+    
+    if mode == "manual":
+        add_debug_message("⏹️ Modo manual ativo - sistema automático desativado", "DECK_OPTIONS_SYSTEM")
+        return {
+            'success': True,
+            'mode': 'manual',
+            'root_deck_updated': False,
+            'remote_decks_updated': 0,
+            'cleaned_groups': 0,
+            'message': 'Modo manual ativo - sistema automático desativado'
+        }
+    
+    add_debug_message(f"⚙️ Aplicando sistema automático no modo: {mode}", "DECK_OPTIONS_SYSTEM")
+    
+    try:
+        stats = {
+            'success': True,
+            'mode': mode,
+            'root_deck_updated': False,
+            'remote_decks_updated': 0,
+            'cleaned_groups': 0,
+            'errors': []
+        }
+        
+        add_debug_message("🎯 ETAPA 1: Configurando deck raiz...", "DECK_OPTIONS_SYSTEM")
+        # 1. Aplicar opções ao deck raiz
+        try:
+            root_result = ensure_root_deck_has_root_options()
+            stats['root_deck_updated'] = root_result
+            if root_result:
+                add_debug_message("✅ Deck raiz configurado com sucesso", "DECK_OPTIONS_SYSTEM")
+            else:
+                add_debug_message("⚠️ Deck raiz não foi configurado", "DECK_OPTIONS_SYSTEM")
+        except Exception as e:
+            error_msg = f"Erro ao configurar deck raiz: {e}"
+            stats['errors'].append(error_msg)
+            add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS_SYSTEM")
+            import traceback
+            traceback.print_exc()
+        
+        add_debug_message("🎯 ETAPA 2: Configurando decks remotos...", "DECK_OPTIONS_SYSTEM")
+        # 2. Aplicar opções a todos os decks remotos
+        try:
+            remote_result = apply_sheets2anki_options_to_all_remote_decks()
+            if remote_result and remote_result.get('success', False):
+                stats['remote_decks_updated'] = remote_result.get('updated_decks', 0)
+                add_debug_message(f"✅ {remote_result.get('updated_decks', 0)} decks remotos configurados", "DECK_OPTIONS_SYSTEM")
+                if remote_result.get('errors'):
+                    stats['errors'].extend(remote_result['errors'])
+            else:
+                error_detail = remote_result.get('error', 'Erro desconhecido nos decks remotos') if remote_result else 'Resultado vazio'
+                stats['errors'].append(error_detail)
+                add_debug_message(f"❌ Falha nos decks remotos: {error_detail}", "DECK_OPTIONS_SYSTEM")
+        except Exception as e:
+            error_msg = f"Erro ao configurar decks remotos: {e}"
+            stats['errors'].append(error_msg)
+            add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS_SYSTEM")
+            import traceback
+            traceback.print_exc()
+        
+        add_debug_message("🎯 ETAPA 3: Limpeza de grupos órfãos...", "DECK_OPTIONS_SYSTEM")
+        # 3. Limpeza de grupos órfãos (só quando sistema automático ativo)
+        try:
+            cleaned_count = cleanup_orphaned_deck_option_groups()
+            stats['cleaned_groups'] = cleaned_count
+            if cleaned_count > 0:
+                add_debug_message(f"✅ {cleaned_count} grupos órfãos removidos", "DECK_OPTIONS_SYSTEM")
+            else:
+                add_debug_message("ℹ️ Nenhum grupo órfão encontrado", "DECK_OPTIONS_SYSTEM")
+        except Exception as e:
+            error_msg = f"Erro na limpeza de grupos órfãos: {e}"
+            stats['errors'].append(error_msg)
+            add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS_SYSTEM")
+            import traceback
+            traceback.print_exc()
+        
+        add_debug_message("📊 Gerando resumo final...", "DECK_OPTIONS_SYSTEM")
+        # Gerar mensagem de resumo
+        messages = []
+        if stats['root_deck_updated']:
+            messages.append("Deck raiz configurado")
+        if stats['remote_decks_updated'] > 0:
+            messages.append(f"{stats['remote_decks_updated']} decks remotos configurados")
+        if stats['cleaned_groups'] > 0:
+            messages.append(f"{stats['cleaned_groups']} grupos órfãos removidos")
+            
+        if messages:
+            stats['message'] = f"Sistema automático aplicado: {', '.join(messages)}"
+        else:
+            stats['message'] = "Sistema automático executado sem alterações"
+            
+        if stats['errors']:
+            stats['message'] += f" ({len(stats['errors'])} erros)"
+            add_debug_message(f"⚠️ Erros encontrados: {stats['errors']}", "DECK_OPTIONS_SYSTEM")
+            
+        add_debug_message(f"🎉 CONCLUÍDO: {stats['message']}", "DECK_OPTIONS_SYSTEM")
+        return stats
+        
+    except Exception as e:
+        error_msg = f"Erro geral no sistema automático: {e}"
+        add_debug_message(f"❌ FALHA GERAL: {error_msg}", "DECK_OPTIONS_SYSTEM")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'mode': mode if 'mode' in locals() else 'unknown',
+            'root_deck_updated': False,
+            'remote_decks_updated': 0,
+            'cleaned_groups': 0,
+            'error': error_msg
+        }
+
+def ensure_root_deck_has_root_options():
+    """
+    Garante que o deck raiz 'Sheets2Anki' use o grupo de opções específico
+    "Sheets2Anki - Root Options".
+    
+    Returns:
+        bool: True se aplicado com sucesso, False caso contrário
+    """
+    from .config_manager import get_deck_options_mode
+    
+    if not mw or not mw.col:
+        add_debug_message("Anki não está disponível", "DECK_OPTIONS")
+        return False
+    
+    # Verificar se modo manual está ativo
+    mode = get_deck_options_mode()
+    if mode == "manual":
+        add_debug_message("Modo manual ativo - não aplicando opções ao deck raiz", "DECK_OPTIONS")
+        return False
+        
+    try:
+        add_debug_message(f"Verificando deck raiz: '{DEFAULT_PARENT_DECK_NAME}'", "DECK_OPTIONS")
+        
+        # Obter ou criar o deck raiz
+        parent_deck = mw.col.decks.by_name(DEFAULT_PARENT_DECK_NAME)
+        
+        if not parent_deck:
+            add_debug_message(f"Deck raiz '{DEFAULT_PARENT_DECK_NAME}' não existe, criando...", "DECK_OPTIONS")
+            # Criar o deck raiz se não existir
+            parent_deck_id = mw.col.decks.id(DEFAULT_PARENT_DECK_NAME)
+            if parent_deck_id is not None:
+                parent_deck = mw.col.decks.get(parent_deck_id)
+                add_debug_message(f"Deck raiz criado com ID: {parent_deck_id}", "DECK_OPTIONS")
+            else:
+                add_debug_message("❌ Falha ao criar deck raiz", "DECK_OPTIONS")
+                return False
+        else:
+            add_debug_message(f"Deck raiz encontrado: ID {parent_deck['id']}", "DECK_OPTIONS")
+        
+        if parent_deck:
+            # Obter o grupo de opções raiz atual do deck
+            current_conf_id = parent_deck.get('conf', 1)  # 1 é o padrão do Anki
+            add_debug_message(f"Configuração atual do deck raiz: {current_conf_id}", "DECK_OPTIONS")
+            
+            # Aplicar grupo específico do deck raiz
+            add_debug_message("Chamando get_or_create_root_options_group()...", "DECK_OPTIONS")
+            root_options_group_id = get_or_create_root_options_group()
+            add_debug_message(f"get_or_create_root_options_group() retornou: {root_options_group_id}", "DECK_OPTIONS")
+            
+            if root_options_group_id:
+                if current_conf_id != root_options_group_id:
+                    parent_deck['conf'] = root_options_group_id
+                    mw.col.decks.save(parent_deck)
+                    add_debug_message(f"✅ Opções raiz aplicadas ao deck '{DEFAULT_PARENT_DECK_NAME}' (ID: {root_options_group_id})", "DECK_OPTIONS")
+                else:
+                    add_debug_message(f"✅ Deck raiz já usa as opções corretas (ID: {root_options_group_id})", "DECK_OPTIONS")
+                return True
+            else:
+                add_debug_message("❌ Falha ao obter/criar grupo de opções raiz", "DECK_OPTIONS")
+                return False
+        else:
+            add_debug_message("❌ Falha ao obter/criar deck raiz", "DECK_OPTIONS")
+            return False
+        
+    except Exception as e:
+        add_debug_message(f"❌ Erro ao aplicar opções raiz ao deck pai: {e}", "DECK_OPTIONS")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def get_or_create_root_options_group():
+    """
+    Obtém ou cria o grupo de opções específico para o deck raiz "Sheets2Anki - Root Options".
+    
+    Returns:
+        int: ID do grupo de opções ou None se erro
+    """
+    if not mw or not mw.col:
+        add_debug_message("Anki não disponível para criar grupo de opções raiz", "DECK_OPTIONS")
+        return None
+    
+    options_group_name = "Sheets2Anki - Root Options"
+    add_debug_message(f"Buscando/criando grupo de opções: '{options_group_name}'", "DECK_OPTIONS")
+        
+    try:
+        # Procurar por grupo de opções existente
+        all_option_groups = mw.col.decks.all_config()
+        add_debug_message(f"Total de grupos de opções encontrados: {len(all_option_groups)}", "DECK_OPTIONS")
+        
+        for group in all_option_groups:
+            if group['name'] == options_group_name:
+                add_debug_message(f"✅ Grupo raiz '{options_group_name}' já existe (ID: {group['id']})", "DECK_OPTIONS")
+                
+                # Verificar se as configurações foram personalizadas pelo usuário
+                try:
+                    existing_config = mw.col.decks.get_config(group['id'])
+                    if existing_config and not _is_default_config(existing_config, "root"):
+                        add_debug_message(f"🔒 Grupo raiz '{options_group_name}' tem configurações personalizadas - preservando", "DECK_OPTIONS")
+                    else:
+                        add_debug_message(f"📋 Grupo raiz '{options_group_name}' ainda tem configurações padrão", "DECK_OPTIONS")
+                except Exception as check_error:
+                    add_debug_message(f"⚠️ Erro ao verificar configurações do grupo raiz existente: {check_error}", "DECK_OPTIONS")
+                
+                return group['id']
+        
+        add_debug_message(f"Grupo '{options_group_name}' não existe, criando novo...", "DECK_OPTIONS")
+        # Se não existe, criar novo grupo
+        new_group = mw.col.decks.add_config_returning_id(options_group_name)
+        add_debug_message(f"✅ Criado novo grupo raiz '{options_group_name}' (ID: {new_group})", "DECK_OPTIONS")
+        
+        # IMPORTANTE: Só aplicamos configurações padrão em grupos NOVOS
+        # Grupos existentes podem ter sido personalizados pelo usuário
+        add_debug_message(f"🔧 Aplicando configurações padrão ao grupo raiz novo '{options_group_name}'", "DECK_OPTIONS")
+        
+        # Configurar opções padrão otimizadas para o deck raiz
+        add_debug_message(f"📋 Configurando opções para o grupo raiz '{options_group_name}' (ID: {new_group})...", "DECK_OPTIONS")
+        
+        # Usar a API correta para configurar o grupo de opções
+        # Em versões recentes do Anki, usamos mw.col.decks.get_config() e mw.col.decks.update_config()
+        try:
+            # Obter a configuração atual do grupo
+            config = mw.col.decks.get_config(new_group)
+            if config is None:
+                add_debug_message(f"❌ Não foi possível obter configuração para grupo ID {new_group}", "DECK_OPTIONS")
+                return new_group  # Retorna o grupo mesmo sem configurar
+            
+            add_debug_message(f"📋 Configuração obtida para grupo ID {new_group}", "DECK_OPTIONS")
+            
+            # Configurações específicas para o deck raiz - mais conservadoras
+            config['new']['perDay'] = 30  # 30 novos cards por dia (conservador para deck raiz)
+            config['rev']['perDay'] = 150  # 150 revisões por dia
+            config['new']['delays'] = [1, 10]  # Intervalos curtos iniciais
+            config['lapse']['delays'] = [10]  # Intervalo para cards esquecidos
+            config['lapse']['minInt'] = 1  # Intervalo mínimo após lapse
+            config['lapse']['mult'] = 0.0  # Redução do intervalo após lapse
+            
+            # Salvar as configurações
+            mw.col.decks.update_config(config)
+            add_debug_message(f"💾 Configurações salvas para grupo ID {new_group}", "DECK_OPTIONS")
+            add_debug_message(f"📊 Valores aplicados ao grupo raiz: new/day={config['new']['perDay']}, rev/day={config['rev']['perDay']}", "DECK_OPTIONS")
+            
+        except (AttributeError, TypeError) as api_error:
+            add_debug_message(f"⚠️ API get_config/update_config não disponível: {api_error}", "DECK_OPTIONS")
+            # Fallback para método mais antigo se disponível
+            try:
+                # Método alternativo para versões mais antigas
+                config = mw.col.decks.confForDid(new_group)
+                if config is None:
+                    add_debug_message(f"❌ confForDid retornou None para grupo ID {new_group}", "DECK_OPTIONS")
+                    return new_group
+                    
+                add_debug_message(f"📋 Usando confForDid como fallback para grupo ID {new_group}", "DECK_OPTIONS")
+                
+                config['new']['perDay'] = 30
+                config['rev']['perDay'] = 150
+                config['new']['delays'] = [1, 10]
+                config['lapse']['delays'] = [10]
+                config['lapse']['minInt'] = 1
+                config['lapse']['mult'] = 0.0
+                
+                mw.col.decks.save(config)
+                add_debug_message(f"💾 Configurações salvas via fallback para grupo ID {new_group}", "DECK_OPTIONS")
+                
+            except Exception as fallback_error:
+                add_debug_message(f"❌ Falha no fallback: {fallback_error}", "DECK_OPTIONS")
+                # Se nenhum método funcionar, pelo menos o grupo foi criado
+                add_debug_message("⚠️ Grupo criado mas configurações não aplicadas devido a incompatibilidade da API", "DECK_OPTIONS")
+        add_debug_message(f"✅ Configurações padrão aplicadas ao grupo raiz '{options_group_name}'", "DECK_OPTIONS")
+        
+        return new_group
+        
+    except Exception as e:
+        add_debug_message(f"❌ Erro ao criar/obter grupo de opções raiz: {str(e)}", "DECK_OPTIONS")
+        return None
 
 
 # =============================================================================

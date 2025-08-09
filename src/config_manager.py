@@ -55,7 +55,10 @@ DEFAULT_META = {
         "max_sync_retries": 3,
         "sync_timeout_seconds": 30,
         "show_sync_notifications": True,
-        "deck_options_mode": "shared"  # "shared", "individual", "manual"
+        "deck_options_mode": "shared",  # "shared", "individual", "manual"
+        "ankiweb_sync_mode": "none",  # "none", "sync", "force_upload"
+        "ankiweb_sync_timeout": 30,  # timeout em segundos para sync do AnkiWeb
+        "show_ankiweb_sync_notifications": True  # mostrar notificações de sync AnkiWeb
     },
     "students": {
         "available_students": [],
@@ -1411,6 +1414,95 @@ def set_deck_options_mode(mode):
     meta["config"]["deck_options_mode"] = mode
     save_meta(meta)
     print(f"[DECK_OPTIONS_MODE] Modo alterado para: {mode}")
+
+
+# =============================================================================
+# GERENCIAMENTO DE CONFIGURAÇÕES DE SINCRONIZAÇÃO ANKIWEB
+# =============================================================================
+
+def get_ankiweb_sync_mode():
+    """
+    Obtém o modo atual de sincronização automática com AnkiWeb.
+    
+    Returns:
+        str: "none" (não sincronizar), "sync" (sincronização normal), "force_upload" (forçar upload)
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    return config.get("ankiweb_sync_mode", "none")
+
+def set_ankiweb_sync_mode(mode):
+    """
+    Define o modo de sincronização automática com AnkiWeb.
+    
+    Args:
+        mode (str): "none", "sync", ou "force_upload"
+    """
+    if mode not in ["none", "sync", "force_upload"]:
+        raise ValueError(f"Modo inválido: {mode}. Use 'none', 'sync' ou 'force_upload'")
+    
+    meta = get_meta()
+    if "config" not in meta:
+        meta["config"] = {}
+    
+    meta["config"]["ankiweb_sync_mode"] = mode
+    save_meta(meta)
+    print(f"[ANKIWEB_SYNC_MODE] Modo alterado para: {mode}")
+
+def get_ankiweb_sync_timeout():
+    """
+    Obtém o timeout configurado para sincronização AnkiWeb.
+    
+    Returns:
+        int: Timeout em segundos (padrão: 30)
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    return config.get("ankiweb_sync_timeout", 30)
+
+def set_ankiweb_sync_timeout(timeout):
+    """
+    Define o timeout para sincronização AnkiWeb.
+    
+    Args:
+        timeout (int): Timeout em segundos (mínimo 10, máximo 300)
+    """
+    if not isinstance(timeout, int) or timeout < 10 or timeout > 300:
+        raise ValueError(f"Timeout inválido: {timeout}. Use valores entre 10 e 300 segundos")
+    
+    meta = get_meta()
+    if "config" not in meta:
+        meta["config"] = {}
+    
+    meta["config"]["ankiweb_sync_timeout"] = timeout
+    save_meta(meta)
+    print(f"[ANKIWEB_SYNC_TIMEOUT] Timeout alterado para: {timeout}s")
+
+def get_ankiweb_sync_notifications():
+    """
+    Verifica se notificações de sync AnkiWeb estão habilitadas.
+    
+    Returns:
+        bool: True se habilitadas, False caso contrário
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    return config.get("show_ankiweb_sync_notifications", True)
+
+def set_ankiweb_sync_notifications(enabled):
+    """
+    Habilita ou desabilita notificações de sync AnkiWeb.
+    
+    Args:
+        enabled (bool): True para habilitar, False para desabilitar
+    """
+    meta = get_meta()
+    if "config" not in meta:
+        meta["config"] = {}
+    
+    meta["config"]["show_ankiweb_sync_notifications"] = bool(enabled)
+    save_meta(meta)
+    print(f"[ANKIWEB_SYNC_NOTIFICATIONS] Notificações {'habilitadas' if enabled else 'desabilitadas'}")
 
 
 def fix_note_type_names_consistency(url, correct_remote_name):

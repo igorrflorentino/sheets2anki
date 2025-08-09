@@ -16,13 +16,17 @@ from .compat import (
     QSpinBox, QHBoxLayout, QFrame, QTabWidget, QWidget, QFont, QSizePolicy,
     QMessageBox, MessageBox_Yes, MessageBox_No
 )
-from .config_manager import get_remote_decks, save_remote_decks, disconnect_deck, verify_and_update_deck_info
-from .utils import remove_empty_subdecks
-from .utils import validate_url
-from .data_processor import getRemoteDeck
-from .data_processor import create_or_update_notes
-from .utils import SyncError
-from .utils import add_debug_message, get_debug_messages, clear_debug_messages
+from .config_manager import (
+    get_remote_decks, save_remote_decks, disconnect_deck, verify_and_update_deck_info, 
+    get_deck_local_name, sync_note_type_names_robustly, update_note_type_names_in_meta
+)
+from .utils import (
+    remove_empty_subdecks, validate_url, SyncError,
+    add_debug_message, get_debug_messages, clear_debug_messages,
+    get_publication_key_hash, capture_deck_note_type_ids
+)
+from .data_processor import getRemoteDeck, create_or_update_notes
+from .student_manager import get_selected_students_for_deck
 
 # ========================================================================================
 # CLASSES DE ESTATÍSTICAS DE SINCRONIZAÇÃO (consolidado de sync_stats.py)
@@ -36,9 +40,39 @@ class SyncStats:
     deleted: int = 0
     ignored: int = 0
     errors: int = 0
+    unchanged: int = 0
+    skipped: int = 0
+    
+    # Métricas detalhadas do deck remoto - REFATORADAS
+    # 1. Total de linhas da tabela (independente de preenchimento)
+    remote_total_table_lines: int = 0
+    
+    # 2. Total de linhas com notas válidas (ID preenchido)
+    remote_valid_note_lines: int = 0
+    
+    # 3. Total de linhas inválidas (ID vazio)
+    remote_invalid_note_lines: int = 0
+    
+    # 4. Total de linhas marcadas para sincronizar (SYNC? = true)
+    remote_sync_marked_lines: int = 0
+    
+    # 5. Total potencial de notas que serão criadas no Anki (ID × alunos + [MISSING A.])
+    remote_total_potential_anki_notes: int = 0
+    
+    # 6. Total potencial de notas para alunos específicos
+    remote_potential_student_notes: int = 0
+    
+    # 7. Total potencial de notas para [MISSING A.]
+    remote_potential_missing_a_notes: int = 0
+    
+    # 8. Total de alunos únicos encontrados
+    remote_unique_students_count: int = 0
+    
+    # 9. Total potencial de notas por aluno (detalhado)
+    remote_notes_per_student: Dict[str, int] = field(default_factory=dict)
+    
     error_details: List[str] = field(default_factory=list)
-    updated_details: List[str] = field(default_factory=list)  # Manter para compatibilidade
-    # Novos campos para detalhes estruturados
+    # Campos para detalhes estruturados
     update_details: List[Dict[str, Any]] = field(default_factory=list)
     creation_details: List[Dict[str, Any]] = field(default_factory=list)
     deletion_details: List[Dict[str, Any]] = field(default_factory=list)
@@ -47,10 +81,6 @@ class SyncStats:
         """Adiciona um erro às estatísticas."""
         self.errors += 1
         self.error_details.append(error_msg)
-    
-    def add_update_detail(self, detail: str) -> None:
-        """Adiciona um detalhe de atualização (compatibilidade)."""
-        self.updated_details.append(detail)
     
     def add_update_detail_structured(self, detail: Dict[str, Any]) -> None:
         """Adiciona um detalhe estruturado de atualização."""
@@ -71,26 +101,30 @@ class SyncStats:
         self.deleted += other.deleted
         self.ignored += other.ignored
         self.errors += other.errors
+        self.unchanged += other.unchanged
+        self.skipped += other.skipped
+        
+        # Agregar métricas do deck remoto - REFATORADAS
+        self.remote_total_table_lines += other.remote_total_table_lines
+        self.remote_valid_note_lines += other.remote_valid_note_lines
+        self.remote_invalid_note_lines += other.remote_invalid_note_lines
+        self.remote_sync_marked_lines += other.remote_sync_marked_lines
+        self.remote_total_potential_anki_notes += other.remote_total_potential_anki_notes
+        self.remote_potential_student_notes += other.remote_potential_student_notes
+        self.remote_potential_missing_a_notes += other.remote_potential_missing_a_notes
+        self.remote_unique_students_count = max(self.remote_unique_students_count, other.remote_unique_students_count)
+        
+        # Merge dos dicionários de notas por aluno
+        for student, count in other.remote_notes_per_student.items():
+            if student in self.remote_notes_per_student:
+                self.remote_notes_per_student[student] = max(self.remote_notes_per_student[student], count)
+            else:
+                self.remote_notes_per_student[student] = count
+        
         self.error_details.extend(other.error_details)
-        self.updated_details.extend(other.updated_details)
         self.update_details.extend(other.update_details)
         self.creation_details.extend(other.creation_details)
         self.deletion_details.extend(other.deletion_details)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Converte para dicionário (compatibilidade com código antigo)."""
-        return {
-            'created': self.created,
-            'updated': self.updated,
-            'deleted': self.deleted,
-            'ignored': self.ignored,
-            'errors': self.errors,
-            'error_details': self.error_details,
-            'updated_details': self.updated_details,
-            'update_details': self.update_details,
-            'creation_details': self.creation_details,
-            'deletion_details': self.deletion_details
-        }
     
     def get_total_operations(self) -> int:
         """Retorna o total de operações realizadas."""
@@ -156,7 +190,7 @@ class SyncStatsManager:
             'total_decks': len(self.deck_results),
             'successful_decks': successful,
             'failed_decks': failed,
-            'total_stats': self.total_stats.to_dict(),
+            'total_stats': self.total_stats,  # Retornar diretamente o objeto SyncStats
             'has_changes': self.total_stats.has_changes(),
             'has_errors': self.total_stats.has_errors()
         }
@@ -187,12 +221,20 @@ def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, syn
         Resultado consolidado da sincronização
     """
     
+    add_debug_message("🎯 _finalize_sync_new INICIADO", "SYNC")
+    
     progress.setLabelText("Limpando subdecks vazios...")
     from .config_manager import get_remote_decks
     
     # Remover subdecks vazios
     remote_decks = get_remote_decks()
     removed_subdecks = remove_empty_subdecks(remote_decks)
+    
+    add_debug_message("🔧 Prestes a chamar apply_automatic_deck_options_system()", "SYNC")
+    # Aplicar sistema automático de opções de deck
+    from .utils import apply_automatic_deck_options_system
+    options_result = apply_automatic_deck_options_system()
+    add_debug_message(f"✅ apply_automatic_deck_options_system() retornou: {options_result}", "SYNC")
     
     # Preparar mensagem final para exibir na barra de progresso
     cleanup_info = ""
@@ -206,31 +248,31 @@ def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, syn
             cleanup_info = f", dados [MISSING A.] removidos"
     
     # Gerar mensagem final baseada nas estatísticas
-    if sync_errors or total_stats.get('errors', 0) > 0:
+    if sync_errors or total_stats.errors > 0:
         final_msg = f"Concluído com problemas: {successful_decks}/{total_decks} decks sincronizados"
-        if total_stats.get('created', 0) > 0:
-            final_msg += f", {total_stats['created']} notas criadas"
-        if total_stats.get('updated', 0) > 0:
-            final_msg += f", {total_stats['updated']} atualizadas"
-        if total_stats.get('deleted', 0) > 0:
-            final_msg += f", {total_stats['deleted']} deletadas"
-        if total_stats.get('ignored', 0) > 0:
-            final_msg += f", {total_stats['ignored']} ignoradas"
+        if total_stats.created > 0:
+            final_msg += f", {total_stats.created} notas criadas"
+        if total_stats.updated > 0:
+            final_msg += f", {total_stats.updated} atualizadas"
+        if total_stats.deleted > 0:
+            final_msg += f", {total_stats.deleted} deletadas"
+        if total_stats.ignored > 0:
+            final_msg += f", {total_stats.ignored} ignoradas"
         if removed_subdecks > 0:
             final_msg += f", {removed_subdecks} subdecks vazios removidos"
         if cleanup_info:
             final_msg += cleanup_info
-        final_msg += f", {total_stats.get('errors', 0) + len(sync_errors)} erros"
+        final_msg += f", {total_stats.errors + len(sync_errors)} erros"
     else:
         final_msg = f"Sincronização concluída com sucesso!"
-        if total_stats.get('created', 0) > 0:
-            final_msg += f" {total_stats['created']} notas criadas"
-        if total_stats.get('updated', 0) > 0:
-            final_msg += f", {total_stats['updated']} atualizadas"
-        if total_stats.get('deleted', 0) > 0:
-            final_msg += f", {total_stats['deleted']} deletadas"
-        if total_stats.get('ignored', 0) > 0:
-            final_msg += f", {total_stats['ignored']} ignoradas"
+        if total_stats.created > 0:
+            final_msg += f" {total_stats.created} notas criadas"
+        if total_stats.updated > 0:
+            final_msg += f", {total_stats.updated} atualizadas"
+        if total_stats.deleted > 0:
+            final_msg += f", {total_stats.deleted} deletadas"
+        if total_stats.ignored > 0:
+            final_msg += f", {total_stats.ignored} ignoradas"
         if removed_subdecks > 0:
             final_msg += f", {removed_subdecks} subdecks vazios removidos"
         if cleanup_info:
@@ -238,6 +280,22 @@ def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, syn
     
     # Adicionar mensagem final de debug
     add_debug_message("🎬 Sincronização finalizada", "SYSTEM")
+    
+    # Executar sincronização AnkiWeb se configurada
+    add_debug_message("🔄 Verificando configuração de sincronização AnkiWeb...", "SYNC")
+    try:
+        from .ankiweb_sync import execute_ankiweb_sync_if_configured
+        ankiweb_result = execute_ankiweb_sync_if_configured()
+        
+        if ankiweb_result:
+            if ankiweb_result['success']:
+                add_debug_message(f"✅ AnkiWeb sync: {ankiweb_result['message']}", "SYNC")
+            else:
+                add_debug_message(f"❌ AnkiWeb sync falhou: {ankiweb_result['error']}", "SYNC")
+        else:
+            add_debug_message("⏹️ AnkiWeb sync desabilitado", "SYNC")
+    except Exception as ankiweb_error:
+        add_debug_message(f"❌ Erro na sincronização AnkiWeb: {ankiweb_error}", "SYNC")
     
     # Atualizar a interface do Anki para mostrar as mudanças
     ensure_interface_refresh()
@@ -247,7 +305,6 @@ def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, syn
     progress.setLabelText(final_msg)
     
     # Aguardar um momento para mostrar a mensagem final
-    import time
     time.sleep(1)
     
     # Mostrar resumo detalhado
@@ -257,12 +314,11 @@ def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, 
     """
     Mostra resumo da sincronização usando interface com scroll.
     """
-    from .utils import get_debug_messages, is_debug_enabled
     
     summary = []
     
     # Estatísticas principais
-    if sync_errors or total_stats.get('errors', 0) > 0:
+    if sync_errors or total_stats.errors > 0:
         summary.append("❌ Sincronização concluída com problemas!")
         summary.append(f"📊 Decks: {decks_synced}/{total_decks} sincronizados com sucesso")
     else:
@@ -270,17 +326,17 @@ def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, 
         summary.append(f"📊 Decks: {decks_synced}/{total_decks} sincronizados")
     
     # Estatísticas resumidas no cabeçalho
-    if total_stats.get('created', 0) > 0:
-        summary.append(f"➕ {total_stats['created']} notas criadas")
+    if total_stats.created > 0:
+        summary.append(f"➕ {total_stats.created} notas criadas")
     
-    if total_stats.get('updated', 0) > 0:
-        summary.append(f"✏️ {total_stats['updated']} notas atualizadas")
+    if total_stats.updated > 0:
+        summary.append(f"✏️ {total_stats.updated} notas atualizadas")
     
-    if total_stats.get('deleted', 0) > 0:
-        summary.append(f"🗑️ {total_stats['deleted']} notas deletadas")
+    if total_stats.deleted > 0:
+        summary.append(f"🗑️ {total_stats.deleted} notas deletadas")
         
-    if total_stats.get('ignored', 0) > 0:
-        summary.append(f"⏭️ {total_stats['ignored']} notas ignoradas")
+    if total_stats.ignored > 0:
+        summary.append(f"⏭️ {total_stats.ignored} notas ignoradas")
     
     # Limpezas
     if removed_subdecks > 0:
@@ -294,7 +350,7 @@ def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, 
     
     # Erros
     sync_errors = sync_errors or []
-    total_errors = total_stats.get('errors', 0) + len(sync_errors)
+    total_errors = total_stats.errors + len(sync_errors)
     if total_errors > 0:
         summary.append(f"⚠️ {total_errors} erros encontrados")
     
@@ -306,8 +362,7 @@ def _show_sync_summary_with_scroll(base_summary, total_stats, removed_subdecks=0
     """
     Mostra resumo da sincronização com interface scrollável.
     """
-    from .compat import QDialog, QVBoxLayout, QTextEdit, QPushButton, QLabel, safe_exec_dialog, QPalette, Palette_Window
-    from .utils import is_debug_enabled, get_debug_messages
+    from .compat import QPalette, Palette_Window
     
     # Criar dialog customizado
     dialog = QDialog()
@@ -374,34 +429,34 @@ def _show_sync_summary_with_scroll(base_summary, total_stats, removed_subdecks=0
     details_content = []
     
     # Detalhes das notas criadas
-    if total_stats.get('created', 0) > 0 and total_stats.get('creation_details'):
-        details_content.append(f"➕ DETALHES DAS {total_stats['created']} NOTAS CRIADAS:")
+    if total_stats.created > 0 and total_stats.creation_details:
+        details_content.append(f"➕ DETALHES DAS {total_stats.created} NOTAS CRIADAS:")
         details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats['creation_details'], 1):
+        for i, detail in enumerate(total_stats.creation_details, 1):
             details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}")
         details_content.append("")
     
     # Detalhes das notas atualizadas
-    if total_stats.get('updated', 0) > 0 and total_stats.get('update_details'):
-        details_content.append(f"✏️ DETALHES DAS {total_stats['updated']} NOTAS ATUALIZADAS:")
+    if total_stats.updated > 0 and total_stats.update_details:
+        details_content.append(f"✏️ DETALHES DAS {total_stats.updated} NOTAS ATUALIZADAS:")
         details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats['update_details'], 1):
+        for i, detail in enumerate(total_stats.update_details, 1):
             details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']}")
             for j, change in enumerate(detail['changes'], 1):
                 details_content.append(f"      {j:2d}. {change}")
             details_content.append("")
     
     # Detalhes das notas removidas
-    if total_stats.get('deleted', 0) > 0 and total_stats.get('deletion_details'):
-        details_content.append(f"🗑️ DETALHES DAS {total_stats['deleted']} NOTAS REMOVIDAS:")
+    if total_stats.deleted > 0 and total_stats.deletion_details:
+        details_content.append(f"🗑️ DETALHES DAS {total_stats.deleted} NOTAS REMOVIDAS:")
         details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats['deletion_details'], 1):
+        for i, detail in enumerate(total_stats.deletion_details, 1):
             details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}")
         details_content.append("")
     
     # Erros detalhados
-    if sync_errors or total_stats.get('error_details'):
-        total_errors = total_stats.get('errors', 0) + len(sync_errors or [])
+    if sync_errors or total_stats.error_details:
+        total_errors = total_stats.errors + len(sync_errors or [])
         if total_errors > 0:
             details_content.append(f"⚠️ DETALHES DOS {total_errors} ERROS:")
             details_content.append("=" * 60)
@@ -409,13 +464,40 @@ def _show_sync_summary_with_scroll(base_summary, total_stats, removed_subdecks=0
             for error in (sync_errors or []):
                 details_content.append(f"{error_count:4d}. {error}")
                 error_count += 1
-            for error in total_stats.get('error_details', []):
+            for error in total_stats.error_details:
                 details_content.append(f"{error_count:4d}. {error}")
                 error_count += 1
             details_content.append("")
     
+    # Métricas detalhadas do deck remoto - REFATORADAS
+    if (total_stats.remote_total_table_lines > 0 or total_stats.remote_valid_note_lines > 0 or 
+        total_stats.remote_sync_marked_lines > 0 or total_stats.remote_total_potential_anki_notes > 0):
+        details_content.append("📊 MÉTRICAS DETALHADAS DO DECK REMOTO (REFATORADAS):")
+        details_content.append("=" * 60)
+        details_content.append(f"📋 1. Total de linhas na tabela: {total_stats.remote_total_table_lines}")
+        details_content.append(f"✅ 2. Linhas com notas válidas (ID preenchido): {total_stats.remote_valid_note_lines}")
+        details_content.append(f"❌ 3. Linhas inválidas (ID vazio): {total_stats.remote_invalid_note_lines}")
+        details_content.append(f"🔄 4. Linhas marcadas para sincronização: {total_stats.remote_sync_marked_lines}")
+        details_content.append(f"� 5. Total potencial de notas no Anki: {total_stats.remote_total_potential_anki_notes}")
+        details_content.append(f"🎓 6. Potencial de notas para alunos específicos: {total_stats.remote_potential_student_notes}")
+        details_content.append(f"� 7. Potencial de notas para [MISSING A.]: {total_stats.remote_potential_missing_a_notes}")
+        details_content.append(f"👥 8. Total de alunos únicos: {total_stats.remote_unique_students_count}")
+        
+        # 9. Mostrar notas por aluno individual
+        if total_stats.remote_notes_per_student:
+            details_content.append("📊 9. Notas por aluno (individual):")
+            for student, count in sorted(total_stats.remote_notes_per_student.items()):
+                details_content.append(f"   • {student}: {count} notas")
+        
+        details_content.append("")
+    
     # Se não há detalhes de modificações, mostrar mensagem informativa
-    if not details_content:
+    if not any([
+        total_stats.created > 0 and total_stats.creation_details,
+        total_stats.updated > 0 and total_stats.update_details,
+        total_stats.deleted > 0 and total_stats.deletion_details,
+        sync_errors or total_stats.error_details
+    ]):
         details_content.append("ℹ️ Nenhuma modificação detalhada de notas foi registrada nesta sincronização.")
         details_content.append("")
         details_content.append("Isso pode acontecer quando:")
@@ -769,6 +851,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         summary = stats_manager.get_summary()
         successful_decks = len(stats_manager.get_successful_decks())
         
+        add_debug_message(f"🎯 Chamando _finalize_sync_new - successful_decks: {successful_decks}, total_decks: {total_decks}", "SYNC")
         # Finalizar progresso e mostrar resultados
         _finalize_sync_new(progress, total_decks, successful_decks, summary['total_stats'], sync_errors, cleanup_result, missing_cleanup_result)
     
@@ -790,7 +873,6 @@ def _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls
     Returns:
         list: Lista de hash keys a serem sincronizadas
     """
-    from .utils import get_publication_key_hash
     
     # Se URLs específicas foram fornecidas, converter para hash keys
     if selected_deck_urls is not None:
@@ -836,39 +918,6 @@ def _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls
     
     # Caso contrário, retornar todas as hash keys
     return list(remote_decks.keys())
-
-def _build_name_to_key_mapping(config):
-    """
-    Constrói mapeamento de nomes de deck para hash keys de configuração.
-    
-    Args:
-        config: Configuração do addon
-        
-    Returns:
-        dict: Mapeamento de nomes para hash keys
-    """
-    # Verificar se mw.col e mw.col.decks estão disponíveis
-    if not _is_anki_decks_ready():
-        return {}
-    
-    assert mw.col is not None  # Type hint para o checker
-        
-    name_to_key = {}
-    for hash_key, deck_info in get_remote_decks().items():
-        # Obter o nome real do deck no Anki, não o nome salvo na config
-        local_deck_id = deck_info.get("local_deck_id")
-        if local_deck_id:
-            deck = mw.col.decks.get(local_deck_id) if local_deck_id is not None else None
-            if deck:
-                actual_deck_name = deck["name"]
-                name_to_key[actual_deck_name] = hash_key
-            else:
-                # Usar o nome salvo na config se o deck não existir
-                config_deck_name = deck_info.get("local_deck_name")
-                if config_deck_name:
-                    name_to_key[config_deck_name] = hash_key
-    
-    return name_to_key
 
 def _show_no_decks_message(selected_deck_names):
     """Mostra mensagem quando não há decks para sincronizar."""
@@ -996,7 +1045,6 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
     Returns:
         tuple: (step, deck_sync_increment, current_stats)
     """
-    from .utils import add_debug_message
     from .deck_manager import DeckRecreationManager, DeckNameManager
     
     # Início da lógica de sincronização
@@ -1067,7 +1115,6 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
     _update_progress_text(progress, status_msgs)
     
     # Obter lista de estudantes habilitados para este deck
-    from .student_manager import get_selected_students_for_deck
     enabled_students = get_selected_students_for_deck(remote_deck_url)
     add_debug_message(f"🎓 Estudantes habilitados para este deck: {list(enabled_students)}", "STUDENTS")
     
@@ -1200,16 +1247,7 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
         if should_update or local_name_needs_update:
             save_remote_decks(remote_decks)
             add_debug_message(f"[CONFIG_SAVE] Configuração salva após atualização de nomes", "SYNC")
-        
-        # Salvar configuração se houve qualquer mudança (movido para antes do processamento)
 
-    # 2. Processamento (já incluído no getRemoteDeck)
-    msg = f"{deckName}: processando dados..."
-    status_msgs.append(msg)
-    _update_progress_text(progress, status_msgs)
-    
-    remoteDeck.deckName = deckName
-    
     # Atualizar nome do deck se necessário usando DeckNameManager
     current_remote_name = currentRemoteInfo.get("remote_deck_name")
     sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
@@ -1224,13 +1262,14 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
         msg = f"{deckName}: nome do deck atualizado automaticamente..."
         status_msgs.append(msg)
         _update_progress_text(progress, status_msgs)
-    
-    # 2. Processamento (já incluído no getRemoteDeck)
+
+    # 2. Processamento e escrita no banco de dados
     msg = f"{deckName}: processando dados..."
     status_msgs.append(msg)
     _update_progress_text(progress, status_msgs)
     
     remoteDeck.deckName = deckName
+    
     msg = f"{deckName}: escrevendo no banco de dados..."
     status_msgs.append(msg)
     _update_progress_text(progress, status_msgs)
@@ -1243,54 +1282,17 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
     
     try:
         add_debug_message(f"🔧 CALLING create_or_update_notes NOW...", "SYNC")
-        deck_stats_dict = create_or_update_notes(mw.col, remoteDeck, local_deck_id, deck_url=remote_deck_url, debug_messages=debug_messages)
-        add_debug_message(f"🔧 create_or_update_notes RETURNED: {deck_stats_dict}", "SYNC")
+        deck_stats = create_or_update_notes(mw.col, remoteDeck, local_deck_id, deck_url=remote_deck_url, debug_messages=debug_messages)
+        add_debug_message(f"🔧 create_or_update_notes RETURNED: {deck_stats}", "SYNC")
     except Exception as e:
-        import traceback
         error_details = traceback.format_exc()
         add_debug_message(f"❌ ERRO na chamada create_or_update_notes: {e}", "SYNC")
         add_debug_message(f"❌ Stack trace: {error_details}", "SYNC")
         # Retornar stats padrão com erros
-        deck_stats_dict = {
-            'created': 0, 'updated': 0, 'deleted': 0, 'errors': 7, 
-            'skipped': 0, 'unchanged': 0, 'total_remote': 6
-        }
+        deck_stats = SyncStats(created=0, updated=0, deleted=0, errors=1, ignored=0)
+        deck_stats.add_error(f"Erro crítico na sincronização: {e}")
     
-    add_debug_message(f"✅ create_or_update_notes COMPLETED - returned: {deck_stats_dict}", "SYNC")
-    
-    # Converter para o novo formato SyncStats
-    deck_stats = SyncStats(
-        created=deck_stats_dict.get('created', 0),
-        updated=deck_stats_dict.get('updated', 0),
-        deleted=deck_stats_dict.get('deleted', 0),
-        ignored=deck_stats_dict.get('ignored', 0),
-        errors=deck_stats_dict.get('errors', 0)
-    )
-    
-    # Adicionar detalhes de erros se existirem
-    error_details = deck_stats_dict.get('error_details', [])
-    if isinstance(error_details, list):
-        for error in error_details:
-            deck_stats.add_error(error)
-    
-    # Adicionar detalhes de atualizações se existirem (formato antigo)
-    updated_details = deck_stats_dict.get('updated_details', [])
-    if isinstance(updated_details, list):
-        for detail in updated_details:
-            deck_stats.add_update_detail(detail)
-    
-    # Adicionar detalhes estruturados se existirem (novo formato)
-    update_details = deck_stats_dict.get('update_details', [])
-    if isinstance(update_details, list):
-        deck_stats.update_details.extend(update_details)
-    
-    creation_details = deck_stats_dict.get('creation_details', [])
-    if isinstance(creation_details, list):
-        deck_stats.creation_details.extend(creation_details)
-    
-    deletion_details = deck_stats_dict.get('deletion_details', [])
-    if isinstance(deletion_details, list):
-        deck_stats.deletion_details.extend(deletion_details)
+    add_debug_message(f"✅ create_or_update_notes COMPLETED - returned: {deck_stats}", "SYNC")
     
     step += 1
     progress.setValue(step)
@@ -1298,7 +1300,6 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
 
     # 4. Capturar e armazenar IDs dos note types após sincronização bem-sucedida
     try:
-        from .utils import capture_deck_note_type_ids
         
         add_debug_message(f"Iniciando captura de note type IDs para deck: {deckName}", "SYNC")
         
@@ -1321,9 +1322,6 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
     # 5. SINCRONIZAÇÃO ROBUSTA DOS NOTE_TYPES após criação das notas no Anki
     add_debug_message(f"[NOTE_TYPE_SYNC] Iniciando sincronização robusta dos note_types APÓS criação das notas...", "SYNC")
     try:
-        from .config_manager import sync_note_type_names_robustly
-        from .student_manager import get_selected_students_for_deck
-        
         enabled_students = get_selected_students_for_deck(remote_deck_url)
         sync_result = sync_note_type_names_robustly(remote_deck_url, current_remote_name, enabled_students)
         
@@ -1340,8 +1338,6 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
         add_debug_message(f"[NOTE_TYPE_SYNC] ❌ Erro na sincronização robusta: {e}", "SYNC")
         # Tentar fallback com método antigo
         try:
-            from .config_manager import update_note_type_names_in_meta
-            from .student_manager import get_selected_students_for_deck
             enabled_students = get_selected_students_for_deck(remote_deck_url)
             update_note_type_names_in_meta(remote_deck_url, current_remote_name, enabled_students)
             add_debug_message(f"[NOTE_TYPE_SYNC] Fallback aplicado com sucesso", "SYNC")
@@ -1349,36 +1345,6 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_
             add_debug_message(f"[NOTE_TYPE_SYNC] ❌ Fallback também falhou: {fallback_error}", "SYNC")
 
     return step, 1, deck_stats
-
-def _accumulate_stats(total_stats, deck_stats):
-    """Acumula estatísticas de um deck nas estatísticas totais."""
-    total_stats['created'] += deck_stats['created']
-    total_stats['updated'] += deck_stats['updated']
-    total_stats['deleted'] += deck_stats['deleted']
-    total_stats['ignored'] += deck_stats.get('ignored', 0)
-    total_stats['errors'] += deck_stats['errors']
-    
-    # Inicializar listas de detalhes se não existirem
-    if 'error_details' not in total_stats:
-        total_stats['error_details'] = []
-    if 'update_details' not in total_stats:
-        total_stats['update_details'] = []
-    if 'creation_details' not in total_stats:
-        total_stats['creation_details'] = []
-    if 'deletion_details' not in total_stats:
-        total_stats['deletion_details'] = []
-    
-    # Acumular detalhes se existirem no deck
-    total_stats['error_details'].extend(deck_stats.get('error_details', []))
-    total_stats['update_details'].extend(deck_stats.get('update_details', []))
-    total_stats['creation_details'].extend(deck_stats.get('creation_details', []))
-    total_stats['deletion_details'].extend(deck_stats.get('deletion_details', []))
-    
-    # Manter compatibilidade com código antigo
-    if 'updated_details' in deck_stats:
-        if 'updated_details' not in total_stats:
-            total_stats['updated_details'] = []
-        total_stats['updated_details'].extend(deck_stats['updated_details'])
 
 def _handle_sync_error(e, deckKey, remote_decks, progress, status_msgs, sync_errors, step):
     """Trata erros de sincronização de deck."""
@@ -1417,7 +1383,6 @@ def _handle_unexpected_error(e, deckKey, remote_decks, progress, status_msgs, sy
             deck_info = remote_decks[deckKey]
             local_deck_id = deck_info["local_deck_id"]
             deck = mw.col.decks.get(local_deck_id) if local_deck_id is not None else None
-            from .config_manager import get_deck_local_name
             deckName = deck["name"] if deck else (get_deck_local_name(deckKey) or str(local_deck_id) if local_deck_id is not None else "Unknown")
         except:
             deckName = "Unknown"
@@ -1430,93 +1395,6 @@ def _handle_unexpected_error(e, deckKey, remote_decks, progress, status_msgs, sy
     progress.setValue(step)
     mw.app.processEvents()
     return step, sync_errors
-
-def _finalize_sync(progress, total_decks, decks_synced, total_stats, sync_errors, debug_messages=None, cleanup_result=None, missing_cleanup_result=None):
-    """Finaliza a sincronização mostrando resultados."""
-    progress.setValue(total_decks * 3)
-    mw.app.processEvents()
-    
-    # Aplicar opções compartilhadas automaticamente após sincronização
-    try:
-        if mw and mw.col:  # Verificar se Anki está disponível
-            from .utils import apply_sheets2anki_options_to_all_remote_decks, ensure_parent_deck_has_shared_options
-            
-            # 1. Aplicar ao deck raiz "Sheets2Anki" (sempre)
-            ensure_parent_deck_has_shared_options()
-            
-            # 2. Aplicar a todos os decks remotos sincronizados
-            options_stats = apply_sheets2anki_options_to_all_remote_decks()
-            if options_stats['success'] and options_stats['updated_decks'] > 0:
-                print(f"[SYNC_OPTIONS] Opções aplicadas a {options_stats['updated_decks']} decks remotos")
-                
-    except Exception as e:
-        print(f"[SYNC_OPTIONS] Aviso: Erro ao aplicar opções compartilhadas: {e}")
-    
-    # Remover subdecks vazios após a sincronização
-    remote_decks = get_remote_decks()
-    removed_subdecks = remove_empty_subdecks(remote_decks)
-    
-    # Preparar mensagem final para exibir na barra de progresso
-    cleanup_info = ""
-    if cleanup_result:
-        cleanup_info = f", {cleanup_result['disabled_students_count']} alunos removidos"
-    
-    if missing_cleanup_result:
-        if cleanup_info:
-            cleanup_info += f", dados [MISSING A.] removidos"
-        else:
-            cleanup_info = f", dados [MISSING A.] removidos"
-    
-    if sync_errors or total_stats['errors'] > 0:
-        final_msg = f"Concluído com problemas: {decks_synced}/{total_decks} decks sincronizados"
-        if total_stats['created'] > 0:
-            final_msg += f", {total_stats['created']} notas criadas"
-        if total_stats['updated'] > 0:
-            final_msg += f", {total_stats['updated']} atualizadas"
-        if total_stats['deleted'] > 0:
-            final_msg += f", {total_stats['deleted']} deletadas"
-        if total_stats['ignored'] > 0:
-            final_msg += f", {total_stats['ignored']} ignoradas"
-        if removed_subdecks > 0:
-            final_msg += f", {removed_subdecks} subdecks vazios removidos"
-        if cleanup_info:
-            final_msg += cleanup_info
-        final_msg += f", {total_stats['errors'] + len(sync_errors)} erros"
-    else:
-        final_msg = f"Sincronização concluída com sucesso!"
-        if total_stats['created'] > 0:
-            final_msg += f" {total_stats['created']} notas criadas"
-        if total_stats['updated'] > 0:
-            final_msg += f", {total_stats['updated']} atualizadas"
-        if total_stats['deleted'] > 0:
-            final_msg += f", {total_stats['deleted']} deletadas"
-        if total_stats['ignored'] > 0:
-            final_msg += f", {total_stats['ignored']} ignoradas"
-        if removed_subdecks > 0:
-            final_msg += f", {removed_subdecks} subdecks vazios removidos"
-        if cleanup_info:
-            final_msg += cleanup_info
-    
-    # Remover informação sobre debug messages do final_msg (interface limpa)
-    
-    # Adicionar mensagem final de debug
-    if debug_messages is not None:
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        add_debug_message("🎬 FIM - Sincronização finalizada", "SYSTEM")
-    
-    # Exibir mensagem final na barra SEM debug messages (interface limpa)
-    final_status_msgs = [final_msg]
-    _update_progress_text(progress, final_status_msgs, max_lines=5, debug_messages=None, show_debug=False)
-    
-    # Fechar o progress dialog antes de mostrar o resumo detalhado
-    progress.close()
-    
-    # Mostrar resumo abrangente dos resultados da sincronização com botão de debug integrado
-    _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks, cleanup_result, debug_messages, missing_cleanup_result)
-    
-    # Atualizar a interface do Anki após mostrar o resumo
-    ensure_interface_refresh()
 
 def _show_debug_messages_window(debug_messages):
     """
@@ -1648,286 +1526,6 @@ def _show_debug_messages_window(debug_messages):
     
     from .compat import safe_exec_dialog
     safe_exec_dialog(dialog)
-
-def _show_sync_summary(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks=0, cleanup_result=None, debug_messages=None, missing_cleanup_result=None):
-    """Mostra resumo detalhado da sincronização com controles de visualização para detalhes."""
-    # Preparar o resumo básico
-    if sync_errors or total_stats['errors'] > 0:
-        summary = f"Sincronização concluída com alguns problemas:\n\n"
-        summary += f"Decks sincronizados: {decks_synced}/{total_decks}\n"
-        summary += f"Notas criadas: {total_stats['created']}\n"
-        summary += f"Notas atualizadas: {total_stats['updated']}\n"
-        summary += f"Notas deletadas: {total_stats['deleted']}\n"
-        summary += f"Notas ignoradas: {total_stats['ignored']}\n"
-        if removed_subdecks > 0:
-            summary += f"Subdecks vazios removidos: {removed_subdecks}\n"
-        
-        # Incluir informações de limpeza de alunos removidos
-        if cleanup_result and cleanup_result['disabled_students_count'] > 0:
-            summary += f"Alunos removidos: {cleanup_result['disabled_students_count']} ({cleanup_result['disabled_students_names']})\n"
-        
-        # Incluir informações de limpeza [MISSING A.]
-        if missing_cleanup_result:
-            summary += f"Dados [MISSING A.] removidos\n"
-        
-        summary += f"Erros encontrados: {total_stats['errors'] + len(sync_errors)}\n\n"
-        
-        # Adicionar erros de nível de deck
-        if sync_errors:
-            summary += "Erros de sincronização de decks:\n"
-            summary += "\n".join(sync_errors) + "\n\n"
-        
-        # Adicionar erros de nível de note (sem limite)
-        if total_stats['error_details']:
-            summary += "Erros de processamento de notas:\n"
-            summary += "\n".join(total_stats['error_details'])
-    else:
-        summary = f"Sincronização concluída com sucesso!\n\n"
-        summary += f"Decks sincronizados: {decks_synced}\n"
-        summary += f"Notas criadas: {total_stats['created']}\n"
-        summary += f"Notas atualizadas: {total_stats['updated']}\n"
-        summary += f"Notas deletadas: {total_stats['deleted']}\n"
-        summary += f"Notas ignoradas: {total_stats['ignored']}\n"
-        if removed_subdecks > 0:
-            summary += f"Subdecks vazios removidos: {removed_subdecks}\n"
-        
-        # Incluir informações de limpeza de alunos removidos
-        if cleanup_result and cleanup_result['disabled_students_count'] > 0:
-            summary += f"Alunos removidos: {cleanup_result['disabled_students_count']} ({cleanup_result['disabled_students_names']})\n"
-        
-        # Incluir informações de limpeza [MISSING A.]
-        if missing_cleanup_result:
-            summary += f"Dados [MISSING A.] removidos\n"
-        
-        summary += "Nenhum erro encontrado."
-    
-    # Se há detalhes de atualizações, mostrar em um diálogo com controles
-    if total_stats.get('updated_details'):
-        # Verificar se mw está disponível
-        if not mw:
-            showInfo(summary)
-            return
-            
-        _show_detailed_summary_dialog(summary, total_stats, removed_subdecks, cleanup_result, debug_messages, missing_cleanup_result)
-    else:
-        # Se não há detalhes de atualizações, mostrar apenas o resumo
-        # Mas ainda incluir botão de debug se disponível
-        if debug_messages and len(debug_messages) > 0:
-            # Criar um diálogo simples com botão de debug
-            dialog = QDialog(mw)
-            dialog.setWindowTitle("Sincronização Finalizada")
-            dialog.setMinimumSize(400, 300)
-            
-            layout = QVBoxLayout()
-            
-            # Resumo
-            summary_label = QLabel(summary)
-            summary_label.setWordWrap(True)
-            layout.addWidget(summary_label)
-            
-            # Botões
-            button_box = QDialogButtonBox(ButtonBox_Ok)
-            
-            # Adicionar botão de debug
-            debug_button = QPushButton("Mostrar Debug")
-            debug_button.clicked.connect(lambda: _show_debug_messages_window(debug_messages))
-            button_box.addButton(debug_button, QDialogButtonBox.ButtonRole.ActionRole)
-            
-            button_box.accepted.connect(dialog.accept)
-            layout.addWidget(button_box)
-            
-            dialog.setLayout(layout)
-            safe_exec_dialog(dialog)
-        else:
-            # ShowInfo padrão se não há debug
-            showInfo(summary)
-
-
-def _show_detailed_summary_dialog(summary, total_stats, removed_subdecks, cleanup_result=None, debug_messages=None, missing_cleanup_result=None):
-    """Mostra diálogo detalhado com controles de visualização."""
-    
-    # Criar diálogo personalizado
-    dialog = QDialog(mw)
-    dialog.setWindowTitle("Resumo da Sincronização")
-    dialog.setMinimumSize(700, 600)
-    
-    layout = QVBoxLayout()
-    
-    # Resumo geral no topo
-    summary_label = QLabel(summary)
-    summary_label.setWordWrap(True)
-    layout.addWidget(summary_label)
-    
-    debug_messages = total_stats.get('debug_messages', [])
-    
-    # Sempre usar abas quando há debug messages ou detalhes de atualizações
-    if debug_messages or total_stats.get('updated_details'):
-        # Criar widget de abas
-        tab_widget = QTabWidget()
-        layout.addWidget(tab_widget)
-        
-        # ABA 1: DETALHES DAS ATUALIZAÇÕES (se houver)
-        if total_stats.get('updated_details'):
-            updates_tab = QWidget()
-            updates_layout = QVBoxLayout()
-            
-            # Controles
-            total_updates = len(total_stats['updated_details'])
-            controls_frame = QFrame()
-            controls_layout = QHBoxLayout()
-            controls_frame.setLayout(controls_layout)
-            
-            controls_layout.addWidget(QLabel(f"Mostrar detalhes (total: {total_updates}):"))
-            
-            quantity_spinner = QSpinBox()
-            quantity_spinner.setMinimum(1)
-            quantity_spinner.setMaximum(max(1, total_updates))
-            quantity_spinner.setValue(min(20, total_updates))
-            quantity_spinner.setSuffix(f" de {total_updates}")
-            controls_layout.addWidget(quantity_spinner)
-            
-            show_all_button = QPushButton("Mostrar Todos")
-            controls_layout.addWidget(show_all_button)
-            controls_layout.addStretch()
-            
-            updates_layout.addWidget(controls_frame)
-            
-            # Área de texto para detalhes
-            details_text = QTextEdit()
-            details_text.setReadOnly(True)
-            updates_layout.addWidget(details_text)
-            
-            def update_details_display():
-                quantity = quantity_spinner.value()
-                details = f"Detalhes das atualizações realizadas (mostrando {quantity} de {total_updates}):\n\n"
-                
-                for i, update in enumerate(total_stats['updated_details'][:quantity], 1):
-                    details += f"{i}. ID: {update['id']}\n"
-                    details += f"   Pergunta: {update['pergunta']}\n"
-                    details += f"   Mudanças:\n"
-                    for change in update['changes']:
-                        details += f"     • {change}\n"
-                    details += "\n"
-                
-                if removed_subdecks > 0:
-                    details += f"\n\nSubdecks vazios removidos: {removed_subdecks}\n"
-                
-                details_text.setPlainText(details)
-            
-            def show_all_details():
-                quantity_spinner.setValue(total_updates)
-            
-            quantity_spinner.valueChanged.connect(update_details_display)
-            show_all_button.clicked.connect(show_all_details)
-            update_details_display()
-            
-            updates_tab.setLayout(updates_layout)
-            tab_widget.addTab(updates_tab, f"Atualizações ({total_updates})")
-        
-        # ABA 2: MENSAGENS DE DEBUG
-        if debug_messages:
-            debug_tab = QWidget()
-            debug_layout = QVBoxLayout()
-            
-            debug_header = QLabel(f"Mensagens de Debug ({len(debug_messages)} mensagens)")
-            debug_header.setStyleSheet("font-weight: bold; color: #0066cc;")
-            debug_layout.addWidget(debug_header)
-            
-            debug_text = QTextEdit()
-            debug_text.setReadOnly(True)
-            debug_text.setFont(QFont("Courier", 9))
-            
-            debug_content = "\n".join(debug_messages)
-            debug_text.setPlainText(debug_content)
-            
-            debug_layout.addWidget(debug_text)
-            debug_tab.setLayout(debug_layout)
-            tab_widget.addTab(debug_tab, f"Debug ({len(debug_messages)})")
-        
-        # Se não há abas, criar uma aba padrão
-        if tab_widget.count() == 0:
-            default_tab = QWidget()
-            default_layout = QVBoxLayout()
-            default_layout.addWidget(QLabel("Nenhum detalhe adicional disponível."))
-            default_tab.setLayout(default_layout)
-            tab_widget.addTab(default_tab, "Resumo")
-    else:
-        # Caso simples: apenas o resumo básico  
-        layout.addWidget(QLabel("Nenhum detalhe adicional disponível."))
-    total_updates = len(total_stats['updated_details'])
-    controls_layout.addWidget(QLabel(f"Mostrar detalhes (total: {total_updates}):"))
-    
-    # Spinner para quantidade
-    quantity_spinner = QSpinBox()
-    quantity_spinner.setMinimum(1)
-    quantity_spinner.setMaximum(max(1, total_updates))
-    quantity_spinner.setValue(min(20, total_updates))  # Padrão: 20 ou total se menor
-    quantity_spinner.setSuffix(f" de {total_updates}")
-    controls_layout.addWidget(quantity_spinner)
-    
-    # Botão para mostrar todos
-    show_all_button = QPushButton("Mostrar Todos")
-    controls_layout.addWidget(show_all_button)
-    
-    # Espaçador
-    controls_layout.addStretch()
-    
-    layout.addWidget(controls_frame)
-    
-    # Área de texto com scroll para os detalhes das atualizações
-    details_text = QTextEdit()
-    details_text.setReadOnly(True)
-    layout.addWidget(details_text)
-    
-    # Função para atualizar os detalhes mostrados
-    def update_details_display():
-        quantity = quantity_spinner.value()
-        
-        # Preparar texto detalhado das atualizações
-        details = f"Detalhes das atualizações realizadas (mostrando {quantity} de {total_updates}):\n\n"
-        
-        for i, update in enumerate(total_stats['updated_details'][:quantity], 1):
-            details += f"{i}. ID: {update['id']}\n"
-            details += f"   Pergunta: {update['pergunta']}\n"
-            details += f"   Mudanças:\n"
-            # Separar cada mudança em uma nova linha com indentação
-            for change in update['changes']:
-                details += f"     • {change}\n"
-            details += "\n"
-        
-        # Adicionar informação sobre subdecks vazios removidos, se houver
-        if removed_subdecks > 0:
-            details += f"\n\nSubdecks vazios removidos: {removed_subdecks}\n"
-            details += "Subdecks sem cards foram automaticamente removidos para manter a organização."
-        
-        details_text.setPlainText(details)
-    
-    # Função para mostrar todos os detalhes
-    def show_all_details():
-        quantity_spinner.setValue(total_updates)
-    
-    # Conectar sinais
-    quantity_spinner.valueChanged.connect(update_details_display)
-    show_all_button.clicked.connect(show_all_details)
-    
-    # Atualizar display inicial
-    update_details_display()
-    
-    # Botões
-    button_box = QDialogButtonBox(ButtonBox_Ok)
-    
-    # Adicionar botão de debug se há mensagens de debug
-    if debug_messages and len(debug_messages) > 0:
-        debug_button = QPushButton("Mostrar Debug")
-        debug_button.clicked.connect(lambda: _show_debug_messages_window(debug_messages))
-        button_box.addButton(debug_button, QDialogButtonBox.ButtonRole.ActionRole)
-    
-    button_box.accepted.connect(dialog.accept)
-    layout.addWidget(button_box)
-    
-    dialog.setLayout(layout)
-    safe_exec_dialog(dialog)
-
 
 def _handle_consolidated_cleanup(remote_decks):
     """

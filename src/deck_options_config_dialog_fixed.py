@@ -94,7 +94,7 @@ class DeckOptionsConfigDialog(QDialog):
         buttons_layout.addStretch()
         
         self.cancel_button = QPushButton("Cancelar")
-        self.ok_button = QPushButton("OK")
+        self.ok_button = QPushButton("Aplicar")
         self.ok_button.setDefault(True)
         
         buttons_layout.addWidget(self.cancel_button)
@@ -109,7 +109,7 @@ class DeckOptionsConfigDialog(QDialog):
         self.individual_radio.toggled.connect(self._update_description)
         self.manual_radio.toggled.connect(self._update_description)
         
-        self.ok_button.clicked.connect(self._save_changes)
+        self.ok_button.clicked.connect(self._apply_changes)
         self.cancel_button.clicked.connect(self.reject)
 
     def _update_description(self):
@@ -120,32 +120,29 @@ class DeckOptionsConfigDialog(QDialog):
 • Deck raiz usa configurações específicas: <b>"Sheets2Anki - Root Options"</b><br>
 • Configure uma vez e todas as alterações se aplicam a todos os decks<br>
 • Ideal para manter consistência nas configurações de estudo<br>
-• <b>Recomendado para a maioria dos usuários</b><br>
-• <i>As configurações serão aplicadas na próxima sincronização de decks</i>""",
+• <b>Recomendado para a maioria dos usuários</b>""",
             
             1: """<b>Opções Individuais</b><br><br>
 • Cada deck remoto tem seu próprio grupo de configurações: <b>"Sheets2Anki - [Nome do Deck]"</b><br>
 • Deck raiz sempre usa: <b>"Sheets2Anki - Root Options"</b><br>
 • Permite configurações diferentes para cada deck<br>
 • Útil quando decks têm necessidades de estudo específicas<br>
-• Requer configuração individual de cada deck<br>
-• <i>As configurações serão aplicadas na próxima sincronização de decks</i>""",
+• Requer configuração individual de cada deck""",
             
             2: """<b>Configuração Manual</b><br><br>
 • O addon não aplica nenhuma configuração automaticamente<br>
 • Você tem controle total sobre as opções de cada deck<br>
 • Use as configurações padrão do Anki ou crie seus próprios grupos<br>
 • Sistema de limpeza automática é desativado<br>
-• <b>Para usuários avançados que preferem gerenciar manualmente</b><br>
-• <i>Nenhuma configuração será aplicada automaticamente</i>"""
+• <b>Para usuários avançados que preferem gerenciar manualmente</b>"""
         }
         
         selected_id = self.button_group.checkedId()
         if selected_id >= 0:
             self.description_text.setHtml(descriptions.get(selected_id, ""))
 
-    def _save_changes(self):
-        """Salva as mudanças de configuração sem aplicar a lógica."""
+    def _apply_changes(self):
+        """Aplica as mudanças de configuração."""
         selected_id = self.button_group.checkedId()
         modes = ["shared", "individual", "manual"]
         
@@ -153,10 +150,14 @@ class DeckOptionsConfigDialog(QDialog):
             new_mode = modes[selected_id]
             
             try:
-                from .config_manager import set_deck_options_mode
+                from .config_manager import set_deck_options_mode, get_meta
                 set_deck_options_mode(new_mode)
                 
-                # Feedback simples para o usuário
+                # Aplicar sistema automático completo usando a nova função
+                from .utils import apply_automatic_deck_options_system
+                auto_result = apply_automatic_deck_options_system()
+                
+                # Feedback para o usuário
                 mode_names = {
                     "shared": "Opções Compartilhadas",
                     "individual": "Opções Individuais", 
@@ -166,14 +167,40 @@ class DeckOptionsConfigDialog(QDialog):
                 from .compat import QMessageBox
                 
                 msg = QMessageBox()
-                msg.setWindowTitle("Configuração Salva")
+                msg.setWindowTitle("Configuração Aplicada")
                 msg.setText(f"Modo alterado para: {mode_names[new_mode]}")
                 
-                # Mensagem informativa sobre quando será aplicado
+                # Mensagem detalhada baseada no resultado
                 if new_mode == "manual":
-                    msg.setInformativeText("As opções não serão aplicadas automaticamente.")
+                    msg.setInformativeText("As opções não serão mais aplicadas automaticamente. Você tem controle total sobre as configurações de deck.")
+                elif auto_result.get('success', False):
+                    details = []
+                    if auto_result.get('root_deck_updated', False):
+                        details.append("Deck raiz configurado com 'Sheets2Anki - Root Options'")
+                    if auto_result.get('remote_decks_updated', 0) > 0:
+                        deck_count = auto_result['remote_decks_updated']
+                        if new_mode == "individual":
+                            details.append(f"{deck_count} decks configurados com opções individuais")
+                        else:
+                            details.append(f"{deck_count} decks configurados com 'Sheets2Anki - Default Options'")
+                    if auto_result.get('cleaned_groups', 0) > 0:
+                        details.append(f"{auto_result['cleaned_groups']} grupos órfãos removidos")
+                    
+                    if details:
+                        msg.setInformativeText("Sistema automático aplicado:\n• " + "\n• ".join(details))
+                    else:
+                        if new_mode == "individual":
+                            msg.setInformativeText("Cada novo deck terá seu próprio grupo de opções personalizado.")
+                        else:
+                            msg.setInformativeText("Todos os decks usarão o grupo 'Sheets2Anki - Default Options'.")
+                        
+                    # Mostrar erros se houver
+                    if auto_result.get('errors'):
+                        errors_text = "\n".join(auto_result['errors'])
+                        current_text = msg.informativeText()
+                        msg.setInformativeText(f"{current_text}\n\nAvisos:\n{errors_text}")
                 else:
-                    msg.setInformativeText("As configurações serão aplicadas automaticamente na próxima sincronização de decks.")
+                    msg.setInformativeText(f"Modo alterado, mas houve problemas na aplicação: {auto_result.get('error', 'Erro desconhecido')}")
                 
                 msg.setStandardButtons(MessageBox_Ok)
                 safe_exec_dialog(msg)
@@ -182,7 +209,7 @@ class DeckOptionsConfigDialog(QDialog):
                 
             except Exception as e:
                 from .compat import QMessageBox
-                QMessageBox.critical(self, "Erro", f"Erro ao salvar configuração:\n{str(e)}")
+                QMessageBox.critical(self, "Erro", f"Erro ao aplicar configuração:\n{str(e)}")
 
 
 def show_deck_options_config_dialog(parent=None):
