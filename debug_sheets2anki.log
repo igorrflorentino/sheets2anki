@@ -1466,3 +1466,357 @@
 [03:03:57.363] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
 [03:03:57.363] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
 [03:03:57.363] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+
+============================================================
+=== NOVA SESSÃO DEBUG - 2025-08-09 03:09:37 ===
+============================================================
+[03:09:37.519] [SYSTEM] 🚀 Sheets2Anki addon carregado
+[03:10:20.197] [Config Manager] === SALVANDO DECK INFO NO META.JSON ===
+[03:10:20.197] [Config Manager] Hash 3f67c1cb: local_deck_id=1754713925963, local_deck_name='Sheets2Anki::#0 Sheets2Anki Template 3'
+[03:10:20.197] [Config Manager] Hash 3c30faa1: local_deck_id=1754719820195, local_deck_name='Sheets2Anki::#0 Sheets2Anki Template'
+[03:10:20.198] [Config Manager] ✓ Deck info salvo no meta.json com sucesso
+[03:10:20.289] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 1
+[03:10:20.290] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3c30faa1
+[03:10:20.290] [SYNC] 📋 Local Deck ID: 1754719820195
+[03:10:20.290] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vTcDHBkoT5RHmBfXJ3KMLCLnSbw5zrKekXRsrMPQdC651uf_rTF_lyAUIMdMgb1ZZ19DuHc6GDqUCdX/pub?gid=36065074&single=true&output=tsv
+[03:10:20.290] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754719820195
+[03:10:20.290] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template' (ID: 1754719820195)
+[03:10:20.290] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:10:20.290] [DECK_RECREATION] ✅ Deck existe e nome confere
+[03:10:20.290] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template' (ID: 1754719820195)
+[03:10:22.208] [STUDENTS] 🎓 Estudantes habilitados para este deck: ['Belle']
+[03:10:23.935] [REMOTE_DECK] 📊 Notas carregadas do deck remoto: 3
+[03:10:25.018] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template'
+[03:10:25.019] [SYNC] [DECK_NAME_CHECK] Verificando consistência de nomes:
+[03:10:25.020] [SYNC] [DECK_NAME_CHECK] - Remote: '#0 Sheets2Anki Template'
+[03:10:25.020] [SYNC] [DECK_NAME_CHECK] - Local atual: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:10:25.020] [SYNC] [DECK_NAME_CHECK] - Local esperado: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:10:25.036] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 3 notes
+[03:10:25.037] [SYNC] 🔧 create_or_update_notes function: <function create_or_update_notes at 0x115374ca0>
+[03:10:25.037] [SYNC] 🔧 mw.col: <anki.collection.Collection object at 0x1150acd30>, remoteDeck: <sheets2anki.src.data_processor.RemoteDeck object at 0x1308165e0>, local_deck_id: 1754719820195
+[03:10:25.037] [SYNC] 🔧 CALLING create_or_update_notes NOW...
+[03:10:25.037] [NOTE_PROCESSOR] 🔧 Iniciando sincronização de notas com lógica refatorada
+[03:10:25.037] [NOTE_PROCESSOR] 🔧 remoteDeck contém 3 notas
+[03:10:25.037] [NOTE_PROCESSOR] Alunos habilitados no sistema: ['Belle']
+[03:10:25.038] [NOTE_PROCESSOR] Sincronizar notas sem alunos específicos ([MISSING A.]): True
+[03:10:25.038] [NOTE_PROCESSOR] Incluindo [MISSING A.] como aluno efetivo para sincronização
+[03:10:25.038] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, incluindo como [MISSING A.]
+[03:10:25.038] [NOTE_PROCESSOR] Total de notas esperadas (student_note_id): 3
+[03:10:25.038] [NOTE_PROCESSOR] Criando note types para alunos: ['Belle', '[MISSING A.]']
+[03:10:25.048] [NOTE_PROCESSOR] Encontradas 0 notas existentes no deck
+[03:10:25.048] [CREATE_NOTE_STUDENT] Criando nova nota para aluno Belle: b4cd11d1-6146-4acb-a349-73304a2dc356
+[03:10:25.049] [CREATE_NOTE_STUDENT] Note type para Belle: Sheets2Anki - #0 Sheets2Anki Template - Belle - Basic
+[03:10:25.049] [CREATE_NOTE_STUDENT] ✅ Modelo encontrado: Sheets2Anki - #0 Sheets2Anki Template - Belle - Basic (ID: 1754719825039)
+[03:10:25.049] [CREATE_NOTE_STUDENT] Determinando deck de destino para nota: b4cd11d1-6146-4acb-a349-73304a2dc356, aluno: Belle
+[03:10:25.050] [DECK_TARGET_STUDENT] Nota direcionada para subdeck do aluno Belle: Sheets2Anki::#0 Sheets2Anki Template::Belle::Urgente::Topico 2::[MISSING S.]::[MISSING C.]
+[03:10:25.050] [CREATE_NOTE_STUDENT] Deck de destino determinado: 1754719825053
+[03:10:25.050] [CREATE_NOTE_STUDENT] Adicionando nota b4cd11d1-6146-4acb-a349-73304a2dc356 do aluno Belle ao deck 1754719825053
+[03:10:25.051] [CREATE_NOTE_STUDENT] ✅ Nota b4cd11d1-6146-4acb-a349-73304a2dc356 do aluno Belle adicionada com sucesso ao deck 1754719825053
+[03:10:25.051] [CREATE_NOTE_STUDENT] ✅ Nota criada com sucesso para Belle: b4cd11d1-6146-4acb-a349-73304a2dc356
+[03:10:25.051] [NOTE_PROCESSOR] ✅ Nota criada: Belle_b4cd11d1-6146-4acb-a349-73304a2dc356
+[03:10:25.051] [CREATE_NOTE_STUDENT] Criando nova nota para aluno Belle: a8960ba1-f675-45c6-8083-bd4c1f312f13
+[03:10:25.051] [CREATE_NOTE_STUDENT] Note type para Belle: Sheets2Anki - #0 Sheets2Anki Template - Belle - Cloze
+[03:10:25.052] [CREATE_NOTE_STUDENT] ✅ Modelo encontrado: Sheets2Anki - #0 Sheets2Anki Template - Belle - Cloze (ID: 1754719825043)
+[03:10:25.052] [CREATE_NOTE_STUDENT] Determinando deck de destino para nota: a8960ba1-f675-45c6-8083-bd4c1f312f13, aluno: Belle
+[03:10:25.052] [DECK_TARGET_STUDENT] Nota direcionada para subdeck do aluno Belle: Sheets2Anki::#0 Sheets2Anki Template::Belle::[MISSING I.]::[MISSING T.]::Subtopico 1::Conceito 1
+[03:10:25.052] [CREATE_NOTE_STUDENT] Deck de destino determinado: 1754719825057
+[03:10:25.052] [CREATE_NOTE_STUDENT] Adicionando nota a8960ba1-f675-45c6-8083-bd4c1f312f13 do aluno Belle ao deck 1754719825057
+[03:10:25.052] [CREATE_NOTE_STUDENT] ✅ Nota a8960ba1-f675-45c6-8083-bd4c1f312f13 do aluno Belle adicionada com sucesso ao deck 1754719825057
+[03:10:25.052] [CREATE_NOTE_STUDENT] ✅ Nota criada com sucesso para Belle: a8960ba1-f675-45c6-8083-bd4c1f312f13
+[03:10:25.052] [NOTE_PROCESSOR] ✅ Nota criada: Belle_a8960ba1-f675-45c6-8083-bd4c1f312f13
+[03:10:25.052] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, processando como [MISSING A.]
+[03:10:25.053] [CREATE_NOTE_STUDENT] Criando nova nota para aluno [MISSING A.]: 614ce84f-9111-4ac7-83e1-c4a962687760
+[03:10:25.053] [CREATE_NOTE_STUDENT] Note type para [MISSING A.]: Sheets2Anki - #0 Sheets2Anki Template - [MISSING A.] - Cloze
+[03:10:25.053] [CREATE_NOTE_STUDENT] ✅ Modelo encontrado: Sheets2Anki - #0 Sheets2Anki Template - [MISSING A.] - Cloze (ID: 1754719825046)
+[03:10:25.053] [CREATE_NOTE_STUDENT] Determinando deck de destino para nota: 614ce84f-9111-4ac7-83e1-c4a962687760, aluno: [MISSING A.]
+[03:10:25.053] [DECK_TARGET_STUDENT] Nota direcionada para subdeck do aluno [MISSING A.]: Sheets2Anki::#0 Sheets2Anki Template::[MISSING A.]::[MISSING I.]::[MISSING T.]::[MISSING S.]::Conceito 1
+[03:10:25.053] [CREATE_NOTE_STUDENT] Deck de destino determinado: 1754719825062
+[03:10:25.053] [CREATE_NOTE_STUDENT] Adicionando nota 614ce84f-9111-4ac7-83e1-c4a962687760 do aluno [MISSING A.] ao deck 1754719825062
+[03:10:25.054] [CREATE_NOTE_STUDENT] ✅ Nota 614ce84f-9111-4ac7-83e1-c4a962687760 do aluno [MISSING A.] adicionada com sucesso ao deck 1754719825062
+[03:10:25.054] [CREATE_NOTE_STUDENT] ✅ Nota criada com sucesso para [MISSING A.]: 614ce84f-9111-4ac7-83e1-c4a962687760
+[03:10:25.054] [NOTE_PROCESSOR] ✅ Nota [MISSING A.] criada: [MISSING A.]_614ce84f-9111-4ac7-83e1-c4a962687760
+[03:10:25.054] [NOTE_PROCESSOR] Auto-remove ativo: preservando notas de alunos conhecidos, removendo apenas 0 realmente obsoletas
+[03:10:25.054] [NOTE_PROCESSOR] Removendo 0 notas obsoletas
+[03:10:25.055] [NOTE_PROCESSOR] Coleção salva com sucesso
+[03:10:25.055] [NOTE_PROCESSOR] 🎯 Sincronização concluída: +3 ~0 =0 -0 !0
+[03:10:25.055] [SYNC] 🔧 create_or_update_notes RETURNED: {'created': 3, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 0, 'total_remote': 3, 'update_details': [], 'creation_details': [{'student_note_id': 'Belle_b4cd11d1-6146-4acb-a349-73304a2dc356', 'student': 'Belle', 'note_id': 'b4cd11d1-6146-4acb-a349-73304a2dc356', 'pergunta': 'Quem matou Odete Roitman?'}, {'student_note_id': 'Belle_a8960ba1-f675-45c6-8083-bd4c1f312f13', 'student': 'Belle', 'note_id': 'a8960ba1-f675-45c6-8083-bd4c1f312f13', 'pergunta': 'Pau que nasce torto {{c1::mija fora da privada}}'}, {'student_note_id': '[MISSING A.]_614ce84f-9111-4ac7-83e1-c4a962687760', 'student': '[MISSING A.]', 'note_id': '614ce84f-9111-4ac7-83e1-c4a962687760', 'pergunta': 'Mais vale um {{c1::peito}} na mão do que dois {{c2::dois no sutia}}'}], 'deletion_details': []}
+[03:10:25.055] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 3, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 0, 'total_remote': 3, 'update_details': [], 'creation_details': [{'student_note_id': 'Belle_b4cd11d1-6146-4acb-a349-73304a2dc356', 'student': 'Belle', 'note_id': 'b4cd11d1-6146-4acb-a349-73304a2dc356', 'pergunta': 'Quem matou Odete Roitman?'}, {'student_note_id': 'Belle_a8960ba1-f675-45c6-8083-bd4c1f312f13', 'student': 'Belle', 'note_id': 'a8960ba1-f675-45c6-8083-bd4c1f312f13', 'pergunta': 'Pau que nasce torto {{c1::mija fora da privada}}'}, {'student_note_id': '[MISSING A.]_614ce84f-9111-4ac7-83e1-c4a962687760', 'student': '[MISSING A.]', 'note_id': '614ce84f-9111-4ac7-83e1-c4a962687760', 'pergunta': 'Mais vale um {{c1::peito}} na mão do que dois {{c2::dois no sutia}}'}], 'deletion_details': []}
+[03:10:25.057] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template
+[03:10:25.057] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template
+[03:10:25.057] [SYNC] [NOTE_TYPE_SYNC] Iniciando sincronização robusta dos note_types APÓS criação das notas...
+[03:10:25.058] [SYNC] [NOTE_TYPE_SYNC] ✅ Todos os note_types já estão consistentes
+[03:10:25.058] [SYNC] ✅ Deck concluído: 3c30faa1
+[03:10:25.067] [SYSTEM] 🎬 Sincronização finalizada
+[03:10:25.067] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[03:10:25.069] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[03:10:25.069] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[03:10:25.069] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+[03:10:57.245] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 2
+[03:10:57.249] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[03:10:57.249] [SYNC] 📋 Local Deck ID: 1754713925963
+[03:10:57.249] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[03:10:57.249] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754713925963
+[03:10:57.249] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 3' (ID: 1754713925963)
+[03:10:57.249] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 3'
+[03:10:57.249] [DECK_RECREATION] ✅ Deck existe e nome confere
+[03:10:57.249] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 3' (ID: 1754713925963)
+[03:10:58.403] [STUDENTS] 🎓 Estudantes habilitados para este deck: ['Belle']
+[03:10:59.812] [REMOTE_DECK] 📊 Notas carregadas do deck remoto: 3
+[03:11:00.864] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template 3'
+[03:11:00.864] [SYNC] [DECK_NAME_CHECK] Verificando consistência de nomes:
+[03:11:00.864] [SYNC] [DECK_NAME_CHECK] - Remote: '#0 Sheets2Anki Template 3'
+[03:11:00.865] [SYNC] [DECK_NAME_CHECK] - Local atual: 'Sheets2Anki::#0 Sheets2Anki Template 3'
+[03:11:00.865] [SYNC] [DECK_NAME_CHECK] - Local esperado: 'Sheets2Anki::#0 Sheets2Anki Template 3'
+[03:11:00.873] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 3 notes
+[03:11:00.873] [SYNC] 🔧 create_or_update_notes function: <function create_or_update_notes at 0x115374ca0>
+[03:11:00.873] [SYNC] 🔧 mw.col: <anki.collection.Collection object at 0x1150acd30>, remoteDeck: <sheets2anki.src.data_processor.RemoteDeck object at 0x122f0f370>, local_deck_id: 1754713925963
+[03:11:00.873] [SYNC] 🔧 CALLING create_or_update_notes NOW...
+[03:11:00.873] [NOTE_PROCESSOR] 🔧 Iniciando sincronização de notas com lógica refatorada
+[03:11:00.873] [NOTE_PROCESSOR] 🔧 remoteDeck contém 3 notas
+[03:11:00.874] [NOTE_PROCESSOR] Alunos habilitados no sistema: ['Belle']
+[03:11:00.874] [NOTE_PROCESSOR] Sincronizar notas sem alunos específicos ([MISSING A.]): True
+[03:11:00.874] [NOTE_PROCESSOR] Incluindo [MISSING A.] como aluno efetivo para sincronização
+[03:11:00.874] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, incluindo como [MISSING A.]
+[03:11:00.874] [NOTE_PROCESSOR] Total de notas esperadas (student_note_id): 3
+[03:11:00.874] [NOTE_PROCESSOR] Criando note types para alunos: ['Belle', '[MISSING A.]']
+[03:11:00.875] [NOTE_PROCESSOR] Encontradas 3 notas existentes no deck
+[03:11:00.875] [UPDATE_NOTE_STUDENT] Verificando se nota b4cd11d1-6146-4acb-a349-73304a2dc356 precisa ser atualizada para aluno Belle
+[03:11:00.875] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki']
+[03:11:00.875] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki']
+[03:11:00.875] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:00.875] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:00.875] [UPDATE_NOTE_STUDENT] ⏭️ Nota b4cd11d1-6146-4acb-a349-73304a2dc356 não foi atualizada - conteúdo idêntico
+[03:11:00.875] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_b4cd11d1-6146-4acb-a349-73304a2dc356
+[03:11:00.875] [UPDATE_NOTE_STUDENT] Verificando se nota a8960ba1-f675-45c6-8083-bd4c1f312f13 precisa ser atualizada para aluno Belle
+[03:11:00.875] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki']
+[03:11:00.875] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki']
+[03:11:00.875] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:00.875] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:00.875] [UPDATE_NOTE_STUDENT] ⏭️ Nota a8960ba1-f675-45c6-8083-bd4c1f312f13 não foi atualizada - conteúdo idêntico
+[03:11:00.875] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_a8960ba1-f675-45c6-8083-bd4c1f312f13
+[03:11:00.876] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, processando como [MISSING A.]
+[03:11:00.876] [UPDATE_NOTE_STUDENT] Verificando se nota 614ce84f-9111-4ac7-83e1-c4a962687760 precisa ser atualizada para aluno [MISSING A.]
+[03:11:00.876] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki']
+[03:11:00.876] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki']
+[03:11:00.876] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:00.876] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:00.876] [UPDATE_NOTE_STUDENT] ⏭️ Nota 614ce84f-9111-4ac7-83e1-c4a962687760 não foi atualizada - conteúdo idêntico
+[03:11:00.876] [NOTE_PROCESSOR] ⏭️ Nota [MISSING A.] inalterada: [MISSING A.]_614ce84f-9111-4ac7-83e1-c4a962687760
+[03:11:00.876] [NOTE_PROCESSOR] Auto-remove ativo: preservando notas de alunos conhecidos, removendo apenas 0 realmente obsoletas
+[03:11:00.876] [NOTE_PROCESSOR] Removendo 0 notas obsoletas
+[03:11:00.876] [NOTE_PROCESSOR] Coleção salva com sucesso
+[03:11:00.876] [NOTE_PROCESSOR] 🎯 Sincronização concluída: +0 ~0 =3 -0 !0
+[03:11:00.876] [SYNC] 🔧 create_or_update_notes RETURNED: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:00.876] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:00.878] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template 3
+[03:11:00.878] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template 3
+[03:11:00.878] [SYNC] [NOTE_TYPE_SYNC] Iniciando sincronização robusta dos note_types APÓS criação das notas...
+[03:11:00.878] [SYNC] [NOTE_TYPE_SYNC] ✅ Todos os note_types já estão consistentes
+[03:11:00.878] [SYNC] ✅ Deck concluído: 3f67c1cb
+[03:11:00.878] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3c30faa1
+[03:11:00.878] [SYNC] 📋 Local Deck ID: 1754719820195
+[03:11:00.879] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vTcDHBkoT5RHmBfXJ3KMLCLnSbw5zrKekXRsrMPQdC651uf_rTF_lyAUIMdMgb1ZZ19DuHc6GDqUCdX/pub?gid=36065074&single=true&output=tsv
+[03:11:00.879] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754719820195
+[03:11:00.879] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template' (ID: 1754719820195)
+[03:11:00.879] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:11:00.879] [DECK_RECREATION] ✅ Deck existe e nome confere
+[03:11:00.879] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template' (ID: 1754719820195)
+[03:11:02.416] [STUDENTS] 🎓 Estudantes habilitados para este deck: ['Belle']
+[03:11:04.101] [REMOTE_DECK] 📊 Notas carregadas do deck remoto: 3
+[03:11:04.923] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template'
+[03:11:04.924] [SYNC] [DECK_NAME_CHECK] Verificando consistência de nomes:
+[03:11:04.925] [SYNC] [DECK_NAME_CHECK] - Remote: '#0 Sheets2Anki Template'
+[03:11:04.925] [SYNC] [DECK_NAME_CHECK] - Local atual: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:11:04.925] [SYNC] [DECK_NAME_CHECK] - Local esperado: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:11:04.939] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 3 notes
+[03:11:04.939] [SYNC] 🔧 create_or_update_notes function: <function create_or_update_notes at 0x115374ca0>
+[03:11:04.939] [SYNC] 🔧 mw.col: <anki.collection.Collection object at 0x1150acd30>, remoteDeck: <sheets2anki.src.data_processor.RemoteDeck object at 0x122f0f0a0>, local_deck_id: 1754719820195
+[03:11:04.939] [SYNC] 🔧 CALLING create_or_update_notes NOW...
+[03:11:04.939] [NOTE_PROCESSOR] 🔧 Iniciando sincronização de notas com lógica refatorada
+[03:11:04.940] [NOTE_PROCESSOR] 🔧 remoteDeck contém 3 notas
+[03:11:04.940] [NOTE_PROCESSOR] Alunos habilitados no sistema: ['Belle']
+[03:11:04.940] [NOTE_PROCESSOR] Sincronizar notas sem alunos específicos ([MISSING A.]): True
+[03:11:04.940] [NOTE_PROCESSOR] Incluindo [MISSING A.] como aluno efetivo para sincronização
+[03:11:04.940] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, incluindo como [MISSING A.]
+[03:11:04.940] [NOTE_PROCESSOR] Total de notas esperadas (student_note_id): 3
+[03:11:04.940] [NOTE_PROCESSOR] Criando note types para alunos: ['Belle', '[MISSING A.]']
+[03:11:04.943] [NOTE_PROCESSOR] Encontradas 3 notas existentes no deck
+[03:11:04.943] [UPDATE_NOTE_STUDENT] Verificando se nota b4cd11d1-6146-4acb-a349-73304a2dc356 precisa ser atualizada para aluno Belle
+[03:11:04.943] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki', 'Sheets2Anki::topicos::Topico_2']
+[03:11:04.943] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki', 'Sheets2Anki::topicos::Topico_2']
+[03:11:04.943] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:04.943] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:04.943] [UPDATE_NOTE_STUDENT] ⏭️ Nota b4cd11d1-6146-4acb-a349-73304a2dc356 não foi atualizada - conteúdo idêntico
+[03:11:04.943] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_b4cd11d1-6146-4acb-a349-73304a2dc356
+[03:11:04.943] [UPDATE_NOTE_STUDENT] Verificando se nota a8960ba1-f675-45c6-8083-bd4c1f312f13 precisa ser atualizada para aluno Belle
+[03:11:04.944] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1', 'Sheets2Anki::subtopicos::Subtopico_1']
+[03:11:04.944] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1', 'Sheets2Anki::subtopicos::Subtopico_1']
+[03:11:04.944] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:04.944] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:04.944] [UPDATE_NOTE_STUDENT] ⏭️ Nota a8960ba1-f675-45c6-8083-bd4c1f312f13 não foi atualizada - conteúdo idêntico
+[03:11:04.944] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_a8960ba1-f675-45c6-8083-bd4c1f312f13
+[03:11:04.944] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, processando como [MISSING A.]
+[03:11:04.944] [UPDATE_NOTE_STUDENT] Verificando se nota 614ce84f-9111-4ac7-83e1-c4a962687760 precisa ser atualizada para aluno [MISSING A.]
+[03:11:04.944] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1']
+[03:11:04.944] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1']
+[03:11:04.944] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:04.944] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:04.944] [UPDATE_NOTE_STUDENT] ⏭️ Nota 614ce84f-9111-4ac7-83e1-c4a962687760 não foi atualizada - conteúdo idêntico
+[03:11:04.944] [NOTE_PROCESSOR] ⏭️ Nota [MISSING A.] inalterada: [MISSING A.]_614ce84f-9111-4ac7-83e1-c4a962687760
+[03:11:04.945] [NOTE_PROCESSOR] Auto-remove ativo: preservando notas de alunos conhecidos, removendo apenas 0 realmente obsoletas
+[03:11:04.945] [NOTE_PROCESSOR] Removendo 0 notas obsoletas
+[03:11:04.945] [NOTE_PROCESSOR] Coleção salva com sucesso
+[03:11:04.945] [NOTE_PROCESSOR] 🎯 Sincronização concluída: +0 ~0 =3 -0 !0
+[03:11:04.946] [SYNC] 🔧 create_or_update_notes RETURNED: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:04.946] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:04.948] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template
+[03:11:04.949] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template
+[03:11:04.949] [SYNC] [NOTE_TYPE_SYNC] Iniciando sincronização robusta dos note_types APÓS criação das notas...
+[03:11:04.949] [SYNC] [NOTE_TYPE_SYNC] ✅ Todos os note_types já estão consistentes
+[03:11:04.949] [SYNC] ✅ Deck concluído: 3c30faa1
+[03:11:04.961] [SYSTEM] 🎬 Sincronização finalizada
+[03:11:04.961] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[03:11:04.962] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[03:11:04.962] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[03:11:04.962] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída
+[03:11:51.086] [SYNC] 🎬 SISTEMA DE DEBUG ATIVADO - Total de decks: 2
+[03:11:51.089] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3f67c1cb
+[03:11:51.089] [SYNC] 📋 Local Deck ID: 1754713925963
+[03:11:51.089] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv
+[03:11:51.089] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754713925963
+[03:11:51.089] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template 3' (ID: 1754713925963)
+[03:11:51.089] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template 3'
+[03:11:51.089] [DECK_RECREATION] ✅ Deck existe e nome confere
+[03:11:51.090] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template 3' (ID: 1754713925963)
+[03:11:52.166] [STUDENTS] 🎓 Estudantes habilitados para este deck: ['Belle']
+[03:11:53.883] [REMOTE_DECK] 📊 Notas carregadas do deck remoto: 3
+[03:11:55.035] [SYNC] [CONFLICT_RESOLVE] Aplicando resolução: '#0 Sheets2Anki Template' → '#0 Sheets2Anki Template #conflito1'
+[03:11:55.035] [SYNC] [DECK_NAME_CHECK] Verificando consistência de nomes:
+[03:11:55.036] [SYNC] [DECK_NAME_CHECK] - Remote: '#0 Sheets2Anki Template #conflito1'
+[03:11:55.036] [SYNC] [DECK_NAME_CHECK] - Local atual: 'Sheets2Anki::#0 Sheets2Anki Template 3'
+[03:11:55.036] [SYNC] [DECK_NAME_CHECK] - Local esperado: 'Sheets2Anki::#0 Sheets2Anki Template #conflito1'
+[03:11:55.036] [SYNC] [UPDATE_REASON] remote_deck_name mudou
+[03:11:55.036] [SYNC] [UPDATE_REASON] local_deck_name inconsistente
+[03:11:55.037] [SYNC] [LOCAL_NAME_UPDATE] local_deck_name atualizado: 'Sheets2Anki::#0 Sheets2Anki Template 3' -> 'Sheets2Anki::#0 Sheets2Anki Template #conflito1'
+[03:11:55.039] [SYNC] [DECK_SYNC] Deck físico sincronizado: ID 1754713925963 -> 'Sheets2Anki::#0 Sheets2Anki Template #conflito1'
+[03:11:55.039] [SYNC] [REMOTE_NAME_UPDATE] remote_deck_name atualizado para: '#0 Sheets2Anki Template #conflito1'
+[03:11:55.039] [SYNC] [MEMORY_UPDATE] Configuração em memória atualizada
+[03:11:55.039] [Config Manager] === SALVANDO DECK INFO NO META.JSON ===
+[03:11:55.039] [Config Manager] Hash 3f67c1cb: local_deck_id=1754713925963, local_deck_name='Sheets2Anki::#0 Sheets2Anki Template #conflito1'
+[03:11:55.039] [Config Manager] Hash 3c30faa1: local_deck_id=1754719820195, local_deck_name='Sheets2Anki::#0 Sheets2Anki Template'
+[03:11:55.040] [Config Manager] ✓ Deck info salvo no meta.json com sucesso
+[03:11:55.040] [SYNC] [CONFIG_SAVE] Configuração salva após atualização de nomes
+[03:11:55.052] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 3 notes
+[03:11:55.052] [SYNC] 🔧 create_or_update_notes function: <function create_or_update_notes at 0x115374ca0>
+[03:11:55.052] [SYNC] 🔧 mw.col: <anki.collection.Collection object at 0x1150acd30>, remoteDeck: <sheets2anki.src.data_processor.RemoteDeck object at 0x13083cc10>, local_deck_id: 1754713925963
+[03:11:55.052] [SYNC] 🔧 CALLING create_or_update_notes NOW...
+[03:11:55.052] [NOTE_PROCESSOR] 🔧 Iniciando sincronização de notas com lógica refatorada
+[03:11:55.052] [NOTE_PROCESSOR] 🔧 remoteDeck contém 3 notas
+[03:11:55.052] [NOTE_PROCESSOR] Alunos habilitados no sistema: ['Belle']
+[03:11:55.052] [NOTE_PROCESSOR] Sincronizar notas sem alunos específicos ([MISSING A.]): True
+[03:11:55.052] [NOTE_PROCESSOR] Incluindo [MISSING A.] como aluno efetivo para sincronização
+[03:11:55.052] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, incluindo como [MISSING A.]
+[03:11:55.052] [NOTE_PROCESSOR] Total de notas esperadas (student_note_id): 3
+[03:11:55.052] [NOTE_PROCESSOR] Criando note types para alunos: ['Belle', '[MISSING A.]']
+[03:11:55.054] [NOTE_PROCESSOR] Encontradas 3 notas existentes no deck
+[03:11:55.055] [UPDATE_NOTE_STUDENT] Verificando se nota b4cd11d1-6146-4acb-a349-73304a2dc356 precisa ser atualizada para aluno Belle
+[03:11:55.055] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki']
+[03:11:55.055] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki']
+[03:11:55.055] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:55.055] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:55.055] [UPDATE_NOTE_STUDENT] ⏭️ Nota b4cd11d1-6146-4acb-a349-73304a2dc356 não foi atualizada - conteúdo idêntico
+[03:11:55.055] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_b4cd11d1-6146-4acb-a349-73304a2dc356
+[03:11:55.056] [UPDATE_NOTE_STUDENT] Verificando se nota a8960ba1-f675-45c6-8083-bd4c1f312f13 precisa ser atualizada para aluno Belle
+[03:11:55.056] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki']
+[03:11:55.056] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki']
+[03:11:55.056] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:55.056] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:55.056] [UPDATE_NOTE_STUDENT] ⏭️ Nota a8960ba1-f675-45c6-8083-bd4c1f312f13 não foi atualizada - conteúdo idêntico
+[03:11:55.056] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_a8960ba1-f675-45c6-8083-bd4c1f312f13
+[03:11:55.056] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, processando como [MISSING A.]
+[03:11:55.056] [UPDATE_NOTE_STUDENT] Verificando se nota 614ce84f-9111-4ac7-83e1-c4a962687760 precisa ser atualizada para aluno [MISSING A.]
+[03:11:55.056] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki']
+[03:11:55.056] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki']
+[03:11:55.056] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:55.056] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:55.056] [UPDATE_NOTE_STUDENT] ⏭️ Nota 614ce84f-9111-4ac7-83e1-c4a962687760 não foi atualizada - conteúdo idêntico
+[03:11:55.056] [NOTE_PROCESSOR] ⏭️ Nota [MISSING A.] inalterada: [MISSING A.]_614ce84f-9111-4ac7-83e1-c4a962687760
+[03:11:55.057] [NOTE_PROCESSOR] Auto-remove ativo: preservando notas de alunos conhecidos, removendo apenas 0 realmente obsoletas
+[03:11:55.057] [NOTE_PROCESSOR] Removendo 0 notas obsoletas
+[03:11:55.057] [NOTE_PROCESSOR] Coleção salva com sucesso
+[03:11:55.057] [NOTE_PROCESSOR] 🎯 Sincronização concluída: +0 ~0 =3 -0 !0
+[03:11:55.058] [SYNC] 🔧 create_or_update_notes RETURNED: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:55.058] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:55.059] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template #conflito1
+[03:11:55.060] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template #conflito1
+[03:11:55.060] [SYNC] [NOTE_TYPE_SYNC] Iniciando sincronização robusta dos note_types APÓS criação das notas...
+[03:11:55.066] [SYNC] [NOTE_TYPE_SYNC] ✅ 4 note_types sincronizados com sucesso
+[03:11:55.066] [SYNC] [NOTE_TYPE_SYNC] - Renomeados no Anki: 4
+[03:11:55.066] [SYNC] [NOTE_TYPE_SYNC] - Atualizados no meta.json: 4
+[03:11:55.066] [SYNC] ✅ Deck concluído: 3f67c1cb
+[03:11:55.066] [SYNC] 🚀 INICIANDO sincronização para deck hash: 3c30faa1
+[03:11:55.066] [SYNC] 📋 Local Deck ID: 1754719820195
+[03:11:55.066] [SYNC] 🔗 Remote URL: https://docs.google.com/spreadsheets/d/e/2PACX-1vTcDHBkoT5RHmBfXJ3KMLCLnSbw5zrKekXRsrMPQdC651uf_rTF_lyAUIMdMgb1ZZ19DuHc6GDqUCdX/pub?gid=36065074&single=true&output=tsv
+[03:11:55.066] [DECK_RECREATION] 🔍 Verificando deck com ID: 1754719820195
+[03:11:55.067] [DECK_RECREATION] 📋 Deck encontrado: 'Sheets2Anki::#0 Sheets2Anki Template' (ID: 1754719820195)
+[03:11:55.067] [DECK_RECREATION] 📋 Nome esperado: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:11:55.067] [DECK_RECREATION] ✅ Deck existe e nome confere
+[03:11:55.067] [SYNC] 📋 Deck atual: 'Sheets2Anki::#0 Sheets2Anki Template' (ID: 1754719820195)
+[03:11:56.278] [STUDENTS] 🎓 Estudantes habilitados para este deck: ['Belle']
+[03:11:57.809] [REMOTE_DECK] 📊 Notas carregadas do deck remoto: 3
+[03:11:58.889] [SYNC] [CONFLICT_SKIP] Nome remoto não mudou, mantendo: '#0 Sheets2Anki Template'
+[03:11:58.889] [SYNC] [DECK_NAME_CHECK] Verificando consistência de nomes:
+[03:11:58.889] [SYNC] [DECK_NAME_CHECK] - Remote: '#0 Sheets2Anki Template'
+[03:11:58.889] [SYNC] [DECK_NAME_CHECK] - Local atual: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:11:58.889] [SYNC] [DECK_NAME_CHECK] - Local esperado: 'Sheets2Anki::#0 Sheets2Anki Template'
+[03:11:58.902] [SYNC] 🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has 3 notes
+[03:11:58.902] [SYNC] 🔧 create_or_update_notes function: <function create_or_update_notes at 0x115374ca0>
+[03:11:58.902] [SYNC] 🔧 mw.col: <anki.collection.Collection object at 0x1150acd30>, remoteDeck: <sheets2anki.src.data_processor.RemoteDeck object at 0x1308375b0>, local_deck_id: 1754719820195
+[03:11:58.902] [SYNC] 🔧 CALLING create_or_update_notes NOW...
+[03:11:58.903] [NOTE_PROCESSOR] 🔧 Iniciando sincronização de notas com lógica refatorada
+[03:11:58.903] [NOTE_PROCESSOR] 🔧 remoteDeck contém 3 notas
+[03:11:58.903] [NOTE_PROCESSOR] Alunos habilitados no sistema: ['Belle']
+[03:11:58.903] [NOTE_PROCESSOR] Sincronizar notas sem alunos específicos ([MISSING A.]): True
+[03:11:58.903] [NOTE_PROCESSOR] Incluindo [MISSING A.] como aluno efetivo para sincronização
+[03:11:58.903] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, incluindo como [MISSING A.]
+[03:11:58.903] [NOTE_PROCESSOR] Total de notas esperadas (student_note_id): 3
+[03:11:58.904] [NOTE_PROCESSOR] Criando note types para alunos: ['Belle', '[MISSING A.]']
+[03:11:58.906] [NOTE_PROCESSOR] Encontradas 3 notas existentes no deck
+[03:11:58.907] [UPDATE_NOTE_STUDENT] Verificando se nota b4cd11d1-6146-4acb-a349-73304a2dc356 precisa ser atualizada para aluno Belle
+[03:11:58.907] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki', 'Sheets2Anki::topicos::Topico_2']
+[03:11:58.907] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki', 'Sheets2Anki::topicos::Topico_2']
+[03:11:58.907] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:58.907] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:58.907] [UPDATE_NOTE_STUDENT] ⏭️ Nota b4cd11d1-6146-4acb-a349-73304a2dc356 não foi atualizada - conteúdo idêntico
+[03:11:58.907] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_b4cd11d1-6146-4acb-a349-73304a2dc356
+[03:11:58.907] [UPDATE_NOTE_STUDENT] Verificando se nota a8960ba1-f675-45c6-8083-bd4c1f312f13 precisa ser atualizada para aluno Belle
+[03:11:58.907] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1', 'Sheets2Anki::subtopicos::Subtopico_1']
+[03:11:58.907] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1', 'Sheets2Anki::subtopicos::Subtopico_1']
+[03:11:58.907] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:58.907] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:58.907] [UPDATE_NOTE_STUDENT] ⏭️ Nota a8960ba1-f675-45c6-8083-bd4c1f312f13 não foi atualizada - conteúdo idêntico
+[03:11:58.907] [NOTE_PROCESSOR] ⏭️ Nota inalterada: Belle_a8960ba1-f675-45c6-8083-bd4c1f312f13
+[03:11:58.908] [NOTE_PROCESSOR] Nota 614ce84f-9111-4ac7-83e1-c4a962687760: sem alunos específicos, processando como [MISSING A.]
+[03:11:58.908] [UPDATE_NOTE_STUDENT] Verificando se nota 614ce84f-9111-4ac7-83e1-c4a962687760 precisa ser atualizada para aluno [MISSING A.]
+[03:11:58.908] [NOTE_COMPARISON] 🏷️ Tags existentes: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1']
+[03:11:58.908] [NOTE_COMPARISON] 🏷️ Tags novas: ['Sheets2Anki', 'Sheets2Anki::conceitos::Conceito_1']
+[03:11:58.908] [NOTE_COMPARISON] 🏷️ Tags são idênticas
+[03:11:58.908] [NOTE_COMPARISON] Nota NÃO precisa ser atualizada - conteúdo idêntico
+[03:11:58.908] [UPDATE_NOTE_STUDENT] ⏭️ Nota 614ce84f-9111-4ac7-83e1-c4a962687760 não foi atualizada - conteúdo idêntico
+[03:11:58.908] [NOTE_PROCESSOR] ⏭️ Nota [MISSING A.] inalterada: [MISSING A.]_614ce84f-9111-4ac7-83e1-c4a962687760
+[03:11:58.908] [NOTE_PROCESSOR] Auto-remove ativo: preservando notas de alunos conhecidos, removendo apenas 0 realmente obsoletas
+[03:11:58.908] [NOTE_PROCESSOR] Removendo 0 notas obsoletas
+[03:11:58.908] [NOTE_PROCESSOR] Coleção salva com sucesso
+[03:11:58.908] [NOTE_PROCESSOR] 🎯 Sincronização concluída: +0 ~0 =3 -0 !0
+[03:11:58.909] [SYNC] 🔧 create_or_update_notes RETURNED: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:58.909] [SYNC] ✅ create_or_update_notes COMPLETED - returned: {'created': 0, 'updated': 0, 'deleted': 0, 'errors': 0, 'skipped': 0, 'unchanged': 3, 'total_remote': 3, 'update_details': [], 'creation_details': [], 'deletion_details': []}
+[03:11:58.910] [SYNC] Iniciando captura de note type IDs para deck: Sheets2Anki::#0 Sheets2Anki Template
+[03:11:58.911] [SYNC] ✅ IDs de note types capturados e armazenados para deck: Sheets2Anki::#0 Sheets2Anki Template
+[03:11:58.911] [SYNC] [NOTE_TYPE_SYNC] Iniciando sincronização robusta dos note_types APÓS criação das notas...
+[03:11:58.912] [SYNC] [NOTE_TYPE_SYNC] ✅ Todos os note_types já estão consistentes
+[03:11:58.912] [SYNC] ✅ Deck concluído: 3c30faa1
+[03:11:58.921] [SYSTEM] 🎬 Sincronização finalizada
+[03:11:58.921] [INTERFACE_UPDATE] 🎯 Executando atualização completa da interface
+[03:11:58.922] [INTERFACE_UPDATE] 📂 Atualizando lista de decks
+[03:11:58.922] [INTERFACE_UPDATE] 🔢 Atualizando contadores de cards
+[03:11:58.922] [INTERFACE_UPDATE] ✅ Atualização completa da interface concluída

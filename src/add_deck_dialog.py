@@ -292,7 +292,7 @@ class AddDeckDialog(QDialog):
         info_items = []
         
         # Número de questões
-        question_count = len(self.remote_deck.questions) if self.remote_deck.questions else 0
+        question_count = len(self.remote_deck.notes) if self.remote_deck.notes else 0
         info_items.append(f"📝 {question_count} questões encontradas")
         
         # Questões ignoradas
