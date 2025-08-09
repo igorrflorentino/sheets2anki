@@ -37,7 +37,11 @@ class SyncStats:
     ignored: int = 0
     errors: int = 0
     error_details: List[str] = field(default_factory=list)
-    updated_details: List[str] = field(default_factory=list)
+    updated_details: List[str] = field(default_factory=list)  # Manter para compatibilidade
+    # Novos campos para detalhes estruturados
+    update_details: List[Dict[str, Any]] = field(default_factory=list)
+    creation_details: List[Dict[str, Any]] = field(default_factory=list)
+    deletion_details: List[Dict[str, Any]] = field(default_factory=list)
     
     def add_error(self, error_msg: str) -> None:
         """Adiciona um erro às estatísticas."""
@@ -45,8 +49,20 @@ class SyncStats:
         self.error_details.append(error_msg)
     
     def add_update_detail(self, detail: str) -> None:
-        """Adiciona um detalhe de atualização."""
+        """Adiciona um detalhe de atualização (compatibilidade)."""
         self.updated_details.append(detail)
+    
+    def add_update_detail_structured(self, detail: Dict[str, Any]) -> None:
+        """Adiciona um detalhe estruturado de atualização."""
+        self.update_details.append(detail)
+    
+    def add_creation_detail(self, detail: Dict[str, Any]) -> None:
+        """Adiciona um detalhe de criação."""
+        self.creation_details.append(detail)
+    
+    def add_deletion_detail(self, detail: Dict[str, Any]) -> None:
+        """Adiciona um detalhe de exclusão."""
+        self.deletion_details.append(detail)
     
     def merge(self, other: 'SyncStats') -> None:
         """Merge com outras estatísticas."""
@@ -57,6 +73,9 @@ class SyncStats:
         self.errors += other.errors
         self.error_details.extend(other.error_details)
         self.updated_details.extend(other.updated_details)
+        self.update_details.extend(other.update_details)
+        self.creation_details.extend(other.creation_details)
+        self.deletion_details.extend(other.deletion_details)
     
     def to_dict(self) -> Dict[str, Any]:
         """Converte para dicionário (compatibilidade com código antigo)."""
@@ -67,7 +86,10 @@ class SyncStats:
             'ignored': self.ignored,
             'errors': self.errors,
             'error_details': self.error_details,
-            'updated_details': self.updated_details
+            'updated_details': self.updated_details,
+            'update_details': self.update_details,
+            'creation_details': self.creation_details,
+            'deletion_details': self.deletion_details
         }
     
     def get_total_operations(self) -> int:
@@ -233,9 +255,8 @@ def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, syn
 
 def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks=0, cleanup_result=None, missing_cleanup_result=None):
     """
-    Mostra resumo da sincronização usando o novo sistema.
+    Mostra resumo da sincronização usando interface com scroll.
     """
-    from .compat import showInfo
     from .utils import get_debug_messages, is_debug_enabled
     
     summary = []
@@ -248,13 +269,16 @@ def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, 
         summary.append("✅ Sincronização concluída com sucesso!")
         summary.append(f"📊 Decks: {decks_synced}/{total_decks} sincronizados")
     
-    # Estatísticas de notas
+    # Estatísticas resumidas no cabeçalho
     if total_stats.get('created', 0) > 0:
         summary.append(f"➕ {total_stats['created']} notas criadas")
+    
     if total_stats.get('updated', 0) > 0:
         summary.append(f"✏️ {total_stats['updated']} notas atualizadas")
+    
     if total_stats.get('deleted', 0) > 0:
         summary.append(f"🗑️ {total_stats['deleted']} notas deletadas")
+        
     if total_stats.get('ignored', 0) > 0:
         summary.append(f"⏭️ {total_stats['ignored']} notas ignoradas")
     
@@ -269,25 +293,221 @@ def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, 
         summary.append("🧹 Dados [MISSING A.] removidos")
     
     # Erros
+    sync_errors = sync_errors or []
     total_errors = total_stats.get('errors', 0) + len(sync_errors)
     if total_errors > 0:
         summary.append(f"⚠️ {total_errors} erros encontrados")
-        
-        # Mostrar detalhes dos erros se debug estiver habilitado
-        if is_debug_enabled() and (sync_errors or total_stats.get('error_details')):
-            summary.append("\nDetalhes dos erros:")
-            for error in sync_errors:
-                summary.append(f"  • {error}")
+    
+    # Sempre usar interface com scroll
+    _show_sync_summary_with_scroll(summary, total_stats, removed_subdecks, cleanup_result, missing_cleanup_result, sync_errors)
+
+
+def _show_sync_summary_with_scroll(base_summary, total_stats, removed_subdecks=0, cleanup_result=None, missing_cleanup_result=None, sync_errors=None):
+    """
+    Mostra resumo da sincronização com interface scrollável.
+    """
+    from .compat import QDialog, QVBoxLayout, QTextEdit, QPushButton, QLabel, safe_exec_dialog, QPalette, Palette_Window
+    from .utils import is_debug_enabled, get_debug_messages
+    
+    # Criar dialog customizado
+    dialog = QDialog()
+    dialog.setWindowTitle("Resumo da Sincronização")
+    dialog.setMinimumSize(800, 600)
+    dialog.resize(1000, 700)
+    
+    # Detectar dark mode baseado na cor de fundo padrão do sistema
+    palette = dialog.palette()
+    bg_color = palette.color(Palette_Window)
+    is_dark_mode = bg_color.lightness() < 128
+    
+    # Aplicar estilo geral do dialog baseado no tema
+    if is_dark_mode:
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #2b2b2b;
+                color: #ffffff;
+            }
+        """)
+    else:
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #ffffff;
+                color: #000000;
+            }
+        """)
+    
+    layout = QVBoxLayout()
+    
+    # Cabeçalho com informações principais
+    header_text = "\n".join(base_summary)
+    header_label = QLabel(header_text)
+    
+    # Estilos adaptáveis para dark mode
+    header_style = """
+        QLabel {
+            font-weight: bold; 
+            padding: 15px; 
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+    """
+    
+    if is_dark_mode:
+        header_style += """
+            background-color: #3a3a3a;
+            color: #ffffff;
+            border: 1px solid #555555;
+        """
+    else:
+        header_style += """
+            background-color: #f0f0f0;
+            color: #000000;
+            border: 1px solid #cccccc;
+        """
+    
+    header_label.setStyleSheet(header_style)
+    layout.addWidget(header_label)
+    
+    # Área de texto com scroll para detalhes
+    details_text = QTextEdit()
+    details_text.setReadOnly(True)
+    details_content = []
+    
+    # Detalhes das notas criadas
+    if total_stats.get('created', 0) > 0 and total_stats.get('creation_details'):
+        details_content.append(f"➕ DETALHES DAS {total_stats['created']} NOTAS CRIADAS:")
+        details_content.append("=" * 60)
+        for i, detail in enumerate(total_stats['creation_details'], 1):
+            details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}")
+        details_content.append("")
+    
+    # Detalhes das notas atualizadas
+    if total_stats.get('updated', 0) > 0 and total_stats.get('update_details'):
+        details_content.append(f"✏️ DETALHES DAS {total_stats['updated']} NOTAS ATUALIZADAS:")
+        details_content.append("=" * 60)
+        for i, detail in enumerate(total_stats['update_details'], 1):
+            details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']}")
+            for j, change in enumerate(detail['changes'], 1):
+                details_content.append(f"      {j:2d}. {change}")
+            details_content.append("")
+    
+    # Detalhes das notas removidas
+    if total_stats.get('deleted', 0) > 0 and total_stats.get('deletion_details'):
+        details_content.append(f"🗑️ DETALHES DAS {total_stats['deleted']} NOTAS REMOVIDAS:")
+        details_content.append("=" * 60)
+        for i, detail in enumerate(total_stats['deletion_details'], 1):
+            details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}")
+        details_content.append("")
+    
+    # Erros detalhados
+    if sync_errors or total_stats.get('error_details'):
+        total_errors = total_stats.get('errors', 0) + len(sync_errors or [])
+        if total_errors > 0:
+            details_content.append(f"⚠️ DETALHES DOS {total_errors} ERROS:")
+            details_content.append("=" * 60)
+            error_count = 1
+            for error in (sync_errors or []):
+                details_content.append(f"{error_count:4d}. {error}")
+                error_count += 1
             for error in total_stats.get('error_details', []):
-                summary.append(f"  • {error}")
+                details_content.append(f"{error_count:4d}. {error}")
+                error_count += 1
+            details_content.append("")
     
-    # Informações de debug se habilitado
-    if is_debug_enabled():
-        debug_messages = get_debug_messages()
-        summary.append(f"\n🐛 Debug: {len(debug_messages)} mensagens capturadas")
-        summary.append("(Verificar console para detalhes)")
+    # Se não há detalhes de modificações, mostrar mensagem informativa
+    if not details_content:
+        details_content.append("ℹ️ Nenhuma modificação detalhada de notas foi registrada nesta sincronização.")
+        details_content.append("")
+        details_content.append("Isso pode acontecer quando:")
+        details_content.append("• As notas já estavam atualizadas")
+        details_content.append("• Apenas operações de limpeza foram realizadas")
+        details_content.append("• Não houve alterações nos dados das planilhas")
     
-    showInfo("\n".join(summary))
+    details_text.setPlainText("\n".join(details_content))
+    
+    # Estilos adaptáveis para a área de texto
+    text_style = """
+        QTextEdit {
+            font-family: 'Monaco', 'Consolas', 'Courier New', monospace; 
+            font-size: 11pt; 
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid;
+        }
+    """
+    
+    if is_dark_mode:
+        text_style += """
+            background-color: #2b2b2b;
+            color: #ffffff;
+            border-color: #555555;
+            selection-background-color: #404040;
+        """
+    else:
+        text_style += """
+            background-color: #ffffff;
+            color: #000000;
+            border-color: #cccccc;
+            selection-background-color: #b3d7ff;
+        """
+    
+    details_text.setStyleSheet(text_style)
+    layout.addWidget(details_text)
+    
+    # Botão para fechar adaptável ao dark mode
+    close_button = QPushButton("Fechar")
+    
+    button_style = """
+        QPushButton {
+            padding: 12px 25px; 
+            font-size: 12pt; 
+            font-weight: bold;
+            border-radius: 6px;
+            border: 2px solid;
+            margin-top: 10px;
+        }
+        QPushButton:hover {
+            border-width: 3px;
+        }
+        QPushButton:pressed {
+            padding: 13px 24px 11px 26px;
+        }
+    """
+    
+    if is_dark_mode:
+        button_style += """
+            background-color: #4a4a4a;
+            color: #ffffff;
+            border-color: #666666;
+        }
+        QPushButton:hover {
+            background-color: #5a5a5a;
+            border-color: #777777;
+        }
+        QPushButton:pressed {
+            background-color: #3a3a3a;
+        """
+    else:
+        button_style += """
+            background-color: #f0f0f0;
+            color: #000000;
+            border-color: #cccccc;
+        }
+        QPushButton:hover {
+            background-color: #e0e0e0;
+            border-color: #999999;
+        }
+        QPushButton:pressed {
+            background-color: #d0d0d0;
+        """
+    
+    close_button.setStyleSheet(button_style)
+    close_button.clicked.connect(dialog.accept)
+    layout.addWidget(close_button)
+    
+    dialog.setLayout(layout)
+    safe_exec_dialog(dialog)
+
 
 # ========================================================================================
 # FUNÇÕES DE ATUALIZAÇÃO DA INTERFACE (consolidado de interface_updater.py) 
@@ -483,7 +703,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         for deckKey in deck_keys:
             try:
                 step, deck_sync_increment, current_stats = _sync_single_deck(
-                    remote_decks, deckKey, progress, status_msgs, step
+                    remote_decks, deckKey, progress, status_msgs, step, debug_messages=[]
                 )
                 
                 # Criar resultado do deck
@@ -762,7 +982,7 @@ def _update_progress_text(progress, status_msgs, max_lines=3, debug_messages=Non
     # Forçar atualização da interface
     mw.app.processEvents()
 
-def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
+def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step, debug_messages=None):
     """
     Sincroniza um único deck.
     
@@ -853,9 +1073,9 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
     
     remoteDeck = getRemoteDeck(remote_deck_url, enabled_students=list(enabled_students))
     
-    # NOVO: Debug para verificar questões carregadas
-    questions_count = len(remoteDeck.questions) if hasattr(remoteDeck, 'questions') and remoteDeck.questions else 0
-    add_debug_message(f"📊 Questões carregadas do deck remoto: {questions_count}", "REMOTE_DECK")
+    # NOVO: Debug para verificar notas carregadas
+    notes_count = len(remoteDeck.notes) if hasattr(remoteDeck, 'notes') and remoteDeck.notes else 0
+    add_debug_message(f"📊 Notas carregadas do deck remoto: {notes_count}", "REMOTE_DECK")
     
     step += 1
     progress.setValue(step)
@@ -932,59 +1152,56 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
         add_debug_message(f"[CONFLICT_SKIP] Nome remoto não mudou, mantendo: '{stored_remote_name}'", "SYNC")
         current_remote_name = stored_remote_name
         
-    # Aplicar atualização se necessário
-    if should_update:
-            # Usar DeckNameManager para sincronizar
-            sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
+    # ABORDAGEM ROBUSTA: Sempre recriar local_deck_name e verificar se mudou
+    from .deck_manager import DeckNameManager
+    
+    # Recriar local_deck_name baseado no remote_deck_name atual
+    expected_local_deck_name = DeckNameManager.generate_local_name(current_remote_name)
+    current_local_deck_name = currentRemoteInfo.get("local_deck_name", "")
+    
+    add_debug_message(f"[DECK_NAME_CHECK] Verificando consistência de nomes:", "SYNC")
+    add_debug_message(f"[DECK_NAME_CHECK] - Remote: '{current_remote_name}'", "SYNC") 
+    add_debug_message(f"[DECK_NAME_CHECK] - Local atual: '{current_local_deck_name}'", "SYNC")
+    add_debug_message(f"[DECK_NAME_CHECK] - Local esperado: '{expected_local_deck_name}'", "SYNC")
+    
+    # Verificar se local_deck_name precisa ser atualizado
+    local_name_needs_update = (current_local_deck_name != expected_local_deck_name)
+    
+    # Aplicar atualizações necessárias
+    if should_update or local_name_needs_update:
+        if should_update:
+            add_debug_message(f"[UPDATE_REASON] remote_deck_name mudou", "SYNC")
+        if local_name_needs_update:
+            add_debug_message(f"[UPDATE_REASON] local_deck_name inconsistente", "SYNC")
             
-            # Atualizar configuração
+        # Atualizar local_deck_name no meta.json
+        if local_name_needs_update:
+            DeckNameManager._update_name_in_config(remote_deck_url, expected_local_deck_name)
+            add_debug_message(f"[LOCAL_NAME_UPDATE] local_deck_name atualizado: '{current_local_deck_name}' -> '{expected_local_deck_name}'", "SYNC")
+        
+        # Sincronizar nome físico no Anki se necessário
+        sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
+        if sync_result:
+            add_debug_message(f"[DECK_SYNC] Deck físico sincronizado: ID {sync_result[0]} -> '{sync_result[1]}'", "SYNC")
+        
+        # Atualizar configuração se houve mudança no remote_deck_name
+        if should_update:
             currentRemoteInfo["remote_deck_name"] = current_remote_name
             remote_decks[deckKey]["remote_deck_name"] = current_remote_name
-            
-            add_debug_message(f"[CONFIG_UPDATE] Configuração atualizada - remote: '{current_remote_name}'", "SYNC")
-            
-            # Salvar configuração usando o método existente
+            add_debug_message(f"[REMOTE_NAME_UPDATE] remote_deck_name atualizado para: '{current_remote_name}'", "SYNC")
+        
+        # Sempre atualizar local_deck_name na configuração em memória
+        if local_name_needs_update:
+            currentRemoteInfo["local_deck_name"] = expected_local_deck_name
+            remote_decks[deckKey]["local_deck_name"] = expected_local_deck_name
+            add_debug_message(f"[MEMORY_UPDATE] Configuração em memória atualizada", "SYNC")
+        
+        # Salvar configuração se houve qualquer mudança
+        if should_update or local_name_needs_update:
             save_remote_decks(remote_decks)
             add_debug_message(f"[CONFIG_SAVE] Configuração salva após atualização de nomes", "SYNC")
-            
-            # Atualizar os nomes dos note types no meta.json para refletir o novo remote_deck_name
-            try:
-                from .config_manager import update_note_type_names_in_meta
-                from .student_manager import get_selected_students_for_deck
-                from .utils import update_note_type_names_for_deck_rename
-                
-                enabled_students = get_selected_students_for_deck(remote_deck_url)
-                update_note_type_names_in_meta(remote_deck_url, current_remote_name, enabled_students)
-                
-                # Atualizar nomes dos note types na configuração para o novo remote_deck_name
-                updated_count = update_note_type_names_for_deck_rename(
-                    remote_deck_url, 
-                    stored_remote_name, 
-                    current_remote_name, 
-                    None,  # enabled_students não é necessário para a captura de IDs
-                )
-                if updated_count > 0:
-                    add_debug_message(f"[NOTE_TYPE_RENAME] {updated_count} note types atualizados para novo remote_deck_name", "SYNC")
-                    
-                    # Garantir que as mudanças sejam persistidas no meta.json antes da sincronização
-                    time.sleep(0.1)  # Pequeno delay para garantir que o arquivo seja salvo
-                    
-                    # Sincronizar imediatamente os nomes no Anki após atualização na config
-                    from .utils import sync_note_type_names_with_config
-                    try:
-                        add_debug_message(f"[NOTE_TYPE_SYNC] Iniciando sincronização imediata após rename...", "SYNC")
-                        sync_stats = sync_note_type_names_with_config(mw.col, remote_deck_url)
-                        if sync_stats['synced_note_types'] > 0:
-                            add_debug_message(f"[NOTE_TYPE_SYNC] {sync_stats['synced_note_types']} note types sincronizados no Anki imediatamente", "SYNC")
-                        else:
-                            add_debug_message(f"[NOTE_TYPE_SYNC] Nenhuma mudança necessária na sincronização imediata", "SYNC")
-                    except Exception as sync_error:
-                        add_debug_message(f"[NOTE_TYPE_SYNC] Erro na sincronização imediata: {sync_error}", "SYNC")
-                        add_debug_message(f"[NOTE_TYPE_SYNC] Traceback: {traceback.format_exc()}", "SYNC")
-                
-            except Exception as e:
-                print(f"[Sheets2Anki] Erro ao atualizar nomes de note types no meta.json: {e}")
-                add_debug_message(f"[NOTE_TYPE_RENAME] Erro ao atualizar note types: {e}", "SYNC")
+        
+        # Salvar configuração se houve qualquer mudança (movido para antes do processamento)
 
     # 2. Processamento (já incluído no getRemoteDeck)
     msg = f"{deckName}: processando dados..."
@@ -1008,47 +1225,36 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
         status_msgs.append(msg)
         _update_progress_text(progress, status_msgs)
     
-    # Sincronizar nome do deck no Anki com a configuração usando DeckNameManager
-    from .utils import sync_note_type_names_with_config
-    sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
-    if sync_result:
-        synced_deck_id, synced_name = sync_result
-        if synced_name != deckName:
-            msg = f"{deckName}: nome sincronizado no Anki para '{synced_name}'"
-            status_msgs.append(msg)
-            add_debug_message(f"[DECK_SYNC] Deck renomeado no Anki: {deckName} → {synced_name}", "SYNC")
+    # 2. Processamento (já incluído no getRemoteDeck)
+    msg = f"{deckName}: processando dados..."
+    status_msgs.append(msg)
+    _update_progress_text(progress, status_msgs)
     
-    # Sincronizar nomes dos note types no Anki com a configuração (source of truth) - FINAL
-    add_debug_message(f"[NOTE_TYPE_SYNC] Executando sincronização FINAL dos note types...", "SYNC")
-    note_sync_stats = sync_note_type_names_with_config(mw.col, remote_deck_url)
-    if note_sync_stats:
-        if note_sync_stats['synced_note_types'] > 0:
-            msg = f"{deckName}: {note_sync_stats['synced_note_types']} note types sincronizados"
-            status_msgs.append(msg)
-            add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: {note_sync_stats['synced_note_types']} note types atualizados no Anki", "SYNC")
-        else:
-            add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: Todos os note types já estavam sincronizados", "SYNC")
-            
-        if note_sync_stats['error_note_types'] > 0:
-            add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: {note_sync_stats['error_note_types']} erros durante sincronização", "SYNC")
-            for error in note_sync_stats.get('errors', []):
-                add_debug_message(f"[NOTE_TYPE_SYNC] ERRO: {error}", "SYNC")
-    else:
-        add_debug_message(f"[NOTE_TYPE_SYNC] FINAL: Nenhuma estatística retornada", "SYNC")
-        add_debug_message(f"[NOTE_TYPE_SYNC] {note_sync_stats['synced_note_types']} note types atualizados no Anki", "SYNC")
-    
-    step += 1
-    progress.setValue(step)
-    mw.app.processEvents()
-
-    # 3. Escrita no banco
+    remoteDeck.deckName = deckName
     msg = f"{deckName}: escrevendo no banco de dados..."
     status_msgs.append(msg)
     _update_progress_text(progress, status_msgs)
     
-    add_debug_message(f"🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has {len(remoteDeck.questions) if hasattr(remoteDeck, 'questions') and remoteDeck.questions else 0} questions", "SYNC")
+    add_debug_message(f"🚀 ABOUT TO CALL create_or_update_notes - remoteDeck has {len(remoteDeck.notes) if hasattr(remoteDeck, 'notes') and remoteDeck.notes else 0} notes", "SYNC")
     
-    deck_stats_dict = create_or_update_notes(mw.col, remoteDeck, local_deck_id, deck_url=remote_deck_url)
+    # Debug crítico para verificar importação
+    add_debug_message(f"🔧 create_or_update_notes function: {create_or_update_notes}", "SYNC")
+    add_debug_message(f"🔧 mw.col: {mw.col}, remoteDeck: {remoteDeck}, local_deck_id: {local_deck_id}", "SYNC")
+    
+    try:
+        add_debug_message(f"🔧 CALLING create_or_update_notes NOW...", "SYNC")
+        deck_stats_dict = create_or_update_notes(mw.col, remoteDeck, local_deck_id, deck_url=remote_deck_url, debug_messages=debug_messages)
+        add_debug_message(f"🔧 create_or_update_notes RETURNED: {deck_stats_dict}", "SYNC")
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        add_debug_message(f"❌ ERRO na chamada create_or_update_notes: {e}", "SYNC")
+        add_debug_message(f"❌ Stack trace: {error_details}", "SYNC")
+        # Retornar stats padrão com erros
+        deck_stats_dict = {
+            'created': 0, 'updated': 0, 'deleted': 0, 'errors': 7, 
+            'skipped': 0, 'unchanged': 0, 'total_remote': 6
+        }
     
     add_debug_message(f"✅ create_or_update_notes COMPLETED - returned: {deck_stats_dict}", "SYNC")
     
@@ -1062,12 +1268,29 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
     )
     
     # Adicionar detalhes de erros se existirem
-    for error in deck_stats_dict.get('error_details', []):
-        deck_stats.add_error(error)
+    error_details = deck_stats_dict.get('error_details', [])
+    if isinstance(error_details, list):
+        for error in error_details:
+            deck_stats.add_error(error)
     
-    # Adicionar detalhes de atualizações se existirem
-    for detail in deck_stats_dict.get('updated_details', []):
-        deck_stats.add_update_detail(detail)
+    # Adicionar detalhes de atualizações se existirem (formato antigo)
+    updated_details = deck_stats_dict.get('updated_details', [])
+    if isinstance(updated_details, list):
+        for detail in updated_details:
+            deck_stats.add_update_detail(detail)
+    
+    # Adicionar detalhes estruturados se existirem (novo formato)
+    update_details = deck_stats_dict.get('update_details', [])
+    if isinstance(update_details, list):
+        deck_stats.update_details.extend(update_details)
+    
+    creation_details = deck_stats_dict.get('creation_details', [])
+    if isinstance(creation_details, list):
+        deck_stats.creation_details.extend(creation_details)
+    
+    deletion_details = deck_stats_dict.get('deletion_details', [])
+    if isinstance(deletion_details, list):
+        deck_stats.deletion_details.extend(deletion_details)
     
     step += 1
     progress.setValue(step)
@@ -1095,6 +1318,36 @@ def _sync_single_deck(remote_decks, deckKey, progress, status_msgs, step):
         error_details = traceback.format_exc()
         add_debug_message(f"Detalhes do erro: {error_details}", "SYNC")
 
+    # 5. SINCRONIZAÇÃO ROBUSTA DOS NOTE_TYPES após criação das notas no Anki
+    add_debug_message(f"[NOTE_TYPE_SYNC] Iniciando sincronização robusta dos note_types APÓS criação das notas...", "SYNC")
+    try:
+        from .config_manager import sync_note_type_names_robustly
+        from .student_manager import get_selected_students_for_deck
+        
+        enabled_students = get_selected_students_for_deck(remote_deck_url)
+        sync_result = sync_note_type_names_robustly(remote_deck_url, current_remote_name, enabled_students)
+        
+        if sync_result['updated_count'] > 0:
+            add_debug_message(f"[NOTE_TYPE_SYNC] ✅ {sync_result['updated_count']} note_types sincronizados com sucesso", "SYNC")
+            add_debug_message(f"[NOTE_TYPE_SYNC] - Renomeados no Anki: {sync_result['renamed_in_anki']}", "SYNC") 
+            add_debug_message(f"[NOTE_TYPE_SYNC] - Atualizados no meta.json: {sync_result['updated_in_meta']}", "SYNC")
+            if sync_result.get('notes_migrated', 0) > 0:
+                add_debug_message(f"[NOTE_TYPE_SYNC] - Notas migradas: {sync_result['notes_migrated']}", "SYNC")
+        else:
+            add_debug_message(f"[NOTE_TYPE_SYNC] ✅ Todos os note_types já estão consistentes", "SYNC")
+            
+    except Exception as e:
+        add_debug_message(f"[NOTE_TYPE_SYNC] ❌ Erro na sincronização robusta: {e}", "SYNC")
+        # Tentar fallback com método antigo
+        try:
+            from .config_manager import update_note_type_names_in_meta
+            from .student_manager import get_selected_students_for_deck
+            enabled_students = get_selected_students_for_deck(remote_deck_url)
+            update_note_type_names_in_meta(remote_deck_url, current_remote_name, enabled_students)
+            add_debug_message(f"[NOTE_TYPE_SYNC] Fallback aplicado com sucesso", "SYNC")
+        except Exception as fallback_error:
+            add_debug_message(f"[NOTE_TYPE_SYNC] ❌ Fallback também falhou: {fallback_error}", "SYNC")
+
     return step, 1, deck_stats
 
 def _accumulate_stats(total_stats, deck_stats):
@@ -1104,9 +1357,24 @@ def _accumulate_stats(total_stats, deck_stats):
     total_stats['deleted'] += deck_stats['deleted']
     total_stats['ignored'] += deck_stats.get('ignored', 0)
     total_stats['errors'] += deck_stats['errors']
-    total_stats['error_details'].extend(deck_stats['error_details'])
     
-    # Adicionar todos os detalhes das atualizações (sem limite)
+    # Inicializar listas de detalhes se não existirem
+    if 'error_details' not in total_stats:
+        total_stats['error_details'] = []
+    if 'update_details' not in total_stats:
+        total_stats['update_details'] = []
+    if 'creation_details' not in total_stats:
+        total_stats['creation_details'] = []
+    if 'deletion_details' not in total_stats:
+        total_stats['deletion_details'] = []
+    
+    # Acumular detalhes se existirem no deck
+    total_stats['error_details'].extend(deck_stats.get('error_details', []))
+    total_stats['update_details'].extend(deck_stats.get('update_details', []))
+    total_stats['creation_details'].extend(deck_stats.get('creation_details', []))
+    total_stats['deletion_details'].extend(deck_stats.get('deletion_details', []))
+    
+    # Manter compatibilidade com código antigo
     if 'updated_details' in deck_stats:
         if 'updated_details' not in total_stats:
             total_stats['updated_details'] = []
@@ -1842,13 +2110,13 @@ def _get_students_from_anki_data():
     col = mw.col
     
     try:
-        # Escanear decks por padrões de alunos "DeckName::StudentName::"
+        # Escanear decks por padrões de alunos "Sheets2Anki::DeckRemoto::StudentName::"
         all_decks = col.decks.all_names_and_ids()
         for deck in all_decks:
             deck_parts = deck.name.split("::")
-            if len(deck_parts) >= 2 and "Sheets2Anki" in deck_parts[0]:
-                # Possível aluno na segunda posição
-                potential_student = deck_parts[1].strip()
+            if len(deck_parts) >= 3 and "Sheets2Anki" in deck_parts[0]:
+                # Estrutura: ["Sheets2Anki", "DeckRemoto", "StudentName", ...]
+                potential_student = deck_parts[2].strip()  # Terceira posição é o aluno
                 if potential_student and potential_student != "[MISSING A.]":
                     students_found.add(potential_student)
         
@@ -1913,30 +2181,49 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
     deck_names = [deck_info.get('remote_deck_name', '') for deck_info in remote_decks.values()]
     deck_names = [name for name in deck_names if name]
     
-    # Criar mensagem consolidada
-    students_list = '\n'.join([f"• {student}" for student in sorted(disabled_students_set)])
+    # Criar mensagem consolidada mais clara
+    message_parts = [
+        "⚠️ ATENÇÃO: REMOÇÃO PERMANENTE DE DADOS ⚠️\n",
+        "O sistema detectou dados que precisam ser removidos.\n"
+    ]
     
-    message = (
-        f"⚠️ ATENÇÃO: REMOÇÃO PERMANENTE DE DADOS ⚠️\n\n"
-        f"Foram detectadas alterações que requerem limpeza de dados:\n\n"
-        f"🗑️ DADOS QUE SERÃO DELETADOS PERMANENTEMENTE:\n\n"
-        f"📚 ALUNOS DESABILITADOS ({len(disabled_students_set)}):\n{students_list}\n"
-        f"• Todas as notas dos alunos\n"
-        f"• Todos os cards dos alunos\n"
-        f"• Todos os decks dos alunos\n"
-        f"• Todos os note types dos alunos\n\n"
-        f"📝 NOTAS SEM ALUNOS ESPECÍFICOS ([MISSING A.]):\n"
-        f"• Todas as notas em subdecks [MISSING A.]\n"
-        f"• Todos os subdecks [MISSING A.] e seus conteúdos\n"
-        f"• Note types específicos para [MISSING A.]\n\n"
-        f"❌ ESTA AÇÃO É IRREVERSÍVEL!\n\n"
-        f"Deseja continuar com a remoção de todos os dados?"
-    )
+    # Só mostrar seção de alunos desabilitados se houver alunos
+    if disabled_students_set:
+        students_list = '\n'.join([f"• {student}" for student in sorted(disabled_students_set)])
+        message_parts.extend([
+            "\n📚 ALUNOS DESABILITADOS:\n",
+            f"Os seguintes alunos foram removidos da sincronização:\n",
+            f"{students_list}\n",
+            "\n🗑️ SERÁ REMOVIDO DE CADA ALUNO:\n",
+            "• Todas as notas individuais do aluno\n",
+            "• Todos os cards do aluno\n", 
+            "• Todos os subdecks do aluno\n",
+            "• Note types específicos do aluno\n"
+        ])
+    
+    # Verificar se [MISSING A.] deve ser limpo
+    from .config_manager import is_sync_missing_students_notes
+    if not is_sync_missing_students_notes():
+        # [MISSING A.] foi desabilitado
+        message_parts.extend([
+            "\n📝 FUNCIONALIDADE [MISSING A.] DESABILITADA:\n",
+            "• Todas as notas sem alunos específicos serão removidas\n",
+            "• Todos os subdecks [MISSING A.] serão removidos\n",
+            "• Note types [MISSING A.] serão removidos\n"
+        ])
+    
+    message_parts.extend([
+        "\n❌ ESTA AÇÃO É IRREVERSÍVEL!\n",
+        "Os dados removidos não podem ser recuperados.\n\n",
+        "Deseja continuar com a remoção?"
+    ])
+    
+    message = "".join(message_parts)
     
     # Criar MessageBox consolidado
     msg_box = QMessageBox()
     msg_box.setIcon(QMessageBox.Icon.Warning)
-    msg_box.setWindowTitle("Confirmar Remoção Permanente - Múltiplas Limpezas")
+    msg_box.setWindowTitle("⚠️ Confirmar Limpeza de Dados")
     msg_box.setText(message)
     msg_box.setStandardButtons(MessageBox_Yes | MessageBox_No)
     msg_box.setDefaultButton(MessageBox_No)  # Default é NOT remover
@@ -2110,14 +2397,17 @@ def _handle_disabled_students_cleanup(remote_decks):
     config = get_global_student_config()
     current_enabled = set(config.get("enabled_students", []))
     
-    # Incluir [MISSING A.] na lista se a funcionalidade estiver ativa
-    # (isso evita que seja considerado como "removido" quando está apenas controlado por configuração)
+    # LÓGICA MELHORADA para [MISSING A.]:
+    # - Se a funcionalidade de [MISSING A.] está ativa, incluir na lista atual
+    # - Se a funcionalidade foi desativada, [MISSING A.] será detectado como "removido" 
+    #   e suas notas serão limpas
     from .config_manager import is_sync_missing_students_notes
     if is_sync_missing_students_notes():
         current_enabled.add("[MISSING A.]")
         print(f"🔍 CLEANUP: [MISSING A.] incluído na lista atual (funcionalidade ativa)")
     else:
-        print(f"🔍 CLEANUP: [MISSING A.] não incluído na lista atual (funcionalidade inativa)")
+        print(f"🔍 CLEANUP: [MISSING A.] excluído da lista atual (funcionalidade desativada)")
+        print(f"          Se houver notas [MISSING A.] existentes, serão detectadas para remoção")
     
     # Para detectar alunos desabilitados, precisamos comparar com uma versão anterior
     # Como não temos histórico, vamos usar os note types existentes como referência
@@ -2157,13 +2447,18 @@ def _get_students_from_existing_note_types(remote_decks):
     """
     Extrai lista de alunos a partir dos note types existentes.
     
+    LÓGICA ATUALIZADA:
+    - Detecta note types no formato "Sheets2Anki - {remote_deck_name} - {student} - {Basic|Cloze}"
+    - Inclui [MISSING A.] se existirem note types para ele
+    - Também verifica notas existentes com IDs no formato {student}_{id} ou [MISSING A.]_{id}
+    
     Usado para detectar alunos que existiam anteriormente mas foram desabilitados.
     
     Args:
         remote_decks (dict): Dicionário de decks remotos
         
     Returns:
-        Set[str]: Conjunto de alunos encontrados nos note types existentes
+        Set[str]: Conjunto de alunos encontrados nos note types e notas existentes
     """
     if not _is_anki_ready():
         return set()
@@ -2173,10 +2468,8 @@ def _get_students_from_existing_note_types(remote_decks):
     col = mw.col
     
     try:
-        # Obter todos os note types
+        # 1. Extrair alunos dos note types
         note_types = col.models.all()
-        
-        # Extrair nomes de decks remotos para filtrar
         remote_deck_names = {deck_info.get('remote_deck_name', '') for deck_info in remote_decks.values()}
         remote_deck_names = {name for name in remote_deck_names if name}
         
@@ -2197,9 +2490,27 @@ def _get_students_from_existing_note_types(remote_decks):
                         students.add(student)
                         print(f"🔍 CLEANUP: Encontrado aluno '{student}' no note type '{note_type_name}'")
         
-        print(f"📋 CLEANUP: Alunos encontrados nos note types existentes: {sorted(students)}")
+        # 2. NOVO: Extrair alunos das notas existentes por ID único
+        # Buscar todas as notas que tenham formato {student}_{id} no campo ID
+        all_note_ids = col.find_notes("")
+        for note_id in all_note_ids[:1000]:  # Limitar para evitar overhead, processar apenas uma amostra
+            try:
+                note = col.get_note(note_id)
+                if 'ID' in note.keys():
+                    unique_id = note['ID'].strip()
+                    if '_' in unique_id:
+                        student_part = unique_id.split('_')[0]
+                        # Verificar se não é um formato UUID (contém hifens)
+                        if '-' not in student_part and student_part:
+                            students.add(student_part)
+                            if len(students) % 10 == 0:  # Log a cada 10 alunos encontrados
+                                print(f"🔍 CLEANUP: Detectados {len(students)} alunos únicos das notas...")
+            except:
+                continue
+        
+        print(f"📋 CLEANUP: Alunos encontrados (note types + notas): {sorted(students)}")
         return students
         
     except Exception as e:
-        print(f"❌ CLEANUP: Erro ao extrair alunos dos note types: {e}")
+        print(f"❌ CLEANUP: Erro ao extrair alunos dos note types e notas: {e}")
         return set()

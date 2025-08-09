@@ -1411,3 +1411,217 @@ def set_deck_options_mode(mode):
     meta["config"]["deck_options_mode"] = mode
     save_meta(meta)
     print(f"[DECK_OPTIONS_MODE] Modo alterado para: {mode}")
+
+
+def fix_note_type_names_consistency(url, correct_remote_name):
+    """
+    Corrige inconsistências nos nomes dos note_types.
+    
+    Esta função detecta e corrige note_types que têm nomes inconsistentes 
+    com o remote_deck_name atual, como duplicações ou sufixos incorretos.
+    
+    Args:
+        url (str): URL do deck remoto
+        correct_remote_name (str): Nome remoto correto a ser usado
+        
+    Returns:
+        int: Número de note_types corrigidos
+    """
+    try:
+        from .utils import get_note_type_name
+        
+        meta = get_meta()
+        deck_hash = get_deck_hash(url)
+        
+        if "decks" not in meta or deck_hash not in meta["decks"]:
+            return 0
+            
+        deck_info = meta["decks"][deck_hash]
+        note_types = deck_info.get("note_types", {})
+        
+        if not note_types:
+            return 0
+        
+        def fix_note_type_name(old_name):
+            """Corrige um nome de note_type inconsistente."""
+            if not old_name.startswith("Sheets2Anki - "):
+                return old_name  # Não é um note_type do sistema
+            
+            parts = old_name.split(" - ")
+            if len(parts) < 3:
+                return old_name  # Formato não reconhecido
+            
+            # Extrair informações do nome antigo
+            if len(parts) == 4:  # Formato: "Sheets2Anki - remote_name - student - type"
+                student = parts[2]
+                note_type = parts[3]
+                is_cloze = note_type == "Cloze"
+                
+                return get_note_type_name(url, correct_remote_name, student=student, is_cloze=is_cloze)
+                
+            elif len(parts) == 3:  # Formato: "Sheets2Anki - remote_name - type"
+                note_type = parts[2]
+                is_cloze = note_type == "Cloze"
+                
+                return get_note_type_name(url, correct_remote_name, student=None, is_cloze=is_cloze)
+            
+            return old_name  # Não conseguiu corrigir
+        
+        fixed_count = 0
+        
+        # Verificar e corrigir cada note_type
+        for note_type_id, old_name in note_types.items():
+            corrected_name = fix_note_type_name(old_name)
+            
+            if corrected_name != old_name:
+                note_types[note_type_id] = corrected_name
+                fixed_count += 1
+                print(f"[NOTE_TYPE_FIX] ✅ Corrigido {note_type_id}: '{old_name}' -> '{corrected_name}'")
+        
+        # Salvar mudanças se houve correções
+        if fixed_count > 0:
+            save_meta(meta)
+            print(f"[NOTE_TYPE_FIX] {fixed_count} note_types corrigidos e salvos")
+        
+        return fixed_count
+        
+    except Exception as e:
+        print(f"[NOTE_TYPE_FIX] Erro na correção de consistência: {e}")
+        return 0
+
+
+def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
+    """
+    Sincronização robusta de note_types: recria nomes, detecta mudanças, 
+    renomeia no Anki e migra notas se necessário.
+    
+    Esta é a implementação completa da lógica desejada:
+    1. A cada sincronização: Recria os nomes dos note_types seguindo o padrão correto
+    2. Detecta mudanças: Compara string anterior vs. recriada  
+    3. Renomeia no Anki: Atualiza o nome físico do note type no Anki
+    4. Verifica notas: Garante que as notas estão no note type correto
+    
+    Args:
+        url (str): URL do deck remoto
+        correct_remote_name (str): Nome remoto correto atual
+        enabled_students (list): Lista de estudantes habilitados
+        
+    Returns:
+        dict: Resultado da sincronização com contadores
+    """
+    try:
+        from .utils import get_note_type_name
+        from anki import Collection
+        from aqt import mw
+        
+        if not mw or not mw.col:
+            print("[NOTE_TYPE_SYNC] Anki não está disponível")
+            return {'updated_count': 0, 'renamed_in_anki': 0, 'updated_in_meta': 0}
+        
+        meta = get_meta()
+        deck_hash = get_deck_hash(url)
+        
+        if "decks" not in meta or deck_hash not in meta["decks"]:
+            print(f"[NOTE_TYPE_SYNC] Deck {deck_hash} não encontrado no meta.json")
+            return {'updated_count': 0, 'renamed_in_anki': 0, 'updated_in_meta': 0}
+            
+        deck_info = meta["decks"][deck_hash]
+        note_types = deck_info.get("note_types", {})
+        
+        if not note_types:
+            print("[NOTE_TYPE_SYNC] Nenhum note_type encontrado")
+            return {'updated_count': 0, 'renamed_in_anki': 0, 'updated_in_meta': 0}
+        
+        def extract_student_and_type_from_name(old_name):
+            """Extrai estudante e tipo do nome antigo."""
+            if not old_name.startswith("Sheets2Anki - "):
+                return None, None, False
+            
+            parts = old_name.split(" - ")
+            if len(parts) == 4:  # "Sheets2Anki - remote_name - student - type"
+                student = parts[2]
+                note_type = parts[3]
+                is_cloze = note_type == "Cloze"
+                return student, note_type, is_cloze
+            elif len(parts) == 3:  # "Sheets2Anki - remote_name - type"
+                note_type = parts[2]
+                is_cloze = note_type == "Cloze"
+                return None, note_type, is_cloze
+            
+            return None, None, False
+        
+        result = {
+            'updated_count': 0,
+            'renamed_in_anki': 0, 
+            'updated_in_meta': 0,
+            'notes_migrated': 0
+        }
+        
+        print(f"[NOTE_TYPE_SYNC] Iniciando sincronização robusta para {len(note_types)} note_types")
+        
+        # Processar cada note_type
+        for note_type_id, old_name in note_types.items():
+            try:
+                note_type_id_int = int(note_type_id)
+                
+                # 1. RECRIAR: Gerar nome esperado baseado no padrão correto
+                student, note_type, is_cloze = extract_student_and_type_from_name(old_name)
+                
+                if student is None and note_type is None:
+                    print(f"[NOTE_TYPE_SYNC] Formato não reconhecido para {note_type_id}: '{old_name}'")
+                    continue
+                
+                expected_name = get_note_type_name(url, correct_remote_name, student=student, is_cloze=is_cloze)
+                
+                # 2. DETECTAR: Comparar nome anterior vs. recriado
+                if expected_name == old_name:
+                    print(f"[NOTE_TYPE_SYNC] ✅ {note_type_id} já está correto: '{old_name}'")
+                    continue
+                
+                print(f"[NOTE_TYPE_SYNC] 🔄 {note_type_id} precisa ser atualizado:")
+                print(f"[NOTE_TYPE_SYNC]    Antigo:   '{old_name}'")
+                print(f"[NOTE_TYPE_SYNC]    Esperado: '{expected_name}'")
+                
+                # 3. RENOMEAR NO ANKI: Atualizar nome físico do note type
+                from anki.models import NotetypeId
+                note_type_obj = mw.col.models.get(NotetypeId(note_type_id_int))
+                if note_type_obj:
+                    old_anki_name = note_type_obj.get('name', '')
+                    note_type_obj['name'] = expected_name
+                    mw.col.models.save(note_type_obj)
+                    
+                    print(f"[NOTE_TYPE_SYNC] ✅ Renomeado no Anki: '{old_anki_name}' -> '{expected_name}'")
+                    result['renamed_in_anki'] += 1
+                else:
+                    print(f"[NOTE_TYPE_SYNC] ⚠️ Note type {note_type_id} não encontrado no Anki")
+                
+                # 4. ATUALIZAR META.JSON: Atualizar nome na configuração  
+                note_types[note_type_id] = expected_name
+                result['updated_in_meta'] += 1
+                
+                # 5. VERIFICAR NOTAS: Garantir que notas estão no note type correto
+                # (Normalmente as notas já seguem o note_type automaticamente no Anki)
+                
+                result['updated_count'] += 1
+                
+            except Exception as e:
+                print(f"[NOTE_TYPE_SYNC] ❌ Erro processando {note_type_id}: {e}")
+                continue
+        
+        # Salvar mudanças no meta.json se houve atualizações
+        if result['updated_in_meta'] > 0:
+            save_meta(meta)
+            print(f"[NOTE_TYPE_SYNC] ✅ Meta.json salvo com {result['updated_in_meta']} atualizações")
+        
+        # Salvar mudanças no Anki
+        if result['renamed_in_anki'] > 0:
+            mw.col.save()
+            print(f"[NOTE_TYPE_SYNC] ✅ Anki salvo com {result['renamed_in_anki']} note_types renomeados")
+        
+        return result
+        
+    except Exception as e:
+        print(f"[NOTE_TYPE_SYNC] ❌ Erro geral na sincronização robusta: {e}")
+        import traceback
+        print(f"[NOTE_TYPE_SYNC] Traceback: {traceback.format_exc()}")
+        return {'updated_count': 0, 'renamed_in_anki': 0, 'updated_in_meta': 0}

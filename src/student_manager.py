@@ -167,28 +167,30 @@ class StudentSelectionDialog(QDialog):
 def extract_students_from_remote_data(remote_deck) -> Set[str]:
     """
     Extrai todos os alunos únicos presentes nos dados remotos.
-    NOVA VERSÃO: Usa normalização consistente de nomes.
+    
+    LÓGICA REFATORADA:
+    - Usa a nova estrutura RemoteDeck.notes
+    - Extrai alunos da coluna ALUNOS de cada nota
+    - Retorna conjunto com nomes case-sensitive
     
     Args:
         remote_deck: Objeto RemoteDeck com os dados da planilha
         
     Returns:
-        Set[str]: Conjunto de alunos únicos encontrados (nomes normalizados)
+        Set[str]: Conjunto de alunos únicos encontrados
     """
     students = set()
     
-    if not hasattr(remote_deck, 'questions') or not remote_deck.questions:
+    if not hasattr(remote_deck, 'notes') or not remote_deck.notes:
         return students
     
-    for question in remote_deck.questions:
-        fields = question.get('fields', {})
-        alunos_field = fields.get(cols.ALUNOS, '').strip()
+    for note_data in remote_deck.notes:
+        alunos_field = note_data.get(cols.ALUNOS, '').strip()
         
         if alunos_field:
-            # Separar múltiplos alunos por vírgula, ponto e vírgula ou pipe
-            alunos_list = re.split(r'[,;|]', alunos_field)
+            # Separar múltiplos alunos por vírgula
+            alunos_list = [s.strip() for s in alunos_field.split(',') if s.strip()]
             for aluno in alunos_list:
-                aluno = aluno.strip()
                 if aluno:
                     # Adicionar nome do estudante (case-sensitive)
                     students.add(aluno)
@@ -199,6 +201,7 @@ def extract_students_from_remote_data(remote_deck) -> Set[str]:
 def get_selected_students_for_deck(deck_url: str) -> Set[str]:
     """
     Obtém os alunos selecionados para um deck específico.
+    Se não houver seleção específica para o deck, usa a configuração global.
     
     Args:
         deck_url: URL do deck remoto
@@ -206,11 +209,19 @@ def get_selected_students_for_deck(deck_url: str) -> Set[str]:
     Returns:
         Set[str]: Conjunto de alunos selecionados para este deck
     """
+    from .config_manager import get_meta, get_deck_hash, get_enabled_students
+    
     meta = get_meta()
     
-    # Navegar pela estrutura: decks -> deck_url -> student_selection
-    deck_config = meta.get('decks', {}).get(deck_url, {})
-    student_selection = deck_config.get('student_selection', set())
+    # Navegar pela estrutura: decks -> deck_hash -> student_selection
+    deck_hash = get_deck_hash(deck_url)
+    deck_config = meta.get('decks', {}).get(deck_hash, {})
+    student_selection = deck_config.get('student_selection')
+    
+    # Se não há seleção específica para o deck, usar configuração global
+    if student_selection is None:
+        global_enabled = get_enabled_students()
+        return set(global_enabled) if global_enabled else set()
     
     # Converter para set se for lista
     if isinstance(student_selection, list):
@@ -227,17 +238,20 @@ def save_selected_students_for_deck(deck_url: str, selected_students: Set[str]):
         deck_url: URL do deck remoto
         selected_students: Conjunto de alunos selecionados
     """
+    from .config_manager import get_meta, save_meta, get_deck_hash
+    
     meta = get_meta()
     
     # Garantir estrutura do meta
     if 'decks' not in meta:
         meta['decks'] = {}
     
-    if deck_url not in meta['decks']:
-        meta['decks'][deck_url] = {}
+    deck_hash = get_deck_hash(deck_url)
+    if deck_hash not in meta['decks']:
+        meta['decks'][deck_hash] = {}
     
     # Converter set para lista para serialização JSON
-    meta['decks'][deck_url]['student_selection'] = list(selected_students)
+    meta['decks'][deck_hash]['student_selection'] = list(selected_students)
     
     save_meta(meta)
 
@@ -544,6 +558,12 @@ def cleanup_disabled_students_data(disabled_students: Set[str], deck_names: List
     """
     Remove todos os dados de alunos desabilitados: notas, cards, note types e decks.
     
+    LÓGICA REFATORADA para funcionar com IDs únicos {student}_{id}:
+    - Busca notas por ID único usando o formato {student}_{id}
+    - Remove notas baseado no campo ID das notas, não mais por localização em deck
+    - Remove decks vazios após remoção das notas
+    - Remove note types não utilizados
+    
     Args:
         disabled_students (Set[str]): Conjunto de alunos que foram desabilitados
         deck_names (List[str]): Lista de nomes de decks remotos para filtrar operações
@@ -564,49 +584,77 @@ def cleanup_disabled_students_data(disabled_students: Set[str], deck_names: List
     col = mw.col
     
     try:
-        # Para cada aluno desabilitado
+        # 1. Primeiro, encontrar e remover todas as notas dos alunos desabilitados
+        notes_to_remove = []
+        
         for student in disabled_students:
             print(f"🧹 CLEANUP: Processando aluno '{student}'...")
             
-            # Encontrar todos os decks do aluno em todos os decks remotos
-            student_decks_found = []
+            # Buscar notas por ID único no formato {student}_{id} ou [MISSING A.]_{id}
+            # Usar busca por campo ID que contém o student_note_id
+            student_pattern = f"{student}_*"
             
+            # Buscar todas as notas no Anki que tenham esse aluno no campo ID
+            # Como não podemos fazer busca direta por campo personalizado, vamos iterar
+            all_note_ids = col.find_notes("")  # Todas as notas
+            student_note_ids = []
+            
+            for note_id in all_note_ids:
+                try:
+                    note = col.get_note(note_id)
+                    # Verificar se a nota tem o campo ID e se corresponde ao aluno
+                    if 'ID' in note.keys():
+                        note_unique_id = note['ID'].strip()
+                        # Verificar se o ID da nota começa com "{student}_"
+                        if note_unique_id.startswith(f"{student}_"):
+                            student_note_ids.append(note_id)
+                            print(f"   � Encontrada nota do aluno '{student}': {note_unique_id}")
+                except:
+                    continue
+            
+            notes_to_remove.extend(student_note_ids)
+            print(f"   📊 Total de notas encontradas para '{student}': {len(student_note_ids)}")
+        
+        # 2. Remover todas as notas encontradas
+        if notes_to_remove:
+            print(f"🗑️ CLEANUP: Removendo {len(notes_to_remove)} notas...")
+            col.remove_notes(notes_to_remove)
+            stats['notes_removed'] = len(notes_to_remove)
+            print(f"✅ CLEANUP: {len(notes_to_remove)} notas removidas")
+        
+        # 3. Encontrar e remover decks vazios dos alunos desabilitados
+        for student in disabled_students:
             for deck_name in deck_names:
-                # Padrão: "Deck Remoto::Aluno::"
-                student_deck_pattern = f"{deck_name}::{student}::"
+                # Padrão de deck do aluno: "Sheets2Anki::{deck_name}::{student}::"
+                student_deck_pattern = f"Sheets2Anki::{deck_name}::{student}::"
                 
                 # Encontrar todos os decks que começam com este padrão
                 all_decks = col.decks.all_names_and_ids()
                 matching_decks = [d for d in all_decks if d.name.startswith(student_deck_pattern)]
                 
-                student_decks_found.extend(matching_decks)
-                print(f"   📁 Encontrados {len(matching_decks)} decks para padrão '{student_deck_pattern}'")
-            
-            # Remover notas de todos os decks do aluno
-            for deck in student_decks_found:
-                try:
-                    # Encontrar todas as notas neste deck
-                    note_ids = col.find_notes(f'deck:"{deck.name}"')
-                    print(f"   📝 Deck '{deck.name}': {len(note_ids)} notas encontradas")
-                    
-                    if note_ids:
-                        # Remover todas as notas
-                        col.remove_notes(note_ids)
-                        stats['notes_removed'] += len(note_ids)
-                        print(f"   ✅ Removidas {len(note_ids)} notas do deck '{deck.name}'")
-                    
-                    # Remover o deck (agora vazio)
-                    col.decks.remove([deck.id])
-                    stats['decks_removed'] += 1
-                    print(f"   🗑️ Deck '{deck.name}' removido")
-                    
-                except Exception as e:
-                    print(f"   ❌ Erro ao processar deck '{deck.name}': {e}")
-                    continue
+                for deck in matching_decks:
+                    try:
+                        # Verificar se o deck está vazio
+                        remaining_notes = col.find_notes(f'deck:"{deck.name}"')
+                        if not remaining_notes:
+                            # Deck vazio, pode remover
+                            from anki.decks import DeckId
+                            deck_id = DeckId(deck.id)
+                            col.decks.remove([deck_id])
+                            stats['decks_removed'] += 1
+                            print(f"   🗑️ Deck vazio removido: '{deck.name}'")
+                        else:
+                            print(f"   📁 Deck '{deck.name}' ainda tem {len(remaining_notes)} notas, mantendo")
+                    except Exception as e:
+                        print(f"   ❌ Erro ao processar deck '{deck.name}': {e}")
+                        continue
             
             # Remover note types do aluno
             removed_note_types = _remove_student_note_types(student, deck_names)
             stats['note_types_removed'] += removed_note_types
+        
+        # NOVO: Atualizar meta.json após limpeza para remover referências de note types deletados
+        _update_meta_after_cleanup(disabled_students, deck_names)
         
         # Salvar mudanças
         col.save()
@@ -673,6 +721,110 @@ def _remove_student_note_types(student: str, deck_names: List[str]) -> int:
     except Exception as e:
         print(f"❌ Erro ao remover note types do aluno '{student}': {e}")
         return 0
+
+
+def _update_meta_after_cleanup(disabled_students: Set[str], deck_names: List[str]) -> None:
+    """
+    Atualiza o meta.json removendo referências de note types que foram deletados durante cleanup.
+    
+    Args:
+        disabled_students (Set[str]): Conjunto de alunos que foram desabilitados
+        deck_names (List[str]): Lista de nomes de decks remotos
+    """
+    try:
+        from .config_manager import get_meta, save_meta, get_deck_hash
+        
+        print(f"📝 META UPDATE: Atualizando meta.json após limpeza de {len(disabled_students)} alunos")
+        
+        meta = get_meta()
+        updates_made = False
+        
+        # Para cada deck configurado
+        for deck_info in meta.get('decks', {}).values():
+            deck_name = deck_info.get('remote_deck_name', '')
+            if deck_name in deck_names:
+                note_types_dict = deck_info.get('note_types', {})
+                note_types_to_remove = []
+                
+                # Encontrar note types dos alunos desabilitados
+                for note_type_id, note_type_name in note_types_dict.items():
+                    for student in disabled_students:
+                        # Formato: "Sheets2Anki - {remote_deck_name} - {student} - {Basic|Cloze}"
+                        student_pattern_basic = f"Sheets2Anki - {deck_name} - {student} - Basic"
+                        student_pattern_cloze = f"Sheets2Anki - {deck_name} - {student} - Cloze"
+                        
+                        if note_type_name == student_pattern_basic or note_type_name == student_pattern_cloze:
+                            note_types_to_remove.append(note_type_id)
+                            print(f"   🗑️ META: Removendo referência do note type '{note_type_name}' (ID: {note_type_id})")
+                
+                # Remover os note types encontrados
+                for note_type_id in note_types_to_remove:
+                    if note_type_id in note_types_dict:
+                        del note_types_dict[note_type_id]
+                        updates_made = True
+        
+        # Salvar meta.json atualizado se houve mudanças
+        if updates_made:
+            save_meta(meta)
+            print(f"✅ META UPDATE: meta.json atualizado com {len([nt for deck in meta.get('decks', {}).values() for nt in deck.get('note_types', {}).keys()])} note types restantes")
+        else:
+            print(f"ℹ️ META UPDATE: Nenhuma atualização necessária no meta.json")
+            
+    except Exception as e:
+        print(f"❌ META UPDATE: Erro ao atualizar meta.json após cleanup: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def _update_meta_after_missing_cleanup(deck_names: List[str]) -> None:
+    """
+    Atualiza o meta.json removendo referências de note types [MISSING A.] que foram deletados.
+    
+    Args:
+        deck_names (List[str]): Lista de nomes de decks remotos
+    """
+    try:
+        from .config_manager import get_meta, save_meta
+        
+        print(f"📝 META UPDATE: Atualizando meta.json após limpeza [MISSING A.] para {len(deck_names)} decks")
+        
+        meta = get_meta()
+        updates_made = False
+        
+        # Para cada deck configurado
+        for deck_info in meta.get('decks', {}).values():
+            deck_name = deck_info.get('remote_deck_name', '')
+            if deck_name in deck_names:
+                note_types_dict = deck_info.get('note_types', {})
+                note_types_to_remove = []
+                
+                # Encontrar note types [MISSING A.]
+                for note_type_id, note_type_name in note_types_dict.items():
+                    # Formato: "Sheets2Anki - {remote_deck_name} - [MISSING A.] - {Basic|Cloze}"
+                    missing_pattern_basic = f"Sheets2Anki - {deck_name} - [MISSING A.] - Basic"
+                    missing_pattern_cloze = f"Sheets2Anki - {deck_name} - [MISSING A.] - Cloze"
+                    
+                    if note_type_name == missing_pattern_basic or note_type_name == missing_pattern_cloze:
+                        note_types_to_remove.append(note_type_id)
+                        print(f"   🗑️ META: Removendo referência do note type '[MISSING A.]': '{note_type_name}' (ID: {note_type_id})")
+                
+                # Remover os note types encontrados
+                for note_type_id in note_types_to_remove:
+                    if note_type_id in note_types_dict:
+                        del note_types_dict[note_type_id]
+                        updates_made = True
+        
+        # Salvar meta.json atualizado se houve mudanças
+        if updates_made:
+            save_meta(meta)
+            print(f"✅ META UPDATE: meta.json atualizado após limpeza [MISSING A.]")
+        else:
+            print(f"ℹ️ META UPDATE: Nenhuma referência [MISSING A.] encontrada no meta.json")
+            
+    except Exception as e:
+        print(f"❌ META UPDATE: Erro ao atualizar meta.json após limpeza [MISSING A.]: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def get_disabled_students_for_cleanup(current_enabled: Set[str], previous_enabled: Set[str]) -> Set[str]:
@@ -846,6 +998,9 @@ def cleanup_missing_students_data(deck_names: List[str]) -> Dict[str, int]:
                         
             except Exception as e:
                 print(f"  ❌ Erro ao processar note types para deck '{deck_name}': {e}")
+        
+        # NOVO: Atualizar meta.json após limpeza para remover referências de note types [MISSING A.] deletados
+        _update_meta_after_missing_cleanup(deck_names)
         
         print(f"✅ CLEANUP: Limpeza [MISSING A.] concluída - Estatísticas: {stats}")
         return stats

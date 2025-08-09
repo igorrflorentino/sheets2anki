@@ -96,6 +96,7 @@ try:
         QDialogButtonBox,
         QTimer,
         QAbstractItemView,
+        QPalette,
         Qt
     )
     
@@ -216,6 +217,25 @@ if hasattr(QLineEdit, 'EchoMode'):
 else:
     EchoModeNormal = QLineEdit.Normal
     EchoModePassword = QLineEdit.Password
+
+# Constantes de QPalette para dark mode detection
+if QT_VERSION >= 6:
+    try:
+        Palette_Window = QPalette.ColorRole.Window
+        Palette_WindowText = QPalette.ColorRole.WindowText
+        Palette_Base = QPalette.ColorRole.Base
+        Palette_Text = QPalette.ColorRole.Text
+    except AttributeError:
+        # Fallback para Qt6 sem ColorRole
+        Palette_Window = QPalette.Window
+        Palette_WindowText = QPalette.WindowText
+        Palette_Base = QPalette.Base
+        Palette_Text = QPalette.Text
+else:
+    Palette_Window = QPalette.Window
+    Palette_WindowText = QPalette.WindowText
+    Palette_Base = QPalette.Base
+    Palette_Text = QPalette.Text
 
 # Constantes de QAbstractItemView
 if QT_VERSION >= 6:
