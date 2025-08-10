@@ -22,6 +22,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+*.log
 
 # Scripts de desenvolvimento (manter no versionamento)
 # scripts/ - pasta com todos os scripts de build
