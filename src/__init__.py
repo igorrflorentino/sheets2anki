@@ -10,7 +10,9 @@ from . import compat
 
 # Inicializar sistema de debug quando o addon é carregado
 try:
-    from .utils import initialize_debug_log, add_debug_message
+    from .utils import add_debug_message
+    from .utils import initialize_debug_log
+
     initialize_debug_log()
     add_debug_message("🚀 Sheets2Anki addon carregado", "SYSTEM")
 except Exception as e:
@@ -21,23 +23,25 @@ except Exception as e:
 # =============================================================================
 
 # Imports dos módulos do projeto
-from .sync import syncDecks
-from .deck_manager import (
-    syncDecksWithSelection, import_test_deck, 
-    addNewDeck, removeRemoteDeck, manage_deck_students, reset_student_selection
-)
-from .sync_dialog import show_sync_dialog
 from .backup_system import show_backup_dialog
+from .deck_manager import addNewDeck
+from .deck_manager import import_test_deck
+from .deck_manager import manage_deck_students
+from .deck_manager import removeRemoteDeck
+from .deck_manager import reset_student_selection
+from .deck_manager import syncDecksWithSelection
+from .sync import syncDecks
+from .sync_dialog import show_sync_dialog
 
 # Estas funções são os pontos de entrada principais do addon
 # e são usadas pelo sistema de menus do Anki
 __all__ = [
-    'syncDecks',
-    'syncDecksWithSelection', 
-    'import_test_deck',
-    'addNewDeck',
-    'removeRemoteDeck',
-    'manage_deck_students',
-    'reset_student_selection',
-    'show_backup_dialog'
+    "syncDecks",
+    "syncDecksWithSelection",
+    "import_test_deck",
+    "addNewDeck",
+    "removeRemoteDeck",
+    "manage_deck_students",
+    "reset_student_selection",
+    "show_backup_dialog",
 ]

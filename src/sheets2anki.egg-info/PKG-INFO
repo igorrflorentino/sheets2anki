@@ -1,3 +1,13 @@
+Metadata-Version: 2.4
+Name: sheets2anki
+Version: 0.1.0
+Summary: sincroniza um deck remoto usando google sheet como referencia
+Requires-Python: >=3.9.23
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aqt>=25.7.2
+Dynamic: license-file
+
 # 📚 Sheets2Anki
 
 **Transforme suas planilhas do Google Sheets em poderosos decks do Anki!**
