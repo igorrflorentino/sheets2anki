@@ -710,8 +710,8 @@ def _is_default_config(config, config_type="default"):
         if config_type == "root":
             # Valores padrão para o deck raiz
             expected_values = {
-                'new_perDay': 30,
-                'rev_perDay': 150,
+                'new_perDay': 20,
+                'rev_perDay': 200,
                 'new_delays': [1, 10],
                 'lapse_delays': [10],
                 'lapse_minInt': 1,
@@ -720,7 +720,7 @@ def _is_default_config(config, config_type="default"):
         else:
             # Valores padrão para decks remotos
             expected_values = {
-                'new_perDay': 50,
+                'new_perDay': 20,
                 'rev_perDay': 200,
                 'new_delays': [1, 10],
                 'lapse_delays': [10],
@@ -831,7 +831,7 @@ def get_or_create_sheets2anki_options_group(deck_name=None):
                 return None
             
             # Configurações otimizadas para estudo de planilhas
-            config['new']['perDay'] = 50  # 50 novos cards por dia (bom para planilhas)
+            config['new']['perDay'] = 20  # 20 novos cards por dia (bom para planilhas)
             config['rev']['perDay'] = 200  # 200 revisões por dia
             config['new']['delays'] = [1, 10]  # Intervalos curtos iniciais
             config['lapse']['delays'] = [10]  # Intervalo para cards esquecidos
