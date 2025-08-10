@@ -367,7 +367,7 @@ def get_student_subdeck_name(main_deck_name: str, student: str, fields: Dict) ->
     Returns:
         str: Nome completo do subdeck do aluno
     """
-    from .utils import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
+    from .templates_and_definitions import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
     
     # Obter valores dos campos, usando valores padrão se estiverem vazios
     importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE
@@ -392,7 +392,7 @@ def get_missing_students_subdeck_name(main_deck_name: str, fields: Dict) -> str:
     Returns:
         str: Nome completo do subdeck [MISSING A.]
     """
-    from .utils import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
+    from .templates_and_definitions import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT
     
     # Obter valores dos campos, usando valores padrão se estiverem vazios
     importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE

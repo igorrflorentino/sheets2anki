@@ -281,22 +281,6 @@ def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, syn
     # Adicionar mensagem final de debug
     add_debug_message("🎬 Sincronização finalizada", "SYSTEM")
     
-    # Executar sincronização AnkiWeb se configurada
-    add_debug_message("🔄 Verificando configuração de sincronização AnkiWeb...", "SYNC")
-    try:
-        from .ankiweb_sync import execute_ankiweb_sync_if_configured
-        ankiweb_result = execute_ankiweb_sync_if_configured()
-        
-        if ankiweb_result:
-            if ankiweb_result['success']:
-                add_debug_message(f"✅ AnkiWeb sync: {ankiweb_result['message']}", "SYNC")
-            else:
-                add_debug_message(f"❌ AnkiWeb sync falhou: {ankiweb_result['error']}", "SYNC")
-        else:
-            add_debug_message("⏹️ AnkiWeb sync desabilitado", "SYNC")
-    except Exception as ankiweb_error:
-        add_debug_message(f"❌ Erro na sincronização AnkiWeb: {ankiweb_error}", "SYNC")
-    
     # Atualizar a interface do Anki para mostrar as mudanças
     ensure_interface_refresh()
     
@@ -307,12 +291,33 @@ def _finalize_sync_new(progress, total_decks, successful_decks, total_stats, syn
     # Aguardar um momento para mostrar a mensagem final
     time.sleep(1)
     
-    # Mostrar resumo detalhado
-    _show_sync_summary_new(sync_errors, total_stats, successful_decks, total_decks, removed_subdecks, cleanup_result, missing_cleanup_result)
+    # Mostrar resumo detalhado PRIMEIRO (sem resultado AnkiWeb ainda)
+    def execute_ankiweb_sync_after_close():
+        """Callback para executar sincronização AnkiWeb após o usuário fechar a janela de resumo"""
+        # APÓS o usuário fechar a janela, executar sincronização AnkiWeb se configurada
+        add_debug_message("🔄 Verificando configuração de sincronização AnkiWeb...", "SYNC")
+        try:
+            from .ankiweb_sync import execute_ankiweb_sync_if_configured
+            ankiweb_result = execute_ankiweb_sync_if_configured()
+            
+            if ankiweb_result:
+                if ankiweb_result['success']:
+                    add_debug_message(f"✅ AnkiWeb sync: {ankiweb_result['message']}", "SYNC")
+                else:
+                    add_debug_message(f"❌ AnkiWeb sync falhou: {ankiweb_result['error']}", "SYNC")
+            else:
+                add_debug_message("⏹️ AnkiWeb sync desabilitado", "SYNC")
+        except Exception as ankiweb_error:
+            add_debug_message(f"❌ Erro na sincronização AnkiWeb: {ankiweb_error}", "SYNC")
+    
+    _show_sync_summary_new(sync_errors, total_stats, successful_decks, total_decks, removed_subdecks, cleanup_result, missing_cleanup_result, ankiweb_result=None, on_close_callback=execute_ankiweb_sync_after_close)
 
-def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks=0, cleanup_result=None, missing_cleanup_result=None):
+def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, removed_subdecks=0, cleanup_result=None, missing_cleanup_result=None, ankiweb_result=None, on_close_callback=None):
     """
     Mostra resumo da sincronização usando interface com scroll.
+    
+    Args:
+        on_close_callback (callable, optional): Função a ser chamada quando o diálogo for fechado
     """
     
     summary = []
@@ -348,6 +353,22 @@ def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, 
     if missing_cleanup_result:
         summary.append("🧹 Dados [MISSING A.] removidos")
     
+    # Sincronização AnkiWeb
+    if ankiweb_result is not None:
+        if ankiweb_result.get('success', False):
+            summary.append("🔄 AnkiWeb: Sincronização iniciada (detectando mudanças automaticamente)")
+        elif 'error' in ankiweb_result:
+            summary.append(f"❌ AnkiWeb: Falha na sincronização - {ankiweb_result['error']}")
+    else:
+        # Verificar se está configurado mas não executou
+        try:
+            from .config_manager import get_ankiweb_sync_mode
+            sync_mode = get_ankiweb_sync_mode()
+            if sync_mode == "disabled":
+                summary.append("⏹️ AnkiWeb: Sincronização automática desabilitada")
+        except:
+            pass
+    
     # Erros
     sync_errors = sync_errors or []
     total_errors = total_stats.errors + len(sync_errors)
@@ -355,12 +376,15 @@ def _show_sync_summary_new(sync_errors, total_stats, decks_synced, total_decks, 
         summary.append(f"⚠️ {total_errors} erros encontrados")
     
     # Sempre usar interface com scroll
-    _show_sync_summary_with_scroll(summary, total_stats, removed_subdecks, cleanup_result, missing_cleanup_result, sync_errors)
+    _show_sync_summary_with_scroll(summary, total_stats, removed_subdecks, cleanup_result, missing_cleanup_result, sync_errors, ankiweb_result, on_close_callback)
 
 
-def _show_sync_summary_with_scroll(base_summary, total_stats, removed_subdecks=0, cleanup_result=None, missing_cleanup_result=None, sync_errors=None):
+def _show_sync_summary_with_scroll(base_summary, total_stats, removed_subdecks=0, cleanup_result=None, missing_cleanup_result=None, sync_errors=None, ankiweb_result=None, on_close_callback=None):
     """
     Mostra resumo da sincronização com interface scrollável.
+    
+    Args:
+        on_close_callback (callable, optional): Função a ser chamada quando o diálogo for fechado
     """
     from .compat import QPalette, Palette_Window
     
@@ -369,6 +393,10 @@ def _show_sync_summary_with_scroll(base_summary, total_stats, removed_subdecks=0
     dialog.setWindowTitle("Resumo da Sincronização")
     dialog.setMinimumSize(800, 600)
     dialog.resize(1000, 700)
+    
+    # Conectar callback ao fechamento se fornecido
+    if on_close_callback and callable(on_close_callback):
+        dialog.finished.connect(on_close_callback)
     
     # Detectar dark mode baseado na cor de fundo padrão do sistema
     palette = dialog.palette()

@@ -58,7 +58,7 @@ try:
     from .src.deck_manager import syncDecksWithSelection as sDecks
     from .src.deck_manager import removeRemoteDeck as rDecks
     from .src.backup_system import show_backup_dialog
-    from .src.utils import DEFAULT_PARENT_DECK_NAME
+    from .src.templates_and_definitions import DEFAULT_PARENT_DECK_NAME
     from .libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
     
 except Exception as e:
@@ -199,10 +199,9 @@ def configure_ankiweb_sync():
     """
     Abre o diálogo de configuração de sincronização automática com AnkiWeb.
     
-    Esta função permite ao usuário escolher entre três modos:
+    Esta função permite ao usuário escolher entre dois modos:
     1. Desabilitado - Não fazer sincronização automática
-    2. Sincronização Normal - Executar sync normal após sincronização de decks
-    3. Forçar Upload - Sempre enviar dados locais para AnkiWeb
+    2. Sincronizar - Executar sync após sincronização de decks
     """
     try:
         from .src.ankiweb_sync_config_dialog import show_ankiweb_sync_config
@@ -252,15 +251,6 @@ if mw is not None:
     qconnect(studentConfigAction.triggered, configure_global_students)
     remoteDecksSubMenu.addAction(studentConfigAction)
 
-    # Ação: Backup de decks remotos
-    backupDecksAction = QAction("Backup de Decks Remotos", mw)
-    backupDecksAction.setShortcut(QKeySequence("Ctrl+Shift+B"))
-    qconnect(backupDecksAction.triggered, backup_decks)
-    remoteDecksSubMenu.addAction(backupDecksAction)
-
-    # Separador
-    remoteDecksSubMenu.addSeparator()
-
     # Ação: Configurar modo de opções de deck
     deckOptionsConfigAction = QAction("Configurar Opções de Deck", mw)
     deckOptionsConfigAction.setShortcut(QKeySequence("Ctrl+Shift+O"))
@@ -273,9 +263,18 @@ if mw is not None:
     qconnect(ankiWebSyncConfigAction.triggered, configure_ankiweb_sync)
     remoteDecksSubMenu.addAction(ankiWebSyncConfigAction)
 
+    # Separador
+    remoteDecksSubMenu.addSeparator()
+
+    # Ação: Backup de decks remotos
+    backupDecksAction = QAction("Backup de Decks Remotos", mw)
+    backupDecksAction.setShortcut(QKeySequence("Ctrl+Shift+B"))
+    qconnect(backupDecksAction.triggered, backup_decks)
+    remoteDecksSubMenu.addAction(backupDecksAction)
+
     # Ação: Importar deck de teste (apenas para desenvolvimento/debug)
     try:
-        from .src.utils import IS_DEVELOPMENT_MODE
+        from .src.templates_and_definitions import IS_DEVELOPMENT_MODE
         if IS_DEVELOPMENT_MODE:
             importTestDeckAction = QAction("Importar Deck de Teste", mw)
             importTestDeckAction.setShortcut(QKeySequence("Ctrl+Shift+T"))

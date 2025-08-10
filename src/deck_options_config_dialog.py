@@ -156,28 +156,7 @@ class DeckOptionsConfigDialog(QDialog):
                 from .config_manager import set_deck_options_mode
                 set_deck_options_mode(new_mode)
                 
-                # Feedback simples para o usuário
-                mode_names = {
-                    "shared": "Opções Compartilhadas",
-                    "individual": "Opções Individuais", 
-                    "manual": "Configuração Manual"
-                }
-                
-                from .compat import QMessageBox
-                
-                msg = QMessageBox()
-                msg.setWindowTitle("Configuração Salva")
-                msg.setText(f"Modo alterado para: {mode_names[new_mode]}")
-                
-                # Mensagem informativa sobre quando será aplicado
-                if new_mode == "manual":
-                    msg.setInformativeText("As opções não serão aplicadas automaticamente.")
-                else:
-                    msg.setInformativeText("As configurações serão aplicadas automaticamente na próxima sincronização de decks.")
-                
-                msg.setStandardButtons(MessageBox_Ok)
-                safe_exec_dialog(msg)
-                
+                # Salvar silenciosamente e fechar
                 self.accept()
                 
             except Exception as e:

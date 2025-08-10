@@ -12,7 +12,7 @@ from .compat import (
     QLabel, QPushButton, QCheckBox
 )
 from .compat import safe_exec
-from .utils import TEST_SHEETS_URLS
+from .templates_and_definitions import TEST_SHEETS_URLS
 from .config_manager import (
     get_remote_decks, add_remote_deck, disconnect_deck, detect_deck_name_changes,
     get_deck_local_name, create_deck_info
@@ -629,7 +629,7 @@ def reset_student_selection():
 
 import re
 from typing import Optional, Tuple, Dict, Any
-from .utils import DEFAULT_PARENT_DECK_NAME
+from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 
 
 class DeckNameManager:

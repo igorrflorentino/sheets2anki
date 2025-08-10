@@ -15,7 +15,7 @@ from .compat import safe_exec
 from .config_manager import (
     get_remote_decks, add_remote_deck, is_deck_disconnected
 )
-from .utils import DEFAULT_PARENT_DECK_NAME
+from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 from .utils import validate_url
 from .data_processor import getRemoteDeck, RemoteDeckError
 from .utils import get_or_create_deck

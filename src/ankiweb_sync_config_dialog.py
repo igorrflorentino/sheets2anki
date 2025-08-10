@@ -1,10 +1,9 @@
 """
 Diálogo para configurar sincronização automática com AnkiWeb.
 
-Este módulo permite ao usuário escolher entre três modos de sincronização:
+Este módulo permite ao usuário escolher entre dois modos de sincronização:
 1. Desabilitado - Não fazer sincronização automática
-2. Sincronização Normal - Executar sync normal após sincronização de decks
-3. Forçar Upload - Sempre enviar dados locais para AnkiWeb
+2. Sincronização - Executar sync após sincronização de decks
 """
 
 from .compat import (
@@ -79,17 +78,11 @@ class AnkiWebSyncConfigDialog(QDialog):
         self.mode_group.addButton(self.radio_none, 0)
         layout.addWidget(self.radio_none)
         
-        # Modo sincronização normal
-        self.radio_sync = QRadioButton("🔄 Sincronização Normal")
+        # Modo sincronização
+        self.radio_sync = QRadioButton("🔄 Sincronizar com AnkiWeb")
         self.radio_sync.setChecked(self.current_mode == "sync")
         self.mode_group.addButton(self.radio_sync, 1)
         layout.addWidget(self.radio_sync)
-        
-        # Modo forçar upload
-        self.radio_force = QRadioButton("⬆️ Forçar Upload")
-        self.radio_force.setChecked(self.current_mode == "force_upload")
-        self.mode_group.addButton(self.radio_force, 2)
-        layout.addWidget(self.radio_force)
         
         # Separator
         separator2 = QFrame()
@@ -173,13 +166,9 @@ class AnkiWebSyncConfigDialog(QDialog):
 Nenhuma sincronização automática será executada. Você precisará sincronizar manualmente com AnkiWeb usando Ferramentas > Sincronizar no menu do Anki.<br><br>
 <b>Recomendado para:</b> Usuários que preferem controle total sobre quando sincronizar.""",
             
-            1: """🔄 <b>Sincronização Normal</b><br><br>
-Após cada sincronização de decks remotos, o Sheets2Anki executará uma sincronização padrão com AnkiWeb. O Anki decidirá automaticamente se deve fazer upload ou download baseado nas mudanças.<br><br>
-<b>Recomendado para:</b> Usuários que usam Anki em múltiplos dispositivos.""",
-            
-            2: """⬆️ <b>Forçar Upload</b><br><br>
-Força o envio dos dados locais para AnkiWeb, priorizando sempre a versão local. Use com cuidado pois pode sobrescrever mudanças feitas em outros dispositivos.<br><br>
-<b>Recomendado para:</b> Quando você tem certeza que a versão local é a mais atual."""
+            1: """🔄 <b>Sincronização AnkiWeb</b><br><br>
+Após cada sincronização de decks remotos, o Sheets2Anki executará uma sincronização com AnkiWeb. O Anki decidirá automaticamente se deve fazer upload ou download baseado nas mudanças.<br><br>
+<b>Recomendado para:</b> Usuários que usam Anki em múltiplos dispositivos."""
         }
         
         selected_id = self.mode_group.checkedId()
@@ -189,7 +178,7 @@ Força o envio dos dados locais para AnkiWeb, priorizando sempre a versão local
     def _test_connection(self):
         """Testa a conexão com AnkiWeb."""
         try:
-            from .ankiweb_sync import test_ankiweb_connection
+            from .ankiweb_sync import test_ankiweb_connection, get_sync_status
             
             self.test_button.setText("🔍 Testando...")
             self.test_button.setEnabled(False)
@@ -200,7 +189,19 @@ Força o envio dos dados locais para AnkiWeb, priorizando sempre a versão local
                 from .compat import showInfo
                 showInfo(f"✅ {result['message']}")
             else:
-                showWarning(f"❌ {result['error']}")
+                # Obter informações de debug para diagnóstico
+                status = get_sync_status()
+                debug_info = status.get('debug_info', {})
+                
+                error_msg = f"❌ {result['error']}\n\n"
+                error_msg += "Informações de diagnóstico:\n"
+                error_msg += f"• Sistema de sync disponível: {debug_info.get('has_sync_system', 'N/A')}\n"
+                error_msg += f"• Sync key presente: {debug_info.get('has_sync_key', 'N/A')}\n"
+                error_msg += f"• Profile válido: {debug_info.get('has_profile', 'N/A')}\n"
+                error_msg += f"• Profile syncKey: {debug_info.get('has_profile_synckey', 'N/A')}\n"
+                error_msg += f"• Profile syncUser: {debug_info.get('has_profile_syncuser', 'N/A')}\n"
+                
+                showWarning(error_msg)
                 
         except Exception as e:
             showWarning(f"Erro ao testar conexão: {str(e)}")
@@ -217,7 +218,7 @@ Força o envio dos dados locais para AnkiWeb, priorizando sempre a versão local
             )
             
             # Determinar modo selecionado
-            mode_map = {0: "none", 1: "sync", 2: "force_upload"}
+            mode_map = {0: "none", 1: "sync"}
             selected_mode = mode_map[self.mode_group.checkedId()]
             
             # Salvar configurações
@@ -225,9 +226,7 @@ Força o envio dos dados locais para AnkiWeb, priorizando sempre a versão local
             set_ankiweb_sync_timeout(self.timeout_spin.value())
             set_ankiweb_sync_notifications(self.notifications_check.isChecked())
             
-            from .compat import showInfo
-            showInfo("Configurações de sincronização AnkiWeb salvas com sucesso!")
-            
+            # Salvar silenciosamente e fechar
             self.accept()
             
         except Exception as e:

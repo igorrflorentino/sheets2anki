@@ -15,7 +15,7 @@ from .compat import (
     QListWidgetItem, QRadioButton, QButtonGroup, QProgressDialog, 
     QTextBrowser, Qt, QAbstractItemView, MultiSelection
 )
-from .utils import DEFAULT_PARENT_DECK_NAME
+from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 from aqt.utils import showInfo, showWarning, askUser, getFile, getSaveFile
 
 # Compatibilidade com diferentes versões do Qt

@@ -8,6 +8,7 @@ diferentes partes do projeto.
 import hashlib
 import re
 from .compat import mw
+from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 
 def extract_publication_key_from_url(url):
     """
@@ -1769,47 +1770,6 @@ class ConfigurationError(Exception):
     """Exception raised for configuration-related issues."""
     pass
 
-# ========================================================================================
-# CONSTANTES E TEMPLATES (consolidado de constants.py)
-# ========================================================================================
-
-# Constante para identificar se estamos em modo de desenvolvimento
-# Esta constante será alterada para False durante o processo de build
-IS_DEVELOPMENT_MODE = True
-
-# URLs hardcoded para testes e simulações
-TEST_SHEETS_URLS = [
-    ("Sheets2Anki Template", "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv"),
-]
-
-# Template constants para geração de cards
-CARD_SHOW_ALLWAYS_TEMPLATE = """
-<b>{field_name}:</b><br>
-{{{{{field_value}}}}}<br><br>
-"""
-
-CARD_SHOW_HIDE_TEMPLATE = """
-{{{{#{field_value}}}}}
-<b>{field_name}:</b><br>
-{{{{{field_value}}}}}<br><br>
-{{{{/{field_value}}}}}
-"""
-
-# Valores padrão para campos vazios
-DEFAULT_IMPORTANCE = "[MISSING I.]"
-DEFAULT_TOPIC = "[MISSING T.]"
-DEFAULT_SUBTOPIC = "[MISSING S.]"
-DEFAULT_CONCEPT = "[MISSING C.]"
-
-# Nome do deck raiz - constante não modificável pelo usuário
-DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
-
-# Prefixos para tags
-TAG_ROOT = "Sheets2Anki"
-TAG_TOPICS = "topicos"
-TAG_SUBTOPICS = "subtopicos"
-TAG_CONCEPTS = "conceitos"
-
 # =============================================================================
 # FUNÇÕES DE SUBDECK (movidas para evitar import circular)
 # =============================================================================
@@ -1829,10 +1789,10 @@ def get_subdeck_name(main_deck_name, fields, student=None):
     from . import templates_and_definitions as cols
     
     # Obter valores dos campos, usando valores padrão se estiverem vazios
-    importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE
-    topico = fields.get(cols.TOPICO, "").strip() or DEFAULT_TOPIC
-    subtopico = fields.get(cols.SUBTOPICO, "").strip() or DEFAULT_SUBTOPIC
-    conceito = fields.get(cols.CONCEITO, "").strip() or DEFAULT_CONCEPT
+    importancia = fields.get(cols.IMPORTANCIA, "").strip() or cols.DEFAULT_IMPORTANCE
+    topico = fields.get(cols.TOPICO, "").strip() or cols.DEFAULT_TOPIC
+    subtopico = fields.get(cols.SUBTOPICO, "").strip() or cols.DEFAULT_SUBTOPIC
+    conceito = fields.get(cols.CONCEITO, "").strip() or cols.DEFAULT_CONCEPT
     
     # Criar hierarquia completa de subdecks
     if student:

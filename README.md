@@ -1,33 +1,60 @@
 # 📚 Sheets2Anki
 
+# 📚 Sheets2Anki
+
 **Sheets2Anki** é um add-on profissional para Anki que sincroniza decks com planilhas do Google Sheets publicadas em formato TSV. Suas planilhas do Google Sheets servem como fonte da verdade: quando você sincroniza, os cards são criados, atualizados ou removidos no seu deck do Anki para refletir o conteúdo da planilha.
 
 ## ✨ Principais Funcionalidades
 
-### 🔄 **Sincronização Seletiva**
+### � **Sistema de Gestão de Alunos**
+- **Configuração global**: Configure quais alunos devem ser sincronizados
+- **Seleção por deck**: Escolha alunos específicos para cada deck
+- **Subdecks personalizados**: Cada aluno tem seu próprio subdeck hierárquico
+- **Note types individuais**: Cada aluno recebe modelos de nota personalizados
+
+### �🔄 **Sincronização Seletiva Avançada**
 - **Controle granular**: Coluna `SYNC?` permite escolher quais questões sincronizar
 - **Case insensitive**: Aceita `TRUE`, `true`, `SIM`, `sim`, `1`, `false`, `0`, `f`, etc.
-- **Comportamento inteligente**: Notas existentes não marcadas permanecem intactas no Anki
+- **Filtro de alunos**: Sincroniza apenas alunos selecionados globalmente
+- **Comportamento inteligente**: Notas existentes não marcadas permanecem intactas
 
-### 🧹 **Limpeza Automática de Fórmulas**
-- **Detecção automática**: Remove erros de fórmula como `#NAME?`, `#REF!`, `#VALUE!`
-- **Fórmulas Excel/Google Sheets**: Limpa automaticamente `=SOMA()`, `=VLOOKUP()`, etc.
-- **Preservação de dados**: Mantém conteúdo válido intacto
+### 🌐 **Sincronização AnkiWeb Automática**
+- **Configuração flexível**: Desabilitado ou Sincronizar automaticamente
+- **Integração perfeita**: Sincroniza com AnkiWeb após atualizar decks remotos
+- **Múltiplos métodos**: Compatível com diferentes versões do Anki
+- **Timing inteligente**: Sincroniza apenas após usuário fechar resumo
 
-### 🌐 **Suporte a URLs Publicadas**
+### 🏷️ **Sistema de Tags Hierárquico Completo**
+- **8 categorias organizadas**: Alunos, Tópicos, Subtópicos, Conceitos, Bancas, Anos, Carreiras, Importância
+- **Estrutura hierárquica**: `Sheets2Anki::Topicos::topico::subtopico::conceito`
+- **Limpeza automática**: Remove caracteres especiais e normaliza texto
+- **Múltiplos valores**: Suporta valores separados por vírgula
+
+### � **Sistema de Backup Completo**
+- **Backup automático**: Backup antes de operações importantes
+- **Backup manual**: Interface gráfica para criar/restaurar backups
+- **Configurações completas**: Backup de decks remotos, preferências e configurações
+- **Versionamento**: Sistema de backup com rotação automática
+
+### 📂 **Subdecks Automáticos por Aluno**
+- **Estrutura hierárquica**: `DeckRemoto::Aluno::Importância::Tópico::Subtópico::Conceito`
+- **Limpeza automática**: Remove subdecks vazios após sincronização
+- **Valores padrão**: `[MISSING X.]` para campos vazios
+- **Gestão inteligente**: Mantém organização limpa
+
+### 🌐 **Suporte Completo a URLs**
 - **URLs normais**: `https://docs.google.com/spreadsheets/d/ID/edit`
 - **URLs publicadas**: `https://docs.google.com/spreadsheets/d/e/ID/pub`
 - **Validação automática**: Converte automaticamente para formato correto
 
-### 📝 **Estrutura Otimizada para Estudo**
-- **17 colunas obrigatórias**: Estrutura completa para questões de estudo
-- **Cards Cloze**: Detecta automaticamente formatação `{{c1::...}}`
-- **Tags automáticas**: Geradas a partir de `TOPICO`, `SUBTOPICO`, `BANCAS`
-- **Subdecks automáticos**: Cria subdecks baseados em `TOPICO` e `SUBTOPICO`
+### ⚙️ **Configurações Avançadas**
+- **Opções de deck**: Configuração automática de opções de deck
+- **Gestão global**: Configuração centralizada de alunos
+- **Sistema de debug**: Logging detalhado para troubleshooting
 
 ## 📋 Estrutura da Planilha
 
-Sua planilha do Google Sheets deve ter exatamente as seguintes colunas:
+Sua planilha do Google Sheets deve ter exatamente as seguintes **18 colunas obrigatórias**:
 
 | # | Coluna | Obrigatória | Descrição |
 |---|--------|-------------|-----------|
@@ -35,19 +62,34 @@ Sua planilha do Google Sheets deve ter exatamente as seguintes colunas:
 | 2 | **PERGUNTA** | ✅ | Texto da questão/frente do card |
 | 3 | **LEVAR PARA PROVA** | ✅ | Resposta sucinta e atômica |
 | 4 | **SYNC?** | ✅ | Controle de sincronização (`true`/`false`) |
-| 5 | **INFO COMPLEMENTAR** | ✅ | Informações complementares |
-| 6 | **INFO DETALHADA** | ✅ | Informações detalhadas |
-| 7 | **EXEMPLO 1** | ✅ | Primeiro exemplo |
-| 8 | **EXEMPLO 2** | ✅ | Segundo exemplo |
-| 9 | **EXEMPLO 3** | ✅ | Terceiro exemplo |
-| 10 | **TOPICO** | ✅ | Categoria principal |
-| 11 | **SUBTOPICO** | ✅ | Subcategoria |
-| 12 | **CONCEITO** | ✅ | Conceito abordado |
-| 13 | **BANCAS** | ✅ | Bancas organizadoras |
-| 14 | **ULTIMO ANO EM PROVA** | ✅ | Ano da última ocorrência |
-| 15 | **CARREIRA** | ✅ | Área/carreira da questão |
-| 16 | **IMPORTANCIA** | ✅ | Nível de importância |
-| 17 | **TAGS ADICIONAIS** | ✅ | Tags extras separadas por vírgula |
+| 5 | **ALUNOS** | ✅ | Lista de alunos interessados (separados por vírgula) |
+| 6 | **INFO COMPLEMENTAR** | ✅ | Informações complementares |
+| 7 | **INFO DETALHADA** | ✅ | Informações detalhadas |
+| 8 | **EXEMPLO 1** | ✅ | Primeiro exemplo |
+| 9 | **EXEMPLO 2** | ✅ | Segundo exemplo |
+| 10 | **EXEMPLO 3** | ✅ | Terceiro exemplo |
+| 11 | **TOPICO** | ✅ | Categoria principal |
+| 12 | **SUBTOPICO** | ✅ | Subcategoria |
+| 13 | **CONCEITO** | ✅ | Conceito abordado |
+| 14 | **BANCAS** | ✅ | Bancas organizadoras |
+| 15 | **ULTIMO ANO EM PROVA** | ✅ | Ano da última ocorrência |
+| 16 | **CARREIRA** | ✅ | Área/carreira da questão |
+| 17 | **IMPORTANCIA** | ✅ | Nível de importância |
+| 18 | **TAGS ADICIONAIS** | ✅ | Tags extras separadas por vírgula |
+
+### 👥 **Campo ALUNOS (Novo!)**
+O campo **ALUNOS** é uma das principais funcionalidades do sistema:
+
+**✅ Formato aceito:**
+- `João, Maria, Pedro` (separados por vírgula)
+- `João; Maria; Pedro` (separados por ponto e vírgula)  
+- `João|Maria|Pedro` (separados por pipe)
+- `João` (aluno único)
+
+**🎯 Comportamento:**
+- **Notas com alunos específicos**: Aparecem apenas nos subdecks dos alunos listados
+- **Notas sem alunos**: Marcadas como `[MISSING A.]` e aparecem em deck especial
+- **Filtro global**: Apenas alunos habilitados globalmente são sincronizados
 
 ### 🔄 **Controle de Sincronização (SYNC?)**
 
@@ -56,16 +98,9 @@ A coluna **SYNC?** é **completamente case insensitive** e aceita:
 **✅ Para sincronizar:**
 - `true`, `1`, `sim`, `yes`, `verdadeiro`, `SIM`, `TRUE`, `v`
 - Campo vazio (padrão é sincronizar)
-- Qualquer valor não reconhecido
 
 **❌ Para NÃO sincronizar:**
 - `false`, `0`, `não`, `nao`, `no`, `falso`, `f`, `FALSE`, `NÃO`
-
-**Comportamento da sincronização:**
-- ✅ **Marcado para sincronizar**: Nota é criada/atualizada no Anki
-- ❌ **Desmarcado**: Nota é ignorada durante a sincronização
-- 🔒 **Notas existentes desmarcadas**: Permanecem intactas no Anki
-- 🚫 **Notas novas desmarcadas**: Não são criadas no Anki
 
 ## 🚀 Instalação
 
@@ -76,27 +111,45 @@ A coluna **SYNC?** é **completamente case insensitive** e aceita:
 ## 📖 Como Usar
 
 ### 1. **Preparar sua Planilha**
-1. Crie uma planilha no Google Sheets com as 17 colunas obrigatória
-   - Modelo exemplo padrão Google Sheet 
-      - https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing
+1. Crie uma planilha no Google Sheets com as **18 colunas obrigatórias**
+   - Modelo exemplo: [Template Google Sheets](https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing)
 2. Preencha suas questões seguindo o formato
-3. **Publique a planilha:**
+3. **Inclua alunos** na coluna ALUNOS conforme necessário
+4. **Publique a planilha:**
    - Vá em `Arquivo → Compartilhar → Publicar na web`
    - Escolha `Valores separados por tabulação (.tsv)`
    - Copie o link gerado
 
-### 2. **Adicionar Deck Remoto**
+### 2. **Configurar Alunos Globalmente**
+1. No Anki: `Ferramentas → Sheets2Anki → Configurar Alunos Globalmente` (Ctrl+Shift+G)
+2. Selecione quais alunos devem ser sincronizados em todos os decks
+3. Alunos não selecionados não aparecerão em nenhum deck
+4. Use "Selecionar Todos" ou "Desmarcar Todos" para facilitar
+
+### 3. **Configurar Sincronização AnkiWeb (Opcional)**
+1. No Anki: `Ferramentas → Sheets2Anki → Configurar Sincronização AnkiWeb` (Ctrl+Shift+W)
+2. Escolha entre:
+   - **🚫 Desabilitado**: Sem sincronização automática
+   - **🔄 Sincronizar**: Sincroniza automaticamente após atualizar decks remotos
+3. Configure timeout e notificações
+4. Use **"Testar Conexão"** para verificar conectividade
+
+### 4. **Adicionar Deck Remoto**
 1. No Anki: `Ferramentas → Sheets2Anki → Adicionar Novo Deck Remoto` (Ctrl+Shift+A)
 2. Cole a URL da planilha publicada
 3. Digite um nome para seu deck
-4. O add-on criará automaticamente o deck e sincronizará
+4. **Selecione alunos específicos** para este deck (opcional)
+5. O add-on criará automaticamente o deck e sincronizará
 
-### 3. **Sincronizar**
+### 5. **Sincronizar**
 - **Manual**: `Ferramentas → Sheets2Anki → Sincronizar Decks` (Ctrl+Shift+S)
-- **Automática**: Execute sempre que quiser atualizar com a planilha
+- **Seletiva**: `Ferramentas → Sheets2Anki → Sincronizar com Seleção`
+- **AnkiWeb**: Se configurado, sincroniza automaticamente após fechar resumo
 
-### 4. **Gerenciar Decks**
+### 6. **Gerenciar Sistema**
 - **Desconectar**: `Ferramentas → Sheets2Anki → Desconectar um Deck Remoto` (Ctrl+Shift+D)
+- **Backup**: `Ferramentas → Sheets2Anki → Backup de Decks Remotos`
+- **Opções de Deck**: `Ferramentas → Sheets2Anki → Configurar Opções de Deck` (Ctrl+Shift+O)
 
 ## ⌨️ Atalhos de Teclado
 
@@ -105,231 +158,301 @@ A coluna **SYNC?** é **completamente case insensitive** e aceita:
 | Adicionar Novo Deck Remoto | `Ctrl+Shift+A` |
 | Sincronizar Decks | `Ctrl+Shift+S` |
 | Desconectar Deck Remoto | `Ctrl+Shift+D` |
+| Configurar Alunos Globalmente | `Ctrl+Shift+G` |
+| Configurar Opções de Deck | `Ctrl+Shift+O` |
+| Configurar Sincronização AnkiWeb | `Ctrl+Shift+W` |
 | Importar Deck de Teste | `Ctrl+Shift+T` |
 
 ## 💡 Recursos Avançados
+
+### 👥 **Sistema Completo de Gestão de Alunos**
+
+**🎯 Funcionalidades:**
+- **Configuração Global**: Define quais alunos são sincronizados em todos os decks
+- **Seleção por Deck**: Permite escolher alunos específicos para cada deck
+- **Subdecks Personalizados**: Cada aluno tem sua própria hierarquia
+- **Note Types Únicos**: Cada aluno recebe modelos personalizados
+
+**📂 Estrutura de Subdecks:**
+```
+Sheets2Anki::NomeDoDeck::
+├── Aluno1::
+│   ├── Importancia1::Topico1::Subtopico1::Conceito1
+│   └── Importancia2::Topico2::Subtopico2::Conceito2
+├── Aluno2::
+│   └── ...
+└── [MISSING A.]:: (para notas sem alunos específicos)
+    └── ...
+```
+
+**🔧 Note Types Personalizados:**
+- Formato: `Sheets2Anki - NomeDeck - NomeAluno - TipoCard`
+- Campos específicos para cada aluno
+- Templates personalizados baseados no tipo de card (Basic/Cloze)
 
 ### 🧪 **Cards Cloze**
 Se sua coluna `PERGUNTA` contém:
 ```
 A capital do Brasil é {{c1::Brasília}}
 ```
-O add-on criará automaticamente um card Cloze no Anki.
+O add-on criará automaticamente um card Cloze personalizado para cada aluno.
 
-### 🏷️ **Tags Automáticas**
-Tags são geradas automaticamente a partir de:
-- `TOPICO` → tag principal
-- `SUBTOPICO` → tag secundária
-- `CONCEITO` → tag terciária (com tag extra para fácil filtragem)
-- `BANCAS` → tag da banca
-- `ULTIMO ANO EM PROVA` → tag do ano
-- `CARREIRA` → tag do cargo
-- `IMPORTANCIA` → tag da importancia
-- `TAGS ADICIONAIS` → tags extras
+### 🏷️ **Sistema de Tags Hierárquico Avançado**
+Tags são geradas automaticamente com estrutura completa sob `Sheets2Anki`:
 
-Estrutura hierárquica de tags:
-- `Sheets2Anki::topicos::topico::subtopicos::subtopico::conceitos::conceito`
-- `Sheets2Anki::conceitos::conceito` (tag extra para fácil filtragem)
+**🎯 8 Categorias Principais:**
 
-Valores padrão são usados quando campos estão vazios.
+1. **👥 Alunos:** `Sheets2Anki::Alunos::nome_aluno`
+2. **📚 Tópicos:** `Sheets2Anki::Topicos::topico::subtopico::conceito`
+3. **� Subtópicos:** `Sheets2Anki::Subtopicos::subtopico`
+4. **💡 Conceitos:** `Sheets2Anki::Conceitos::conceito`
+5. **🏛️ Bancas:** `Sheets2Anki::Bancas::nome_banca`
+6. **� Anos:** `Sheets2Anki::Anos::ano`
+7. **� Carreiras:** `Sheets2Anki::Carreiras::carreira`
+8. **⭐ Importância:** `Sheets2Anki::Importancia::nivel`
 
-### 📂 **Subdecks Automáticos**
-O add-on cria automaticamente subdecks baseados nos valores das colunas:
-- `IMPORTANCIA`, `TOPICO`, `SUBTOPICO` e `CONCEITO` → Estrutura hierárquica de decks
+**🔧 Características Avançadas:**
+- **Limpeza automática**: Remove caracteres especiais, espaços extras
+- **Normalização**: Substitui espaços por underscores
+- **Múltiplos valores**: Suporta separação por vírgula
+- **Valores padrão**: `[MISSING X.]` para campos vazios
+- **Hierarquia completa**: Estrutura aninhada `topico::subtopico::conceito`
 
-Estrutura criada:
-- `DeckPrincipal::Importancia::Topico::Subtopico::Conceito` (sempre, usando valores padrão quando campos estão vazios)
-- Valores padrão: `Importance Missing`, `Topic Missing`, `Subtopic Missing`, `Concept Missing`
+### 💾 **Sistema de Backup Profissional**
 
-**Limpeza automática de subdecks vazios:**
-- Após cada sincronização, subdecks que ficaram vazios são automaticamente removidos
-- Apenas subdecks sem nenhum card são removidos
-- Subdecks com pelo menos um card são mantidos
-- Isso mantém a organização do deck limpa e evita subdecks desnecessários
+**🔧 Backup Automático:**
+- Executado antes de operações importantes
+- Rotação automática (mantém últimos 10 backups)
+- Armazenamento em `user_files/backups/`
 
-### 🎯 **Nomeação Automática de Decks**
-- Os nomes dos decks são extraídos automaticamente das planilhas
-- Organização hierárquica: `Sheets2Anki::Nome_Extraído_da_Planilha`
-- Resolução automática de conflitos de nomes
-- Atualização automática dos nomes quando a planilha muda
+**🎯 Backup Manual:**
+- Interface gráfica completa
+- Seleção de componentes para backup
+- Visualização de conteúdo dos backups
+- Restauração seletiva
 
-### 🔧 **Limpeza Automática**
-O sistema remove automaticamente:
-- **Erros de fórmula**: `#NAME?`, `#REF!`, `#VALUE!`, `#DIV/0!`, etc.
-- **Fórmulas**: `=SOMA()`, `=VLOOKUP()`, `=IF()`, etc.
-- **Caracteres especiais**: Limpa formatação desnecessária
+**📦 Componentes do Backup:**
+- Configurações de decks remotos
+- Preferências do usuário
+- Configurações de alunos
+- Opções de deck
+- Configurações de sincronização AnkiWeb
+
+### 🌐 **Sincronização AnkiWeb Inteligente**
+
+**⚙️ Configuração:**
+- **Modo Desabilitado**: Sem sincronização automática
+- **Modo Sincronizar**: Sincroniza após updates de decks remotos
+
+**🔧 Funcionalidades:**
+- **Timing inteligente**: Sincroniza apenas APÓS usuário fechar resumo
+- **Múltiplos métodos**: 3 APIs diferentes para compatibilidade
+- **Diagnóstico avançado**: Teste de conexão com informações técnicas
+- **Feedback detalhado**: Status na janela de resumo
+
+**� APIs Suportadas:**
+1. `mw.sync.sync()` (método moderno)
+2. `mw.onSync()` (compatibilidade)
+3. `mw.form.actionSync.trigger()` (fallback)
+
+### 🔧 **Configurações Avançadas**
+
+**🎛️ Opções de Deck:**
+- Configuração automática de opções de deck
+- Aplicação em lote para múltiplos decks
+- Personalização por tipo de deck
+
+**👥 Gestão Global de Alunos:**
+- Configuração centralizada
+- Aplicação automática a todos os decks
+- Interface intuitiva com seleção rápida
+
+**📊 Sistema de Debug:**
+- Log detalhado em `debug_sheets2anki.log`
+- Categorias específicas (SYNC, ANKIWEB_SYNC, BACKUP, etc.)
+- Informações técnicas para troubleshooting
+
+### 🧹 **Limpeza Automática Avançada**
+
+**🔍 Detecção Automática:**
+- **Erros de fórmula**: `#NAME?`, `#REF!`, `#VALUE!`, `#DIV/0!`
+- **Fórmulas Excel/Sheets**: `=SOMA()`, `=VLOOKUP()`, `=IF()`, etc.
+- **Caracteres especiais**: Formatação problemática
+- **Espaços extras**: Normalização de texto
+
+**📊 Relatórios:**
+- Estatísticas de limpeza na sincronização
+- Log detalhado de operações
 
 ## 🛠️ Solução de Problemas
 
-### ❌ **Erro de URL**
-- Certifique-se de que a planilha está **publicada** (não apenas compartilhada)
-- Use o link de **valores separados por tabulação**, não o link normal
-- Verifique se todas as 17 colunas obrigatórias estão presentes
+### ❌ **Problemas com Alunos**
+**� Soluções:**
+- **Alunos não aparecem**: Verifique configuração global em Ctrl+Shift+G
+- **Subdecks vazios**: Certifique-se que alunos estão listados na coluna ALUNOS
+- **Nomes inconsistentes**: Use nomes exatos (case-sensitive) na planilha
+
+### ❌ **Problemas de Sincronização AnkiWeb**
+**💡 Soluções:**
+- Use **"Testar Conexão"** (Ctrl+Shift+W) para diagnóstico completo
+- Verifique se AnkiWeb está configurado em `Ferramentas → Sincronizar`
+- Consulte informações de debug na janela de teste
+- Certifique-se de usar versão atual do Anki
+
+### ❌ **Erro de Estrutura da Planilha**
+**💡 Soluções:**
+- Certifique-se de ter exatamente **18 colunas obrigatórias**
+- Verifique se a planilha está **publicada** (não apenas compartilhada)
+- Use template fornecido como base
+- Confirme que coluna ALUNOS está presente
 
 ### ❌ **Cards não aparecem**
+**💡 Soluções:**
 - Verifique se o campo `ID` tem valores únicos
 - Certifique-se de que `SYNC?` está marcado como `true`
+- Confirme que aluno está habilitado globalmente
+- Consulte log `debug_sheets2anki.log` para detalhes
 
-### ❌ **Erro de sincronização**
-- Verifique sua conexão com internet
-- Confirme se a URL da planilha ainda está válida
-- Use "Desconectar Deck Remoto" e reconecte se necessário
+### ❌ **Problemas de Tags**
+**💡 Soluções:**
+- Tags são geradas automaticamente durante sincronização
+- Caracteres especiais são limpos automaticamente
+- Verifique se campos TOPICO, SUBTOPICO, CONCEITO estão preenchidos
+- Use valores separados por vírgula para múltiplas tags
 
-### ❌ **Fórmulas não são limpas**
-- O sistema limpa automaticamente erros de fórmula
-- Se persistir, verifique se os dados estão no formato correto
+## 📊 Requisitos e Compatibilidade
 
-## 📊 Compatibilidade
-
-### ✅ **Testado e Funcionando**
-- **Anki**: Versão 25.x
-- **URLs**: Normais e publicadas do Google Sheets
-- **Formatos**: TSV (Tab-separated values)
-- **Sistemas**: Windows, macOS, Linux
+### ✅ **Requisitos Mínimos**
+- **Anki**: Versão 2.1.50 ou superior (testado até 2.1.66)
+- **Internet**: Conexão estável para sincronização
+- **Google Sheets**: Planilha publicada com 18 colunas obrigatórias
+- **Sistema**: Windows, macOS, Linux
 
 ### ✅ **Funcionalidades Testadas**
-- Sincronização seletiva (100% funcionando)
-- Limpeza de fórmulas (100% funcionando)
-- Validação de URLs (100% funcionando)
-- Case insensitive SYNC? (100% funcionando)
-- Compatibilidade Anki 25.x (100% funcionando)
+- ✅ Sistema de gestão de alunos (100% funcionando)
+- ✅ Sincronização seletiva (100% funcionando)
+- ✅ Sistema de tags hierárquico (100% funcionando)
+- ✅ Sincronização AnkiWeb (100% funcionando)
+- ✅ Sistema de backup (100% funcionando)
+- ✅ Limpeza automática (100% funcionando)
+- ✅ Configurações avançadas (100% funcionando)
 
-## 🔒 Limitações
+### 🔧 **APIs Suportadas**
+**Sincronização AnkiWeb:**
+- ✅ `mw.sync.sync()` (método moderno - Anki 2.1.50+)
+- ✅ `mw.onSync()` (compatibilidade - versões anteriores)
+- ✅ `mw.form.actionSync.trigger()` (fallback universal)
+
+## 🔒 Limitações Conhecidas
 
 - **Sem sincronização reversa**: Mudanças no Anki não afetam a planilha
-- **Estrutura fixa**: Deve usar exatamente as 17 colunas especificadas
-- **Idioma**: Interface e estrutura otimizadas para português brasileiro
-- **Dependência de internet**: Requer conexão para sincronizar
-
-## 📚 Documentação Técnica
-
-### 📖 **Para Usuários**
-- **Guia de Uso**: Este README
-- **Exemplos**: Planilhas de exemplo disponíveis
-- **Solução de Problemas**: Seção completa acima
-
-### 🔧 **Para Desenvolvedores**
-- **Scripts de Build**: [`scripts/README.md`](scripts/README.md) - Como compilar o add-on
-- **Testes**: [`tests/README.md`](tests/README.md) - Sistema de testes completo
-- **Documentação**: [`docs/README.md`](docs/README.md) - Documentação técnica
-
-### 🧪 **Sistema de Testes**
-O projeto possui um sistema de testes profissional:
-```bash
-# Testes rápidos (recomendado)
-python run_tests.py quick
-
-# Suite completa de testes
-python run_tests.py
-
-# Testes específicos
-cd tests && python integration/test_integration.py
-```
-
-## 🛠️ Desenvolvimento
-
-### 📦 **Scripts de Build**
-O projeto inclui scripts Python para automatizar o build:
-
-```bash
-# Menu interativo unificado (recomendado)
-python scripts/build_packages.py
-
-# Script específico para AnkiWeb
-python scripts/create_ankiweb_package.py
-
-# Script para pacote standalone
-python scripts/create_standalone_package.py
-
-# Validação de pacotes
-python scripts/validate_packages.py
-```
-
-### 🧪 **Testes Automatizados**
-Sistema de testes completo com:
-- **Testes unitários**: Funcionalidades específicas
-- **Testes de integração**: Workflow completo
-- **Testes de debug**: Diagnóstico de problemas
-- **Cobertura 100%**: Todas as funcionalidades testadas
-
-### 📊 **Estrutura Organizacional**
-```
-sheets2anki/
-├── README.md                    # ← Este arquivo
-├── src/                         # Código principal
-├── tests/                       # Sistema de testes
-│   ├── README.md               # Guia dos testes
-│   ├── docs/                   # Documentação técnica
-│   └── [testes organizados]
-├── scripts/                     # Scripts de build
-├── docs/                        # Documentação
-└── build/                       # Arquivos compilados
-```
+- **Estrutura fixa**: Deve usar exatamente as 18 colunas especificadas
+- **Gestão de alunos**: Nomes devem ser consistentes (case-sensitive)
+- **Dependência de internet**: Requer conexão para sincronizar com planilhas
 
 ## 🏆 Status do Projeto
 
-### ✅ **Funcionalidades Implementadas**
-- ✅ Sincronização seletiva com coluna SYNC?
-- ✅ Limpeza automática de fórmulas
-- ✅ Suporte a URLs publicadas
-- ✅ Validação case insensitive
-- ✅ Subdecks automáticos por TOPICO e SUBTOPICO
-- ✅ Compatibilidade Anki 25.x
-- ✅ Sistema de testes completo
-- ✅ Documentação profissional
+### ✅ **v2.1 - Sistema Completo de Alunos (Atual)**
+- 👥 **Sistema de gestão de alunos** completo e funcional
+- 📂 **Subdecks personalizados** para cada aluno
+- 🏷️ **Note types individuais** para cada aluno
+- ⚙️ **Configuração global** de alunos
+- 🔄 **Sincronização seletiva** por aluno
+- 🌐 **Sincronização AnkiWeb** inteligente e configurável
+- 💾 **Sistema de backup** profissional
+- 🏷️ **Tags hierárquicas** com 8 categorias
+- 🧹 **Limpeza automática** avançada
 
-### 📈 **Estatísticas**
-- **Testes**: 100% funcionando (20+ testes)
-- **Cobertura**: Todas as funcionalidades testadas
-- **Compatibilidade**: Anki 25.x confirmada
-- **Documentação**: Completa e atualizada
+### 📈 **Melhorias da v2.1**
+- 🆕 **Campo ALUNOS**: Nova coluna obrigatória para gestão de alunos
+- 👥 **Configuração Global**: Interface para selecionar alunos globalmente
+- � **Subdecks por Aluno**: Hierarquia personalizada para cada aluno
+- 🏷️ **Note Types Únicos**: Modelos personalizados por aluno
+- ⚡ **Performance otimizada**: Sincronização inteligente por aluno
+- � **Configurações avançadas**: Opções de deck e debug melhorados
+
+## 📚 Documentação Técnica
+
+### 📁 **Estrutura de Arquivos**
+```
+sheets2anki/
+├── README.md                    # ← Guia principal (este arquivo)
+├── __init__.py                  # Módulo principal de integração
+├── src/                         # Código principal do add-on
+│   ├── student_manager.py      # Sistema de gestão de alunos
+│   ├── data_processor.py       # Processamento e tags hierárquicas
+│   ├── sync.py                 # Lógica de sincronização
+│   ├── ankiweb_sync.py         # Sistema AnkiWeb
+│   ├── backup_system.py        # Sistema de backup
+│   ├── templates_and_definitions.py  # Constantes e templates
+│   └── [outros módulos]
+├── sample data/                 # Dados de exemplo
+├── scripts/                     # Scripts de build
+└── build/                       # Pacotes compilados
+```
+
+### 🔧 **Para Desenvolvedores**
+- **Modular**: Código organizado em módulos específicos
+- **Extensível**: Sistema de alunos facilmente expandível
+- **Debug**: Logging detalhado em múltiplas categorias
+- **Testável**: Estrutura preparada para testes automatizados
+
+### 🧪 **Sistema de Debug**
+- **Arquivo de log**: `debug_sheets2anki.log` no diretório do add-on
+- **Categorias**: SYSTEM, SYNC, ANKIWEB_SYNC, BACKUP, STUDENT, etc.
+- **Níveis**: Info, warning, error com timestamps
+- **Integração**: Debug automático durante todas as operações
 
 ## 🔄 Histórico de Versões
 
-### **Versão Atual - Profissional**
-- ✅ Sincronização seletiva implementada
-- ✅ Limpeza automática de fórmulas
-- ✅ Suporte a URLs publicadas
-- ✅ Sistema de testes completo
-- ✅ Documentação reorganizada
-- ✅ Estrutura profissional
+### **v2.1 - Sistema Completo de Alunos (2025)**
+- � **Campo ALUNOS**: Nova coluna obrigatória (agora 18 colunas)
+- 👥 **Gestão de Alunos**: Sistema completo com configuração global
+- � **Subdecks Personalizados**: Hierarquia específica por aluno
+- 🏷️ **Note Types Únicos**: Modelos personalizados para cada aluno
+- ⚡ **Sincronização Inteligente**: Filtragem automática por aluno
+- � **Configurações Avançadas**: Opções de deck e debug melhorados
 
-### **Melhorias Recentes**
-- 🔄 Consolidação de dados de teste
-- 🧹 Limpeza automática de arquivos antigos
-- 📚 Documentação técnica completa
-- 🧪 Sistema de testes profissional
-- 📊 Validação 100% funcionando
+### **v2.0 - Base Profissional (2024)**
+- 🌐 **Sincronização AnkiWeb**: Automática configurável
+- 🏷️ **Tags hierárquicas**: 8 categorias organizadas
+- 💾 **Sistema de backup**: Manual e automático
+- 🧹 **Código otimizado**: Remoção de legado
+- 🔍 **Diagnóstico avançado**: Teste de conexão melhorado
 
 ## 🤝 Contribuição
 
 ### 📝 **Como Contribuir**
-1. Faça fork do projeto
-2. Crie uma branch para sua funcionalidade
-3. Execute os testes: `python run_tests.py quick`
-4. Submeta um pull request
+1. **Fork do projeto** no GitHub
+2. **Foque no sistema de alunos** - área principal de desenvolvimento
+3. **Teste com dados reais** usando 18 colunas obrigatórias
+4. **Documente mudanças** especialmente relacionadas a gestão de alunos
+5. **Submeta pull request** com descrição detalhada
 
-### 🧪 **Executar Testes**
+### 🧪 **Desenvolvimento Local**
 ```bash
-# Testes rápidos
-python run_tests.py quick
-
-# Suite completa
-python run_tests.py
-
-# Testes específicos
-cd tests && python debug/debug_suite.py
+# Estrutura de teste recomendada
+# 1. Crie planilha com 18 colunas (incluindo ALUNOS)
+# 2. Configure alunos globalmente
+# 3. Teste sincronização seletiva por aluno
+# 4. Verifique criação de subdecks personalizados
 ```
 
-### 📚 **Documentação**
-- Consulte `tests/README.md` para informações sobre testes
-- Veja `scripts/README.md` para build e empacotamento
-- Acesse `docs/README.md` para documentação técnica
+### 📚 **Áreas Prioritárias**
+- **Sistema de alunos**: Expansão e melhorias
+- **Performance**: Otimização para muitos alunos
+- **Interface**: Melhorias na seleção de alunos
+- **Backup**: Integração com sistema de alunos
 
 ## 📧 Suporte
 
-Para problemas, sugestões ou dúvidas:
-1. Verifique a seção "Solução de Problemas" acima
-2. Consulte a documentação técnica
-3. Execute os testes para diagnóstico
-4. Abra uma issue no repositório
+**🔍 Para resolver problemas:**
+1. **Verifique configuração de alunos**: Ctrl+Shift+G para configuração global
+2. **Consulte logs**: `debug_sheets2anki.log` com informações detalhadas
+3. **Use diagnósticos**: "Testar Conexão" (Ctrl+Shift+W) para AnkiWeb
+4. **Confirme estrutura**: 18 colunas obrigatórias incluindo ALUNOS
+
+**🌐 Recursos:**
+- **Template atualizado**: [Google Sheets com 18 colunas](https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing)
+- **Log de debug**: Arquivo detalhado para troubleshooting
+- **Sistema de backup**: Restauração em caso de problemas

@@ -56,7 +56,7 @@ DEFAULT_META = {
         "sync_timeout_seconds": 30,
         "show_sync_notifications": True,
         "deck_options_mode": "shared",  # "shared", "individual", "manual"
-        "ankiweb_sync_mode": "none",  # "none", "sync", "force_upload"
+        "ankiweb_sync_mode": "none",  # "none", "sync"
         "ankiweb_sync_timeout": 30,  # timeout em segundos para sync do AnkiWeb
         "show_ankiweb_sync_notifications": True  # mostrar notificações de sync AnkiWeb
     },
@@ -1425,7 +1425,7 @@ def get_ankiweb_sync_mode():
     Obtém o modo atual de sincronização automática com AnkiWeb.
     
     Returns:
-        str: "none" (não sincronizar), "sync" (sincronização normal), "force_upload" (forçar upload)
+        str: "none" (não sincronizar), "sync" (sincronização normal)
     """
     meta = get_meta()
     config = meta.get("config", {})
@@ -1436,10 +1436,10 @@ def set_ankiweb_sync_mode(mode):
     Define o modo de sincronização automática com AnkiWeb.
     
     Args:
-        mode (str): "none", "sync", ou "force_upload"
+        mode (str): "none" ou "sync"
     """
-    if mode not in ["none", "sync", "force_upload"]:
-        raise ValueError(f"Modo inválido: {mode}. Use 'none', 'sync' ou 'force_upload'")
+    if mode not in ["none", "sync"]:
+        raise ValueError(f"Modo inválido: {mode}. Use 'none' ou 'sync'")
     
     meta = get_meta()
     if "config" not in meta:

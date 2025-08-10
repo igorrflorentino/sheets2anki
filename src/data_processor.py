@@ -17,12 +17,13 @@ Consolidado de:
 # =============================================================================
 
 import csv
+import re
 import urllib.request
 import urllib.error
 import socket
 import re  # Para expressões regulares
 from . import templates_and_definitions as cols  # Definições centralizadas de colunas
-from .utils import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT, TAG_ROOT, TAG_TOPICS, TAG_SUBTOPICS, TAG_CONCEPTS
+from .templates_and_definitions import DEFAULT_IMPORTANCE, DEFAULT_TOPIC, DEFAULT_SUBTOPIC, DEFAULT_CONCEPT, TAG_ROOT, TAG_ALUNOS, TAG_TOPICS, TAG_SUBTOPICS, TAG_CONCEPTS, TAG_BANCAS, TAG_ANOS, TAG_CARREIRAS, TAG_IMPORTANCIA, TAG_ADICIONAIS
 from .utils import NoteProcessingError, CollectionSaveError, SyncError
 from .utils import get_subdeck_name, ensure_subdeck_exists, move_note_to_subdeck
 from .templates_and_definitions import ensure_custom_models
@@ -502,6 +503,16 @@ def create_tags_from_fields(note_data):
     """
     Cria sistema hierárquico de tags a partir dos campos da nota.
     
+    Estrutura de tags criadas (todas aninhadas sob 'Sheets2Anki'):
+    1. alunos: Tags para cada aluno
+    2. topicos::topico::subtopico::conceito: Hierarquia completa aninhada
+    3. conceitos: Tags diretas de conceitos (para busca fácil)  
+    4. bancas: Tags para cada banca
+    5. anos: Tags para cada ano de prova
+    6. carreiras: Tags para cada carreira
+    7. importancia: Tag do nível de importância
+    8. adicionais: Tags extras do campo TAGS ADICIONAIS
+    
     Args:
         note_data (dict): Dados da nota
         
@@ -513,23 +524,100 @@ def create_tags_from_fields(note_data):
     # Tag raiz
     tags.append(TAG_ROOT)
     
-    # Tags hierárquicas baseadas nos campos
+    def clean_tag_text(text):
+        """Limpa texto para uso como tag no Anki"""
+        if not text or not isinstance(text, str):
+            return ""
+        # Remove espaços extras, substitui espaços por underscores e caracteres problemáticos
+        cleaned = text.strip().replace(' ', '_').replace(':', '_').replace(';', '_')
+        # Remove caracteres especiais que podem causar problemas no Anki
+        cleaned = re.sub(r'[^\w\-_]', '', cleaned)
+        return cleaned
+    
+    # 1. Tags de ALUNOS
+    alunos = note_data.get(cols.ALUNOS, '').strip()
+    if alunos:
+        for aluno in alunos.split(','):
+            aluno_clean = clean_tag_text(aluno)
+            if aluno_clean:
+                tags.append(f"{TAG_ROOT}::{TAG_ALUNOS}::{aluno_clean}")
+    
+    # 2. Tags hierárquicas de TOPICO::SUBTOPICO::CONCEITO (aninhadas)
     topico = note_data.get(cols.TOPICO, '').strip()
-    subtopico = note_data.get(cols.SUBTOPICO, '').strip()
+    subtopico = note_data.get(cols.SUBTOPICO, '').strip() 
     conceito = note_data.get(cols.CONCEITO, '').strip()
     
-    # Converter espaços em underscores para compatibilidade com Anki
-    if topico and topico != DEFAULT_TOPIC:
-        topico_safe = topico.replace(' ', '_')
-        tags.append(f"{TAG_ROOT}::{TAG_TOPICS}::{topico_safe}")
+    # Usar valores padrão se estiverem vazios
+    if not topico:
+        topico = DEFAULT_TOPIC
+    if not subtopico:
+        subtopico = DEFAULT_SUBTOPIC
+    if not conceito:
+        conceito = DEFAULT_CONCEPT
     
-    if subtopico and subtopico != DEFAULT_SUBTOPIC:
-        subtopico_safe = subtopico.replace(' ', '_')
-        tags.append(f"{TAG_ROOT}::{TAG_SUBTOPICS}::{subtopico_safe}")
+    # Processar múltiplos valores (separados por vírgula)
+    topicos = [clean_tag_text(t) for t in topico.split(',') if clean_tag_text(t)]
+    subtopicos = [clean_tag_text(s) for s in subtopico.split(',') if clean_tag_text(s)]
+    conceitos = [clean_tag_text(c) for c in conceito.split(',') if clean_tag_text(c)]
     
-    if conceito and conceito != DEFAULT_CONCEPT:
-        conceito_safe = conceito.replace(' ', '_')
-        tags.append(f"{TAG_ROOT}::{TAG_CONCEPTS}::{conceito_safe}")
+    # Gerar todas as combinações hierárquicas - formato: Sheets2Anki::topicos::topico::subtopico::conceito
+    for topico_clean in topicos:
+        for subtopico_clean in subtopicos:
+            for conceito_clean in conceitos:
+                # Tag hierárquica completa aninhada (sem repetir prefixos subtopicos/conceitos)
+                tags.append(f"{TAG_ROOT}::{TAG_TOPICS}::{topico_clean}::{subtopico_clean}::{conceito_clean}")
+    
+    # 3. Tags diretas de CONCEITOS (para busca fácil)
+    for conceito_clean in conceitos:
+        tags.append(f"{TAG_ROOT}::{TAG_CONCEPTS}::{conceito_clean}")
+    
+    # 4. Tags de BANCAS
+    bancas = note_data.get(cols.BANCAS, '').strip()
+    if bancas:
+        for banca in bancas.split(','):
+            banca_clean = clean_tag_text(banca)
+            if banca_clean:
+                tags.append(f"{TAG_ROOT}::{TAG_BANCAS}::{banca_clean}")
+    
+    # 5. Tags de ANOS
+    ano = note_data.get(cols.ANO, '').strip()
+    if ano:
+        for ano_item in ano.split(','):
+            ano_clean = clean_tag_text(ano_item)
+            if ano_clean:
+                tags.append(f"{TAG_ROOT}::{TAG_ANOS}::{ano_clean}")
+    
+    # 6. Tags de CARREIRAS
+    carreira = note_data.get(cols.CARREIRA, '').strip()
+    if carreira:
+        for carr in carreira.split(','):
+            carr_clean = clean_tag_text(carr)
+            if carr_clean:
+                tags.append(f"{TAG_ROOT}::{TAG_CARREIRAS}::{carr_clean}")
+    
+    # 7. Tags de IMPORTANCIA
+    importancia = note_data.get(cols.IMPORTANCIA, '').strip()
+    if importancia:
+        importancia_clean = clean_tag_text(importancia)
+        if importancia_clean:
+            tags.append(f"{TAG_ROOT}::{TAG_IMPORTANCIA}::{importancia_clean}")
+    
+    # 8. Tags ADICIONAIS
+    tags_adicionais = note_data.get(cols.MORE_TAGS, '').strip()
+    if tags_adicionais:
+        # Suporta tanto separação por vírgula quanto por ponto e vírgula
+        separadores = [',', ';']
+        for sep in separadores:
+            if sep in tags_adicionais:
+                tags_list = tags_adicionais.split(sep)
+                break
+        else:
+            tags_list = [tags_adicionais]
+        
+        for tag in tags_list:
+            tag_clean = clean_tag_text(tag)
+            if tag_clean:
+                tags.append(f"{TAG_ROOT}::{TAG_ADICIONAIS}::{tag_clean}")
     
     return tags
 
