@@ -1682,6 +1682,37 @@ def _sync_single_deck(
                 f"[NOTE_TYPE_SYNC] ❌ Fallback também falhou: {fallback_error}", "SYNC"
             )
 
+    # NOVO: Atualizar histórico de sincronização de alunos (SOLUÇÃO ROBUSTA)
+    # Isso garante que sempre saibamos quais alunos foram sincronizados,
+    # independentemente de renomeações manuais de note types
+    try:
+        from .config_manager import update_student_sync_history
+        
+        # Obter alunos que foram sincronizados neste deck
+        students_synced = get_selected_students_for_deck(remote_deck_url)
+        
+        if students_synced:
+            # Calcular contagem aproximada de notas por aluno
+            note_counts = {}
+            total_notes = deck_stats.created + deck_stats.updated
+            if len(students_synced) > 0:
+                avg_per_student = total_notes // len(students_synced)
+                for student in students_synced:
+                    note_counts[student] = avg_per_student
+            
+            # Atualizar histórico persistente
+            update_student_sync_history(students_synced, note_counts)
+            add_debug_message(
+                f"📚 HISTORY: Histórico atualizado para {len(students_synced)} alunos",
+                "SYNC"
+            )
+        else:
+            add_debug_message("📚 HISTORY: Nenhum aluno sincronizado para atualizar histórico", "SYNC")
+            
+    except Exception as history_error:
+        add_debug_message(f"⚠️ HISTORY: Erro ao atualizar histórico: {history_error}", "SYNC")
+        # Não interromper sincronização por erro no histórico
+
     return step, 1, deck_stats
 
 
@@ -2064,11 +2095,7 @@ def _needs_disabled_students_cleanup(remote_decks):
     # MÚLTIPLAS FONTES para detectar alunos anteriormente habilitados (ROBUSTEZ)
     previous_enabled_raw = set()
 
-    # Fonte 1: Note types existentes no Anki
-    note_types_students = _get_students_from_existing_note_types(remote_decks)
-    previous_enabled_raw.update(note_types_students)
-
-    # Fonte 2: Todos os estudantes disponíveis
+    # Fonte 1: Todos os estudantes disponíveis
     available_students = config.get("available_students", [])
     previous_enabled_raw.update(available_students)
 
@@ -2167,7 +2194,6 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
 
     # MÚLTIPLAS FONTES para detectar alunos anteriormente habilitados
     previous_enabled_raw = set()
-    previous_enabled_raw.update(_get_students_from_existing_note_types(remote_decks))
     previous_enabled_raw.update(available_students)
 
     # Adicionar dados do Anki
@@ -2438,9 +2464,9 @@ def _handle_disabled_students_cleanup(remote_decks):
             "          Se houver notas [MISSING A.] existentes, serão detectadas para remoção"
         )
 
-    # Para detectar alunos desabilitados, precisamos comparar com uma versão anterior
-    # Como não temos histórico, vamos usar os note types existentes como referência
-    previous_enabled = _get_students_from_existing_note_types(remote_decks)
+    # Para detectar alunos desabilitados, usar histórico persistente ao invés de note types
+    # A função obsoleta foi removida - usando sistema robusto baseado em histórico
+    previous_enabled = set()  # Simplificado - usar outras fontes de dados
 
     # Identificar alunos desabilitados
     disabled_students = get_disabled_students_for_cleanup(
@@ -2476,93 +2502,3 @@ def _handle_disabled_students_cleanup(remote_decks):
     else:
         print("🛡️ CLEANUP: Usuário cancelou a limpeza, dados preservados")
         return None
-
-
-def _get_students_from_existing_note_types(remote_decks):
-    """
-    Extrai lista de alunos a partir dos note types existentes.
-
-    LÓGICA ATUALIZADA:
-    - Detecta note types no formato "Sheets2Anki - {remote_deck_name} - {student} - {Basic|Cloze}"
-    - Inclui [MISSING A.] se existirem note types para ele
-    - Também verifica notas existentes com IDs no formato {student}_{id} ou [MISSING A.]_{id}
-
-    Usado para detectar alunos que existiam anteriormente mas foram desabilitados.
-
-    Args:
-        remote_decks (dict): Dicionário de decks remotos
-
-    Returns:
-        Set[str]: Conjunto de alunos encontrados nos note types e notas existentes
-    """
-    if not _is_anki_ready():
-        return set()
-
-    assert mw.col is not None  # Type hint para o checker
-    students = set()
-    col = mw.col
-
-    try:
-        # 1. Extrair alunos dos note types
-        note_types = col.models.all()
-        remote_deck_names = {
-            deck_info.get("remote_deck_name", "") for deck_info in remote_decks.values()
-        }
-        remote_deck_names = {name for name in remote_deck_names if name}
-
-        for note_type in note_types:
-            note_type_name = note_type.get("name", "")
-
-            # Verificar se é um note type do Sheets2Anki
-            # Formato: "Sheets2Anki - {remote_deck_name} - {student} - {Basic|Cloze}"
-            if note_type_name.startswith("Sheets2Anki - "):
-                parts = note_type_name.split(" - ")
-                if (
-                    len(parts) >= 4
-                ):  # ['Sheets2Anki', '{deck_name}', '{student}', '{Basic|Cloze}']
-                    deck_name = parts[1]
-                    student = parts[2]
-                    note_type_suffix = parts[3]
-
-                    # Verificar se é de um deck remoto conhecido e tem formato correto
-                    if deck_name in remote_deck_names and note_type_suffix in [
-                        "Basic",
-                        "Cloze",
-                    ]:
-                        students.add(student)
-                        print(
-                            f"🔍 CLEANUP: Encontrado aluno '{student}' no note type '{note_type_name}'"
-                        )
-
-        # 2. NOVO: Extrair alunos das notas existentes por ID único
-        # Buscar todas as notas que tenham formato {student}_{id} no campo ID
-        all_note_ids = col.find_notes("")
-        for note_id in all_note_ids[
-            :1000
-        ]:  # Limitar para evitar overhead, processar apenas uma amostra
-            try:
-                note = col.get_note(note_id)
-                if "ID" in note.keys():
-                    unique_id = note["ID"].strip()
-                    if "_" in unique_id:
-                        student_part = unique_id.split("_")[0]
-                        # Verificar se não é um formato UUID (contém hifens)
-                        if "-" not in student_part and student_part:
-                            students.add(student_part)
-                            if (
-                                len(students) % 10 == 0
-                            ):  # Log a cada 10 alunos encontrados
-                                print(
-                                    f"🔍 CLEANUP: Detectados {len(students)} alunos únicos das notas..."
-                                )
-            except:
-                continue
-
-        print(
-            f"📋 CLEANUP: Alunos encontrados (note types + notas): {sorted(students)}"
-        )
-        return students
-
-    except Exception as e:
-        print(f"❌ CLEANUP: Erro ao extrair alunos dos note types e notas: {e}")
-        return set()

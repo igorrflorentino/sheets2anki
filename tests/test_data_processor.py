@@ -291,12 +291,8 @@ class TestTagCreation:
             # Tag root
             tag_root = "Sheets2Anki"
 
-            # Tags de alunos
-            if note_data.get("ALUNOS"):
-                students = [s.strip() for s in note_data["ALUNOS"].split(",")]
-                for student in students:
-                    if student:
-                        tags.append(f"{tag_root}::Alunos::{student}")
+            # Tags de alunos foram REMOVIDAS para simplificar lógica
+            # (Esta seção foi eliminada)
 
             # Tags de tópicos
             if note_data.get("TOPICO"):
@@ -340,10 +336,8 @@ class TestTagCreation:
 
         tags = create_tags_for_note(test_note)
 
-        # Verificar se contém tags esperadas
+        # Verificar se contém tags esperadas (excluindo tags de alunos)
         expected_patterns = [
-            "Sheets2Anki::Alunos::João",
-            "Sheets2Anki::Alunos::Maria",
             "Sheets2Anki::Topicos::Geografia::Capitais::Brasil",
             "Sheets2Anki::Importancia::Alta",
         ]
@@ -352,6 +346,17 @@ class TestTagCreation:
             assert any(
                 pattern in tag for tag in tags
             ), f"Pattern '{pattern}' not found in: {tags}"
+
+        # Verificar que tags de alunos NÃO estão presentes
+        student_patterns = [
+            "Sheets2Anki::Alunos::João",
+            "Sheets2Anki::Alunos::Maria",
+        ]
+
+        for pattern in student_patterns:
+            assert not any(
+                pattern in tag for tag in tags
+            ), f"Student pattern '{pattern}' should NOT be found in: {tags}"
 
     def test_clean_tag_text(self):
         """Teste de limpeza de texto para tags."""

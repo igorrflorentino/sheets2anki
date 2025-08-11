@@ -89,7 +89,8 @@ class TestFullIntegration:
                     note = Mock()
                     note.id = len(created_notes) + 1
                     note.fields = [row["PERGUNTA"], row["LEVAR PARA PROVA"]]
-                    note.tags = [f"Sheets2Anki::Alunos::{student}"]
+                    # Tags de alunos removidas - agora só tags de tópicos/outros campos
+                    note.tags = [f"Sheets2Anki::Topicos::Geografia"]
 
                     # Mock das operações do Anki
                     mw.col.newNote.return_value = note
@@ -135,7 +136,8 @@ class TestFullIntegration:
                     assert hasattr(note, "id")
                     assert hasattr(note, "fields")
                     assert hasattr(note, "tags")
-                    assert any("Sheets2Anki::Alunos::" in tag for tag in note.tags)
+                    # Verificar por tags de tópicos ao invés de alunos
+                    assert any("Sheets2Anki::Topicos::" in tag for tag in note.tags)
 
     def test_error_handling_integration(self, mock_mw):
         """Teste de tratamento de erros em integração."""

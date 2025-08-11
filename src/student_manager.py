@@ -718,6 +718,12 @@ def cleanup_disabled_students_data(
 
         # NOVO: Atualizar meta.json após limpeza para remover referências de note types deletados
         _update_meta_after_cleanup(disabled_students, deck_names)
+        
+        # NOVO: Remover alunos do histórico de sincronização após limpeza bem-sucedida
+        from .config_manager import remove_student_from_sync_history
+        for student in disabled_students:
+            remove_student_from_sync_history(student)
+        print(f"📝 CLEANUP: {len(disabled_students)} alunos removidos do histórico de sincronização")
 
         # Salvar mudanças
         col.save()
@@ -937,29 +943,42 @@ def get_disabled_students_for_cleanup(
 ) -> Set[str]:
     """
     Identifica alunos que foram removidos da lista de habilitados e precisam ter dados limpos.
-
+    
+    NOVA VERSÃO ROBUSTA:
+    - Usa histórico persistente em meta.json como fonte de verdade
+    - Não depende de convenções de nomenclatura de note types
+    - Imune a renomeações manuais pelo usuário
+    
     NOTA: [MISSING A.] não é considerado um "aluno" para propósitos de limpeza.
     Sua presença depende da configuração sync_missing_students_notes, não da lista de alunos habilitados.
 
     Args:
         current_enabled (Set[str]): Alunos atualmente habilitados
-        previous_enabled (Set[str]): Alunos habilitados anteriormente
+        previous_enabled (Set[str]): Alunos habilitados anteriormente (IGNORADO na nova versão)
 
     Returns:
         Set[str]: Alunos que foram desabilitados e precisam ter dados removidos
     """
+    # NOVA LÓGICA: Usar histórico persistente ao invés de previous_enabled
+    from .config_manager import get_students_with_sync_history
+    
+    # Obter alunos que já foram sincronizados alguma vez (fonte de verdade)
+    historically_synced_students = get_students_with_sync_history()
+    
     # Remover [MISSING A.] da comparação, pois não é um "aluno real"
     current_real_students = {s for s in current_enabled if s != "[MISSING A.]"}
-    previous_real_students = {s for s in previous_enabled if s != "[MISSING A.]"}
+    historical_real_students = {s for s in historically_synced_students if s != "[MISSING A.]"}
 
-    disabled_students = previous_real_students - current_real_students
+    # Alunos que estavam no histórico mas não estão mais habilitados
+    disabled_students = historical_real_students - current_real_students
 
     if disabled_students:
-        print(
-            f"🔍 CLEANUP: Detectados alunos desabilitados: {sorted(disabled_students)}"
-        )
+        print(f"🔍 CLEANUP: Detectados alunos desabilitados (baseado no histórico): {sorted(disabled_students)}")
+        print(f"   📚 Total histórico: {len(historical_real_students)} alunos")
+        print(f"   ✅ Atualmente habilitados: {len(current_real_students)} alunos")
+        print(f"   🗑️ Para remoção: {len(disabled_students)} alunos")
     else:
-        print("✅ CLEANUP: Nenhum aluno foi desabilitado")
+        print("✅ CLEANUP: Nenhum aluno foi desabilitado (baseado no histórico)")
 
     print("🔍 CLEANUP: [MISSING A.] excluído da comparação (não é aluno real)")
 

@@ -27,7 +27,6 @@ from .templates_and_definitions import DEFAULT_CONCEPT
 from .templates_and_definitions import DEFAULT_SUBTOPIC
 from .templates_and_definitions import DEFAULT_TOPIC
 from .templates_and_definitions import TAG_ADICIONAIS
-from .templates_and_definitions import TAG_ALUNOS
 from .templates_and_definitions import TAG_ANOS
 from .templates_and_definitions import TAG_BANCAS
 from .templates_and_definitions import TAG_CARREIRAS
@@ -561,14 +560,15 @@ def create_tags_from_fields(note_data):
     Cria sistema hierárquico de tags a partir dos campos da nota.
 
     Estrutura de tags criadas (todas aninhadas sob 'Sheets2Anki'):
-    1. alunos: Tags para cada aluno
-    2. topicos::topico::subtopico::conceito: Hierarquia completa aninhada
-    3. conceitos: Tags diretas de conceitos (para busca fácil)
-    4. bancas: Tags para cada banca
-    5. anos: Tags para cada ano de prova
-    6. carreiras: Tags para cada carreira
-    7. importancia: Tag do nível de importância
-    8. adicionais: Tags extras do campo TAGS ADICIONAIS
+    1. topicos::topico::subtopico::conceito: Hierarquia completa aninhada
+    2. conceitos: Tags diretas de conceitos (para busca fácil)
+    3. bancas: Tags para cada banca
+    4. anos: Tags para cada ano de prova
+    5. carreiras: Tags para cada carreira
+    6. importancia: Tag do nível de importância
+    7. adicionais: Tags extras do campo TAGS ADICIONAIS
+
+    Nota: Tags de alunos foram removidas para simplificar a lógica
 
     Args:
         note_data (dict): Dados da nota
@@ -591,13 +591,8 @@ def create_tags_from_fields(note_data):
         cleaned = re.sub(r"[^\w\-_]", "", cleaned)
         return cleaned
 
-    # 1. Tags de ALUNOS
-    alunos = note_data.get(cols.ALUNOS, "").strip()
-    if alunos:
-        for aluno in alunos.split(","):
-            aluno_clean = clean_tag_text(aluno)
-            if aluno_clean:
-                tags.append(f"{TAG_ROOT}::{TAG_ALUNOS}::{aluno_clean}")
+    # 1. Tags de ALUNOS - REMOVIDAS para simplificar lógica
+    # (Tags de alunos foram eliminadas conforme solicitado)
 
     # 2. Tags hierárquicas de TOPICO::SUBTOPICO::CONCEITO (aninhadas)
     topico = note_data.get(cols.TOPICO, "").strip()
@@ -877,7 +872,6 @@ def create_or_update_notes(
             note_id = note_data.get(cols.ID, "").strip()
             if not note_id:
                 # Linha com ID vazio não é erro, é situação normal já contabilizada nas métricas
-                # stats.errors += 1  # REMOVIDO - não é erro
                 continue
 
             # Verificar se deve sincronizar

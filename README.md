@@ -212,12 +212,13 @@ Sheets2Anki::
 Cada card recebe tags organizadas automaticamente:
 
 **🎯 Categorias de Tags:**
-- `Sheets2Anki::Alunos::joão` - Identifica o aluno
 - `Sheets2Anki::Topicos::geografia::capitais::brasil` - Hierarquia completa
 - `Sheets2Anki::Bancas::cespe` - Banca organizadora
 - `Sheets2Anki::Anos::2024` - Ano da questão
 - `Sheets2Anki::Carreiras::concursos_publicos` - Área de aplicação
 - `Sheets2Anki::Importancia::alta` - Nível de relevância
+
+> **📝 Nota:** Tags baseadas na coluna ALUNOS foram removidas para simplificar a lógica do sistema.
 
 ### 🔄 **Sincronização Inteligente**
 

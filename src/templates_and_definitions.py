@@ -576,7 +576,6 @@ DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
 
 # Prefixos para tags
 TAG_ROOT = "Sheets2Anki"
-TAG_ALUNOS = "alunos"
 TAG_TOPICS = "topicos"
 TAG_SUBTOPICS = "subtopicos"
 TAG_CONCEPTS = "conceitos"

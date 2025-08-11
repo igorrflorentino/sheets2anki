@@ -15,6 +15,7 @@ Funcionalidades:
 import json
 import os
 import time
+import traceback
 
 from .compat import mw
 from .compat import showWarning
@@ -68,6 +69,10 @@ DEFAULT_META = {
         "available_students": [],
         "enabled_students": [],
         "last_updated": None,
+        # NOVO: Histórico persistente de alunos que já foram sincronizados
+        "sync_history": {
+            # formato: "student_name": {"first_sync": timestamp, "last_sync": timestamp, "total_syncs": count}
+        }
     },
     "decks": {},
 }
@@ -907,6 +912,170 @@ def set_sync_missing_students_notes(enabled):
         config.get("auto_remove_disabled_students", False),
         enabled,
     )
+
+
+# =============================================================================
+# GERENCIAMENTO DE HISTÓRICO DE SINCRONIZAÇÃO DE ALUNOS (NOVO)
+# =============================================================================
+
+def get_student_sync_history():
+    """
+    Obtém o histórico completo de sincronização de alunos.
+    
+    Returns:
+        dict: Histórico no formato {
+            "student_name": {
+                "first_sync": timestamp,
+                "last_sync": timestamp, 
+                "total_syncs": count,
+                "note_count": count  # aproximado baseado na última sync
+            }
+        }
+    """
+    meta = get_meta()
+    return meta.get("students", {}).get("sync_history", {})
+
+
+def update_student_sync_history(students_synced, note_counts=None):
+    """
+    Atualiza o histórico de sincronização para os alunos especificados.
+    
+    Esta função deve ser chamada SEMPRE que uma sincronização for concluída
+    com sucesso, independentemente de renomeações manuais de note types.
+    
+    Args:
+        students_synced (set): Conjunto de alunos que foram sincronizados
+        note_counts (dict, optional): Dicionário {student: count} com número aproximado de notas
+    """
+    meta = get_meta()
+    current_time = int(time.time())
+    
+    # Garantir estrutura
+    if "students" not in meta:
+        meta["students"] = {}
+    if "sync_history" not in meta["students"]:
+        meta["students"]["sync_history"] = {}
+    
+    sync_history = meta["students"]["sync_history"]
+    note_counts = note_counts or {}
+    
+    for student in students_synced:
+        if student in sync_history:
+            # Aluno já existe no histórico - atualizar
+            sync_history[student]["last_sync"] = current_time
+            sync_history[student]["total_syncs"] = sync_history[student].get("total_syncs", 0) + 1
+            if student in note_counts:
+                sync_history[student]["note_count"] = note_counts[student]
+        else:
+            # Novo aluno - criar entrada
+            sync_history[student] = {
+                "first_sync": current_time,
+                "last_sync": current_time,
+                "total_syncs": 1,
+                "note_count": note_counts.get(student, 0)
+            }
+    
+    # Salvar mudanças
+    save_meta(meta)
+    print(f"📝 HISTORY: Histórico atualizado para {len(students_synced)} alunos: {sorted(students_synced)}")
+
+
+def get_students_with_sync_history():
+    """
+    Retorna conjunto de todos os alunos que já foram sincronizados alguma vez.
+    
+    Esta é a fonte de verdade definitiva para saber quais alunos existiam,
+    independentemente de renomeações manuais ou outras modificações.
+    
+    Returns:
+        set: Conjunto de alunos que já foram sincronizados
+    """
+    sync_history = get_student_sync_history()
+    historical_students = set(sync_history.keys())
+    
+    print(f"📚 HISTORY: Encontrados {len(historical_students)} alunos no histórico: {sorted(historical_students)}")
+    return historical_students
+
+
+def remove_student_from_sync_history(student_name):
+    """
+    Remove um aluno do histórico de sincronização.
+    
+    Deve ser chamado APENAS após confirmação de que o usuário quer
+    deletar permanentemente todos os dados do aluno.
+    
+    Args:
+        student_name (str): Nome do aluno a ser removido do histórico
+    """
+    meta = get_meta()
+    sync_history = meta.get("students", {}).get("sync_history", {})
+    
+    if student_name in sync_history:
+        del sync_history[student_name]
+        save_meta(meta)
+        print(f"🗑️ HISTORY: Aluno '{student_name}' removido do histórico de sincronização")
+    else:
+        print(f"ℹ️ HISTORY: Aluno '{student_name}' não encontrado no histórico")
+
+
+def cleanup_orphaned_sync_history():
+    """
+    Remove entradas do histórico de sincronização que não correspondem
+    mais a dados reais no Anki (limpeza de manutenção).
+    
+    Returns:
+        int: Número de entradas removidas
+    """
+    if not mw or not hasattr(mw, "col") or not mw.col:
+        return 0
+    
+    sync_history = get_student_sync_history()
+    if not sync_history:
+        return 0
+    
+    orphaned_students = []
+    col = mw.col
+    
+    # Verificar cada aluno no histórico
+    for student in sync_history.keys():
+        # Buscar notas que tenham ID começando com este aluno
+        student_notes = []
+        try:
+            # Busca aproximativa por notas que possam pertencer ao aluno
+            all_notes = col.find_notes("")[:2000]  # Limitar busca para performance
+            
+            for note_id in all_notes:
+                try:
+                    note = col.get_note(note_id)
+                    if "ID" in note.keys():
+                        unique_id = note["ID"].strip()
+                        if unique_id.startswith(f"{student}_"):
+                            student_notes.append(note_id)
+                            break  # Encontrou pelo menos uma nota, aluno ainda existe
+                except:
+                    continue
+            
+            # Se não encontrou nenhuma nota, marcar como órfão
+            if not student_notes:
+                orphaned_students.append(student)
+                
+        except Exception as e:
+            print(f"⚠️ HISTORY: Erro ao verificar aluno '{student}': {e}")
+            continue
+    
+    # Remover órfãos
+    if orphaned_students:
+        meta = get_meta()
+        sync_history = meta.get("students", {}).get("sync_history", {})
+        
+        for student in orphaned_students:
+            if student in sync_history:
+                del sync_history[student]
+        
+        save_meta(meta)
+        print(f"🧹 HISTORY: Removidas {len(orphaned_students)} entradas órfãs: {orphaned_students}")
+    
+    return len(orphaned_students)
 
 
 def discover_all_students_from_remote_decks():

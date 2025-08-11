@@ -1080,20 +1080,6 @@ def apply_sheets2anki_options_to_deck(deck_id, deck_name=None):
         return False
 
 
-def ensure_parent_deck_has_shared_options():
-    """
-    DEPRECATED: Use ensure_root_deck_has_root_options() instead.
-    Esta função está mantida apenas para compatibilidade.
-
-    Returns:
-        bool: True se aplicado com sucesso, False caso contrário
-    """
-    print(
-        "[DECK_OPTIONS] DEPRECATED: Using ensure_root_deck_has_root_options() instead"
-    )
-    return ensure_root_deck_has_root_options()
-
-
 def apply_sheets2anki_options_to_all_remote_decks():
     """
     Aplica o grupo de opções baseado no modo configurado a todos os decks remotos.
