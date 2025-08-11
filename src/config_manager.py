@@ -927,8 +927,7 @@ def get_student_sync_history():
             "student_name": {
                 "first_sync": timestamp,
                 "last_sync": timestamp, 
-                "total_syncs": count,
-                "note_count": count  # aproximado baseado na última sync
+                "total_syncs": count
             }
         }
     """
@@ -936,7 +935,7 @@ def get_student_sync_history():
     return meta.get("students", {}).get("sync_history", {})
 
 
-def update_student_sync_history(students_synced, note_counts=None):
+def update_student_sync_history(students_synced):
     """
     Atualiza o histórico de sincronização para os alunos especificados.
     
@@ -945,7 +944,6 @@ def update_student_sync_history(students_synced, note_counts=None):
     
     Args:
         students_synced (set): Conjunto de alunos que foram sincronizados
-        note_counts (dict, optional): Dicionário {student: count} com número aproximado de notas
     """
     meta = get_meta()
     current_time = int(time.time())
@@ -957,22 +955,18 @@ def update_student_sync_history(students_synced, note_counts=None):
         meta["students"]["sync_history"] = {}
     
     sync_history = meta["students"]["sync_history"]
-    note_counts = note_counts or {}
     
     for student in students_synced:
         if student in sync_history:
             # Aluno já existe no histórico - atualizar
             sync_history[student]["last_sync"] = current_time
             sync_history[student]["total_syncs"] = sync_history[student].get("total_syncs", 0) + 1
-            if student in note_counts:
-                sync_history[student]["note_count"] = note_counts[student]
         else:
             # Novo aluno - criar entrada
             sync_history[student] = {
                 "first_sync": current_time,
                 "last_sync": current_time,
-                "total_syncs": 1,
-                "note_count": note_counts.get(student, 0)
+                "total_syncs": 1
             }
     
     # Salvar mudanças

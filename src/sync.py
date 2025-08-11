@@ -1692,16 +1692,8 @@ def _sync_single_deck(
         students_synced = get_selected_students_for_deck(remote_deck_url)
         
         if students_synced:
-            # Calcular contagem aproximada de notas por aluno
-            note_counts = {}
-            total_notes = deck_stats.created + deck_stats.updated
-            if len(students_synced) > 0:
-                avg_per_student = total_notes // len(students_synced)
-                for student in students_synced:
-                    note_counts[student] = avg_per_student
-            
             # Atualizar histórico persistente
-            update_student_sync_history(students_synced, note_counts)
+            update_student_sync_history(students_synced)
             add_debug_message(
                 f"📚 HISTORY: Histórico atualizado para {len(students_synced)} alunos",
                 "SYNC"

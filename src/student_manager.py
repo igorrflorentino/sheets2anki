@@ -226,15 +226,18 @@ def get_selected_students_for_deck(deck_url: str) -> Set[str]:
     """
     Obtém os alunos selecionados para um deck específico.
     Se não houver seleção específica para o deck, usa a configuração global.
+    
+    IMPORTANTE: Inclui [MISSING A.] se a funcionalidade estiver ativada.
 
     Args:
         deck_url: URL do deck remoto
 
     Returns:
-        Set[str]: Conjunto de alunos selecionados para este deck
+        Set[str]: Conjunto de alunos selecionados para este deck (incluindo [MISSING A.] se aplicável)
     """
     from .config_manager import get_deck_hash
     from .config_manager import get_enabled_students
+    from .config_manager import is_sync_missing_students_notes
 
     meta = get_meta()
 
@@ -246,13 +249,19 @@ def get_selected_students_for_deck(deck_url: str) -> Set[str]:
     # Se não há seleção específica para o deck, usar configuração global
     if student_selection is None:
         global_enabled = get_enabled_students()
-        return set(global_enabled) if global_enabled else set()
+        selected_students = set(global_enabled) if global_enabled else set()
+    else:
+        # Converter para set se for lista
+        if isinstance(student_selection, list):
+            selected_students = set(student_selection)
+        else:
+            selected_students = student_selection if isinstance(student_selection, set) else set()
 
-    # Converter para set se for lista
-    if isinstance(student_selection, list):
-        return set(student_selection)
+    # NOVO: Incluir [MISSING A.] se a funcionalidade estiver ativada
+    if is_sync_missing_students_notes():
+        selected_students.add("[MISSING A.]")
 
-    return student_selection if isinstance(student_selection, set) else set()
+    return selected_students
 
 
 def save_selected_students_for_deck(deck_url: str, selected_students: Set[str]):
