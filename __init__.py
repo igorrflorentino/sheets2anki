@@ -57,7 +57,7 @@ try:
     from .src.deck_manager import addNewDeck
     from .src.deck_manager import syncDecksWithSelection as sDecks
     from .src.deck_manager import removeRemoteDeck as rDecks
-    from .src.backup_system import show_backup_dialog
+    from .src.backup_dialog import show_backup_dialog
     from .src.templates_and_definitions import DEFAULT_PARENT_DECK_NAME
     from .libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
     

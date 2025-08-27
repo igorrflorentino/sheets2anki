@@ -32,6 +32,7 @@ ALUNOS = "ALUNOS"  # Indica quais alunos têm interesse em estudar esta nota
 # Informações adicionais sobre a questão
 EXTRA_INFO_1 = "INFO COMPLEMENTAR"  # Informação complementar básica
 EXTRA_INFO_2 = "INFO DETALHADA"  # Informação detalhada adicional
+ILUSTRACAO_HTML = "ILUSTRAÇÃO HTML"  # Código HTML para imagens e ilustrações renderizáveis
 
 # =============================================================================
 # CAMPOS DE EXEMPLOS
@@ -71,6 +72,7 @@ REQUIRED_COLUMNS = [
     ALUNOS,  # Controle de alunos interessados
     EXTRA_INFO_1,  # Info complementar
     EXTRA_INFO_2,  # Info detalhada
+    ILUSTRACAO_HTML,  # Código HTML para imagens e ilustrações
     EXEMPLO_1,  # Primeiro exemplo
     EXEMPLO_2,  # Segundo exemplo
     EXEMPLO_3,  # Terceiro exemplo
@@ -100,6 +102,9 @@ TEXT_FIELDS = [
     MATCH,
     EXTRA_INFO_1,
     EXTRA_INFO_2,
+    ILUSTRACAO_HTML,
+    EXTRA_INFO_1,
+    EXTRA_INFO_2,
     EXEMPLO_1,
     EXEMPLO_2,
     EXEMPLO_3,
@@ -112,6 +117,7 @@ NOTE_FIELDS = [
     MATCH,  # Resposta sucinta (núcleo da resposta)
     EXTRA_INFO_1,  # Info complementar
     EXTRA_INFO_2,  # Info detalhada
+    ILUSTRACAO_HTML,  # Código HTML para imagens e ilustrações
     EXEMPLO_1,  # Primeiro exemplo
     EXEMPLO_2,  # Segundo exemplo
     EXEMPLO_3,  # Terceiro exemplo
@@ -310,6 +316,15 @@ def create_card_template(is_cloze=False):
             field_name=field.capitalize(), field_value=field
         )
 
+    # Campo de ilustração HTML (após informações extras, para contextualizar a resposta)
+    illustration = (
+        f"{{{{#{ILUSTRACAO_HTML}}}}}"
+        "<br><br>"
+        f"{{{{{ILUSTRACAO_HTML}}}}}"
+        "<br><br>"
+        f"{{{{/{ILUSTRACAO_HTML}}}}}"
+    )
+
     # Campos de exemplo
     example_fields = [EXEMPLO_1, EXEMPLO_2, EXEMPLO_3]
 
@@ -336,11 +351,11 @@ def create_card_template(is_cloze=False):
         )
 
     # Construir templates completos
-    qfmt = header + question
+    qfmt = header + question  # Frente: apenas cabeçalho e pergunta
     afmt = (
-        (header + question + match + extra_info + examples + "<hr><br>" + footer)
+        (header + question + match + extra_info + illustration + examples + "<hr><br>" + footer)
         if is_cloze
-        else ("{{FrontSide}}" + match + extra_info + examples + "<hr><br>" + footer)
+        else ("{{FrontSide}}" + match + extra_info + illustration + examples + "<hr><br>" + footer)
     )
 
     return {"qfmt": qfmt, "afmt": afmt}
@@ -547,8 +562,12 @@ IS_DEVELOPMENT_MODE = True
 # URLs hardcoded para testes e simulações
 TEST_SHEETS_URLS = [
     (
-        "Sheets2Anki Template",
+        "Sheets2Anki Template (Published)",
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv",
+    ),
+    (
+        "Sheets2Anki Template (Edit Link)",
+        "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing",
     ),
 ]
 
@@ -584,3 +603,110 @@ TAG_ANOS = "anos"
 TAG_CARREIRAS = "carreiras"
 TAG_IMPORTANCIA = "importancia"
 TAG_ADICIONAIS = "adicionais"
+
+
+def update_existing_note_type_templates(col, debug_messages=None):
+    """
+    Atualiza os templates de todos os note types existentes do Sheets2Anki
+    para incluir a nova coluna ILUSTRAÇÃO HTML.
+    
+    Args:
+        col: Objeto de coleção do Anki
+        debug_messages (list, optional): Lista para debug
+    
+    Returns:
+        int: Número de note types atualizados
+    """
+    if debug_messages is None:
+        debug_messages = []
+    
+    updated_count = 0
+    
+    # Buscar todos os note types que começam com "Sheets2Anki"
+    all_models = col.models.all()
+    sheets2anki_models = [
+        model for model in all_models 
+        if model.get("name", "").startswith("Sheets2Anki")
+    ]
+    
+    debug_messages.append(f"[UPDATE_TEMPLATES] Encontrados {len(sheets2anki_models)} note types do Sheets2Anki")
+    
+    for model in sheets2anki_models:
+        try:
+            model_name = model.get("name", "")
+            is_cloze = model.get("type") == 1
+            
+            debug_messages.append(f"[UPDATE_TEMPLATES] Processando: {model_name} (cloze: {is_cloze})")
+            
+            # Verificar se o campo ILUSTRAÇÃO HTML já existe
+            existing_fields = []
+            for field in model.get("flds", []):
+                # Lidar com diferentes formatos de campo (dict ou objeto)
+                if hasattr(field, 'get'):
+                    field_name = field.get("name", "")
+                elif isinstance(field, dict):
+                    field_name = field.get("name", "")
+                else:
+                    # Assumir que é um objeto com atributo name
+                    field_name = getattr(field, 'name', "")
+                existing_fields.append(field_name)
+            
+            if ILUSTRACAO_HTML not in existing_fields:
+                debug_messages.append(f"[UPDATE_TEMPLATES] Adicionando campo {ILUSTRACAO_HTML}")
+                # Adicionar o campo ILUSTRAÇÃO HTML
+                field_template = col.models.new_field(ILUSTRACAO_HTML)
+                col.models.add_field(model, field_template)
+            else:
+                debug_messages.append(f"[UPDATE_TEMPLATES] Campo {ILUSTRACAO_HTML} já existe")
+            
+            # Atualizar templates de cards
+            templates = model.get("tmpls", [])
+            if templates:
+                new_card_template = create_card_template(is_cloze)
+                template_updated = False
+                
+                for i, template in enumerate(templates):
+                    # Lidar com diferentes formatos de template
+                    if hasattr(template, 'get'):
+                        old_qfmt = template.get("qfmt", "")
+                        old_afmt = template.get("afmt", "")
+                    elif isinstance(template, dict):
+                        old_qfmt = template.get("qfmt", "")
+                        old_afmt = template.get("afmt", "")
+                    else:
+                        old_qfmt = getattr(template, 'qfmt', "")
+                        old_afmt = getattr(template, 'afmt', "")
+                    
+                    # Verificar se precisa atualizar (se não tem ILUSTRAÇÃO HTML no template)
+                    needs_update = ILUSTRACAO_HTML not in old_afmt
+                    
+                    if needs_update:
+                        # Atualizar template
+                        if hasattr(template, '__setitem__'):
+                            template["qfmt"] = new_card_template["qfmt"]
+                            template["afmt"] = new_card_template["afmt"]
+                        elif isinstance(template, dict):
+                            template["qfmt"] = new_card_template["qfmt"]
+                            template["afmt"] = new_card_template["afmt"]
+                        else:
+                            setattr(template, 'qfmt', new_card_template["qfmt"])
+                            setattr(template, 'afmt', new_card_template["afmt"])
+                        
+                        template_updated = True
+                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} atualizado para {model_name}")
+                    else:
+                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} já contém {ILUSTRACAO_HTML}")
+                
+                if not template_updated:
+                    debug_messages.append(f"[UPDATE_TEMPLATES] Nenhum template precisou ser atualizado para {model_name}")
+            
+            # Salvar o modelo atualizado
+            col.models.save(model)
+            updated_count += 1
+            debug_messages.append(f"[UPDATE_TEMPLATES] ✅ {model_name} processado com sucesso")
+            
+        except Exception as e:
+            debug_messages.append(f"[UPDATE_TEMPLATES] ❌ Erro ao atualizar {model.get('name', 'unknown')}: {e}")
+    
+    debug_messages.append(f"[UPDATE_TEMPLATES] 🎯 Total de note types processados: {updated_count}")
+    return updated_count

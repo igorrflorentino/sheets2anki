@@ -20,6 +20,7 @@ from .compat import AlignTop
 from .compat import MessageBox_No
 from .compat import MessageBox_Yes
 from .compat import QDialog
+from .compat import QGroupBox
 from .compat import QLabel
 from .compat import QMessageBox
 from .compat import QProgressDialog
@@ -37,6 +38,7 @@ from .config_manager import update_note_type_names_in_meta
 from .data_processor import create_or_update_notes
 from .data_processor import getRemoteDeck
 from .student_manager import get_selected_students_for_deck
+from .templates_and_definitions import update_existing_note_type_templates
 from .utils import SyncError
 from .utils import add_debug_message
 from .utils import capture_deck_note_type_ids
@@ -44,6 +46,7 @@ from .utils import clear_debug_messages
 from .utils import get_publication_key_hash
 from .utils import remove_empty_subdecks
 from .utils import validate_url
+from .name_consistency_manager import NameConsistencyManager
 
 # ========================================================================================
 # CLASSES DE ESTATÍSTICAS DE SINCRONIZAÇÃO (consolidado de sync_stats.py)
@@ -137,12 +140,11 @@ class SyncStats:
             self.remote_unique_students_count, other.remote_unique_students_count
         )
 
-        # Merge dos dicionários de notas por aluno
+        # Merge dos dicionários de notas por aluno - SOMAR os valores
         for student, count in other.remote_notes_per_student.items():
             if student in self.remote_notes_per_student:
-                self.remote_notes_per_student[student] = max(
-                    self.remote_notes_per_student[student], count
-                )
+                # CORRIGI: Somar em vez de pegar o máximo para ter total agregado correto
+                self.remote_notes_per_student[student] += count
             else:
                 self.remote_notes_per_student[student] = count
 
@@ -165,13 +167,16 @@ class SyncStats:
 
 
 @dataclass
+@dataclass
 class DeckSyncResult:
     """Resultado da sincronização de um deck específico."""
 
     deck_name: str
     deck_key: str
+    deck_url: str
     success: bool
     stats: SyncStats
+    was_new_deck: bool = False  # Se o deck era novo (nunca sincronizado)
     error_message: Optional[str] = None
 
     def __post_init__(self):
@@ -192,10 +197,10 @@ class SyncStatsManager:
         self.deck_results.append(result)
         self.total_stats.merge(result.stats)
 
-    def create_deck_result(self, deck_name: str, deck_key: str) -> DeckSyncResult:
+    def create_deck_result(self, deck_name: str, deck_key: str, deck_url: str = "") -> DeckSyncResult:
         """Cria um novo resultado de deck."""
         return DeckSyncResult(
-            deck_name=deck_name, deck_key=deck_key, success=False, stats=SyncStats()
+            deck_name=deck_name, deck_key=deck_key, deck_url=deck_url, success=False, stats=SyncStats()
         )
 
     def get_successful_decks(self) -> List[DeckSyncResult]:
@@ -239,6 +244,8 @@ def _finalize_sync_new(
     sync_errors,
     cleanup_result=None,
     missing_cleanup_result=None,
+    deck_results=None,
+    new_deck_mode=False,
 ):
     """
     Finaliza o processo de sincronização usando o novo sistema de estatísticas.
@@ -251,6 +258,7 @@ def _finalize_sync_new(
         sync_errors: Lista de erros de sincronização
         cleanup_result: Resultado da limpeza (opcional)
         missing_cleanup_result: Resultado da limpeza de decks ausentes (opcional)
+        deck_results: Lista de DeckSyncResult para visualização por deck (opcional)
 
     Returns:
         Resultado consolidado da sincronização
@@ -369,6 +377,8 @@ def _finalize_sync_new(
         missing_cleanup_result,
         ankiweb_result=None,
         on_close_callback=execute_ankiweb_sync_after_close,
+        deck_results=deck_results,
+        new_deck_mode=new_deck_mode,
     )
 
 
@@ -382,12 +392,15 @@ def _show_sync_summary_new(
     missing_cleanup_result=None,
     ankiweb_result=None,
     on_close_callback=None,
+    deck_results=None,
+    new_deck_mode=False,
 ):
     """
     Mostra resumo da sincronização usando interface com scroll.
 
     Args:
         on_close_callback (callable, optional): Função a ser chamada quando o diálogo for fechado
+        deck_results (list, optional): Lista de DeckSyncResult para visualização por deck
     """
 
     summary = []
@@ -404,7 +417,18 @@ def _show_sync_summary_new(
 
     # Estatísticas resumidas no cabeçalho
     if total_stats.created > 0:
-        summary.append(f"➕ {total_stats.created} notas criadas")
+        # Verificar se algum dos decks era novo (baseado na detecção robusta por last_sync)
+        new_decks_detected = False
+        if deck_results:
+            new_decks_detected = any(result.was_new_deck for result in deck_results if result.success)
+        
+        if new_decks_detected:
+            if total_decks == 1:
+                summary.append(f"➕ {total_stats.created} notas criadas (novo deck adicionado)")
+            else:
+                summary.append(f"➕ {total_stats.created} notas criadas (inclui novos decks)")
+        else:
+            summary.append(f"➕ {total_stats.created} notas criadas")
 
     if total_stats.updated > 0:
         summary.append(f"✏️ {total_stats.updated} notas atualizadas")
@@ -464,7 +488,341 @@ def _show_sync_summary_new(
         sync_errors,
         ankiweb_result,
         on_close_callback,
+        deck_results,
     )
+
+
+def generate_simplified_view(total_stats, sync_errors=None, deck_results=None):
+    """
+    Gera visualização simplificada (agregada) das estatísticas de sincronização.
+    
+    Args:
+        total_stats: Estatísticas totais agregadas
+        sync_errors: Lista de erros de sincronização
+        deck_results: Lista de resultados por deck (não usado no modo simplificado)
+    
+    Returns:
+        list: Lista de strings para exibição
+    """
+    details_content = []
+
+    # PRIMEIRO: Métricas detalhadas do deck remoto (agregadas)
+    if (
+        total_stats.remote_total_table_lines > 0
+        or total_stats.remote_valid_note_lines > 0
+        or total_stats.remote_sync_marked_lines > 0
+        or total_stats.remote_total_potential_anki_notes > 0
+    ):
+        details_content.append("📊 MÉTRICAS DETALHADAS DOS DECKS REMOTOS:")
+        details_content.append("=" * 60)
+        details_content.append(
+            f"📋 1. Total de linhas na tabela: {total_stats.remote_total_table_lines}"
+        )
+        details_content.append(
+            f"✅ 2. Linhas com notas válidas (ID preenchido): {total_stats.remote_valid_note_lines}"
+        )
+        details_content.append(
+            f"❌ 3. Linhas inválidas (ID vazio): {total_stats.remote_invalid_note_lines}"
+        )
+        details_content.append(
+            f"🔄 4. Linhas marcadas para sincronização: {total_stats.remote_sync_marked_lines}"
+        )
+        details_content.append(
+            f"📝 5. Total potencial de notas no Anki: {total_stats.remote_total_potential_anki_notes}"
+        )
+        details_content.append(
+            f"🎓 6. Potencial de notas para alunos específicos: {total_stats.remote_potential_student_notes}"
+        )
+        details_content.append(
+            f"❓ 7. Potencial de notas para [MISSING A.]: {total_stats.remote_potential_missing_a_notes}"
+        )
+        details_content.append(
+            f"👥 8. Total de alunos únicos: {total_stats.remote_unique_students_count}"
+        )
+
+        # 9. Mostrar notas por aluno individual
+        if total_stats.remote_notes_per_student:
+            details_content.append("📊 9. Notas por aluno (totais agregados):")
+            for student, count in sorted(total_stats.remote_notes_per_student.items()):
+                details_content.append(f"   • {student}: {count} notas")
+
+        details_content.append("")
+
+    # SEGUNDO: Erros detalhados (se houver)
+    if sync_errors or total_stats.error_details:
+        total_errors = total_stats.errors + len(sync_errors or [])
+        if total_errors > 0:
+            details_content.append(f"⚠️ DETALHES DOS {total_errors} ERROS:")
+            details_content.append("=" * 60)
+            error_count = 1
+            for error in sync_errors or []:
+                details_content.append(f"{error_count:4d}. {error}")
+                error_count += 1
+            for error in total_stats.error_details:
+                details_content.append(f"{error_count:4d}. {error}")
+                error_count += 1
+            details_content.append("")
+
+    # POR ÚLTIMO: Detalhes das notas criadas
+    if total_stats.created > 0 and total_stats.creation_details:
+        details_content.append(f"➕ DETALHES DAS {total_stats.created} NOTAS CRIADAS:")
+        details_content.append("=" * 60)
+        for i, detail in enumerate(total_stats.creation_details, 1):
+            details_content.append(
+                f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}"
+            )
+        details_content.append("")
+
+    # POR ÚLTIMO: Detalhes das notas atualizadas
+    if total_stats.updated > 0 and total_stats.update_details:
+        details_content.append(
+            f"✏️ DETALHES DAS {total_stats.updated} NOTAS ATUALIZADAS:"
+        )
+        details_content.append("=" * 60)
+        for i, detail in enumerate(total_stats.update_details, 1):
+            details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']}")
+            for j, change in enumerate(detail["changes"], 1):
+                details_content.append(f"      {j:2d}. {change}")
+            details_content.append("")
+
+    # POR ÚLTIMO: Detalhes das notas removidas
+    if total_stats.deleted > 0 and total_stats.deletion_details:
+        details_content.append(f"🗑️ DETALHES DAS {total_stats.deleted} NOTAS REMOVIDAS:")
+        details_content.append("=" * 60)
+        for i, detail in enumerate(total_stats.deletion_details, 1):
+            details_content.append(
+                f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}"
+            )
+        details_content.append("")
+
+    # Se não há detalhes de modificações, mostrar mensagem informativa
+    if not any(
+        [
+            total_stats.created > 0 and total_stats.creation_details,
+            total_stats.updated > 0 and total_stats.update_details,
+            total_stats.deleted > 0 and total_stats.deletion_details,
+            sync_errors or total_stats.error_details,
+        ]
+    ):
+        details_content.append(
+            "ℹ️ Nenhuma modificação detalhada de notas foi registrada nesta sincronização."
+        )
+        details_content.append("")
+        details_content.append("Isso pode acontecer quando:")
+        details_content.append("• As notas já estavam atualizadas")
+        details_content.append("• Apenas operações de limpeza foram realizadas")
+        details_content.append("• Não houve alterações nos dados das planilhas")
+
+    return details_content
+
+
+def generate_aggregated_summary_only(total_stats, sync_errors=None):
+    """
+    Gera apenas o resumo agregado sem detalhes de notas individuais.
+    Usado no modo detalhado para evitar duplicação.
+    
+    Args:
+        total_stats: Estatísticas totais agregadas
+        sync_errors: Lista de erros de sincronização
+    
+    Returns:
+        list: Lista de strings para exibição
+    """
+    details_content = []
+
+    # Erros detalhados (se houver)
+    if sync_errors or total_stats.error_details:
+        total_errors = total_stats.errors + len(sync_errors or [])
+        if total_errors > 0:
+            details_content.append(f"⚠️ DETALHES DOS {total_errors} ERROS GERAIS:")
+            details_content.append("=" * 60)
+            error_count = 1
+            for error in sync_errors or []:
+                details_content.append(f"{error_count:4d}. {error}")
+                error_count += 1
+            for error in total_stats.error_details:
+                details_content.append(f"{error_count:4d}. {error}")
+                error_count += 1
+            details_content.append("")
+
+    # Métricas detalhadas do deck remoto (agregadas) - apenas se não foram mostradas por deck
+    if (
+        total_stats.remote_total_table_lines > 0
+        or total_stats.remote_valid_note_lines > 0
+        or total_stats.remote_sync_marked_lines > 0
+        or total_stats.remote_total_potential_anki_notes > 0
+    ):
+        details_content.append("📊 TOTAIS AGREGADOS DE MÉTRICAS REMOTAS:")
+        details_content.append("=" * 60)
+        details_content.append(
+            f"📋 1. Total de linhas na tabela: {total_stats.remote_total_table_lines}"
+        )
+        details_content.append(
+            f"✅ 2. Linhas com notas válidas (ID preenchido): {total_stats.remote_valid_note_lines}"
+        )
+        details_content.append(
+            f"❌ 3. Linhas inválidas (ID vazio): {total_stats.remote_invalid_note_lines}"
+        )
+        details_content.append(
+            f"🔄 4. Linhas marcadas para sincronização: {total_stats.remote_sync_marked_lines}"
+        )
+        details_content.append(
+            f"📝 5. Total potencial de notas no Anki: {total_stats.remote_total_potential_anki_notes}"
+        )
+        details_content.append(
+            f"🎓 6. Potencial de notas para alunos específicos: {total_stats.remote_potential_student_notes}"
+        )
+        details_content.append(
+            f"❓ 7. Potencial de notas para [MISSING A.]: {total_stats.remote_potential_missing_a_notes}"
+        )
+        details_content.append(
+            f"👥 8. Total de alunos únicos: {total_stats.remote_unique_students_count}"
+        )
+
+        # 9. Mostrar notas por aluno individual
+        if total_stats.remote_notes_per_student:
+            details_content.append("📊 9. Notas por aluno (totais agregados):")
+            for student, count in sorted(total_stats.remote_notes_per_student.items()):
+                details_content.append(f"   • {student}: {count} notas")
+
+        details_content.append("")
+
+    return details_content
+
+
+def generate_deck_detailed_metrics(stats, deck_name):
+    """
+    Gera métricas detalhadas completas para um deck individual.
+    
+    Args:
+        stats: Estatísticas do deck individual (SyncStats)
+        deck_name: Nome do deck
+    
+    Returns:
+        list: Lista de strings com as métricas detalhadas
+    """
+    metrics_content = []
+    
+    # Estatísticas básicas de modificações
+    modifications = []
+    if stats.created > 0:
+        modifications.append(f"{stats.created} criadas")
+    if stats.updated > 0:
+        modifications.append(f"{stats.updated} atualizadas")
+    if stats.deleted > 0:
+        modifications.append(f"{stats.deleted} deletadas")
+    if stats.ignored > 0:
+        modifications.append(f"{stats.ignored} ignoradas")
+    if stats.unchanged > 0:
+        modifications.append(f"{stats.unchanged} inalteradas")
+    if stats.skipped > 0:
+        modifications.append(f"{stats.skipped} puladas")
+    if stats.errors > 0:
+        modifications.append(f"{stats.errors} erros")
+    
+    if modifications:
+        metrics_content.append(f"     📝 Notas: {', '.join(modifications)}")
+    
+    # Todas as 9 métricas detalhadas do deck remoto (igual ao modo simplificado)
+    if (
+        stats.remote_total_table_lines > 0
+        or stats.remote_valid_note_lines > 0
+        or stats.remote_sync_marked_lines > 0
+        or stats.remote_total_potential_anki_notes > 0
+    ):
+        metrics_content.append(f"     📊 Métricas da Planilha Remota:")
+        metrics_content.append(f"        📋 1. Total de linhas na tabela: {stats.remote_total_table_lines}")
+        metrics_content.append(f"        ✅ 2. Linhas com notas válidas (ID preenchido): {stats.remote_valid_note_lines}")
+        metrics_content.append(f"        ❌ 3. Linhas inválidas (ID vazio): {stats.remote_invalid_note_lines}")
+        metrics_content.append(f"        🔄 4. Linhas marcadas para sincronização: {stats.remote_sync_marked_lines}")
+        metrics_content.append(f"        📝 5. Total potencial de notas no Anki: {stats.remote_total_potential_anki_notes}")
+        metrics_content.append(f"        🎓 6. Potencial de notas para alunos específicos: {stats.remote_potential_student_notes}")
+        metrics_content.append(f"        ❓ 7. Potencial de notas para [MISSING A.]: {stats.remote_potential_missing_a_notes}")
+        metrics_content.append(f"        👥 8. Total de alunos únicos: {stats.remote_unique_students_count}")
+        
+        # 9. Mostrar notas por aluno individual para este deck
+        if stats.remote_notes_per_student:
+            metrics_content.append(f"        📊 9. Notas por aluno neste deck:")
+            for student, count in sorted(stats.remote_notes_per_student.items()):
+                metrics_content.append(f"           • {student}: {count} notas")
+    
+    # DETALHES DAS NOTAS APÓS AS MÉTRICAS REMOTAS (individualizado por deck)
+    
+    # Detalhes das notas criadas neste deck
+    if stats.created > 0 and stats.creation_details:
+        metrics_content.append(f"     ➕ DETALHES DAS {stats.created} NOTAS CRIADAS:")
+        for i, detail in enumerate(stats.creation_details, 1):
+            metrics_content.append(f"        {i:2d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}")
+    
+    # Detalhes das notas atualizadas neste deck
+    if stats.updated > 0 and stats.update_details:
+        metrics_content.append(f"     ✏️ DETALHES DAS {stats.updated} NOTAS ATUALIZADAS:")
+        for i, detail in enumerate(stats.update_details, 1):
+            metrics_content.append(f"        {i:2d}. {detail['student']}: {detail['note_id']}")
+            for j, change in enumerate(detail["changes"], 1):
+                metrics_content.append(f"           {j:2d}. {change}")
+    
+    # Detalhes das notas removidas neste deck
+    if stats.deleted > 0 and stats.deletion_details:
+        metrics_content.append(f"     🗑️ DETALHES DAS {stats.deleted} NOTAS REMOVIDAS:")
+        for i, detail in enumerate(stats.deletion_details, 1):
+            metrics_content.append(f"        {i:2d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}")
+    
+    return metrics_content
+
+
+def generate_detailed_view(total_stats, sync_errors=None, deck_results=None):
+    """
+    Gera visualização detalhada (por deck) das estatísticas de sincronização.
+    
+    Args:
+        total_stats: Estatísticas totais agregadas
+        sync_errors: Lista de erros de sincronização
+        deck_results: Lista de resultados por deck individual
+    
+    Returns:
+        list: Lista de strings para exibição
+    """
+    details_content = []
+
+    # PRIMEIRO: Mostrar resumo geral agregado
+    aggregated_summary = generate_aggregated_summary_only(total_stats, sync_errors)
+    
+    if aggregated_summary:
+        details_content.append("📋 RESUMO GERAL AGREGADO:")
+        details_content.append("=" * 80)
+        details_content.append("\n")
+        details_content.extend(aggregated_summary)
+        details_content.append("")
+
+    # SEGUNDO: Mostrar resumo por deck individual (com detalhes das notas individualizados)
+    if deck_results and len(deck_results) >= 1:
+        details_content.append("📊 RESUMO POR DECK INDIVIDUAL:")
+        details_content.append("=" * 80)
+        
+        for i, deck_result in enumerate(deck_results, 1):
+            deck_name = deck_result.deck_name
+            stats = deck_result.stats
+            success_status = "✅" if deck_result.success else "❌"
+            
+            # Indicar se o deck era novo durante esta sincronização
+            new_deck_indicator = " (NOVO DECK)" if deck_result.was_new_deck else ""
+            
+            details_content.append(f"{i:2d}. {success_status} {deck_name}{new_deck_indicator}")
+            
+            # Gerar todas as métricas detalhadas para este deck (inclui detalhes das notas)
+            deck_metrics = generate_deck_detailed_metrics(stats, deck_name)
+            details_content.extend(deck_metrics)
+            
+            # Se houver erro específico do deck, mostrar
+            if not deck_result.success and hasattr(deck_result, 'error_message') and deck_result.error_message:
+                details_content.append(f"     ❌ Erro: {deck_result.error_message}")
+            
+            details_content.append("")
+        
+        details_content.append("=" * 80)
+    
+    return details_content
 
 
 def _show_sync_summary_with_scroll(
@@ -476,14 +834,19 @@ def _show_sync_summary_with_scroll(
     sync_errors=None,
     ankiweb_result=None,
     on_close_callback=None,
+    deck_results=None,
 ):
     """
     Mostra resumo da sincronização com interface scrollável.
 
     Args:
         on_close_callback (callable, optional): Função a ser chamada quando o diálogo for fechado
+        deck_results (list, optional): Lista de DeckSyncResult para visualização por deck
     """
     from .compat import Palette_Window
+    from .compat import QButtonGroup
+    from .compat import QRadioButton
+    from .compat import QHBoxLayout
 
     # Criar dialog customizado
     dialog = QDialog()
@@ -552,119 +915,54 @@ def _show_sync_summary_with_scroll(
     header_label.setStyleSheet(header_style)
     layout.addWidget(header_label)
 
+    # Seção de radiobuttons para escolher o formato de exibição
+    view_group_box = QGroupBox("Formato de Exibição")
+    view_layout = QHBoxLayout()
+    
+    # Radiobuttons
+    simplified_radio = QRadioButton("Simplificado")
+    detailed_radio = QRadioButton("Completo")
+    
+    # Sempre mostrar simplificado por padrão (como solicitado pelo usuário)
+    simplified_radio.setChecked(True)
+    
+    # Agrupar radiobuttons
+    radio_group = QButtonGroup()
+    radio_group.addButton(simplified_radio)
+    radio_group.addButton(detailed_radio)
+    
+    view_layout.addWidget(simplified_radio)
+    view_layout.addWidget(detailed_radio)
+    view_group_box.setLayout(view_layout)
+    layout.addWidget(view_group_box)
+
     # Área de texto com scroll para detalhes
     details_text = QTextEdit()
     details_text.setReadOnly(True)
-    details_content = []
 
-    # Detalhes das notas criadas
-    if total_stats.created > 0 and total_stats.creation_details:
-        details_content.append(f"➕ DETALHES DAS {total_stats.created} NOTAS CRIADAS:")
-        details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats.creation_details, 1):
-            details_content.append(
-                f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}"
+    def update_details_view():
+        """Atualiza a visualização dos detalhes baseado na seleção do radiobutton."""
+        details_content = []
+        
+        if simplified_radio.isChecked():
+            # Modo Simplificado - mostra dados agregados
+            details_content = generate_simplified_view(
+                total_stats, sync_errors, deck_results
             )
-        details_content.append("")
-
-    # Detalhes das notas atualizadas
-    if total_stats.updated > 0 and total_stats.update_details:
-        details_content.append(
-            f"✏️ DETALHES DAS {total_stats.updated} NOTAS ATUALIZADAS:"
-        )
-        details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats.update_details, 1):
-            details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']}")
-            for j, change in enumerate(detail["changes"], 1):
-                details_content.append(f"      {j:2d}. {change}")
-            details_content.append("")
-
-    # Detalhes das notas removidas
-    if total_stats.deleted > 0 and total_stats.deletion_details:
-        details_content.append(f"🗑️ DETALHES DAS {total_stats.deleted} NOTAS REMOVIDAS:")
-        details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats.deletion_details, 1):
-            details_content.append(
-                f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail['pergunta']}"
+        else:
+            # Modo Completo - mostra dados por deck individual
+            details_content = generate_detailed_view(
+                total_stats, sync_errors, deck_results
             )
-        details_content.append("")
+        
+        details_text.setPlainText("\n".join(details_content))
 
-    # Erros detalhados
-    if sync_errors or total_stats.error_details:
-        total_errors = total_stats.errors + len(sync_errors or [])
-        if total_errors > 0:
-            details_content.append(f"⚠️ DETALHES DOS {total_errors} ERROS:")
-            details_content.append("=" * 60)
-            error_count = 1
-            for error in sync_errors or []:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            for error in total_stats.error_details:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            details_content.append("")
+    # Conectar mudanças de radiobutton à atualização da view
+    simplified_radio.toggled.connect(update_details_view)
+    detailed_radio.toggled.connect(update_details_view)
 
-    # Métricas detalhadas do deck remoto - REFATORADAS
-    if (
-        total_stats.remote_total_table_lines > 0
-        or total_stats.remote_valid_note_lines > 0
-        or total_stats.remote_sync_marked_lines > 0
-        or total_stats.remote_total_potential_anki_notes > 0
-    ):
-        details_content.append("📊 MÉTRICAS DETALHADAS DO DECK REMOTO (REFATORADAS):")
-        details_content.append("=" * 60)
-        details_content.append(
-            f"📋 1. Total de linhas na tabela: {total_stats.remote_total_table_lines}"
-        )
-        details_content.append(
-            f"✅ 2. Linhas com notas válidas (ID preenchido): {total_stats.remote_valid_note_lines}"
-        )
-        details_content.append(
-            f"❌ 3. Linhas inválidas (ID vazio): {total_stats.remote_invalid_note_lines}"
-        )
-        details_content.append(
-            f"🔄 4. Linhas marcadas para sincronização: {total_stats.remote_sync_marked_lines}"
-        )
-        details_content.append(
-            f"� 5. Total potencial de notas no Anki: {total_stats.remote_total_potential_anki_notes}"
-        )
-        details_content.append(
-            f"🎓 6. Potencial de notas para alunos específicos: {total_stats.remote_potential_student_notes}"
-        )
-        details_content.append(
-            f"� 7. Potencial de notas para [MISSING A.]: {total_stats.remote_potential_missing_a_notes}"
-        )
-        details_content.append(
-            f"👥 8. Total de alunos únicos: {total_stats.remote_unique_students_count}"
-        )
-
-        # 9. Mostrar notas por aluno individual
-        if total_stats.remote_notes_per_student:
-            details_content.append("📊 9. Notas por aluno (individual):")
-            for student, count in sorted(total_stats.remote_notes_per_student.items()):
-                details_content.append(f"   • {student}: {count} notas")
-
-        details_content.append("")
-
-    # Se não há detalhes de modificações, mostrar mensagem informativa
-    if not any(
-        [
-            total_stats.created > 0 and total_stats.creation_details,
-            total_stats.updated > 0 and total_stats.update_details,
-            total_stats.deleted > 0 and total_stats.deletion_details,
-            sync_errors or total_stats.error_details,
-        ]
-    ):
-        details_content.append(
-            "ℹ️ Nenhuma modificação detalhada de notas foi registrada nesta sincronização."
-        )
-        details_content.append("")
-        details_content.append("Isso pode acontecer quando:")
-        details_content.append("• As notas já estavam atualizadas")
-        details_content.append("• Apenas operações de limpeza foram realizadas")
-        details_content.append("• Não houve alterações nos dados das planilhas")
-
-    details_text.setPlainText("\n".join(details_content))
+    # Definir conteúdo inicial (simplificado)
+    update_details_view()
 
     # Estilos adaptáveis para a área de texto
     text_style = """
@@ -907,7 +1205,7 @@ def _is_anki_decks_ready():
     return _is_anki_ready() and hasattr(mw.col, "decks")
 
 
-def syncDecks(selected_deck_names=None, selected_deck_urls=None):
+def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=False):
     """
     Sincroniza todos os decks remotos com suas fontes.
 
@@ -924,6 +1222,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
                            Se None, sincroniza todos os decks.
         selected_deck_urls: Lista de URLs de decks para sincronizar.
                           Se fornecida, tem precedência sobre selected_deck_names.
+        new_deck_mode: Se True, indica que esta sincronização é para um deck recém-adicionado.
     """
     # Verificar se mw.col está disponível
     if not _is_anki_ready():
@@ -935,6 +1234,15 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
 
     # Limpar mensagens de debug anteriores
     clear_debug_messages()
+
+    # **NOVO**: Atualizar templates de note types existentes antes da sincronização
+    try:
+        add_debug_message("🔄 Atualizando templates de note types existentes...", "SYNC")
+        updated_count = update_existing_note_type_templates(col, [])
+        add_debug_message(f"✅ {updated_count} note types atualizados com sucesso", "SYNC")
+    except Exception as e:
+        add_debug_message(f"⚠️ Erro ao atualizar templates: {e}", "SYNC")
+        # Continuar a sincronização mesmo se houver erro na atualização dos templates
 
     # **NOVO**: Gerenciar limpezas de forma consolidada para evitar múltiplas confirmações
     missing_cleanup_result, cleanup_result = _handle_consolidated_cleanup(remote_decks)
@@ -980,11 +1288,19 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
 
                 # Criar resultado do deck
                 deck_name = remote_decks[deckKey].get("local_deck_name", "Unknown")
+                deck_url = remote_decks[deckKey].get("remote_deck_url", "")
+                
+                # Verificar se o deck era novo e atualizar status de sincronização
+                from .config_manager import update_deck_sync_status
+                was_new_deck = update_deck_sync_status(deck_url, success=True)
+                
                 deck_result = DeckSyncResult(
                     deck_name=deck_name,
                     deck_key=deckKey,
+                    deck_url=deck_url,
                     success=True,
                     stats=current_stats,
+                    was_new_deck=was_new_deck,
                 )
                 stats_manager.add_deck_result(deck_result)
 
@@ -997,9 +1313,11 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
 
                 # Adicionar resultado de falha
                 deck_name = remote_decks[deckKey].get("local_deck_name", "Unknown")
+                deck_url = remote_decks[deckKey].get("remote_deck_url", "")
                 failed_result = DeckSyncResult(
                     deck_name=deck_name,
                     deck_key=deckKey,
+                    deck_url=deck_url,
                     success=False,
                     stats=SyncStats(),
                     error_message=str(e),
@@ -1015,9 +1333,11 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
 
                 # Adicionar resultado de erro inesperado
                 deck_name = remote_decks[deckKey].get("local_deck_name", "Unknown")
+                deck_url = remote_decks[deckKey].get("remote_deck_url", "")
                 failed_result = DeckSyncResult(
                     deck_name=deck_name,
                     deck_key=deckKey,
+                    deck_url=deck_url,
                     success=False,
                     stats=SyncStats(),
                     error_message=f"Erro inesperado: {str(e)}",
@@ -1042,6 +1362,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
         # Obter resumo das estatísticas
         summary = stats_manager.get_summary()
         successful_decks = len(stats_manager.get_successful_decks())
+        deck_results = stats_manager.deck_results  # Obter resultados por deck
 
         add_debug_message(
             f"🎯 Chamando _finalize_sync_new - successful_decks: {successful_decks}, total_decks: {total_decks}",
@@ -1056,6 +1377,8 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None):
             sync_errors,
             cleanup_result,
             missing_cleanup_result,
+            deck_results,
+            new_deck_mode=new_deck_mode,
         )
 
     finally:
@@ -1335,8 +1658,8 @@ def _sync_single_deck(
     # Atualizar informações na configuração com o nome real usado
     currentRemoteInfo["local_deck_name"] = deckName
 
-    # Validar URL antes de tentar sincronizar
-    validate_url(remote_deck_url)
+    # Validar URL antes de tentar sincronizar e obter URL TSV para download
+    tsv_url = validate_url(remote_deck_url)
 
     # 1. Download
     msg = f"{deckName}: baixando arquivo..."
@@ -1350,7 +1673,7 @@ def _sync_single_deck(
         "STUDENTS",
     )
 
-    remoteDeck = getRemoteDeck(remote_deck_url, enabled_students=list(enabled_students))
+    remoteDeck = getRemoteDeck(tsv_url, enabled_students=list(enabled_students))
 
     # NOVO: Debug para verificar notas carregadas
     notes_count = (
@@ -1491,31 +1814,109 @@ def _sync_single_deck(
 
     # Aplicar atualizações necessárias
     if should_update or local_name_needs_update:
-        if should_update:
-            add_debug_message("[UPDATE_REASON] remote_deck_name mudou", "SYNC")
-        if local_name_needs_update:
-            add_debug_message("[UPDATE_REASON] local_deck_name inconsistente", "SYNC")
+            if should_update:
+                add_debug_message("[UPDATE_REASON] remote_deck_name mudou", "SYNC")
+            if local_name_needs_update:
+                add_debug_message("[UPDATE_REASON] local_deck_name inconsistente", "SYNC")
 
-        # Atualizar local_deck_name no meta.json
-        if local_name_needs_update:
-            DeckNameManager._update_name_in_config(
-                remote_deck_url, expected_local_deck_name
-            )
-            add_debug_message(
-                f"[LOCAL_NAME_UPDATE] local_deck_name atualizado: '{current_local_deck_name}' -> '{expected_local_deck_name}'",
-                "SYNC",
-            )
+            # Atualizar local_deck_name no meta.json
+            if local_name_needs_update:
+                DeckNameManager._update_name_in_config(
+                    remote_deck_url, expected_local_deck_name
+                )
+                add_debug_message(
+                    f"[LOCAL_NAME_UPDATE] local_deck_name atualizado: '{current_local_deck_name}' -> '{expected_local_deck_name}'",
+                    "SYNC",
+                )
 
-        # Sincronizar nome físico no Anki se necessário
-        sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
-        if sync_result:
-            add_debug_message(
-                f"[DECK_SYNC] Deck físico sincronizado: ID {sync_result[0]} -> '{sync_result[1]}'",
-                "SYNC",
-            )
+            # Sincronizar nome físico no Anki se necessário
+            sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
+            if sync_result:
+                add_debug_message(
+                    f"[DECK_SYNC] Deck físico sincronizado: ID {sync_result[0]} -> '{sync_result[1]}'",
+                    "SYNC",
+                )
 
-        # Atualizar configuração se houve mudança no remote_deck_name
-        if should_update:
+            # Atualizar configuração se houve mudança no remote_deck_name
+            if should_update:
+                # IMPORTANTE: Atualizar nomes dos note types ANTES de mudar o remote_deck_name
+                old_remote_name_config = currentRemoteInfo.get("remote_deck_name")
+                if old_remote_name_config and old_remote_name_config != current_remote_name:
+                    try:
+                        from .utils import update_note_type_names_for_deck_rename
+                        from .config_manager import get_deck_note_type_ids
+                        
+                        # Detectar o nome real presente nos note types
+                        note_types_config = get_deck_note_type_ids(remote_deck_url)
+                        actual_old_name = None
+                        
+                        if note_types_config:
+                            # Procurar por padrão comum nos note types para extrair o nome real
+                            for note_type_name in note_types_config.values():
+                                # Formato: "Sheets2Anki - {remote_name} - {student} - {type}"
+                                if " - " in note_type_name:
+                                    parts = note_type_name.split(" - ")
+                                    if len(parts) >= 4 and parts[0] == "Sheets2Anki":
+                                        # Reconstruir o nome remoto (pode ter múltiplos hífens)
+                                        # Pegar tudo entre "Sheets2Anki - " e " - {student}"
+                                        start_idx = note_type_name.find("Sheets2Anki - ") + len("Sheets2Anki - ")
+                                        # Encontrar a última ocorrência de " - " seguida de aluno
+                                        last_dash_student = note_type_name.rfind(" - " + parts[-2] + " - " + parts[-1])
+                                        if last_dash_student > start_idx:
+                                            potential_name = note_type_name[start_idx:last_dash_student]
+                                            actual_old_name = potential_name
+                                            break
+                        
+                        # Se não conseguiu detectar, usar o nome da configuração
+                        old_name_to_use = actual_old_name if actual_old_name else old_remote_name_config
+                        
+                        add_debug_message(
+                            f"[NOTE_TYPE_DETECT] old_remote_name_config: '{old_remote_name_config}'",
+                            "SYNC",
+                        )
+                        add_debug_message(
+                            f"[NOTE_TYPE_DETECT] actual_old_name detectado: '{actual_old_name}'",
+                            "SYNC",
+                        )
+                        add_debug_message(
+                            f"[NOTE_TYPE_DETECT] usando para atualização: '{old_name_to_use}' → '{current_remote_name}'",
+                            "SYNC",
+                        )
+                        
+                        updated_count = update_note_type_names_for_deck_rename(
+                            remote_deck_url, old_name_to_use, current_remote_name, debug_messages
+                        )
+                        add_debug_message(
+                            f"[NOTE_TYPE_UPDATE] {updated_count} note types atualizados para novo remote_deck_name",
+                            "SYNC",
+                        )
+                        
+                        # Sincronizar os note types no Anki com os nomes atualizados
+                        if updated_count > 0:
+                            try:
+                                from .utils import sync_note_type_names_with_config
+                                sync_result = sync_note_type_names_with_config(mw.col, remote_deck_url, debug_messages)
+                                if sync_result and sync_result.get("renamed_in_anki", 0) > 0:
+                                    add_debug_message(
+                                        f"[NOTE_TYPE_ANKI_SYNC] {sync_result['renamed_in_anki']} note types renomeados no Anki",
+                                        "SYNC",
+                                    )
+                                else:
+                                    add_debug_message(
+                                        "[NOTE_TYPE_ANKI_SYNC] Nenhum note type renomeado no Anki",
+                                        "SYNC",
+                                    )
+                            except Exception as anki_sync_error:
+                                add_debug_message(
+                                    f"[NOTE_TYPE_ANKI_ERROR] Erro ao sincronizar note types no Anki: {anki_sync_error}",
+                                    "SYNC",
+                                )
+                    except Exception as note_type_error:
+                        add_debug_message(
+                            f"[NOTE_TYPE_ERROR] Erro ao atualizar note types: {note_type_error}",
+                            "SYNC",
+                        )
+            
             currentRemoteInfo["remote_deck_name"] = current_remote_name
             remote_decks[deckKey]["remote_deck_name"] = current_remote_name
             add_debug_message(
@@ -1523,22 +1924,24 @@ def _sync_single_deck(
                 "SYNC",
             )
 
-        # Sempre atualizar local_deck_name na configuração em memória
-        if local_name_needs_update:
-            currentRemoteInfo["local_deck_name"] = expected_local_deck_name
-            remote_decks[deckKey]["local_deck_name"] = expected_local_deck_name
-            add_debug_message(
-                "[MEMORY_UPDATE] Configuração em memória atualizada", "SYNC"
-            )
+            # Sempre atualizar local_deck_name na configuração em memória
+            if local_name_needs_update:
+                currentRemoteInfo["local_deck_name"] = expected_local_deck_name
+                remote_decks[deckKey]["local_deck_name"] = expected_local_deck_name
+                add_debug_message(
+                    "[MEMORY_UPDATE] Configuração em memória atualizada", "SYNC"
+                )
 
-        # Salvar configuração se houve qualquer mudança
-        if should_update or local_name_needs_update:
+            # IMPORTANTE: Não recarregar do arquivo aqui para preservar atualizações em memória
+            add_debug_message(
+                "[CONFIG_PRESERVE] Preservando atualizações em memória (remote_deck_name e note_types)", "SYNC"
+            )
+            
+            # Salvar configuração final (agora com note_types atualizados E remote_deck_name correto)
             save_remote_decks(remote_decks)
             add_debug_message(
-                "[CONFIG_SAVE] Configuração salva após atualização de nomes", "SYNC"
-            )
-
-    # Atualizar nome do deck se necessário usando DeckNameManager
+                "[CONFIG_SAVE] Configuração salva após atualização de nomes (com note_types corretos)", "SYNC"
+            )    # Atualizar nome do deck se necessário usando DeckNameManager
     current_remote_name = currentRemoteInfo.get("remote_deck_name")
     sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
     if sync_result:
@@ -1624,6 +2027,53 @@ def _sync_single_deck(
             "SYNC",
         )
 
+        # NOVO: Garantir consistência automática de nomes após sincronização
+        add_debug_message(
+            f"🔧 Iniciando verificação de consistência de nomes para: {remote_deck_url}",
+            "NAME_CONSISTENCY",
+        )
+        
+        try:
+            consistency_result = NameConsistencyManager.ensure_consistency_during_sync(
+                deck_url=remote_deck_url,
+                remote_decks=remote_decks,
+                debug_callback=lambda msg: add_debug_message(msg, "NAME_CONSISTENCY")
+            )
+            
+            if consistency_result and not consistency_result.get('errors'):
+                # Sucesso - logar o que foi atualizado
+                updates = []
+                if consistency_result.get('deck_updated'):
+                    updates.append("deck name")
+                if consistency_result.get('note_types_updated'):
+                    updates.append(f"{len(consistency_result['note_types_updated'])} note types")
+                if consistency_result.get('deck_options_updated'):
+                    updates.append("deck options")
+                
+                if updates:
+                    add_debug_message(
+                        f"✅ Consistência aplicada: {', '.join(updates)} atualizados",
+                        "NAME_CONSISTENCY",
+                    )
+                else:
+                    add_debug_message(
+                        "✅ Consistência verificada: todos os nomes já estavam corretos",
+                        "NAME_CONSISTENCY",
+                    )
+            elif consistency_result and consistency_result.get('errors'):
+                # Erro - mas não falhar a sincronização
+                for error in consistency_result['errors']:
+                    add_debug_message(
+                        f"⚠️ Erro na consistência de nomes: {error}",
+                        "NAME_CONSISTENCY",
+                    )
+        except Exception as consistency_error:
+            # Não falhar a sincronização por causa da consistência de nomes
+            add_debug_message(
+                f"⚠️ Erro inesperado na consistência de nomes: {consistency_error}",
+                "NAME_CONSISTENCY",
+            )
+
     except Exception as e:
         # Não falhar a sincronização por causa da captura de IDs
         add_debug_message(
@@ -1704,6 +2154,22 @@ def _sync_single_deck(
     except Exception as history_error:
         add_debug_message(f"⚠️ HISTORY: Erro ao atualizar histórico: {history_error}", "SYNC")
         # Não interromper sincronização por erro no histórico
+
+    # CRÍTICO: Salvar configurações finais após consistência de nomes
+    # Isso garante que as atualizações do NameConsistencyManager sejam persistidas
+    try:
+        from .config_manager import save_meta, get_meta
+        current_meta = get_meta()
+        save_meta(current_meta)
+        add_debug_message(
+            "💾 FINAL_SAVE: Configurações salvas após verificação de consistência",
+            "SYNC"
+        )
+    except Exception as save_error:
+        add_debug_message(
+            f"⚠️ FINAL_SAVE: Erro ao salvar configurações finais: {save_error}",
+            "SYNC"
+        )
 
     return step, 1, deck_stats
 

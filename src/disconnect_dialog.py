@@ -286,7 +286,8 @@ class DisconnectDialog(QDialog):
                 local_deck_name = deck["name"]
                 card_count = 0
                 if mw.col and hasattr(mw.col, "find_cards"):
-                    card_count = len(mw.col.find_cards(f'deck:"{local_deck_name}"'))
+                    escaped_deck_name = local_deck_name.replace('"', '\\"')
+                    card_count = len(mw.col.find_cards(f'deck:"{escaped_deck_name}"'))
 
                 # Usar nome remoto com contador de cards
                 checkbox_text = f"{remote_name} ({card_count} cards)"

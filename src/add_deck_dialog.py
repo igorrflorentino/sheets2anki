@@ -272,13 +272,13 @@ class AddDeckDialog(QDialog):
         self._show_progress(True)
 
         try:
-            # Validar formato da URL
-            validate_url(url)
+            # Validar formato da URL e obter URL TSV
+            self.tsv_url = validate_url(url)
 
-            # Tentar carregar o deck
-            self.remote_deck = getRemoteDeck(url)
+            # Tentar carregar o deck usando a URL TSV
+            self.remote_deck = getRemoteDeck(self.tsv_url)
 
-            # Extrair nome sugerido
+            # Extrair nome sugerido da URL original (não TSV)
             self.suggested_name = DeckNameManager.extract_remote_name_from_url(url)
 
             # Mostrar informações de forma compacta
@@ -449,7 +449,6 @@ class AddDeckDialog(QDialog):
                 local_deck_id=deck_id,
                 local_deck_name=actual_name,
                 remote_deck_name=final_remote_name,
-                created_at=self._get_current_timestamp(),
             )
 
             add_remote_deck(url, deck_info)
@@ -484,12 +483,6 @@ class AddDeckDialog(QDialog):
             self.add_button.setEnabled(True)
         finally:
             self._show_progress(False)
-
-    def _get_current_timestamp(self):
-        """Obtém timestamp atual."""
-        import time
-
-        return int(time.time())
 
     def get_deck_info(self):
         """Retorna informações do deck adicionado."""

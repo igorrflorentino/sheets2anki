@@ -105,7 +105,8 @@ def _delete_local_deck_data(deck_id, deck_name, url):
                 print(f"[DEBUG] Erro ao verificar note type {note_type_id_str}: {e}")
 
         # 2. Deletar todas as notas do deck
-        card_ids = mw.col.find_cards(f'deck:"{deck_name}"')
+        escaped_deck_name = deck_name.replace('"', '\\"')
+        card_ids = mw.col.find_cards(f'deck:"{escaped_deck_name}"')
         print(f"[DEBUG] Cards encontrados para deletar: {len(card_ids)}")
         if card_ids:
             mw.col.remove_cards_and_orphaned_notes(card_ids)
@@ -315,7 +316,8 @@ def _get_valid_deck_info(config):
                 deck_name = deck["name"]
                 # Contar cards no deck (verificando se find_cards está disponível)
                 if mw.col.find_cards:
-                    card_count = len(mw.col.find_cards(f'deck:"{deck_name}"'))
+                    escaped_deck_name = deck_name.replace('"', '\\"')
+                    card_count = len(mw.col.find_cards(f'deck:"{escaped_deck_name}"'))
                 else:
                     card_count = 0  # Fallback se find_cards não estiver disponível
                 deck_info_list.append((deck_name, card_count))
@@ -404,7 +406,7 @@ def import_test_deck():
         # Sincronizar o deck
         from .sync import syncDecks
 
-        syncDecks(selected_deck_urls=[url])
+        syncDecks(selected_deck_urls=[url], new_deck_mode=True)
 
         # Obter o nome final do deck após a sincronização (pode ter sido alterado)
         remote_decks = get_remote_decks()
@@ -1184,7 +1186,8 @@ class DeckNameManager:
 
                 # Múltiplos padrões para extrair título
                 title_patterns = [
-                    r"<title>([^<]+?)\s*-\s*Google\s*(Sheets|Planilhas)</title>",
+                    # Padrão específico para remover sufixos do Google Sheets/Planilhas (todas as variações)
+                    r"<title>([^<]+?)\s*-\s*(Google\s*(Sheets|Planilhas)|Planilhas\s*Google)</title>",
                     r"<title>([^<]+)</title>",
                     r'"title":"([^"]+)"',
                     r'<meta property="og:title" content="([^"]+)"',
@@ -1195,6 +1198,10 @@ class DeckNameManager:
                     match = re.search(pattern, html, re.IGNORECASE)
                     if match:
                         title = match.group(1).strip()
+                        
+                        # Limpar sufixos adicionais que podem ter escapado do regex
+                        title = re.sub(r'\s*-\s*(Google\s*(Sheets|Planilhas)|Planilhas\s+Google)$', '', title, flags=re.IGNORECASE).strip()
+                        
                         if title and title.lower() not in [
                             "untitled",
                             "sem título",

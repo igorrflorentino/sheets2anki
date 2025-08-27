@@ -50,6 +50,93 @@ O Sheets2Anki é um add-on modular para Anki que sincroniza dados do Google Shee
 - Event-driven updates entre componentes
 - Progress callbacks durante sincronização
 
+## 🆕 Melhorias Recentes - Versão Atual
+
+### 🔧 **Sistema de Consistência de Nomes** (`src/name_consistency_manager.py`)
+
+#### **Problema Resolvido:**
+- Inconsistências entre nomes de note types no Anki vs. configuração
+- Reversão de correções por operações posteriores de save
+- Falta de sincronização automática durante o processo de sync
+
+#### **Solução Implementada:**
+```python
+class NameConsistencyManager:
+    @staticmethod
+    def ensure_consistency_during_sync(
+        deck_url: str, 
+        remote_decks: Optional[Dict] = None,
+        debug_callback=None
+    ) -> Dict[str, Any]:
+        """Garante consistência de nomes durante sincronização"""
+        
+    @staticmethod
+    def update_remote_decks_in_memory(
+        deck_url: str,
+        remote_decks: Dict,
+        local_deck_name: str,
+        note_types: Dict[str, str],
+        debug_callback
+    ):
+        """Atualiza dados em memória para evitar reversão"""
+```
+
+#### **Características Técnicas:**
+- **Detecção Automática:** Verifica inconsistências após cada deck sync
+- **Correção Dual:** Atualiza tanto meta.json quanto dicionário em memória
+- **Prevenção de Reversão:** Evita que `save_remote_decks()` posterior reverta mudanças
+- **Debug Detalhado:** Log completo de todas as operações de consistência
+
+### 📊 **Interface de Resumo Aprimorada** (`src/sync.py`)
+
+#### **Reorganização da Função `generate_detailed_view()`:**
+```python
+def generate_detailed_view(total_stats, sync_errors=None, deck_results=None):
+    """
+    Gera visualização detalhada com ordem otimizada:
+    1. PRIMEIRO: Resumo geral agregado
+    2. SEGUNDO: Detalhes individuais por deck
+    """
+    details_content = []
+    
+    # PRIMEIRO: Mostrar resumo geral agregado
+    aggregated_summary = generate_aggregated_summary_only(total_stats, sync_errors)
+    if aggregated_summary:
+        details_content.append("📋 RESUMO GERAL AGREGADO:")
+        details_content.extend(aggregated_summary)
+    
+    # SEGUNDO: Mostrar resumo por deck individual
+    if deck_results and len(deck_results) > 1:
+        details_content.append("📊 RESUMO POR DECK INDIVIDUAL:")
+        # ... detalhes por deck
+```
+
+#### **Melhorias de UX:**
+- **Ordem Lógica:** Visão geral → Detalhes específicos
+- **Performance:** Rendering otimizado para grandes volumes
+- **Consistência:** Padrão uniforme de apresentação de dados
+
+### 🔄 **Fluxo de Sync Atualizado:**
+
+```mermaid
+graph TD
+    A[Sync Initiated] --> B[Process Each Deck]
+    B --> C[Download & Parse TSV]
+    C --> D[Create/Update Notes]
+    D --> E[Capture Note Type IDs]
+    E --> F[🆕 Name Consistency Check]
+    F --> G[Update Meta.json]
+    G --> H[🆕 Update Remote_Decks Memory]
+    H --> I[Final Save Operations]
+    I --> J[🆕 Consistency Preserved]
+```
+
+#### **Pontos Críticos de Melhoria:**
+1. **Linha 2002 sync.py:** Chamada do sistema de consistência
+2. **Atualização Dual:** Meta.json + remote_decks em memória
+3. **Save Final:** Garantia de persistência das correções
+- Progress callbacks durante sincronização
+
 ## 📁 Estrutura do Projeto
 
 ```
@@ -269,15 +356,27 @@ mw.col.models.save()
 ### **Google Sheets Integration**
 
 #### TSV Format Requirements:
-- **Public URL**: Must be published as TSV
+- **Flexible URLs**: Supports both published TSV and edit URLs
 - **18 Columns**: Mandatory structure
 - **UTF-8 Encoding**: Character encoding
 - **Tab Separated**: Not comma-separated
 
-#### URL Pattern:
+#### Supported URL Patterns:
 ```
-https://docs.google.com/spreadsheets/d/e/{SHEET_ID}/pub?output=tsv
+# Published TSV URL (traditional format)
+https://docs.google.com/spreadsheets/d/e/{PUBLICATION_KEY}/pub?output=tsv
+
+# Edit URL (automatically converted to TSV)
+https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit?usp=sharing
+
+# Export URL (already in TSV format)
+https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=tsv&gid=0
 ```
+
+#### URL Processing:
+- **Automatic Conversion**: Edit URLs are automatically converted to TSV export format
+- **Backward Compatibility**: Traditional published URLs continue to work
+- **Hash Generation**: Uses publication key or spreadsheet ID for consistent identification
 
 ### **File System Operations**
 
@@ -496,9 +595,80 @@ debugpy.wait_for_client()
 
 #### **3. Console Output**
 ```python
+#### **3. Console Output**
+```python
 # Debug prints visíveis no Anki
 from aqt.utils import showInfo
 showInfo(f"Debug: {variable_content}")
+
+# Debug específico para name consistency
+from .utils import add_debug_message
+add_debug_message("Consistency check started", "NAME_CONSISTENCY")
+```
+
+### 🆕 **Debugging das Novas Funcionalidades**
+
+#### **Sistema de Consistência de Nomes**
+
+**Logs Importantes:**
+```bash
+# Arquivo: debug_sheets2anki.log
+
+# Início da verificação
+[13:11:11.617] [NAME_CONSISTENCY] 🔧 Iniciando verificação de consistência
+
+# Detecção de inconsistência
+[13:11:11.618] [NAME_CONSISTENCY] Note type 1756222007332: 'old_name' vs 'new_name'
+
+# Correção aplicada
+[13:11:11.618] [NAME_CONSISTENCY] 📋 Note type correto no Anki, atualizando meta.json
+
+# Atualização em memória
+[13:11:11.619] [NAME_CONSISTENCY] 💾 Dicionário remote_decks em memória atualizado
+
+# Save final
+[13:11:11.621] [SYNC] 💾 FINAL_SAVE: Configurações salvas após verificação
+```
+
+**Debugging Checklist:**
+```python
+def debug_consistency_system():
+    """Para debuggar problemas de consistência"""
+    
+    # 1. Verificar se função é chamada
+    assert "ensure_consistency_during_sync" in locals()
+    
+    # 2. Verificar se remote_decks é passado
+    assert remote_decks_param is not None
+    
+    # 3. Verificar save operations order
+    # Meta.json deve ser salvo APÓS consistência
+    
+    # 4. Verificar se mudanças persistem
+    # Comparar antes/depois no meta.json
+```
+
+**Problemas Comuns:**
+- **Reversão de mudanças:** `save_remote_decks()` posterior sobrescreve
+- **Dados não persistem:** FINAL_SAVE não executado
+- **Logs ausentes:** debug_callback não configurado
+
+#### **Interface de Resumo**
+
+**Verificar Ordem das Seções:**
+```python
+def test_summary_order():
+    result = generate_detailed_view(stats, errors, deck_results)
+    
+    # Procurar índices das seções
+    agregado_idx = next(i for i, line in enumerate(result) 
+                       if "RESUMO GERAL AGREGADO" in line)
+    individual_idx = next(i for i, line in enumerate(result) 
+                         if "RESUMO POR DECK INDIVIDUAL" in line)
+    
+    # Verificar ordem correta
+    assert agregado_idx < individual_idx, "Ordem incorreta!"
+```
 
 # Para desenvolvimento
 print(f"DEBUG: {data}", file=sys.stderr)

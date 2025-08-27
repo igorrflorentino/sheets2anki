@@ -563,5 +563,169 @@ class TestUtilsIntegration:
         assert hash_result == hash_result2
 
 
+# =============================================================================
+# TESTES PARA NOVAS FUNCIONALIDADES - URLS DE EDIÇÃO
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestGoogleSheetsUrlConversion:
+    """Testes para conversão de URLs do Google Sheets."""
+
+    def test_convert_edit_url_to_tsv(self):
+        """Teste conversão de URL de edição para TSV."""
+        from src.utils import convert_google_sheets_url_to_tsv
+
+        edit_url = "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing"
+        expected_tsv = "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/export?format=tsv"
+        
+        result = convert_google_sheets_url_to_tsv(edit_url)
+        assert result == expected_tsv
+
+    def test_convert_already_tsv_url(self):
+        """Teste com URL que já está em formato TSV."""
+        from src.utils import convert_google_sheets_url_to_tsv
+
+        tsv_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSample/pub?output=tsv"
+        
+        result = convert_google_sheets_url_to_tsv(tsv_url)
+        assert result == tsv_url  # Deve retornar a mesma URL
+
+    def test_convert_export_format_url(self):
+        """Teste com URL que já está em formato export."""
+        from src.utils import convert_google_sheets_url_to_tsv
+
+        export_url = "https://docs.google.com/spreadsheets/d/1abc123/export?format=tsv"
+        
+        result = convert_google_sheets_url_to_tsv(export_url)
+        assert result == export_url  # Deve retornar a mesma URL
+
+    def test_convert_invalid_url(self):
+        """Teste com URL inválida."""
+        from src.utils import convert_google_sheets_url_to_tsv
+
+        invalid_url = "https://example.com/not-google-sheets"
+        
+        with pytest.raises(ValueError) as exc_info:
+            convert_google_sheets_url_to_tsv(invalid_url)
+        
+        assert "URL deve ser do Google Sheets" in str(exc_info.value)
+
+    def test_convert_empty_url(self):
+        """Teste com URL vazia."""
+        from src.utils import convert_google_sheets_url_to_tsv
+
+        with pytest.raises(ValueError) as exc_info:
+            convert_google_sheets_url_to_tsv("")
+        
+        assert "URL deve ser uma string não vazia" in str(exc_info.value)
+
+    def test_convert_unrecognized_format(self):
+        """Teste com URL do Google Sheets em formato não reconhecido."""
+        from src.utils import convert_google_sheets_url_to_tsv
+
+        unrecognized_url = "https://docs.google.com/spreadsheets/d/1abc123/view"
+        
+        with pytest.raises(ValueError) as exc_info:
+            convert_google_sheets_url_to_tsv(unrecognized_url)
+        
+        assert "Formato de URL não reconhecido" in str(exc_info.value)
+
+    def test_convert_edit_url_fallback(self):
+        """Teste de fallback para URLs de edição que não são acessíveis."""
+        from src.utils import convert_google_sheets_url_to_tsv
+
+        # URL de edição com ID fictício (não acessível)
+        edit_url = "https://docs.google.com/spreadsheets/d/1fictitious123/edit?usp=sharing"
+        
+        result = convert_google_sheets_url_to_tsv(edit_url)
+        
+        # Deve retornar URL sem gid (sempre baixa primeira aba)
+        expected_result = "https://docs.google.com/spreadsheets/d/1fictitious123/export?format=tsv"
+        assert result == expected_result
+
+
+@pytest.mark.unit
+class TestExtractPublicationKeyFromUrl:
+    """Testes para extração de chaves/IDs de URLs do Google Sheets."""
+
+    def test_extract_publication_key_from_published_url(self):
+        """Teste extração de chave de publicação de URL publicada."""
+        from src.utils import extract_publication_key_from_url
+
+        url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSample-Key-123/pub?output=tsv"
+        expected_key = "2PACX-1vSample-Key-123"
+        
+        result = extract_publication_key_from_url(url)
+        assert result == expected_key
+
+    def test_extract_id_from_edit_url(self):
+        """Teste extração de ID de planilha de URL de edição."""
+        from src.utils import extract_publication_key_from_url
+
+        url = "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing"
+        expected_id = "1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs"
+        
+        result = extract_publication_key_from_url(url)
+        assert result == expected_id
+
+    def test_extract_from_empty_url(self):
+        """Teste com URL vazia."""
+        from src.utils import extract_publication_key_from_url
+
+        result = extract_publication_key_from_url("")
+        assert result is None
+
+    def test_extract_from_invalid_url(self):
+        """Teste com URL que não é do Google Sheets."""
+        from src.utils import extract_publication_key_from_url
+
+        url = "https://example.com/not-google-sheets"
+        
+        result = extract_publication_key_from_url(url)
+        assert result is None
+
+
+@pytest.mark.unit
+class TestGetPublicationKeyHash:
+    """Testes para geração de hash de chaves/IDs."""
+
+    def test_hash_consistency(self):
+        """Teste que o hash é consistente para a mesma URL."""
+        from src.utils import get_publication_key_hash
+
+        url = "https://docs.google.com/spreadsheets/d/1abc123/edit?usp=sharing"
+        
+        hash1 = get_publication_key_hash(url)
+        hash2 = get_publication_key_hash(url)
+        
+        assert hash1 == hash2
+        assert len(hash1) == 8
+
+    def test_hash_different_urls(self):
+        """Teste que URLs diferentes produzem hashes diferentes."""
+        from src.utils import get_publication_key_hash
+
+        url1 = "https://docs.google.com/spreadsheets/d/1abc123/edit?usp=sharing"
+        url2 = "https://docs.google.com/spreadsheets/d/1xyz789/edit?usp=sharing"
+        
+        hash1 = get_publication_key_hash(url1)
+        hash2 = get_publication_key_hash(url2)
+        
+        assert hash1 != hash2
+        assert len(hash1) == 8
+        assert len(hash2) == 8
+
+    def test_hash_fallback_for_unknown_format(self):
+        """Teste fallback para URLs em formato desconhecido."""
+        from src.utils import get_publication_key_hash
+
+        # URL em formato não reconhecido, mas ainda deve gerar hash
+        url = "https://docs.google.com/spreadsheets/unknown-format"
+        
+        hash_result = get_publication_key_hash(url)
+        assert len(hash_result) == 8
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

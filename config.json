@@ -1,7 +1,6 @@
 {
     "debug": false,
     "auto_sync_on_startup": false,
-    "backup_before_sync": true,
     "max_sync_retries": 3,
     "sync_timeout_seconds": 30,
     "show_sync_notifications": true,

@@ -101,6 +101,7 @@ class TestColumnValidation:
             "ALUNOS",
             "INFO COMPLEMENTAR",
             "INFO DETALHADA",
+            "ILUSTRAÇÃO HTML",
             "EXEMPLO 1",
             "EXEMPLO 2",
             "EXEMPLO 3",

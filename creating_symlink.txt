@@ -1,0 +1,2 @@
+# execute o codigo no terminal
+ln -s '/Users/igorflorentino/• Principais do Home/Git/Coding/anki/sheets2anki' '/Users/igorflorentino/Library/Application Support/Anki2/addons21'

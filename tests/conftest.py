@@ -36,6 +36,7 @@ def sample_tsv_data():
             "ALUNOS": "João, Maria, Pedro",
             "INFO COMPLEMENTAR": "Fundada em 1960",
             "INFO DETALHADA": "Capital planejada do Brasil",
+            "ILUSTRAÇÃO HTML": '<img src="https://example.com/brasilia.jpg" width="200">',
             "EXEMPLO 1": "Localizada no Distrito Federal",
             "EXEMPLO 2": "Projetada por Oscar Niemeyer",
             "EXEMPLO 3": "Inaugurada em 21 de abril de 1960",
@@ -56,6 +57,7 @@ def sample_tsv_data():
             "ALUNOS": "Maria, Ana",
             "INFO COMPLEMENTAR": "Exemplo de card cloze",
             "INFO DETALHADA": "Teste de detecção automática",
+            "ILUSTRAÇÃO HTML": "",
             "EXEMPLO 1": "",
             "EXEMPLO 2": "",
             "EXEMPLO 3": "",
@@ -88,9 +90,9 @@ def sample_url():
 @pytest.fixture
 def sample_tsv_content():
     """Conteúdo TSV de exemplo em formato string."""
-    return """ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	ALUNOS	INFO COMPLEMENTAR	INFO DETALHADA	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	CARREIRA	IMPORTANCIA	TAGS ADICIONAIS
-Q001	Qual é a capital do Brasil?	Brasília	true	João, Maria	Fundada em 1960	Capital planejada	DF	Oscar Niemeyer	21 abril 1960	Geografia	Capitais	Brasil	CESPE	2024	Concursos	Alta	fundamental
-Q002	{{c1::Python}} é uma linguagem de {{c2::programação}}	Card sobre programação	true	Maria, Pedro	Linguagem popular	Fácil de aprender	Sintaxe simples	Muitas bibliotecas	Open source	Programação	Linguagens	Python	FCC	2023	TI	Média	python"""
+    return """ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	ALUNOS	INFO COMPLEMENTAR	INFO DETALHADA	ILUSTRAÇÃO HTML	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	CARREIRA	IMPORTANCIA	TAGS ADICIONAIS
+Q001	Qual é a capital do Brasil?	Brasília	true	João, Maria	Fundada em 1960	Capital planejada	<img src="https://example.com/brasilia.jpg" width="200">	DF	Oscar Niemeyer	21 abril 1960	Geografia	Capitais	Brasil	CESPE	2024	Concursos	Alta	fundamental
+Q002	{{c1::Python}} é uma linguagem de {{c2::programação}}	Card sobre programação	true	Maria, Pedro	Linguagem popular	Fácil de aprender		Sintaxe simples	Muitas bibliotecas	Open source	Programação	Linguagens	Python	FCC	2023	TI	Média	python"""
 
 
 # =============================================================================

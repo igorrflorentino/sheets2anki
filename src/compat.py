@@ -184,6 +184,16 @@ else:
     DialogAccepted = 1
     DialogRejected = 0
 
+# Constantes de modalidade de janela
+if QT_VERSION >= 6:
+    WINDOW_MODAL = Qt.WindowModality.WindowModal
+    APPLICATION_MODAL = Qt.WindowModality.ApplicationModal
+    NON_MODAL = Qt.WindowModality.NonModal
+else:
+    WINDOW_MODAL = Qt.WindowModal
+    APPLICATION_MODAL = Qt.ApplicationModal
+    NON_MODAL = Qt.NonModal
+
 # Constantes de QDialogButtonBox
 if QT_VERSION >= 6:
     ButtonBox_Ok = QDialogButtonBox.StandardButton.Ok

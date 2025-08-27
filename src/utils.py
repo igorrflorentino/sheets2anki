@@ -8,31 +8,93 @@ diferentes partes do projeto.
 import hashlib
 import re
 
-from .compat import mw
-from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
+try:
+    from .compat import mw
+    from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
+except ImportError:
+    # Para testes independentes
+    from compat import mw
+    from templates_and_definitions import DEFAULT_PARENT_DECK_NAME
+
+
+def safe_find_cards(search_query):
+    """
+    Realiza uma busca segura de cards, escapando caracteres problemáticos.
+    
+    Args:
+        search_query (str): Query de busca
+        
+    Returns:
+        list: Lista de IDs de cards encontrados
+    """
+    try:
+        if not mw or not mw.col:
+            return []
+        
+        # Verificar se a query está vazia
+        if not search_query or not search_query.strip():
+            return []
+        
+        return mw.col.find_cards(search_query)
+    except Exception as e:
+        print(f"[SEARCH_ERROR] Erro na busca de cards: {e}")
+        return []
+
+
+def safe_find_cards_by_deck(deck_name):
+    """
+    Busca cards por nome de deck de forma segura.
+    
+    Args:
+        deck_name (str): Nome do deck
+        
+    Returns:
+        list: Lista de IDs de cards encontrados
+    """
+    try:
+        if not deck_name or not deck_name.strip():
+            return []
+        
+        # Escapar aspas duplas no nome do deck
+        escaped_deck_name = deck_name.replace('"', '\\"')
+        search_query = f'deck:"{escaped_deck_name}"'
+        
+        return safe_find_cards(search_query)
+    except Exception as e:
+        print(f"[SEARCH_ERROR] Erro na busca por deck '{deck_name}': {e}")
+        return []
 
 
 def extract_publication_key_from_url(url):
     """
-    Extrai a chave de publicação de uma URL do Google Sheets.
+    Extrai a chave de publicação ou ID da planilha de uma URL do Google Sheets.
 
     Args:
         url (str): URL do Google Sheets
 
     Returns:
-        str: Chave de publicação extraída ou None se não encontrada
+        str: Chave de publicação extraída, ID da planilha ou None se não encontrada
 
     Examples:
         >>> extract_publication_key_from_url("https://docs.google.com/spreadsheets/d/e/2PACX-1vSample-Key/pub?output=tsv")
         "2PACX-1vSample-Key"
+        >>> extract_publication_key_from_url("https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaP/edit?usp=sharing")
+        "1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaP"
     """
     if not url:
         return None
 
-    # Padrão para extrair a chave de publicação entre /d/e/ e /pub
-    pattern = r"/spreadsheets/d/e/([^/]+)/"
-    match = re.search(pattern, url)
+    # Primeiro, tentar padrão de URLs publicadas (chave de publicação entre /d/e/ e /pub)
+    publication_pattern = r"/spreadsheets/d/e/([^/]+)/"
+    match = re.search(publication_pattern, url)
+    
+    if match:
+        return match.group(1)
 
+    # Se não encontrou, tentar padrão de URLs de edição (ID entre /d/ e /edit)
+    edit_pattern = r"/spreadsheets/d/([a-zA-Z0-9-_]+)/edit"
+    match = re.search(edit_pattern, url)
+    
     if match:
         return match.group(1)
 
@@ -41,7 +103,7 @@ def extract_publication_key_from_url(url):
 
 def get_publication_key_hash(url):
     """
-    Gera um hash de 8 caracteres baseado na chave de publicação da URL.
+    Gera um hash de 8 caracteres baseado na chave de publicação ou ID da planilha da URL.
 
     Args:
         url (str): URL do Google Sheets
@@ -52,7 +114,7 @@ def get_publication_key_hash(url):
     publication_key = extract_publication_key_from_url(url)
 
     if publication_key:
-        # Usar a chave de publicação para gerar o hash
+        # Usar a chave de publicação ou ID da planilha para gerar o hash
         hash_obj = hashlib.md5(publication_key.encode("utf-8"))
         return hash_obj.hexdigest()[:8]
     else:
@@ -444,7 +506,8 @@ def capture_deck_note_type_ids_from_cards(url, local_deck_id, debug_messages=Non
 
     try:
         # Buscar todos os cards do deck específico
-        card_ids = mw.col.find_cards(f"deck:{local_deck_id}")
+        # Usar busca por ID de deck que é segura
+        card_ids = mw.col.find_cards(f"did:{local_deck_id}")
         add_debug_msg(f"Encontrados {len(card_ids)} cards no deck")
 
         if not card_ids:
@@ -866,41 +929,71 @@ def _should_update_config_version(config):
     return False
 
 
-def get_or_create_sheets2anki_options_group(deck_name=None):
+def get_or_create_sheets2anki_options_group(deck_name=None, deck_url=None):
     """
-    Obtém ou cria o grupo de opções baseado no modo configurado.
+    Obtém ou cria o grupo de opções baseado no modo configurado e configuração específica do deck.
 
     Args:
         deck_name (str, optional): Nome do deck remoto para modo individual
+        deck_url (str, optional): URL do deck para obter configuração específica
 
     Returns:
         int: ID do grupo de opções ou None se modo manual
     """
-    from .config_manager import get_deck_options_mode
+    from .config_manager import get_deck_options_mode, get_deck_configurations_package_name
 
     if not mw or not mw.col:
         add_debug_message("❌ Anki não disponível", "DECK_OPTIONS")
         return None
 
-    # Verificar modo configurado
-    mode = get_deck_options_mode()
+    # Primeiro, verificar se há uma configuração específica armazenada para este deck
+    if deck_url:
+        stored_package_name = get_deck_configurations_package_name(deck_url)
+        if stored_package_name:
+            options_group_name = stored_package_name
+            add_debug_message(
+                f"Usando configuração específica do deck: '{options_group_name}'",
+                "DECK_OPTIONS",
+            )
+        else:
+            # Fallback para o modo global se não há configuração específica
+            mode = get_deck_options_mode()
+            if mode == "manual":
+                add_debug_message(
+                    "Modo manual ativo - não aplicando opções automáticas", "DECK_OPTIONS"
+                )
+                return None
+            elif mode == "individual" and deck_name:
+                options_group_name = f"Sheets2Anki - {deck_name}"
+                add_debug_message(
+                    f"Modo individual: criando/obtendo grupo '{options_group_name}'",
+                    "DECK_OPTIONS",
+                )
+            else:  # mode == "shared" ou fallback
+                options_group_name = "Sheets2Anki - Default Options"
+                add_debug_message(
+                    f"Modo shared: criando/obtendo grupo '{options_group_name}'", "DECK_OPTIONS"
+                )
+    else:
+        # Verificar modo configurado (fallback quando não há URL)
+        mode = get_deck_options_mode()
 
-    if mode == "manual":
-        add_debug_message(
-            "Modo manual ativo - não aplicando opções automáticas", "DECK_OPTIONS"
-        )
-        return None
-    elif mode == "individual" and deck_name:
-        options_group_name = f"Sheets2Anki - {deck_name}"
-        add_debug_message(
-            f"Modo individual: criando/obtendo grupo '{options_group_name}'",
-            "DECK_OPTIONS",
-        )
-    else:  # mode == "shared" ou fallback
-        options_group_name = "Sheets2Anki - Default Options"
-        add_debug_message(
-            f"Modo shared: criando/obtendo grupo '{options_group_name}'", "DECK_OPTIONS"
-        )
+        if mode == "manual":
+            add_debug_message(
+                "Modo manual ativo - não aplicando opções automáticas", "DECK_OPTIONS"
+            )
+            return None
+        elif mode == "individual" and deck_name:
+            options_group_name = f"Sheets2Anki - {deck_name}"
+            add_debug_message(
+                f"Modo individual: criando/obtendo grupo '{options_group_name}'",
+                "DECK_OPTIONS",
+            )
+        else:  # mode == "shared" ou fallback
+            options_group_name = "Sheets2Anki - Default Options"
+            add_debug_message(
+                f"Modo shared: criando/obtendo grupo '{options_group_name}'", "DECK_OPTIONS"
+            )
 
     try:
         # Procurar por grupo de opções existente
@@ -2062,12 +2155,64 @@ def debug_log(module, message, *args):
 # ========================================================================================
 
 
+def convert_google_sheets_url_to_tsv(url):
+    """
+    Converte URLs do Google Sheets de diferentes formatos para formato TSV.
+    
+    Suporta:
+    - URLs de edição: https://docs.google.com/spreadsheets/d/{id}/edit?usp=sharing
+    - URLs já no formato TSV: mantém inalteradas
+    
+    Args:
+        url (str): URL original do Google Sheets
+        
+    Returns:
+        str: URL no formato TSV para download
+        
+    Raises:
+        ValueError: Se a URL não for reconhecida como Google Sheets
+    """
+    import re
+    
+    if not url or not isinstance(url, str):
+        raise ValueError("URL deve ser uma string não vazia")
+    
+    # Se já é uma URL TSV válida, retorna como está
+    if "output=tsv" in url or "format=tsv" in url:
+        return url
+    
+    # Verificar se é uma URL do Google Sheets
+    if "docs.google.com/spreadsheets" not in url:
+        raise ValueError("URL deve ser do Google Sheets")
+    
+    # Extrair ID da planilha para URLs de edição
+    edit_pattern = r"https://docs\.google\.com/spreadsheets/d/([a-zA-Z0-9-_]+)/edit"
+    match = re.search(edit_pattern, url)
+    
+    if match:
+        spreadsheet_id = match.group(1)
+        # Converter para formato de export TSV (sem gid - sempre baixa a primeira aba)
+        return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=tsv"
+    
+    # Se chegou aqui, não conseguiu identificar o formato
+    raise ValueError(
+        "Formato de URL não reconhecido. Use URLs no formato:\n"
+        "- https://docs.google.com/spreadsheets/d/{id}/edit?usp=sharing\n"
+        "- ou URLs já publicadas em formato TSV"
+    )
+
+
 def validate_url(url):
     """
-    Valida se a URL é uma URL válida do Google Sheets em formato TSV.
+    Valida se a URL é uma URL válida do Google Sheets.
+    
+    Suporta URLs em formato de edição e TSV, convertendo automaticamente quando necessário.
 
     Args:
         url (str): A URL a ser validada
+
+    Returns:
+        str: URL no formato TSV válido para download
 
     Raises:
         ValueError: Se a URL for inválida ou inacessível
@@ -2086,19 +2231,28 @@ def validate_url(url):
     if not url.startswith(("http://", "https://")):
         raise ValueError("URL inválida: Deve começar com http:// ou https://")
 
-    # Validar formato TSV do Google Sheets
-    if not any(param in url.lower() for param in ["output=tsv", "format=tsv"]):
-        raise ValueError(
-            "A URL fornecida não parece ser um TSV publicado do Google Sheets. "
-            "Certifique-se de publicar a planilha em formato TSV."
-        )
+    # Converter automaticamente para formato TSV se necessário
+    try:
+        tsv_url = convert_google_sheets_url_to_tsv(url)
+    except ValueError as e:
+        # Se a conversão falhou, manter o erro original da validação
+        if "Formato de URL não reconhecido" in str(e):
+            # Tentativa de validação do formato antigo
+            if not any(param in url.lower() for param in ["output=tsv", "format=tsv"]):
+                raise ValueError(
+                    "A URL fornecida não é reconhecida como Google Sheets válida. "
+                    "Use URLs no formato:\n"
+                    "• https://docs.google.com/spreadsheets/d/{id}/edit?usp=sharing\n"
+                    "• ou URLs já publicadas em formato TSV"
+                )
+        raise e
 
-    # Testar acessibilidade da URL com timeout e tratamento de erros adequado
+    # Testar acessibilidade da URL TSV com timeout e tratamento de erros adequado
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Sheets2Anki) AnkiAddon"  # User agent mais específico
         }
-        request = urllib.request.Request(url, headers=headers)
+        request = urllib.request.Request(tsv_url, headers=headers)
 
         # USAR TIMEOUT LOCAL ao invés de global para evitar conflitos
         response = urllib.request.urlopen(request, timeout=30)  # ✅ TIMEOUT LOCAL
@@ -2115,6 +2269,9 @@ def validate_url(url):
             for valid_type in ["text/tab-separated-values", "text/plain", "text/csv"]
         ):
             raise ValueError(f"URL não retorna conteúdo TSV (recebido {content_type})")
+
+        # Retornar a URL TSV válida
+        return tsv_url
 
     except socket.timeout:
         raise ValueError(
@@ -2248,7 +2405,7 @@ def move_note_to_subdeck(note_id, subdeck_id):
         # Obter a nota
         note = mw.col.get_note(note_id)
 
-        # Obter todos os cards da nota
+        # Obter todos os cards da nota usando busca por ID de nota
         card_ids = mw.col.find_cards(f"nid:{note_id}")
 
         # Mover cada card para o subdeck
@@ -2308,7 +2465,8 @@ def remove_empty_subdecks(remote_decks):
         # Verificar cada subdeck
         for subdeck in subdecks:
             # Contar cards no subdeck
-            card_count = len(mw.col.find_cards(f'deck:"{subdeck.name}"'))
+            escaped_subdeck_name = subdeck.name.replace('"', '\\"')
+            card_count = len(mw.col.find_cards(f'deck:"{escaped_subdeck_name}"'))
 
             # Se o subdeck estiver vazio, removê-lo
             if card_count == 0:

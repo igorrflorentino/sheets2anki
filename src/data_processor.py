@@ -343,9 +343,11 @@ def getRemoteDeck(url, enabled_students=None, debug_messages=None):
 def download_tsv_data(url, timeout=30):
     """
     Faz o download dos dados TSV de uma URL.
+    
+    Suporta URLs em formato de edição e TSV, convertendo automaticamente quando necessário.
 
     Args:
-        url (str): URL para download
+        url (str): URL para download (pode ser format de edição ou TSV)
         timeout (int): Timeout em segundos
 
     Returns:
@@ -354,9 +356,18 @@ def download_tsv_data(url, timeout=30):
     Raises:
         RemoteDeckError: Se houver erro no download
     """
+    from .utils import convert_google_sheets_url_to_tsv
+    
     try:
+        # Converter automaticamente para formato TSV se necessário
+        try:
+            tsv_url = convert_google_sheets_url_to_tsv(url)
+        except ValueError as e:
+            # Se a conversão falhou, usar URL original e deixar erro aparecer no download
+            tsv_url = url
+        
         headers = {"User-Agent": "Mozilla/5.0 (Sheets2Anki) AnkiAddon"}
-        request = urllib.request.Request(url, headers=headers)
+        request = urllib.request.Request(tsv_url, headers=headers)
 
         with urllib.request.urlopen(request, timeout=timeout) as response:
             if response.getcode() != 200:
@@ -1155,7 +1166,15 @@ def get_existing_notes_by_student_id(col, deck_id):
         deck_name = deck["name"]
 
         # Buscar cards no deck principal E em todos os subdecks
-        search_query = f'deck:"{deck_name}" OR deck:"{deck_name}::*"'
+        # Escapar aspas duplas no nome do deck para evitar erros de busca
+        escaped_deck_name = deck_name.replace('"', '\\"')
+        search_query = f'deck:"{escaped_deck_name}" OR deck:"{escaped_deck_name}::*"'
+        
+        # Verificar se a query não está vazia ou mal formada
+        if not deck_name.strip():
+            print(f"[DECK_SEARCH] Erro: Nome do deck está vazio, usando busca por ID")
+            search_query = f'deck:{deck_id}'
+        
         card_ids = col.find_cards(search_query)
 
         for card_id in card_ids:
@@ -1187,6 +1206,7 @@ def get_existing_notes_by_student_id(col, deck_id):
                                     ]  # Terceiro elemento é o aluno
                                     student_note_id = f"{student}_{full_note_id}"
                                     existing_notes[student_note_id] = note
+                                    was_empty = False  # Encontrou pelo menos uma nota
 
             except Exception as e:
                 print(f"Erro ao processar card {card_id}: {e}")
@@ -1347,6 +1367,7 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
         (cols.MATCH, cols.MATCH),
         (cols.EXTRA_INFO_1, cols.EXTRA_INFO_1),
         (cols.EXTRA_INFO_2, cols.EXTRA_INFO_2),
+        (cols.ILUSTRACAO_HTML, cols.ILUSTRACAO_HTML),
         (cols.EXEMPLO_1, cols.EXEMPLO_1),
         (cols.EXEMPLO_2, cols.EXEMPLO_2),
         (cols.EXEMPLO_3, cols.EXEMPLO_3),
@@ -1533,6 +1554,7 @@ def fill_note_fields_for_student(note, note_data, student):
         cols.CONCEITO: note_data.get(cols.CONCEITO, "").strip(),
         cols.EXTRA_INFO_1: note_data.get(cols.EXTRA_INFO_1, "").strip(),
         cols.EXTRA_INFO_2: note_data.get(cols.EXTRA_INFO_2, "").strip(),
+        cols.ILUSTRACAO_HTML: note_data.get(cols.ILUSTRACAO_HTML, "").strip(),
         cols.EXEMPLO_1: note_data.get(cols.EXEMPLO_1, "").strip(),
         cols.EXEMPLO_2: note_data.get(cols.EXEMPLO_2, "").strip(),
         cols.EXEMPLO_3: note_data.get(cols.EXEMPLO_3, "").strip(),

@@ -23,7 +23,7 @@ except Exception as e:
 # =============================================================================
 
 # Imports dos módulos do projeto
-from .backup_system import show_backup_dialog
+from .backup_dialog import show_backup_dialog
 from .deck_manager import addNewDeck
 from .deck_manager import import_test_deck
 from .deck_manager import manage_deck_students

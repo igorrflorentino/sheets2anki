@@ -17,9 +17,13 @@ import os
 import time
 import traceback
 
-from .compat import mw
-from .compat import showWarning
-from .utils import get_publication_key_hash
+try:
+    from .compat import mw, showWarning
+    from .utils import get_publication_key_hash
+except ImportError:
+    # Para testes independentes
+    from compat import mw, showWarning
+    from utils import get_publication_key_hash
 
 # =============================================================================
 # FUNÇÕES UTILITÁRIAS PARA HASH
@@ -68,7 +72,6 @@ DEFAULT_META = {
     "students": {
         "available_students": [],
         "enabled_students": [],
-        "last_updated": None,
         # NOVO: Histórico persistente de alunos que já foram sincronizados
         "sync_history": {
             # formato: "student_name": {"first_sync": timestamp, "last_sync": timestamp, "total_syncs": count}
@@ -240,10 +243,24 @@ def create_deck_info(
     """
     # Resolver conflitos no remote_deck_name usando DeckNameManager
     from .deck_manager import DeckNameManager
+    import time
 
     resolved_remote_name = DeckNameManager.resolve_remote_name_conflict(
         url, remote_deck_name or ""
     )
+
+    # Determinar o nome do grupo de opções baseado no modo atual
+    deck_options_mode = get_deck_options_mode()
+    if deck_options_mode == "individual":
+        options_group_name = f"Sheets2Anki - {resolved_remote_name}"
+    elif deck_options_mode == "shared":
+        options_group_name = "Sheets2Anki - Default Options"
+    else:  # manual
+        options_group_name = None
+
+    # Garantir que created_at sempre exista
+    current_timestamp = int(time.time())
+    created_at = additional_info.pop('created_at', current_timestamp)
 
     deck_info = {
         "remote_deck_url": url,
@@ -253,6 +270,11 @@ def create_deck_info(
         "note_types": {},
         "is_test_deck": False,
         "is_sync": True,
+        "local_deck_configurations_package_name": options_group_name,
+        "created_at": created_at,
+        "last_sync": None,  # null = nunca sincronizado (NOVO)
+        "first_sync": None,  # Timestamp da primeira sincronização
+        "sync_count": 0,  # Contador de sincronizações
     }
 
     # Adicionar campos extras se fornecidos
@@ -278,6 +300,134 @@ def add_remote_deck_simple(
         url, local_deck_id, local_deck_name, remote_deck_name, **additional_info
     )
     add_remote_deck(url, deck_info)
+
+
+def ensure_deck_consistency():
+    """
+    Garante que todos os decks tenham todos os campos obrigatórios.
+    Corrige inconsistências em decks existentes.
+    """
+    import time
+    
+    meta = get_meta()
+    decks = meta.get("decks", {})
+    modified = False
+    
+    required_fields = {
+        "remote_deck_url": None,
+        "local_deck_id": None,
+        "local_deck_name": None,
+        "remote_deck_name": None,
+        "note_types": {},
+        "is_test_deck": False,
+        "is_sync": True,
+        "local_deck_configurations_package_name": None,
+        "created_at": int(time.time()),
+        "last_sync": None,  # null = nunca sincronizado
+        "first_sync": None,  # Timestamp da primeira sincronização  
+        "sync_count": 0,  # Contador de sincronizações
+    }
+    
+    for deck_hash, deck_info in decks.items():
+        for field, default_value in required_fields.items():
+            if field not in deck_info:
+                if field == "created_at":
+                    # Para created_at, usar o timestamp baseado no local_deck_id se disponível
+                    # ou timestamp atual como fallback
+                    deck_info[field] = deck_info.get("local_deck_id", int(time.time()))
+                elif field in ["last_sync", "first_sync"]:
+                    # Campos de sincronização sempre começam como None para decks existentes
+                    # que não tinham esses campos (considera-os como já sincronizados)
+                    deck_info[field] = None
+                elif field == "sync_count":
+                    # Para decks existentes sem sync_count, assumir que já foram sincronizados
+                    deck_info[field] = 1
+                else:
+                    deck_info[field] = default_value
+                modified = True
+                print(f"[CONSISTENCY] Adicionado campo '{field}' ao deck {deck_hash}")
+    
+    if modified:
+        save_meta(meta)
+        print(f"[CONSISTENCY] Corrigidos {len(decks)} decks para garantir consistência")
+    else:
+        print("[CONSISTENCY] Todos os decks já estão consistentes")
+    
+    return modified
+
+
+def update_deck_sync_status(deck_url, success=True):
+    """
+    Atualiza os campos de sincronização de um deck após uma sincronização.
+    
+    Args:
+        deck_url (str): URL do deck sincronizado
+        success (bool): Se a sincronização foi bem-sucedida
+    
+    Returns:
+        bool: True se o deck era novo (nunca sincronizado), False caso contrário
+    """
+    import time
+    
+    meta = get_meta()
+    decks = meta.get("decks", {})
+    
+    # Encontrar o deck pela URL
+    deck_hash = None
+    deck_info = None
+    
+    for hash_key, info in decks.items():
+        if info.get("remote_deck_url") == deck_url:
+            deck_hash = hash_key
+            deck_info = info
+            break
+    
+    if not deck_info:
+        print(f"[SYNC_STATUS] Deck não encontrado para URL: {deck_url}")
+        return False
+    
+    # Verificar se é um deck novo (nunca sincronizado)
+    was_new_deck = deck_info.get("last_sync") is None
+    
+    if success:
+        current_timestamp = int(time.time())
+        
+        # Se é a primeira sincronização bem-sucedida, definir first_sync
+        if deck_info.get("first_sync") is None:
+            deck_info["first_sync"] = current_timestamp
+        
+        # Atualizar last_sync
+        deck_info["last_sync"] = current_timestamp
+        
+        # Incrementar contador
+        deck_info["sync_count"] = deck_info.get("sync_count", 0) + 1
+        
+        # Salvar mudanças
+        save_meta(meta)
+        
+        print(f"[SYNC_STATUS] Deck {deck_hash} sincronizado (novo: {was_new_deck})")
+    
+    return was_new_deck
+
+
+def is_deck_new(deck_url):
+    """
+    Verifica se um deck é novo (nunca foi sincronizado).
+    
+    Args:
+        deck_url (str): URL do deck
+        
+    Returns:
+        bool: True se o deck nunca foi sincronizado, False caso contrário
+    """
+    meta = get_meta()
+    decks = meta.get("decks", {})
+    
+    for deck_info in decks.values():
+        if deck_info.get("remote_deck_url") == deck_url:
+            return deck_info.get("last_sync") is None
+    
+    return False
 
 
 def get_deck_local_name(url):
@@ -720,7 +870,6 @@ def _ensure_meta_structure(meta):
         meta["students"] = {
             "enabled_students": [],
             "student_sync_enabled": False,
-            "last_updated": None,
         }
 
     return meta
@@ -741,7 +890,8 @@ def get_global_student_config():
             - enabled_students: lista de alunos habilitados
             - student_sync_enabled: se o filtro de alunos está ativo
             - auto_remove_disabled_students: se deve remover dados de alunos desabilitados
-            - last_updated: timestamp da última atualização
+            - sync_missing_students_notes: se deve sincronizar notas sem alunos específicos
+            - sync_history: histórico detalhado de sincronizações por aluno
     """
     meta = get_meta()
     return meta.get(
@@ -751,7 +901,6 @@ def get_global_student_config():
             "enabled_students": [],
             "auto_remove_disabled_students": False,
             "sync_missing_students_notes": False,
-            "last_updated": None,
         },
     )
 
@@ -805,7 +954,6 @@ def save_global_student_config(
         "enabled_students": final_enabled,
         "auto_remove_disabled_students": final_auto_remove,
         "sync_missing_students_notes": final_sync_missing,
-        "last_updated": int(time.time()),
     }
 
     save_meta(meta)
@@ -1036,7 +1184,7 @@ def cleanup_orphaned_sync_history():
         student_notes = []
         try:
             # Busca aproximativa por notas que possam pertencer ao aluno
-            all_notes = col.find_notes("")[:2000]  # Limitar busca para performance
+            all_notes = col.find_notes("*")[:2000]  # Limitar busca para performance - usar wildcard
             
             for note_id in all_notes:
                 try:
@@ -1702,6 +1850,106 @@ def set_deck_options_mode(mode):
     meta["config"]["deck_options_mode"] = mode
     save_meta(meta)
     print(f"[DECK_OPTIONS_MODE] Modo alterado para: {mode}")
+    
+    # Atualizar configurações de deck existentes para refletir o novo modo
+    update_deck_configurations_for_mode(mode)
+
+
+def update_deck_configurations_for_mode(mode):
+    """
+    Atualiza as configurações de deck existentes quando o modo de opções é alterado.
+    
+    Args:
+        mode (str): O novo modo ("shared", "individual", ou "manual")
+    """
+    meta = get_meta()
+    remote_decks = meta.get("decks", {})
+    
+    for deck_hash, deck_info in remote_decks.items():
+        remote_deck_name = deck_info.get("remote_deck_name", "UnknownDeck")
+        
+        if mode == "individual":
+            options_group_name = f"Sheets2Anki - {remote_deck_name}"
+        elif mode == "shared":
+            options_group_name = "Sheets2Anki - Default Options"
+        else:  # manual
+            options_group_name = None
+            
+        deck_info["local_deck_configurations_package_name"] = options_group_name
+    
+    save_meta(meta)
+    print(f"[DECK_CONFIG_UPDATE] Atualizadas configurações de {len(remote_decks)} decks para modo '{mode}'")
+
+
+def get_deck_configurations_package_name(url):
+    """
+    Obtém o nome do grupo de opções configurado para um deck específico.
+    
+    Args:
+        url (str): URL do deck remoto
+        
+    Returns:
+        str or None: Nome do grupo de opções ou None se modo manual
+    """
+    remote_decks = get_remote_decks()
+    url_hash = get_deck_hash(url)
+    deck_info = remote_decks.get(url_hash)
+    
+    if deck_info:
+        return deck_info.get("local_deck_configurations_package_name")
+    return None
+
+
+def set_deck_configurations_package_name(url, package_name):
+    """
+    Define o nome do grupo de opções para um deck específico.
+    
+    Args:
+        url (str): URL do deck remoto
+        package_name (str or None): Nome do grupo de opções
+    """
+    remote_decks = get_remote_decks()
+    url_hash = get_deck_hash(url)
+    deck_info = remote_decks.get(url_hash)
+    
+    if deck_info:
+        deck_info["local_deck_configurations_package_name"] = package_name
+        add_remote_deck(url, deck_info)
+        print(f"[DECK_CONFIG] Grupo de opções '{package_name}' definido para deck {deck_info.get('remote_deck_name', 'Unknown')}")
+    else:
+        print(f"[DECK_CONFIG] Deck não encontrado para URL: {url}")
+
+
+def ensure_deck_configurations_consistency():
+    """
+    Garante que todos os decks tenham a configuração local_deck_configurations_package_name
+    baseada no modo atual.
+    """
+    current_mode = get_deck_options_mode()
+    meta = get_meta()
+    remote_decks = meta.get("decks", {})
+    
+    updated_count = 0
+    
+    for deck_hash, deck_info in remote_decks.items():
+        if "local_deck_configurations_package_name" not in deck_info:
+            remote_deck_name = deck_info.get("remote_deck_name", "UnknownDeck")
+            
+            if current_mode == "individual":
+                options_group_name = f"Sheets2Anki - {remote_deck_name}"
+            elif current_mode == "shared":
+                options_group_name = "Sheets2Anki - Default Options"
+            else:  # manual
+                options_group_name = None
+                
+            deck_info["local_deck_configurations_package_name"] = options_group_name
+            updated_count += 1
+    
+    if updated_count > 0:
+        save_meta(meta)
+        print(f"[DECK_CONFIG_CONSISTENCY] Adicionada configuração local_deck_configurations_package_name a {updated_count} decks")
+    
+    return updated_count
 
 
 # =============================================================================
@@ -2041,3 +2289,49 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
 
         print(f"[NOTE_TYPE_SYNC] Traceback: {traceback.format_exc()}")
         return {"updated_count": 0, "renamed_in_anki": 0, "updated_in_meta": 0}
+
+
+def fix_missing_created_at_fields():
+    """
+    Corrige decks que não possuem a chave 'created_at' adicionando um timestamp padrão.
+    Esta função é útil para corrigir inconsistências em configurações existentes.
+    
+    Returns:
+        dict: Relatório com o número de decks corrigidos
+    """
+    import time
+    
+    try:
+        remote_decks = get_remote_decks()
+        corrected_count = 0
+        
+        # Timestamp padrão para decks que não possuem created_at
+        # Usar um timestamp que indica que é uma correção posterior
+        default_timestamp = int(time.time())
+        
+        for deck_hash, deck_info in remote_decks.items():
+            if "created_at" not in deck_info:
+                deck_info["created_at"] = default_timestamp
+                corrected_count += 1
+                print(f"[CONFIG_FIX] Adicionado 'created_at' para deck: {deck_info.get('remote_deck_name', 'Nome não definido')}")
+        
+        if corrected_count > 0:
+            save_remote_decks(remote_decks)
+            print(f"[CONFIG_FIX] ✅ Corrigidos {corrected_count} decks sem 'created_at'")
+        else:
+            print("[CONFIG_FIX] ✅ Todos os decks já possuem 'created_at'")
+        
+        return {
+            "corrected_count": corrected_count,
+            "total_decks": len(remote_decks),
+            "success": True
+        }
+        
+    except Exception as e:
+        print(f"[CONFIG_FIX] ❌ Erro ao corrigir 'created_at': {e}")
+        return {
+            "corrected_count": 0,
+            "total_decks": 0,
+            "success": False,
+            "error": str(e)
+        }

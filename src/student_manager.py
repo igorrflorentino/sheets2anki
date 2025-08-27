@@ -659,7 +659,7 @@ def cleanup_disabled_students_data(
 
             # Buscar todas as notas no Anki que tenham esse aluno no campo ID
             # Como não podemos fazer busca direta por campo personalizado, vamos iterar
-            all_note_ids = col.find_notes("")  # Todas as notas
+            all_note_ids = col.find_notes("*")  # Todas as notas - usar wildcard
             student_note_ids = []
 
             for note_id in all_note_ids:
@@ -784,7 +784,9 @@ def _remove_student_note_types(student: str, deck_names: List[str]) -> int:
                 ):
                     try:
                         # Verificar se há notas usando este note type
-                        note_ids = col.find_notes(f"note:{note_type_name}")
+                        # Escapar aspas duplas no nome do note type
+                        escaped_note_type_name = note_type_name.replace('"', '\\"')
+                        note_ids = col.find_notes(f'note:"{escaped_note_type_name}"')
                         if note_ids:
                             print(
                                 f"   ⚠️ Note type '{note_type_name}' ainda tem {len(note_ids)} notas, pulando remoção"
