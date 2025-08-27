@@ -65,33 +65,24 @@ def safe_find_cards_by_deck(deck_name):
         return []
 
 
-def extract_publication_key_from_url(url):
+def extract_spreadsheet_id_from_url(url):
     """
-    Extrai a chave de publicação ou ID da planilha de uma URL do Google Sheets.
+    Extrai o ID da planilha de uma URL de edição do Google Sheets.
 
     Args:
-        url (str): URL do Google Sheets
+        url (str): URL de edição do Google Sheets
 
     Returns:
-        str: Chave de publicação extraída, ID da planilha ou None se não encontrada
+        str: ID da planilha ou None se não encontrado
 
     Examples:
-        >>> extract_publication_key_from_url("https://docs.google.com/spreadsheets/d/e/2PACX-1vSample-Key/pub?output=tsv")
-        "2PACX-1vSample-Key"
-        >>> extract_publication_key_from_url("https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaP/edit?usp=sharing")
+        >>> extract_spreadsheet_id_from_url("https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaP/edit?usp=sharing")
         "1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaP"
     """
     if not url:
         return None
 
-    # Primeiro, tentar padrão de URLs publicadas (chave de publicação entre /d/e/ e /pub)
-    publication_pattern = r"/spreadsheets/d/e/([^/]+)/"
-    match = re.search(publication_pattern, url)
-    
-    if match:
-        return match.group(1)
-
-    # Se não encontrou, tentar padrão de URLs de edição (ID entre /d/ e /edit)
+    # Extrair ID da planilha de URLs de edição (ID entre /d/ e /edit)
     edit_pattern = r"/spreadsheets/d/([a-zA-Z0-9-_]+)/edit"
     match = re.search(edit_pattern, url)
     
@@ -101,26 +92,29 @@ def extract_publication_key_from_url(url):
     return None
 
 
-def get_publication_key_hash(url):
+def get_spreadsheet_id_from_url(url):
     """
-    Gera um hash de 8 caracteres baseado na chave de publicação ou ID da planilha da URL.
+    Extrai o ID da planilha de uma URL de edição do Google Sheets.
+    Esta função substitui get_publication_key_hash para trabalhar apenas com IDs reais.
 
     Args:
-        url (str): URL do Google Sheets
+        url (str): URL de edição do Google Sheets
 
     Returns:
-        str: Hash de 8 caracteres ou hash da URL completa como fallback
-    """
-    publication_key = extract_publication_key_from_url(url)
+        str: ID da planilha (usado diretamente como identificador)
 
-    if publication_key:
-        # Usar a chave de publicação ou ID da planilha para gerar o hash
-        hash_obj = hashlib.md5(publication_key.encode("utf-8"))
-        return hash_obj.hexdigest()[:8]
-    else:
-        # Fallback: usar a URL completa (comportamento anterior)
-        hash_obj = hashlib.md5(url.encode("utf-8"))
-        return hash_obj.hexdigest()[:8]
+    Raises:
+        ValueError: Se a URL não for uma URL de edição válida do Google Sheets
+    """
+    spreadsheet_id = extract_spreadsheet_id_from_url(url)
+    
+    if not spreadsheet_id:
+        raise ValueError(
+            "URL deve ser uma URL de edição válida do Google Sheets no formato:\n"
+            "https://docs.google.com/spreadsheets/d/{ID}/edit?usp=sharing"
+        )
+    
+    return spreadsheet_id
 
 
 def update_note_type_names_for_deck_rename(
@@ -139,7 +133,7 @@ def update_note_type_names_for_deck_rename(
     Returns:
         int: Número de note types atualizados
     """
-    from .config_manager import get_deck_hash
+    from .config_manager import get_deck_id
     from .config_manager import get_deck_note_type_ids
     from .config_manager import get_meta
     from .config_manager import save_meta
@@ -186,10 +180,10 @@ def update_note_type_names_for_deck_rename(
         if updated_count > 0:
             try:
                 meta = get_meta()
-                deck_hash = get_deck_hash(url)
+                spreadsheet_id = get_deck_id(url)
 
-                if "decks" in meta and deck_hash in meta["decks"]:
-                    meta["decks"][deck_hash]["note_types"] = updated_note_types
+                if "decks" in meta and spreadsheet_id in meta["decks"]:
+                    meta["decks"][spreadsheet_id]["note_types"] = updated_note_types
                     save_meta(meta)
                     add_debug_msg(
                         f"✅ Meta.json atualizado: {updated_count} strings de note types atualizadas"
@@ -1235,13 +1229,13 @@ def apply_sheets2anki_options_to_all_remote_decks():
         )
 
         # Log detalhado dos decks encontrados
-        for deck_hash, deck_info in remote_decks.items():
+        for spreadsheet_id, deck_info in remote_decks.items():
             add_debug_message(
-                f"Deck Hash: {deck_hash}, Info: {deck_info}", "DECK_OPTIONS"
+                f"Deck ID: {spreadsheet_id}, Info: {deck_info}", "DECK_OPTIONS"
             )
 
         # Aplicar opções a cada deck remoto
-        for deck_hash, deck_info in remote_decks.items():
+        for spreadsheet_id, deck_info in remote_decks.items():
             try:
                 local_deck_id = deck_info.get("local_deck_id")
                 local_deck_name = deck_info.get("local_deck_name", "Unknown")
@@ -1291,7 +1285,7 @@ def apply_sheets2anki_options_to_all_remote_decks():
                     )
 
             except Exception as e:
-                error_msg = f"Erro no deck {deck_hash}: {e}"
+                error_msg = f"Erro no deck {spreadsheet_id}: {e}"
                 stats["errors"].append(error_msg)
                 stats["failed_decks"] += 1
                 add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS")
@@ -2155,31 +2149,23 @@ def debug_log(module, message, *args):
 # ========================================================================================
 
 
-def convert_google_sheets_url_to_tsv(url):
+def convert_edit_url_to_tsv(url):
     """
-    Converte URLs do Google Sheets de diferentes formatos para formato TSV.
-    
-    Suporta:
-    - URLs de edição: https://docs.google.com/spreadsheets/d/{id}/edit?usp=sharing
-    - URLs já no formato TSV: mantém inalteradas
+    Converte URLs de edição do Google Sheets para formato TSV de download.
     
     Args:
-        url (str): URL original do Google Sheets
+        url (str): URL de edição do Google Sheets
         
     Returns:
         str: URL no formato TSV para download
         
     Raises:
-        ValueError: Se a URL não for reconhecida como Google Sheets
+        ValueError: Se a URL não for uma URL de edição válida
     """
     import re
     
     if not url or not isinstance(url, str):
         raise ValueError("URL deve ser uma string não vazia")
-    
-    # Se já é uma URL TSV válida, retorna como está
-    if "output=tsv" in url or "format=tsv" in url:
-        return url
     
     # Verificar se é uma URL do Google Sheets
     if "docs.google.com/spreadsheets" not in url:
@@ -2191,22 +2177,19 @@ def convert_google_sheets_url_to_tsv(url):
     
     if match:
         spreadsheet_id = match.group(1)
-        # Converter para formato de export TSV (sem gid - sempre baixa a primeira aba)
+        # Converter para formato de export TSV (sem gid para baixar a primeira aba automaticamente)
         return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=tsv"
     
-    # Se chegou aqui, não conseguiu identificar o formato
+    # Se chegou aqui, não é uma URL de edição válida
     raise ValueError(
-        "Formato de URL não reconhecido. Use URLs no formato:\n"
-        "- https://docs.google.com/spreadsheets/d/{id}/edit?usp=sharing\n"
-        "- ou URLs já publicadas em formato TSV"
+        "URL deve ser uma URL de edição do Google Sheets no formato:\n"
+        "https://docs.google.com/spreadsheets/d/{ID}/edit?usp=sharing"
     )
 
 
 def validate_url(url):
     """
-    Valida se a URL é uma URL válida do Google Sheets.
-    
-    Suporta URLs em formato de edição e TSV, convertendo automaticamente quando necessário.
+    Valida se a URL é uma URL de edição válida do Google Sheets.
 
     Args:
         url (str): A URL a ser validada
@@ -2231,21 +2214,15 @@ def validate_url(url):
     if not url.startswith(("http://", "https://")):
         raise ValueError("URL inválida: Deve começar com http:// ou https://")
 
-    # Converter automaticamente para formato TSV se necessário
+    # Se a URL já está no formato TSV, retornar diretamente
+    if "/export?format=tsv" in url:
+        return url
+
+    # Converter para formato TSV
     try:
-        tsv_url = convert_google_sheets_url_to_tsv(url)
+        tsv_url = convert_edit_url_to_tsv(url)
     except ValueError as e:
-        # Se a conversão falhou, manter o erro original da validação
-        if "Formato de URL não reconhecido" in str(e):
-            # Tentativa de validação do formato antigo
-            if not any(param in url.lower() for param in ["output=tsv", "format=tsv"]):
-                raise ValueError(
-                    "A URL fornecida não é reconhecida como Google Sheets válida. "
-                    "Use URLs no formato:\n"
-                    "• https://docs.google.com/spreadsheets/d/{id}/edit?usp=sharing\n"
-                    "• ou URLs já publicadas em formato TSV"
-                )
-        raise e
+        raise ValueError(f"URL inválida: {str(e)}")
 
     # Testar acessibilidade da URL TSV com timeout e tratamento de erros adequado
     try:
@@ -2278,7 +2255,18 @@ def validate_url(url):
             "Timeout de conexão ao acessar a URL (30s). Verifique sua conexão ou tente novamente."
         )
     except urllib.error.HTTPError as e:
-        raise ValueError(f"Erro HTTP {e.code}: {e.reason}")
+        if e.code == 400:
+            raise ValueError(
+                f"Erro HTTP 400: A planilha não está acessível publicamente.\n\n"
+                f"Para corrigir:\n"
+                f"1. Abra a planilha no Google Sheets\n"
+                f"2. Clique em 'Compartilhar'\n"
+                f"3. Mude o acesso para 'Qualquer pessoa com o link'\n"
+                f"4. Defina a permissão como 'Visualizador'\n\n"
+                f"Alternativamente: Arquivo → Compartilhar → Publicar na web"
+            )
+        else:
+            raise ValueError(f"Erro HTTP {e.code}: {e.reason}")
     except urllib.error.URLError as e:
         if isinstance(e.reason, socket.timeout):
             raise ValueError(

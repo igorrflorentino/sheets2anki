@@ -162,12 +162,14 @@ O add-on detectará automaticamente e criará note types cloze personalizados pa
 **📝 Opção 1: URL de Edição (Mais Fácil)**
 - Simplesmente copie o link de compartilhamento da planilha: `Compartilhar → Copiar link`
 - ✅ **Recomendado**: Mais fácil e funciona imediatamente
-- 🔄 **Conversão Automática**: O addon converte automaticamente para formato de download
+#### **Passo 1: Prepare sua Planilha**
 
-**📊 Opção 2: URL Publicada (Método Tradicional)**
-- `Arquivo → Compartilhar → Publicar na web`
-- **Importante:** Escolha `Valores separados por tabulação (.tsv)`
-- Copie o link gerado
+**📊 URL de Edição (Método Simplificado)**
+- Crie ou abra sua planilha no Google Sheets
+- Clique em `Compartilhar` (canto superior direito)
+- Configure como `Qualquer pessoa com o link pode ver`
+- Copie o link de compartilhamento (`/edit?usp=sharing`)
+- ✅ **Pronto!** O addon processa automaticamente
 
 #### **Passo 2: Configure os Alunos Globalmente**
 ```
@@ -181,7 +183,7 @@ Ferramentas → Sheets2Anki → Configurar Alunos Globalmente (Ctrl+Shift+G)
 ```
 Ferramentas → Sheets2Anki → Adicionar Novo Deck Remoto (Ctrl+Shift+A)
 ```
-1. **Cole a URL** da planilha (editável ou publicada)
+1. **Cole a URL de edição** da planilha do Google Sheets
 2. **Nomeie seu deck** (sugestão automática disponível)
 3. **Confirme** - o addon criará automaticamente toda a estrutura!
 

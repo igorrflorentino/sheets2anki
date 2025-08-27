@@ -235,15 +235,15 @@ def get_selected_students_for_deck(deck_url: str) -> Set[str]:
     Returns:
         Set[str]: Conjunto de alunos selecionados para este deck (incluindo [MISSING A.] se aplicável)
     """
-    from .config_manager import get_deck_hash
+    from .config_manager import get_deck_id
     from .config_manager import get_enabled_students
     from .config_manager import is_sync_missing_students_notes
 
     meta = get_meta()
 
-    # Navegar pela estrutura: decks -> deck_hash -> student_selection
-    deck_hash = get_deck_hash(deck_url)
-    deck_config = meta.get("decks", {}).get(deck_hash, {})
+    # Navegar pela estrutura: decks -> spreadsheet_id -> student_selection
+    spreadsheet_id = get_deck_id(deck_url)
+    deck_config = meta.get("decks", {}).get(spreadsheet_id, {})
     student_selection = deck_config.get("student_selection")
 
     # Se não há seleção específica para o deck, usar configuração global
@@ -272,7 +272,7 @@ def save_selected_students_for_deck(deck_url: str, selected_students: Set[str]):
         deck_url: URL do deck remoto
         selected_students: Conjunto de alunos selecionados
     """
-    from .config_manager import get_deck_hash
+    from .config_manager import get_deck_id
 
     meta = get_meta()
 
@@ -280,12 +280,12 @@ def save_selected_students_for_deck(deck_url: str, selected_students: Set[str]):
     if "decks" not in meta:
         meta["decks"] = {}
 
-    deck_hash = get_deck_hash(deck_url)
-    if deck_hash not in meta["decks"]:
-        meta["decks"][deck_hash] = {}
+    spreadsheet_id = get_deck_id(deck_url)
+    if spreadsheet_id not in meta["decks"]:
+        meta["decks"][spreadsheet_id] = {}
 
     # Converter set para lista para serialização JSON
-    meta["decks"][deck_hash]["student_selection"] = list(selected_students)
+    meta["decks"][spreadsheet_id]["student_selection"] = list(selected_students)
 
     save_meta(meta)
 

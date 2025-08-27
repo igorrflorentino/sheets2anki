@@ -43,7 +43,7 @@ from .utils import SyncError
 from .utils import add_debug_message
 from .utils import capture_deck_note_type_ids
 from .utils import clear_debug_messages
-from .utils import get_publication_key_hash
+from .utils import get_spreadsheet_id_from_url
 from .utils import remove_empty_subdecks
 from .utils import validate_url
 from .name_consistency_manager import NameConsistencyManager
@@ -1415,15 +1415,15 @@ def _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls
         list: Lista de hash keys a serem sincronizadas
     """
 
-    # Se URLs específicas foram fornecidas, converter para hash keys
+    # Se URLs específicas foram fornecidas, converter para spreadsheet IDs
     if selected_deck_urls is not None:
         filtered_keys = []
         for url in selected_deck_urls:
-            # Gerar hash da chave de publicação
-            url_hash = get_publication_key_hash(url)
+            # Extrair ID da planilha
+            spreadsheet_id = get_spreadsheet_id_from_url(url)
 
-            if url_hash in remote_decks:
-                filtered_keys.append(url_hash)
+            if spreadsheet_id in remote_decks:
+                filtered_keys.append(spreadsheet_id)
         return filtered_keys
 
     # Verificar se mw.col e mw.col.decks estão disponíveis

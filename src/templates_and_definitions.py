@@ -562,13 +562,9 @@ IS_DEVELOPMENT_MODE = True
 # URLs hardcoded para testes e simulações
 TEST_SHEETS_URLS = [
     (
-        "Sheets2Anki Template (Published)",
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsNCEFZvBR3UjBwTbyaPPz-B1SKw17I7Jb72XWweS1y75HmzXfgdFJ1TpZX6_S06m9_phJTy5XnCI6/pub?gid=36065074&single=true&output=tsv",
-    ),
-    (
         "Sheets2Anki Template (Edit Link)",
         "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing",
-    ),
+    )
 ]
 
 # Template constants para geração de cards

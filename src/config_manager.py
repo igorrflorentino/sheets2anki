@@ -19,28 +19,31 @@ import traceback
 
 try:
     from .compat import mw, showWarning
-    from .utils import get_publication_key_hash
+    from .utils import get_spreadsheet_id_from_url
 except ImportError:
     # Para testes independentes
     from compat import mw, showWarning
-    from utils import get_publication_key_hash
+    from utils import get_spreadsheet_id_from_url
 
 # =============================================================================
-# FUNÇÕES UTILITÁRIAS PARA HASH
+# FUNÇÕES UTILITÁRIAS PARA ID DE PLANILHA
 # =============================================================================
 
 
-def get_deck_hash(url):
+def get_deck_id(url):
     """
-    Gera um hash para identificar um deck baseado na chave de publicação da URL.
+    Obtém o ID da planilha para identificar um deck.
 
     Args:
-        url (str): URL do deck remoto
+        url (str): URL de edição do deck remoto
 
     Returns:
-        str: Hash de 8 caracteres baseado na chave de publicação
+        str: ID da planilha do Google Sheets
+        
+    Raises:
+        ValueError: Se a URL não for uma URL de edição válida
     """
-    return get_publication_key_hash(url)
+    return get_spreadsheet_id_from_url(url)
 
 
 # =============================================================================
@@ -222,10 +225,10 @@ def add_remote_deck(url, deck_info):
         deck_info (dict): Informações do deck na nova estrutura
     """
     # Gerar hash da chave de publicação
-    url_hash = get_deck_hash(url)
+    spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
-    remote_decks[url_hash] = deck_info
+    remote_decks[spreadsheet_id] = deck_info
     save_remote_decks(remote_decks)
 
 
@@ -332,7 +335,7 @@ def ensure_deck_consistency():
         "sync_count": 0,  # Contador de sincronizações
     }
     
-    for deck_hash, deck_info in decks.items():
+    for spreadsheet_id, deck_info in decks.items():
         for field, default_value in required_fields.items():
             if field not in deck_info:
                 if field == "created_at":
@@ -349,7 +352,7 @@ def ensure_deck_consistency():
                 else:
                     deck_info[field] = default_value
                 modified = True
-                print(f"[CONSISTENCY] Adicionado campo '{field}' ao deck {deck_hash}")
+                print(f"[CONSISTENCY] Adicionado campo '{field}' ao deck {spreadsheet_id}")
     
     if modified:
         save_meta(meta)
@@ -444,11 +447,11 @@ def get_deck_local_name(url):
     Returns:
         str: Nome local do deck ou None se não encontrado
     """
-    # Gerar hash da chave de publicação
-    url_hash = get_deck_hash(url)
+    # Gerar ID da planilha
+    spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
-    deck_info = remote_decks.get(url_hash, {})
+    deck_info = remote_decks.get(spreadsheet_id, {})
 
     return deck_info.get("local_deck_name")
 
@@ -464,10 +467,10 @@ def get_deck_remote_name(url):
         str: Nome remoto do deck ou None se não encontrado
     """
     # Gerar hash da chave de publicação
-    url_hash = get_deck_hash(url)
+    spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
-    deck_info = remote_decks.get(url_hash, {})
+    deck_info = remote_decks.get(spreadsheet_id, {})
 
     # Se existe na nova estrutura, usar
     if "remote_deck_name" in deck_info:
@@ -491,11 +494,11 @@ def remove_remote_deck(url):
         url (str): URL do deck remoto a ser removido
     """
     # Gerar hash da chave de publicação
-    url_hash = get_deck_hash(url)
+    spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
-    if url_hash in remote_decks:
-        del remote_decks[url_hash]
+    if spreadsheet_id in remote_decks:
+        del remote_decks[spreadsheet_id]
         save_remote_decks(remote_decks)
 
 
@@ -508,14 +511,14 @@ def disconnect_deck(url):
         url (str): URL do deck a ser desconectado
     """
     # Gerar hash da chave de publicação
-    url_hash = get_deck_hash(url)
+    spreadsheet_id = get_deck_id(url)
 
     meta = get_meta()
     remote_decks = meta.get("decks", {})
 
     # Remover completamente o deck da lista de decks remotos
-    if url_hash in remote_decks:
-        del remote_decks[url_hash]
+    if spreadsheet_id in remote_decks:
+        del remote_decks[spreadsheet_id]
         meta["decks"] = remote_decks  # type: ignore
         save_meta(meta)
 
@@ -531,10 +534,10 @@ def is_deck_disconnected(url):
         bool: True se desconectado (não existe), False se existe
     """
     # Gerar hash da chave de publicação
-    url_hash = get_deck_hash(url)
+    spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
-    return url_hash not in remote_decks
+    return spreadsheet_id not in remote_decks
 
 
 def get_active_decks():
@@ -649,15 +652,15 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
         bool: True se houve atualizações, False caso contrário
     """
     # Gerar hash da chave de publicação
-    url_hash = get_deck_hash(url)
+    spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
 
     # Verificar se o deck existe na configuração
-    if url_hash not in remote_decks:
+    if spreadsheet_id not in remote_decks:
         return False
 
-    deck_info = remote_decks[url_hash]
+    deck_info = remote_decks[spreadsheet_id]
     updated = False
 
     # Verificar se o local_deck_id precisa ser atualizado
@@ -1351,21 +1354,21 @@ def add_note_type_id_to_deck(
         add_debug_msg(f"  - ID: {note_type_id}")
         add_debug_msg(f"  - Nome esperado: {expected_name}")
 
-        # Gerar hash da chave de publicação
-        url_hash = get_deck_hash(deck_url)
-        add_debug_msg(f"  - Hash: {url_hash}")
+        # Gerar ID da planilha
+        spreadsheet_id = get_deck_id(deck_url)
+        add_debug_msg(f"  - ID da Planilha: {spreadsheet_id}")
 
         meta = get_meta()
         add_debug_msg(f"Meta carregado: {len(meta.get('decks', {}))} decks na config")
 
-        if url_hash not in meta["decks"]:
-            add_debug_msg(f"ERRO: Deck {url_hash} não encontrado na configuração")
+        if spreadsheet_id not in meta["decks"]:
+            add_debug_msg(f"ERRO: Deck {spreadsheet_id} não encontrado na configuração")
             add_debug_msg("Decks disponíveis:")
             for key in meta.get("decks", {}).keys():
                 add_debug_msg(f"  - {key}")
             return
 
-        deck_info = meta["decks"][url_hash]
+        deck_info = meta["decks"][spreadsheet_id]
         add_debug_msg(f"Deck info encontrado: {list(deck_info.keys())}")
 
         # Garantir que a estrutura note_types existe
@@ -1422,12 +1425,12 @@ def get_deck_local_id(deck_url):
         int: ID do deck local ou None se não encontrado
     """
     try:
-        url_hash = get_deck_hash(deck_url)
+        spreadsheet_id = get_deck_id(deck_url)
 
         meta = get_meta()
 
-        if url_hash in meta.get("decks", {}):
-            return meta["decks"][url_hash].get("local_deck_id")
+        if spreadsheet_id in meta.get("decks", {}):
+            return meta["decks"][spreadsheet_id].get("local_deck_id")
         return None
 
     except Exception as e:
@@ -1446,12 +1449,12 @@ def get_deck_note_type_ids(deck_url):
         dict: Dicionário {note_type_id: expected_name}
     """
     try:
-        url_hash = get_deck_hash(deck_url)
+        spreadsheet_id = get_deck_id(deck_url)
 
         meta = get_meta()
 
-        if url_hash in meta.get("decks", {}):
-            return meta["decks"][url_hash].get("note_types", {})
+        if spreadsheet_id in meta.get("decks", {}):
+            return meta["decks"][spreadsheet_id].get("note_types", {})
         return {}
 
     except Exception as e:
@@ -1468,21 +1471,21 @@ def remove_note_type_id_from_deck(deck_url, note_type_id):
         note_type_id (int): ID do note type a ser removido
     """
     try:
-        url_hash = get_deck_hash(deck_url)
+        spreadsheet_id = get_deck_id(deck_url)
 
         meta = get_meta()
 
-        if url_hash not in meta["decks"]:
+        if spreadsheet_id not in meta["decks"]:
             return
 
-        deck_info = meta["decks"][url_hash]
+        deck_info = meta["decks"][spreadsheet_id]
         note_type_id_str = str(note_type_id)
 
         if "note_types" in deck_info and note_type_id_str in deck_info["note_types"]:
             del deck_info["note_types"][note_type_id_str]
             save_meta(meta)
             print(
-                f"[NOTE_TYPE_IDS] Removido note type ID {note_type_id} do deck {url_hash}"
+                f"[NOTE_TYPE_IDS] Removido note type ID {note_type_id} do deck {spreadsheet_id}"
             )
 
     except Exception as e:
@@ -1538,14 +1541,14 @@ def get_all_deck_note_types():
     Obtém todos os note types de todos os decks.
 
     Returns:
-        dict: Dicionário {deck_hash: {note_type_id: expected_name}}
+        dict: Dicionário {spreadsheet_id: {note_type_id: expected_name}}
     """
     try:
         meta = get_meta()
 
         result = {}
-        for deck_hash, deck_info in meta.get("decks", {}).items():
-            result[deck_hash] = deck_info.get("note_types", {})
+        for spreadsheet_id, deck_info in meta.get("decks", {}).items():
+            result[spreadsheet_id] = deck_info.get("note_types", {})
 
         return result
 
@@ -1747,12 +1750,12 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
         from .utils import get_note_type_name
 
         meta = get_meta()
-        deck_hash = get_deck_hash(url)
+        spreadsheet_id = get_deck_id(url)
 
-        if "decks" not in meta or deck_hash not in meta["decks"]:
+        if "decks" not in meta or spreadsheet_id not in meta["decks"]:
             return
 
-        deck_info = meta["decks"][deck_hash]
+        deck_info = meta["decks"][spreadsheet_id]
         note_types = deck_info.get("note_types", {})
 
         if not note_types:
@@ -1896,8 +1899,8 @@ def get_deck_configurations_package_name(url):
         str or None: Nome do grupo de opções ou None se modo manual
     """
     remote_decks = get_remote_decks()
-    url_hash = get_deck_hash(url)
-    deck_info = remote_decks.get(url_hash)
+    spreadsheet_id = get_deck_id(url)
+    deck_info = remote_decks.get(spreadsheet_id)
     
     if deck_info:
         return deck_info.get("local_deck_configurations_package_name")
@@ -1913,8 +1916,8 @@ def set_deck_configurations_package_name(url, package_name):
         package_name (str or None): Nome do grupo de opções
     """
     remote_decks = get_remote_decks()
-    url_hash = get_deck_hash(url)
-    deck_info = remote_decks.get(url_hash)
+    spreadsheet_id = get_deck_id(url)
+    deck_info = remote_decks.get(spreadsheet_id)
     
     if deck_info:
         deck_info["local_deck_configurations_package_name"] = package_name
@@ -2073,12 +2076,12 @@ def fix_note_type_names_consistency(url, correct_remote_name):
         from .utils import get_note_type_name
 
         meta = get_meta()
-        deck_hash = get_deck_hash(url)
+        spreadsheet_id = get_deck_id(url)
 
-        if "decks" not in meta or deck_hash not in meta["decks"]:
+        if "decks" not in meta or spreadsheet_id not in meta["decks"]:
             return 0
 
-        deck_info = meta["decks"][deck_hash]
+        deck_info = meta["decks"][spreadsheet_id]
         note_types = deck_info.get("note_types", {})
 
         if not note_types:
@@ -2167,13 +2170,13 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
             return {"updated_count": 0, "renamed_in_anki": 0, "updated_in_meta": 0}
 
         meta = get_meta()
-        deck_hash = get_deck_hash(url)
+        spreadsheet_id = get_deck_id(url)
 
-        if "decks" not in meta or deck_hash not in meta["decks"]:
-            print(f"[NOTE_TYPE_SYNC] Deck {deck_hash} não encontrado no meta.json")
+        if "decks" not in meta or spreadsheet_id not in meta["decks"]:
+            print(f"[NOTE_TYPE_SYNC] Deck {spreadsheet_id} não encontrado no meta.json")
             return {"updated_count": 0, "renamed_in_anki": 0, "updated_in_meta": 0}
 
-        deck_info = meta["decks"][deck_hash]
+        deck_info = meta["decks"][spreadsheet_id]
         note_types = deck_info.get("note_types", {})
 
         if not note_types:

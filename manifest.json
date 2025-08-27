@@ -1,7 +1,7 @@
 {
     "package": "sheets2anki",
     "name": "Sheets2Anki",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "author": "Igor Florentino",
     "description": "Sincronize decks do Anki com planilhas do Google Sheets em formato TSV. Ideal para estudos de concursos com estrutura de questões em português.",
     "homepage": "https://github.com/igorrflorentino/sheets2anki",

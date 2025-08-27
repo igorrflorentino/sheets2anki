@@ -356,15 +356,18 @@ def download_tsv_data(url, timeout=30):
     Raises:
         RemoteDeckError: Se houver erro no download
     """
-    from .utils import convert_google_sheets_url_to_tsv
+    from .utils import convert_edit_url_to_tsv
     
     try:
-        # Converter automaticamente para formato TSV se necessário
+        # Converter URL de edição para formato TSV (se necessário)
         try:
-            tsv_url = convert_google_sheets_url_to_tsv(url)
+            # Se a URL já está no formato TSV, usar diretamente
+            if "/export?format=tsv" in url:
+                tsv_url = url
+            else:
+                tsv_url = convert_edit_url_to_tsv(url)
         except ValueError as e:
-            # Se a conversão falhou, usar URL original e deixar erro aparecer no download
-            tsv_url = url
+            raise RemoteDeckError(f"URL inválida: {str(e)}")
         
         headers = {"User-Agent": "Mozilla/5.0 (Sheets2Anki) AnkiAddon"}
         request = urllib.request.Request(tsv_url, headers=headers)
@@ -382,7 +385,18 @@ def download_tsv_data(url, timeout=30):
     except socket.timeout:
         raise RemoteDeckError(f"Timeout de {timeout}s ao acessar a URL")
     except urllib.error.HTTPError as e:
-        raise RemoteDeckError(f"Erro HTTP {e.code}: {e.reason}")
+        if e.code == 400:
+            raise RemoteDeckError(
+                f"Erro HTTP 400: A planilha não está acessível publicamente.\n\n"
+                f"Para corrigir:\n"
+                f"1. Abra a planilha no Google Sheets\n"
+                f"2. Clique em 'Compartilhar'\n"
+                f"3. Mude o acesso para 'Qualquer pessoa com o link'\n"
+                f"4. Defina a permissão como 'Visualizador'\n\n"
+                f"Alternativamente: Arquivo → Compartilhar → Publicar na web"
+            )
+        else:
+            raise RemoteDeckError(f"Erro HTTP {e.code}: {e.reason}")
     except urllib.error.URLError as e:
         raise RemoteDeckError(f"Erro de URL: {str(e.reason)}")
     except Exception as e:

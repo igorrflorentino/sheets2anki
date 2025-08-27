@@ -47,6 +47,25 @@ class AddDeckDialog(QDialog):
         self._setup_ui()
         self._connect_signals()
 
+    def _check_duplicate_url(self, url):
+        """
+        Verifica se uma URL já está cadastrada no sistema.
+        
+        Args:
+            url (str): URL a ser verificada
+            
+        Returns:
+            tuple: (is_duplicate, deck_info, is_disconnected)
+        """
+        remote_decks = get_remote_decks()
+        for deck_id, deck_info in remote_decks.items():
+            existing_url = deck_info.get("remote_deck_url", "")
+            if existing_url == url:
+                # Se encontramos a URL nos decks remotos, ela não está desconectada
+                is_disconnected = False
+                return True, deck_info, is_disconnected
+        return False, None, False
+
     def _setup_ui(self):
         """Configura a interface do usuário de forma mais compacta."""
         layout = QVBoxLayout()
@@ -259,13 +278,14 @@ class AddDeckDialog(QDialog):
             return
 
         # Verificar se URL já está em uso
-        remote_decks = get_remote_decks()
-        if url in remote_decks:
-            # Verificar se foi desconectado
-            if is_deck_disconnected(url):
+        is_duplicate, deck_info, is_disconnected = self._check_duplicate_url(url)
+        if is_duplicate:
+            if is_disconnected:
                 self._show_status("✓ URL reconectará deck desconectado", "warning")
             else:
-                self._show_status("❌ Esta URL já está cadastrada", "error")
+                deck_name = deck_info.get('remote_deck_name', 'Nome não disponível') if deck_info else 'Nome não disponível'
+                self._show_status(f"❌ URL já cadastrada: {deck_name}", "error")
+                self.add_button.setEnabled(False)
                 return
 
         # Mostrar progresso sutil
@@ -425,6 +445,18 @@ class AddDeckDialog(QDialog):
 
         if not url or not self.remote_deck:
             QMessageBox.warning(self, "Erro", "Por favor, valide a URL primeiro.")
+            return
+
+        # Validação final: verificar se URL já está em uso
+        is_duplicate, deck_info, is_disconnected = self._check_duplicate_url(url)
+        if is_duplicate and not is_disconnected:
+            deck_name = deck_info.get('remote_deck_name', 'Nome não disponível') if deck_info else 'Nome não disponível'
+            QMessageBox.warning(
+                self, 
+                "URL Duplicada", 
+                f"Esta URL já está cadastrada no sistema.\n\n"
+                f"Deck existente: {deck_name}"
+            )
             return
 
         # Gerar nome do deck usando DeckNameManager

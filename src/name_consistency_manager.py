@@ -380,17 +380,17 @@ class NameConsistencyManager:
         Atualiza o meta.json com os novos nomes aplicados.
         """
         try:
-            from .config_manager import get_meta, save_meta, get_deck_hash
+            from .config_manager import get_meta, save_meta, get_deck_id
             
             meta = get_meta()
-            deck_hash = get_deck_hash(deck_url)
+            spreadsheet_id = get_deck_id(deck_url)
             
-            if "decks" in meta and deck_hash in meta["decks"]:
+            if "decks" in meta and spreadsheet_id in meta["decks"]:
                 # Atualizar local_deck_name
-                meta["decks"][deck_hash]["local_deck_name"] = local_deck_name
+                meta["decks"][spreadsheet_id]["local_deck_name"] = local_deck_name
                 
                 # Atualizar note_types
-                meta["decks"][deck_hash]["note_types"] = note_types
+                meta["decks"][spreadsheet_id]["note_types"] = note_types
                 
                 save_meta(meta)
                 debug_callback("✅ Configuração atualizada no meta.json")
@@ -413,16 +413,16 @@ class NameConsistencyManager:
         para evitar que save_remote_decks() posterior reverta as mudanças.
         """
         try:
-            from .config_manager import get_deck_hash
+            from .config_manager import get_deck_id
             
-            deck_hash = get_deck_hash(deck_url)
+            spreadsheet_id = get_deck_id(deck_url)
             
-            if deck_hash in remote_decks:
+            if spreadsheet_id in remote_decks:
                 # Atualizar local_deck_name no dicionário em memória
-                remote_decks[deck_hash]["local_deck_name"] = local_deck_name
+                remote_decks[spreadsheet_id]["local_deck_name"] = local_deck_name
                 
                 # Atualizar note_types no dicionário em memória
-                remote_decks[deck_hash]["note_types"] = note_types
+                remote_decks[spreadsheet_id]["note_types"] = note_types
                 
                 debug_callback("💾 Dicionário remote_decks em memória atualizado para evitar reversão")
             else:

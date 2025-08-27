@@ -4,7 +4,47 @@
 
 ---
 
-## 🚀 **v2.1.0** - Agosto 2025 *(Versão Atual)*
+## 🚀 **v2.2.0** - Agosto 2025 *(Versão Atual)*
+
+### ✨ **Simplificação Revolucionária do Sistema de URLs**
+
+#### 🎯 **URLs Unificadas**
+- **APENAS URLs de Edição**: Sistema simplificado trabalha exclusivamente com URLs de edição (`/edit?usp=sharing`)
+- **Eliminação de Formato Published**: Removido completamente o suporte a URLs publicadas (`/pub?output=tsv`)
+- **Conversão Automática**: URLs de edição são convertidas automaticamente para formato TSV de download
+- **Processo Simplificado**: Um único tipo de URL para todos os casos de uso
+
+#### 🆔 **Sistema de Identificação por ID Real**
+- **ID da Planilha**: Usa o ID real da planilha do Google Sheets como identificador
+- **Fim dos Hashes**: Elimina completamente o sistema de hash MD5 para identificação
+- **Configuração Mais Clara**: `meta.json` agora usa IDs reais das planilhas como chaves
+- **Transparência Total**: Usuários podem ver exatamente qual planilha está configurada
+
+#### 🔧 **Refatoração Completa da API**
+- **Novas Funções**:
+  - `extract_spreadsheet_id_from_url()`: Extrai ID da planilha de URLs de edição
+  - `get_spreadsheet_id_from_url()`: Obtém ID com validação
+  - `convert_edit_url_to_tsv()`: Converte URL de edição para TSV
+- **Funções Removidas**:
+  - `extract_publication_key_from_url()`: ❌ Removida
+  - `get_publication_key_hash()`: ❌ Removida
+  - `convert_google_sheets_url_to_tsv()`: ❌ Removida
+
+### 🗂️ **Migração Automática de Configurações**
+- **Compatibilidade**: Configurações existentes continuam funcionando
+- **Migração Transparente**: Sistema detecta e migra automaticamente configurações antigas
+- **Preservação de Dados**: Todos os decks e preferências são mantidos
+- **Sem Intervenção**: Processo completamente automático para o usuário
+
+### 🧪 **Nova Suite de Testes**
+- **Testes Específicos**: 18 novos testes para funcionalidades simplificadas
+- **Cobertura Completa**: Validação de todas as novas funções
+- **Testes de Erro**: Validação robusta de casos de erro
+- **Arquivo Dedicado**: `test_url_simplification.py` para testes das novas funcionalidades
+
+---
+
+## 🚀 **v2.1.0** - Agosto 2025
 
 ### ✨ **Novas Funcionalidades**
 

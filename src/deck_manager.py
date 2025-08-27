@@ -463,14 +463,14 @@ def removeRemoteDeck():
 
         for url in selected_urls:
             # Obter informações do deck antes de desconectar
-            from .utils import get_publication_key_hash
+            from .utils import get_spreadsheet_id_from_url
 
-            # Gerar hash da chave de publicação
-            url_hash = get_publication_key_hash(url)
+            # Gerar ID da planilha
+            spreadsheet_id = get_spreadsheet_id_from_url(url)
 
             remote_decks = get_remote_decks()
-            if url_hash in remote_decks:
-                deck_info = remote_decks[url_hash]
+            if spreadsheet_id in remote_decks:
+                deck_info = remote_decks[spreadsheet_id]
                 deck_id = deck_info["local_deck_id"]
                 deck = None
                 # Verificar se a coleção e o gerenciador de decks estão disponíveis
@@ -1098,15 +1098,15 @@ class DeckNameManager:
     def _update_name_in_config(deck_url: str, new_name: str) -> bool:
         """Atualiza nome na configuração."""
         try:
-            from .config_manager import get_deck_hash
+            from .config_manager import get_deck_id
             from .config_manager import get_meta
             from .config_manager import save_meta
 
             meta = get_meta()
-            deck_hash = get_deck_hash(deck_url)
+            spreadsheet_id = get_deck_id(deck_url)
 
-            if "decks" in meta and deck_hash in meta["decks"]:
-                meta["decks"][deck_hash]["local_deck_name"] = new_name
+            if "decks" in meta and spreadsheet_id in meta["decks"]:
+                meta["decks"][spreadsheet_id]["local_deck_name"] = new_name
                 save_meta(meta)
                 return True
             return False
