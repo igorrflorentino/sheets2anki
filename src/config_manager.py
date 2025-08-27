@@ -68,6 +68,10 @@ DEFAULT_META = {
         "ankiweb_sync_mode": "none",  # "none", "sync"
         "ankiweb_sync_timeout": 30,  # timeout em segundos para sync do AnkiWeb
         "show_ankiweb_sync_notifications": True,  # mostrar notificações de sync AnkiWeb
+        # Configurações de backup automático
+        "auto_backup_enabled": True,  # habilitar backup automático de configurações
+        "auto_backup_directory": "",  # diretório para salvar backups automáticos (vazio = usar padrão)
+        "auto_backup_max_files": 50,  # máximo de arquivos de backup a manter
     },
     "students": {
         "available_students": [],
@@ -2335,3 +2339,91 @@ def fix_missing_created_at_fields():
             "success": False,
             "error": str(e)
         }
+
+
+# =============================================================================
+# FUNÇÕES DE CONFIGURAÇÃO DE BACKUP AUTOMÁTICO
+# =============================================================================
+
+def get_auto_backup_config():
+    """
+    Obtém as configurações de backup automático.
+    
+    Returns:
+        dict: Configurações de backup automático
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    
+    return {
+        "enabled": config.get("auto_backup_enabled", True),
+        "directory": config.get("auto_backup_directory", ""),
+        "max_files": config.get("auto_backup_max_files", 50)
+    }
+
+
+def set_auto_backup_config(enabled=None, directory=None, max_files=None):
+    """
+    Define as configurações de backup automático.
+    
+    Args:
+        enabled (bool, optional): Habilitar backup automático
+        directory (str, optional): Diretório para salvar backups
+        max_files (int, optional): Máximo de arquivos a manter
+    
+    Returns:
+        bool: True se salvou com sucesso
+    """
+    try:
+        meta = get_meta()
+        config = meta.get("config", {})
+        
+        if enabled is not None:
+            config["auto_backup_enabled"] = enabled
+        if directory is not None:
+            config["auto_backup_directory"] = directory
+        if max_files is not None:
+            config["auto_backup_max_files"] = max_files
+        
+        meta["config"] = config
+        save_meta(meta)
+        
+        print(f"[AUTO_BACKUP] Configurações atualizadas: enabled={enabled}, directory={directory}, max_files={max_files}")
+        return True
+        
+    except Exception as e:
+        print(f"[AUTO_BACKUP] Erro ao salvar configurações: {e}")
+        return False
+
+
+def get_auto_backup_directory():
+    """
+    Obtém o diretório configurado para backup automático.
+    Se não estiver configurado, retorna um diretório padrão.
+    
+    Returns:
+        str: Caminho do diretório de backup automático
+    """
+    import os
+    from pathlib import Path
+    
+    config = get_auto_backup_config()
+    directory = config.get("directory", "")
+    
+    # Se não estiver configurado, usar diretório padrão
+    if not directory:
+        # Usar diretório do usuário/Documentos/Sheets2Anki/AutoBackups
+        user_home = Path.home()
+        default_dir = user_home / "Documents" / "Sheets2Anki" / "AutoBackups"
+        directory = str(default_dir)
+    
+    # Criar diretório se não existir
+    try:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"[AUTO_BACKUP] Erro ao criar diretório {directory}: {e}")
+        # Fallback para diretório temporário
+        import tempfile
+        directory = tempfile.gettempdir()
+    
+    return directory

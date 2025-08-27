@@ -1364,6 +1364,20 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         successful_decks = len(stats_manager.get_successful_decks())
         deck_results = stats_manager.deck_results  # Obter resultados por deck
 
+        # **NOVO**: Criar backup automático de configurações após sincronização bem-sucedida
+        if successful_decks > 0:  # Só fazer backup se pelo menos um deck foi sincronizado com sucesso
+            try:
+                from .backup_system import SimplifiedBackupManager
+                backup_manager = SimplifiedBackupManager()
+                backup_success = backup_manager.create_auto_config_backup()
+                if backup_success:
+                    add_debug_message("💾 Backup automático de configurações criado com sucesso", "SYNC")
+                else:
+                    add_debug_message("⚠️ Backup automático de configurações desabilitado ou falhou", "SYNC")
+            except Exception as e:
+                add_debug_message(f"❌ Erro ao criar backup automático: {e}", "SYNC")
+                print(f"[WARNING] Erro ao criar backup automático: {e}")
+
         add_debug_message(
             f"🎯 Chamando _finalize_sync_new - successful_decks: {successful_decks}, total_decks: {total_decks}",
             "SYNC",
