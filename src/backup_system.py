@@ -265,18 +265,72 @@ class SimplifiedBackupManager:
             shutil.copy2(backup_config_path, target_config_path)
 
     def _import_deck_apkg(self, apkg_path: str) -> None:
-        """Importa o deck do arquivo .apkg"""
+        """Importa o deck do arquivo .apkg usando API moderna do Anki"""
         try:
-            # Usar importação do Anki
-            from aqt.importing import doImport
+            if not mw or not mw.col:
+                raise Exception("Anki não está disponível")
             
-            # Importar o arquivo
-            doImport(mw, apkg_path)
-            print("Deck importado com sucesso do backup")
+            # Método 1: Tentar usar AnkiPackageImporter (API moderna)
+            try:
+                from anki.importing.apkg import AnkiPackageImporter
+                
+                importer = AnkiPackageImporter(mw.col, apkg_path)
+                importer.run()
+                mw.col.save()
+                
+                print("Deck importado com sucesso (API moderna)")
+                showInfo("✅ Deck importado com sucesso do backup!")
+                return
+                
+            except Exception as e:
+                print(f"Método moderno falhou: {e}")
+            
+            # Método 2: Tentar usar importação via interface (mais compatível)
+            try:
+                from aqt.importing import importFile
+                
+                # Usar a função de importação da interface
+                importFile(mw, apkg_path)
+                
+                print("Deck importado com sucesso (método interface)")
+                showInfo("✅ Deck importado com sucesso do backup!")
+                return
+                
+            except Exception as e:
+                print(f"Método interface falhou: {e}")
+            
+            # Método 3: Fallback para versões mais antigas
+            try:
+                from aqt.importing import doImport
+                doImport(mw, apkg_path)
+                
+                print("Deck importado com sucesso (método legacy)")
+                showInfo("✅ Deck importado com sucesso do backup!")
+                return
+                
+            except Exception as e:
+                print(f"Método legacy falhou: {e}")
+            
+            # Se todos os métodos falharam
+            raise Exception("Todos os métodos de importação falharam")
             
         except Exception as e:
             print(f"Erro ao importar deck: {e}")
-            showWarning(f"Erro ao importar deck do backup: {e}")
+            showCritical(f"❌ Erro ao importar deck do backup:\n{e}\n\nTente importar manualmente o arquivo .apkg através do menu Arquivo > Importar do Anki.")
+
+    def _import_deck_manual(self, apkg_path: str) -> None:
+        """Método manual de importação como último recurso"""
+        # Este método foi removido pois é muito complexo e arriscado
+        # Em vez disso, orientamos o usuário a importar manualmente
+        showInfo(
+            "⚠️ Importação automática falhou.\n\n"
+            "Para recuperar seus dados:\n"
+            "1. Abra o Anki\n"
+            "2. Vá em Arquivo > Importar\n"
+            f"3. Selecione o arquivo: {apkg_path}\n"
+            "4. Siga as instruções na tela\n\n"
+            "Seus dados estão seguros no arquivo de backup!"
+        )
 
     def _recreate_deck_links(self) -> None:
         """Recria as ligações entre decks remotos e locais"""
