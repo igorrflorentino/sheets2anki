@@ -26,6 +26,7 @@ from .data_processor import getRemoteDeck
 from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 from .utils import get_or_create_deck
 from .utils import validate_url
+from .utils import get_spreadsheet_id_from_url
 
 
 class AddDeckDialog(QDialog):
@@ -38,7 +39,7 @@ class AddDeckDialog(QDialog):
         self.setWindowTitle("Adicionar Deck Remoto")
         self.setModal(True)
         self.setMinimumWidth(480)
-        self.setMaximumWidth(520)
+        # Remover altura fixa para permitir ajuste automático
 
         self.remote_deck = None
         self.suggested_name = ""
@@ -46,10 +47,13 @@ class AddDeckDialog(QDialog):
 
         self._setup_ui()
         self._connect_signals()
+        
+        # Ajustar tamanho inicial
+        self._adjust_dialog_size()
 
-    def _check_duplicate_url(self, url):
+    def _check_duplicate_spreadsheet(self, url):
         """
-        Verifica se uma URL já está cadastrada no sistema.
+        Verifica se uma planilha já está cadastrada no sistema usando o ID da planilha.
         
         Args:
             url (str): URL a ser verificada
@@ -57,14 +61,62 @@ class AddDeckDialog(QDialog):
         Returns:
             tuple: (is_duplicate, deck_info, is_disconnected)
         """
-        remote_decks = get_remote_decks()
-        for deck_id, deck_info in remote_decks.items():
-            existing_url = deck_info.get("remote_deck_url", "")
-            if existing_url == url:
-                # Se encontramos a URL nos decks remotos, ela não está desconectada
+        try:
+            # Extrair o ID da planilha da URL
+            spreadsheet_id = get_spreadsheet_id_from_url(url)
+            
+            # Verificar se já existe um deck com este ID
+            remote_decks = get_remote_decks()
+            if spreadsheet_id in remote_decks:
+                deck_info = remote_decks[spreadsheet_id]
+                # Se encontramos o ID nos decks remotos, ele não está desconectado
                 is_disconnected = False
                 return True, deck_info, is_disconnected
-        return False, None, False
+                
+            return False, None, False
+        except ValueError:
+            # Se não conseguir extrair o ID, trata como não duplicado
+            return False, None, False
+
+    def _format_deck_statistics(self, stats):
+        """
+        Formata as estatísticas do deck para exibição compacta.
+        
+        Args:
+            stats (dict): Estatísticas do deck remoto
+            
+        Returns:
+            list: Lista de strings formatadas para exibição
+        """
+        info_items = []
+        
+        # Estatísticas básicas
+        valid_lines = stats.get("valid_note_lines", 0)
+        total_lines = stats.get("total_table_lines", 0)
+        invalid_lines = stats.get("invalid_note_lines", 0)
+        
+        # Questões válidas (principal)
+        info_items.append(f"📝 {valid_lines} questões válidas")
+        
+        # Total na planilha (se diferente das válidas)
+        if total_lines > valid_lines:
+            info_items.append(f"📊 {total_lines} linhas totais")
+        
+        # Questões inválidas (se houver)
+        if invalid_lines > 0:
+            info_items.append(f"⚠️ {invalid_lines} linhas sem ID")
+        
+        # Alunos únicos
+        unique_students = stats.get("unique_students_count", 0)
+        if unique_students > 0:
+            info_items.append(f"👥 {unique_students} aluno(s)")
+        
+        # Notas potenciais no Anki
+        potential_notes = stats.get("total_potential_anki_notes", 0)
+        if potential_notes > 0 and potential_notes != valid_lines:
+            info_items.append(f"🎯 {potential_notes} notas no Anki")
+        
+        return info_items
 
     def _setup_ui(self):
         """Configura a interface do usuário de forma mais compacta."""
@@ -238,12 +290,47 @@ class AddDeckDialog(QDialog):
         self.add_button.clicked.connect(self._add_deck)
         self.cancel_button.clicked.connect(self.reject)
 
+    def _adjust_dialog_size(self):
+        """Ajusta o tamanho da janela baseado no conteúdo visível."""
+        layout = self.layout()
+        if not layout:
+            return
+            
+        # Usar QTimer para garantir que o ajuste aconteça após o layout ser processado
+        QTimer.singleShot(10, self._do_adjust_size)
+    
+    def _do_adjust_size(self):
+        """Executa o ajuste de tamanho da janela."""
+        layout = self.layout()
+        if not layout:
+            return
+            
+        # Força o layout a recalcular os tamanhos
+        layout.activate()
+        
+        # Obtém o tamanho mínimo necessário baseado no conteúdo
+        min_size = layout.minimumSize()
+        size_hint = self.sizeHint()
+        
+        # Calcula o tamanho ideal considerando margens
+        ideal_width = max(min_size.width(), size_hint.width(), 480)
+        ideal_height = max(min_size.height(), size_hint.height())
+        
+        # Aplica o novo tamanho
+        self.resize(ideal_width, ideal_height)
+        
+        # Atualiza a geometria da janela
+        self.updateGeometry()
+
     def _on_url_changed(self):
         """Chamado quando a URL é alterada - inicia validação automática."""
         self.add_button.setEnabled(False)
         self.preview_group.setVisible(False)
         self.remote_deck = None
         self.suggested_name = ""
+        
+        # Ajustar tamanho da janela ao esconder o preview
+        self._adjust_dialog_size()
 
         url = self.url_edit.text().strip()
 
@@ -278,13 +365,13 @@ class AddDeckDialog(QDialog):
             return
 
         # Verificar se URL já está em uso
-        is_duplicate, deck_info, is_disconnected = self._check_duplicate_url(url)
+        is_duplicate, deck_info, is_disconnected = self._check_duplicate_spreadsheet(url)
         if is_duplicate:
             if is_disconnected:
-                self._show_status("✓ URL reconectará deck desconectado", "warning")
+                self._show_status("✓ Planilha reconectará deck desconectado", "warning")
             else:
                 deck_name = deck_info.get('remote_deck_name', 'Nome não disponível') if deck_info else 'Nome não disponível'
-                self._show_status(f"❌ URL já cadastrada: {deck_name}", "error")
+                self._show_status(f"❌ Planilha já cadastrada: {deck_name}", "error")
                 self.add_button.setEnabled(False)
                 return
 
@@ -321,36 +408,34 @@ class AddDeckDialog(QDialog):
             self.progress_bar.setRange(0, 0)  # Indeterminado
         else:
             self.progress_bar.setVisible(False)
+        
+        # Ajustar tamanho da janela quando barra de progresso muda
+        self._adjust_dialog_size()
 
     def _show_deck_preview(self):
-        """Mostra preview compacto do deck validado."""
+        """Mostra preview compacto do deck validado com estatísticas completas."""
         if not self.remote_deck:
             return
 
-        # Informações básicas em formato compacto
-        info_items = []
-
-        # Número de questões
-        question_count = len(self.remote_deck.notes) if self.remote_deck.notes else 0
-        info_items.append(f"📝 {question_count} questões encontradas")
-
-        # Questões ignoradas
-        if (
-            hasattr(self.remote_deck, "ignored_count")
-            and self.remote_deck.ignored_count > 0
-        ):
-            info_items.append(f"⚠️ {self.remote_deck.ignored_count} questões ignoradas")
-
-        # Arquivos de mídia
+        # Obter estatísticas completas do deck
+        deck_stats = self.remote_deck.get_statistics()
+        
+        # Formatar estatísticas para exibição
+        info_items = self._format_deck_statistics(deck_stats)
+        
+        # Informações adicionais (mídia, etc.)
         if hasattr(self.remote_deck, "media") and self.remote_deck.media:
-            info_items.append(f"🖼️ {len(self.remote_deck.media)} arquivos de mídia")
+            info_items.append(f"🖼️ {len(self.remote_deck.media)} arquivo(s) de mídia")
 
-        self.info_label.setText(" • ".join(info_items))
+        self.info_label.setText("\n".join(info_items))
 
         # Mostrar nome final do deck com resolução de conflitos
         self._update_deck_name_preview()
 
         self.preview_group.setVisible(True)
+        
+        # Ajustar tamanho da janela ao mostrar o preview
+        self._adjust_dialog_size()
 
     def _update_deck_name_preview(self):
         """Atualiza preview do nome do deck."""
@@ -379,6 +464,9 @@ class AddDeckDialog(QDialog):
             )
             self.conflict_warning.setText(conflict_message)
             self.conflict_warning.setVisible(True)
+            
+            # Ajustar tamanho da janela ao mostrar aviso de conflito
+            self._adjust_dialog_size()
 
             # Nome com estilo de conflito
             self.name_preview.setText(f"{full_name}")
@@ -398,6 +486,9 @@ class AddDeckDialog(QDialog):
         else:
             # SEM CONFLITO - Ocultar aviso
             self.conflict_warning.setVisible(False)
+            
+            # Ajustar tamanho da janela ao esconder aviso de conflito
+            self._adjust_dialog_size()
 
             # Nome com estilo normal
             self.name_preview.setText(f"{full_name}")
@@ -448,13 +539,13 @@ class AddDeckDialog(QDialog):
             return
 
         # Validação final: verificar se URL já está em uso
-        is_duplicate, deck_info, is_disconnected = self._check_duplicate_url(url)
+        is_duplicate, deck_info, is_disconnected = self._check_duplicate_spreadsheet(url)
         if is_duplicate and not is_disconnected:
             deck_name = deck_info.get('remote_deck_name', 'Nome não disponível') if deck_info else 'Nome não disponível'
             QMessageBox.warning(
                 self, 
-                "URL Duplicada", 
-                f"Esta URL já está cadastrada no sistema.\n\n"
+                "Planilha Já Cadastrada", 
+                f"Esta planilha já está cadastrada no sistema.\n\n"
                 f"Deck existente: {deck_name}"
             )
             return
