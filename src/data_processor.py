@@ -1079,12 +1079,42 @@ def create_or_update_notes(
                     add_debug_msg(f"❌ Stack trace: {error_details}")
                     stats.errors += 1
 
-        # 6. Remover notas que não existem mais na fonte remota
-        notes_to_delete = set(existing_notes.keys()) - expected_student_note_ids
-        add_debug_msg(
-            f"Removendo {len(notes_to_delete)} notas obsoletas (não encontradas no deck remoto)"
-        )
-        for student_note_id in notes_to_delete:
+        # 6. Separar notas obsoletas de notas de alunos desabilitados
+        all_existing_note_ids = set(existing_notes.keys())
+        
+        # 6.1. Identificar notas realmente obsoletas (não existem mais na planilha)
+        notes_really_obsolete = set()
+        notes_from_disabled_students = set()
+        
+        for student_note_id in all_existing_note_ids - expected_student_note_ids:
+            # Extrair informações da nota
+            if "_" not in student_note_id:
+                notes_really_obsolete.add(student_note_id)
+                continue
+                
+            student_name = student_note_id.split("_")[0]
+            note_id = "_".join(student_note_id.split("_")[1:])
+            
+            # Verificar se a nota ainda existe na planilha remota
+            note_exists_in_remote = False
+            for note_data in remoteDeck.notes:
+                remote_note_id = note_data.get(cols.ID, "").strip()
+                if remote_note_id == note_id:
+                    note_exists_in_remote = True
+                    break
+            
+            if not note_exists_in_remote:
+                # Nota realmente não existe mais na planilha
+                notes_really_obsolete.add(student_note_id)
+                add_debug_msg(f"📝 Nota obsoleta (removida da planilha): {student_note_id}")
+            else:
+                # Nota existe na planilha, mas aluno foi desabilitado
+                notes_from_disabled_students.add(student_note_id)
+                add_debug_msg(f"👤 Nota de aluno desabilitado: {student_note_id} (aluno: {student_name})")
+        
+        # 6.2. Remover notas realmente obsoletas (sempre remove)
+        add_debug_msg(f"🗑️ Removendo {len(notes_really_obsolete)} notas obsoletas (não existem mais na planilha)")
+        for student_note_id in notes_really_obsolete:
             try:
                 note_to_delete = existing_notes[student_note_id]
                 if delete_note_by_id(col, note_to_delete):
@@ -1098,31 +1128,65 @@ def create_or_update_notes(
                             else "Unknown"
                         ),
                         "note_id": (
-                            student_note_id.split("_", 1)[1]
+                            "_".join(student_note_id.split("_")[1:])
                             if "_" in student_note_id
                             else student_note_id
                         ),
-                        "pergunta": (
-                            note_to_delete[cols.PERGUNTA][:100]
-                            + (
-                                "..."
-                                if len(note_to_delete[cols.PERGUNTA]) > 100
-                                else ""
-                            )
-                            if cols.PERGUNTA in note_to_delete
-                            else "N/A"
-                        ),
+                        "reason": "obsolete"
                     }
                     stats.deletion_details.append(deletion_detail)
-                    add_debug_msg(f"🗑️ Nota removida: {student_note_id}")
-                else:
-                    stats.errors += 1
-                    add_debug_msg(f"❌ Erro ao remover nota: {student_note_id}")
+                    add_debug_msg(f"✅ Nota obsoleta removida: {student_note_id}")
             except Exception as e:
-                add_debug_msg(f"❌ Erro ao deletar nota {student_note_id}: {e}")
+                add_debug_msg(f"❌ Erro ao remover nota obsoleta {student_note_id}: {e}")
                 stats.errors += 1
+        
+        # 6.3. Verificar se deve remover notas de alunos desabilitados
+        from .config_manager import is_auto_remove_disabled_students
+        
+        if notes_from_disabled_students:
+            if is_auto_remove_disabled_students():
+                add_debug_msg(f"🔧 Auto-remoção ATIVADA: removendo {len(notes_from_disabled_students)} notas de alunos desabilitados")
+                for student_note_id in notes_from_disabled_students:
+                    try:
+                        note_to_delete = existing_notes[student_note_id]
+                        if delete_note_by_id(col, note_to_delete):
+                            stats.deleted += 1
+                            # Capturar detalhes da exclusão
+                            deletion_detail = {
+                                "student_note_id": student_note_id,
+                                "student": (
+                                    student_note_id.split("_")[0]
+                                    if "_" in student_note_id
+                                    else "Unknown"
+                                ),
+                                "note_id": (
+                                    "_".join(student_note_id.split("_")[1:])
+                                    if "_" in student_note_id
+                                    else student_note_id
+                                ),
+                                "reason": "disabled_student"
+                            }
+                            stats.deletion_details.append(deletion_detail)
+                            add_debug_msg(f"✅ Nota de aluno desabilitado removida: {student_note_id}")
+                    except Exception as e:
+                        add_debug_msg(f"❌ Erro ao remover nota de aluno desabilitado {student_note_id}: {e}")
+                        stats.errors += 1
+            else:
+                add_debug_msg(f"🛡️ Auto-remoção DESATIVADA: preservando {len(notes_from_disabled_students)} notas de alunos desabilitados")
+                for student_note_id in notes_from_disabled_students:
+                    student_name = student_note_id.split("_")[0] if "_" in student_note_id else "Unknown"
+                    add_debug_msg(f"🛡️ Preservando nota: {student_note_id} (aluno: {student_name})")
 
-        # 7. Salvar alterações
+        # 7. Estatísticas finais
+        add_debug_msg("=== ESTATÍSTICAS FINAIS ===")
+        add_debug_msg(f"✅ Notas criadas: {stats.created}")
+        add_debug_msg(f"🔄 Notas atualizadas: {stats.updated}")
+        add_debug_msg(f"🗑️ Notas removidas: {stats.deleted}")
+        add_debug_msg(f"⏭️ Notas inalteradas: {stats.unchanged}")
+        add_debug_msg(f"⏸️ Notas ignoradas: {stats.skipped}")
+        add_debug_msg(f"❌ Erros: {stats.errors}")
+
+        # 8. Salvar alterações
         try:
             col.save()
             add_debug_msg("Coleção salva com sucesso")
