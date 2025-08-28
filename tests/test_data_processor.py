@@ -128,7 +128,8 @@ class TestColumnValidation:
         incomplete_data = [{"ID": "Q001", "PERGUNTA": "Teste"}]
 
         def validate_columns(data):
-            required_columns = ["ID", "PERGUNTA", "LEVAR PARA PROVA", "SYNC?", "ALUNOS"]
+            # Apenas ID e LEVAR PARA PROVA são realmente obrigatórios agora
+            required_columns = ["ID", "LEVAR PARA PROVA"]
             if not data:
                 return False
             first_row = data[0]

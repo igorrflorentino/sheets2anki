@@ -16,9 +16,9 @@ Consolidado de:
 # DEFINIÇÕES DE COLUNAS PRINCIPAIS
 # =============================================================================
 
-# Campos obrigatórios básicos
-ID = "ID"  # Identificador único da questão
-PERGUNTA = "PERGUNTA"  # Texto principal da questão/frente do cartão
+# Campos básicos do sistema
+ID = "ID"  # Identificador único da questão (obrigatório)
+PERGUNTA = "PERGUNTA"  # Texto principal da questão/frente do cartão (opcional)
 MATCH = (
     "LEVAR PARA PROVA"  # Resposta sucinta e atômica da pergunta (núcleo da resposta)
 )
@@ -63,11 +63,10 @@ MORE_TAGS = "TAGS ADICIONAIS"  # Tags adicionais para organização
 # CONFIGURAÇÕES DE VALIDAÇÃO
 # =============================================================================
 
-# Lista completa de colunas obrigatórias na planilha
-REQUIRED_COLUMNS = [
-    ID,  # Identificador único
-    PERGUNTA,  # Texto da questão
-    MATCH,  # Resposta sucinta (núcleo da resposta)
+# Lista completa de todas as colunas disponíveis na planilha
+ALL_AVAILABLE_COLUMNS = [
+    ID,  # Identificador único (obrigatório)
+    MATCH,  # Resposta sucinta (núcleo da resposta) (obrigatório para headers)
     SYNC,  # Controle de sincronização
     ALUNOS,  # Controle de alunos interessados
     EXTRA_INFO_1,  # Info complementar
@@ -93,8 +92,11 @@ REQUIRED_COLUMNS = [
 # Campos que são considerados obrigatórios para criação de notas
 ESSENTIAL_FIELDS = [ID]
 
+# Campos que são obrigatórios nos headers da planilha (para parsing funcionar)
+REQUIRED_HEADERS = [ID, PERGUNTA, MATCH]
+
 # Campos que podem ser usados para filtragem/seleção (exceto SYNC que é apenas controle interno)
-FILTER_FIELDS = [MATCH, TOPICO, SUBTOPICO, CONCEITO, BANCAS, CARREIRAS, IMPORTANCIA]
+FILTER_FIELDS = [TOPICO, SUBTOPICO, CONCEITO, BANCAS, CARREIRAS, IMPORTANCIA, MORE_TAGS]
 
 # Campos que contêm informações textuais extensas
 TEXT_FIELDS = [
@@ -102,12 +104,14 @@ TEXT_FIELDS = [
     MATCH,
     EXTRA_INFO_1,
     EXTRA_INFO_2,
-    ILUSTRACAO_HTML,
-    EXTRA_INFO_1,
-    EXTRA_INFO_2,
     EXEMPLO_1,
     EXEMPLO_2,
     EXEMPLO_3,
+]
+
+# Campos que contêm mídias (imagens, vídeos, etc.)
+MEDIA_FIELDS = [
+    ILUSTRACAO_HTML,
 ]
 
 # Campos que devem ser incluídos nas notas do Anki (excluindo controles internos)
@@ -160,7 +164,7 @@ def validate_required_columns(columns):
             - is_valid: bool indicando se todas as colunas estão presentes
             - missing_columns: lista de colunas ausentes
     """
-    missing_columns = [col for col in REQUIRED_COLUMNS if col not in columns]
+    missing_columns = [col for col in ALL_AVAILABLE_COLUMNS if col not in columns]
     return len(missing_columns) == 0, missing_columns
 
 
@@ -249,7 +253,7 @@ def get_all_column_info():
     """
     column_info = {}
 
-    for column in REQUIRED_COLUMNS:
+    for column in ALL_AVAILABLE_COLUMNS:
         column_info[column] = {
             "name": column,
             "category": get_field_category(column),

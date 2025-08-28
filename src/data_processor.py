@@ -446,8 +446,8 @@ def parse_tsv_data(tsv_data, debug_messages=None):
         add_debug_msg(f"Headers encontrados: {len(headers)}")
         add_debug_msg(f"Linhas de dados: {len(data_rows)}")
 
-        # Validar headers obrigatórios
-        required_headers = [cols.ID, cols.PERGUNTA, cols.MATCH]
+        # Validar headers obrigatórios (apenas ID e MATCH são realmente obrigatórios)
+        required_headers = [cols.ID, cols.MATCH]
         missing_headers = [h for h in required_headers if h not in headers]
 
         if missing_headers:
@@ -510,10 +510,10 @@ def build_remote_deck_from_tsv(
             # A validação de ID vazio será feita dentro do método add_note()
             remote_deck.add_note(note_data)
 
-            # Validar se é uma nota processável (tem ID e PERGUNTA)
-            if not note_data.get(cols.ID) or not note_data.get(cols.PERGUNTA):
+            # Validar se é uma nota processável (apenas ID é obrigatório)
+            if not note_data.get(cols.ID):
                 add_debug_msg(
-                    f"Linha {row_index + 2}: nota inválida (ID ou PERGUNTA vazio)"
+                    f"Linha {row_index + 2}: nota inválida (ID vazio)"
                 )
                 continue
 
