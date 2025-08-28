@@ -968,12 +968,17 @@ def save_global_student_config(
     else:
         final_sync_missing = current_config.get("sync_missing_students_notes", False)
 
-    meta["students"] = {
-        "available_students": final_available,
-        "enabled_students": final_enabled,
-        "auto_remove_disabled_students": final_auto_remove,
-        "sync_missing_students_notes": final_sync_missing,
-    }
+    # ⚠️ PRESERVAR chaves existentes como sync_history
+    # Em vez de sobrescrever toda a seção "students", atualizar apenas as chaves necessárias
+    if "students" not in meta:
+        meta["students"] = {}
+    
+    meta["students"]["available_students"] = final_available
+    meta["students"]["enabled_students"] = final_enabled
+    meta["students"]["auto_remove_disabled_students"] = final_auto_remove
+    meta["students"]["sync_missing_students_notes"] = final_sync_missing
+    
+    # sync_history e outras chaves são preservadas automaticamente
 
     save_meta(meta)
 

@@ -1272,6 +1272,8 @@ def get_disabled_students_for_cleanup(
 def show_cleanup_confirmation_dialog(disabled_students: Set[str]) -> bool:
     """
     Mostra um diálogo de confirmação antes de remover dados de alunos desabilitados.
+    
+    REFATORADO: Agora usa função centralizada para garantir consistência.
 
     Args:
         disabled_students (Set[str]): Conjunto de alunos que terão dados removidos
@@ -1279,59 +1281,20 @@ def show_cleanup_confirmation_dialog(disabled_students: Set[str]) -> bool:
     Returns:
         bool: True se o usuário confirmou a remoção, False caso contrário
     """
-    from .compat import MessageBox_No
-    from .compat import MessageBox_Warning
-    from .compat import MessageBox_Yes
-    from .compat import QMessageBox
+    from .data_removal_confirmation import confirm_students_removal
 
     if not disabled_students:
         return False
 
-    students_list = "\n".join([f"• {student}" for student in sorted(disabled_students)])
-
-    message = (
-        f"⚠️ ATENÇÃO: REMOÇÃO PERMANENTE DE DADOS ⚠️\n\n"
-        f"Os seguintes alunos foram removidos da lista de sincronização:\n\n"
-        f"{students_list}\n\n"
-        f"🗑️ DADOS QUE SERÃO DELETADOS PERMANENTEMENTE:\n"
-        f"• Todas as notas dos alunos\n"
-        f"• Todos os cards dos alunos\n"
-        f"• Todos os decks dos alunos\n"
-        f"• Todos os note types dos alunos\n\n"
-        f"❌ ESTA AÇÃO É IRREVERSÍVEL!\n\n"
-        f"Deseja continuar com a remoção dos dados?"
+    # Converter set para list e usar função centralizada
+    disabled_students_list = list(disabled_students)
+    
+    # Usar função centralizada para confirmar remoção
+    confirmed = confirm_students_removal(
+        disabled_students=disabled_students_list,
+        missing_functionality_disabled=False,  # Apenas alunos, sem [MISSING A.]
+        window_title="Confirmar Remoção Permanente de Dados"
     )
-
-    # Criar MessageBox customizado
-    msg_box = QMessageBox()
-    msg_box.setIcon(MessageBox_Warning)
-    msg_box.setWindowTitle("Confirmar Remoção Permanente de Dados")
-    msg_box.setText(message)
-    msg_box.setStandardButtons(MessageBox_Yes | MessageBox_No)
-    msg_box.setDefaultButton(MessageBox_No)  # Default é NOT remover
-
-    # Customizar botões
-    yes_btn = msg_box.button(MessageBox_Yes)
-    no_btn = msg_box.button(MessageBox_No)
-
-    if yes_btn:
-        yes_btn.setText("🗑️ SIM, DELETAR DADOS")
-        yes_btn.setStyleSheet(
-            "QPushButton { background-color: #d73027; color: white; font-weight: bold; }"
-        )
-
-    if no_btn:
-        no_btn.setText("🛡️ NÃO, MANTER DADOS")
-        no_btn.setStyleSheet(
-            "QPushButton { background-color: #4575b4; color: white; font-weight: bold; }"
-        )
-
-    # Executar diálogo
-    from .compat import safe_exec_dialog
-
-    result = safe_exec_dialog(msg_box)
-
-    confirmed = result == MessageBox_Yes
 
     if confirmed:
         print(
@@ -1571,57 +1534,19 @@ def cleanup_missing_students_data(deck_names: List[str]) -> Dict[str, int]:
 def show_missing_cleanup_confirmation_dialog() -> bool:
     """
     Mostra diálogo de confirmação para limpeza de dados [MISSING A.].
+    REFATORADO: Usa módulo centralizado para geração de mensagens e confirmação.
 
     Returns:
         bool: True se usuário confirmou a remoção
     """
-    from .compat import MessageBox_No
-    from .compat import MessageBox_Yes
-    from .compat import QMessageBox
-
-    msg_box = QMessageBox(mw)
-    msg_box.setWindowTitle("⚠️ Confirmação de Remoção - Notas [MISSING A.]")
-    msg_box.setIcon(QMessageBox.Icon.Warning)
-
-    text = (
-        "🗑️ REMOÇÃO DE NOTAS SEM ALUNOS ESPECÍFICOS\n\n"
-        "Você desativou a sincronização de notas sem alunos específicos.\n\n"
-        "📋 O que será removido:\n"
-        "• Todas as notas em subdecks [MISSING A.]\n"
-        "• Todos os subdecks [MISSING A.] e seus conteúdos\n"
-        "• Note types específicos para [MISSING A.]\n\n"
-        "⚠️ ESTA AÇÃO É IRREVERSÍVEL!\n"
-        "Os dados removidos não podem ser recuperados.\n\n"
-        "Deseja continuar com a remoção?"
+    from .data_removal_confirmation import show_data_removal_confirmation_dialog
+    
+    # Usar diálogo centralizado apenas para [MISSING A.]
+    confirmed = show_data_removal_confirmation_dialog(
+        students_to_remove=["[MISSING A.]"],
+        window_title="⚠️ Confirmação de Remoção - Notas [MISSING A.]"
     )
-
-    msg_box.setText(text)
-    msg_box.setStandardButtons(MessageBox_Yes | MessageBox_No)
-    msg_box.setDefaultButton(MessageBox_No)  # Botão seguro como padrão
-
-    # Customizar botões
-    yes_btn = msg_box.button(MessageBox_Yes)
-    no_btn = msg_box.button(MessageBox_No)
-
-    if yes_btn:
-        yes_btn.setText("🗑️ SIM, DELETAR [MISSING A.]")
-        yes_btn.setStyleSheet(
-            "QPushButton { background-color: #d73027; color: white; font-weight: bold; }"
-        )
-
-    if no_btn:
-        no_btn.setText("🛡️ NÃO, MANTER DADOS")
-        no_btn.setStyleSheet(
-            "QPushButton { background-color: #4575b4; color: white; font-weight: bold; }"
-        )
-
-    # Executar diálogo
-    from .compat import safe_exec_dialog
-
-    result = safe_exec_dialog(msg_box)
-
-    confirmed = result == MessageBox_Yes
-
+    
     if confirmed:
         print("⚠️ CLEANUP: Usuário confirmou remoção de dados [MISSING A.]")
     else:

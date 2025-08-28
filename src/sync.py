@@ -17,8 +17,6 @@ from typing import Optional
 
 from .compat import AlignLeft
 from .compat import AlignTop
-from .compat import MessageBox_No
-from .compat import MessageBox_Yes
 from .compat import QDialog
 from .compat import QGroupBox
 from .compat import QLabel
@@ -2601,16 +2599,23 @@ def _needs_disabled_students_cleanup(remote_decks):
     # MÚLTIPLAS FONTES para detectar alunos anteriormente habilitados (ROBUSTEZ)
     previous_enabled_raw = set()
 
-    # Fonte 1: Todos os estudantes disponíveis
-    available_students = config.get("available_students", [])
-    previous_enabled_raw.update(available_students)
-    add_debug_message(f"   📚 Alunos disponíveis na config: {sorted(available_students)}", "CLEANUP")
+    # Fonte 1: Histórico de sincronização (mais confiável)
+    # Estes são os alunos que foram EFETIVAMENTE sincronizados no passado
+    from .config_manager import get_students_with_sync_history
+    sync_history_students = get_students_with_sync_history()
+    previous_enabled_raw.update(sync_history_students)
+    add_debug_message(f"   📚 Alunos do histórico de sync: {sorted(sync_history_students)}", "CLEANUP")
 
-    # Fonte 3: Verificar se há decks/notas de alunos no Anki (scan direto)
+    # Fonte 2: Verificar se há decks/notas de alunos no Anki (scan direto)
     if mw and hasattr(mw, "col") and mw.col:
         anki_students = _get_students_from_anki_data()
-        previous_enabled_raw.update(anki_students)
+        # Filtrar apenas alunos que também estão no histórico ou são atuais
+        available_students = config.get("available_students", [])
+        relevant_students_context = sync_history_students.union(set(available_students))
+        relevant_anki_students = anki_students.intersection(relevant_students_context)
+        previous_enabled_raw.update(relevant_anki_students)
         add_debug_message(f"   💾 Alunos encontrados no Anki: {sorted(anki_students)}", "CLEANUP")
+        add_debug_message(f"   🔍 Alunos relevantes do Anki: {sorted(relevant_anki_students)}", "CLEANUP")
 
     # Processar previous_enabled (case-sensitive)
     previous_enabled_set = {
@@ -2670,11 +2675,12 @@ def _get_students_from_anki_data():
                 parts = model_name.split(" - ")
                 if len(parts) >= 4:
                     student_name = parts[2].strip()  # Third part is student name
-                    if student_name:
+                    # Filtrar [MISSING A.] - não deve ser considerado um "aluno" normal
+                    if student_name and student_name != "[MISSING A.]":
                         students_found.add(student_name)
 
-        print(
-            f"🔍 SCAN: Encontrados estudantes com dados no Anki: {sorted(students_found)}"
+        add_debug_message(
+            f"🔍 SCAN: Encontrados estudantes com dados no Anki: {sorted(students_found)}", "CLEANUP"
         )
 
     except Exception as e:
@@ -2686,7 +2692,7 @@ def _get_students_from_anki_data():
 def _handle_consolidated_confirmation_cleanup(remote_decks):
     """
     Mostra uma única confirmação para ambos os tipos de limpeza e executa ambos se confirmado.
-    NOVA VERSÃO: Usa normalização consistente de nomes.
+    REFATORADO: Usa módulo centralizado para geração de mensagens e confirmação.
 
     Returns:
         tuple: (missing_cleanup_result, cleanup_result)
@@ -2694,6 +2700,7 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
     from .config_manager import get_global_student_config
     from .student_manager import cleanup_disabled_students_data
     from .student_manager import cleanup_missing_students_data
+    from .data_removal_confirmation import collect_students_for_removal, show_data_removal_confirmation_dialog
 
     # OBTER ALUNOS DESABILITADOS usando normalização consistente
     config = get_global_student_config()
@@ -2707,12 +2714,26 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
 
     # MÚLTIPLAS FONTES para detectar alunos anteriormente habilitados
     previous_enabled_raw = set()
-    previous_enabled_raw.update(available_students)
+    
+    # Fonte primária: histórico de sincronização (mais confiável)
+    # Estes são os alunos que foram EFETIVAMENTE sincronizados no passado
+    from .config_manager import get_students_with_sync_history
+    sync_history_students = get_students_with_sync_history()
+    previous_enabled_raw.update(sync_history_students)
 
-    # Adicionar dados do Anki
+    # Fonte secundária: dados do Anki (apenas como backup)
+    # NOTA: Esta fonte pode incluir alunos muito antigos, usar com cuidado
     if mw and hasattr(mw, "col") and mw.col:
         anki_students = _get_students_from_anki_data()
-        previous_enabled_raw.update(anki_students)
+        # Filtrar apenas alunos que também estão no histórico ou são atuais
+        # Isso evita detectar alunos muito antigos que não são mais relevantes
+        relevant_students_context = sync_history_students.union(set(available_students))
+        relevant_anki_students = anki_students.intersection(relevant_students_context)
+        previous_enabled_raw.update(relevant_anki_students)
+        
+        add_debug_message(f"   📊 Alunos detectados no Anki: {sorted(anki_students)}", "CLEANUP")
+        add_debug_message(f"   🔍 Alunos relevantes do Anki: {sorted(relevant_anki_students)}", "CLEANUP")
+        add_debug_message(f"   📚 Alunos do histórico: {sorted(sync_history_students)}", "CLEANUP")
 
     # Processar previous_enabled (case-sensitive)
     previous_enabled_set = {
@@ -2727,96 +2748,42 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
     ]
     deck_names = [name for name in deck_names if name]
 
-    # Criar mensagem consolidada mais clara
-    message_parts = [
-        "⚠️ ATENÇÃO: REMOÇÃO PERMANENTE DE DADOS ⚠️\n",
-        "O sistema detectou dados que precisam ser removidos.\n",
-    ]
-
-    # Só mostrar seção de alunos desabilitados se houver alunos
-    if disabled_students_set:
-        students_list = "\n".join(
-            [f"• {student}" for student in sorted(disabled_students_set)]
-        )
-        message_parts.extend(
-            [
-                "\n📚 ALUNOS DESABILITADOS:\n",
-                "Os seguintes alunos foram removidos da sincronização:\n",
-                f"{students_list}\n",
-                "\n🗑️ SERÁ REMOVIDO DE CADA ALUNO:\n",
-                "• Todas as notas individuais do aluno\n",
-                "• Todos os cards do aluno\n",
-                "• Todos os subdecks do aluno\n",
-                "• Note types específicos do aluno\n",
-            ]
-        )
-
+    # ✅ USAR MÓDULO CENTRALIZADO PARA COLETA E CONFIRMAÇÃO
+    disabled_students_list = list(disabled_students_set)
+    
     # Verificar se [MISSING A.] deve ser limpo
     from .config_manager import is_sync_missing_students_notes
-
-    if not is_sync_missing_students_notes():
-        # [MISSING A.] foi desabilitado
-        message_parts.extend(
-            [
-                "\n📝 FUNCIONALIDADE [MISSING A.] DESABILITADA:\n",
-                "• Todas as notas sem alunos específicos serão removidas\n",
-                "• Todos os subdecks [MISSING A.] serão removidos\n",
-                "• Note types [MISSING A.] serão removidos\n",
-            ]
-        )
-
-    message_parts.extend(
-        [
-            "\n❌ ESTA AÇÃO É IRREVERSÍVEL!\n",
-            "Os dados removidos não podem ser recuperados.\n\n",
-            "Deseja continuar com a remoção?",
-        ]
+    missing_functionality_disabled = not is_sync_missing_students_notes()
+    
+    # Coletar todos os alunos que serão removidos usando função centralizada
+    students_to_remove = collect_students_for_removal(
+        disabled_students=disabled_students_list,
+        missing_functionality_disabled=missing_functionality_disabled
     )
-
-    message = "".join(message_parts)
-
-    # Criar MessageBox consolidado
-    msg_box = QMessageBox()
-    msg_box.setIcon(QMessageBox.Icon.Warning)
-    msg_box.setWindowTitle("⚠️ Confirmar Limpeza de Dados")
-    msg_box.setText(message)
-    msg_box.setStandardButtons(MessageBox_Yes | MessageBox_No)
-    msg_box.setDefaultButton(MessageBox_No)  # Default é NOT remover
-
-    # Customizar botões
-    yes_btn = msg_box.button(MessageBox_Yes)
-    no_btn = msg_box.button(MessageBox_No)
-
-    if yes_btn:
-        yes_btn.setText("🗑️ SIM, DELETAR TODOS OS DADOS")
-        yes_btn.setStyleSheet(
-            "QPushButton { background-color: #d73027; color: white; font-weight: bold; }"
-        )
-
-    if no_btn:
-        no_btn.setText("🛡️ NÃO, MANTER DADOS")
-        no_btn.setStyleSheet(
-            "QPushButton { background-color: #4575b4; color: white; font-weight: bold; }"
-        )
-
-    # Executar diálogo
-    from .compat import safe_exec_dialog
-
-    result = safe_exec_dialog(msg_box)
-    confirmed = result == MessageBox_Yes
+    
+    # Se não há nada para remover, retornar sem mostrar diálogo
+    if not students_to_remove:
+        return ({}, {})
+    
+    # Usar diálogo centralizado para confirmação
+    confirmed = show_data_removal_confirmation_dialog(
+        students_to_remove=students_to_remove,
+        window_title="⚠️ Confirmar Limpeza de Dados"
+    )
 
     if confirmed:
         print("🧹 CLEANUP: Usuário confirmou limpeza consolidada")
         print(f"🧹 CLEANUP: Alunos desabilitados: {sorted(disabled_students_set)}")
 
         # Executar ambas as limpezas
-        cleanup_missing_students_data(deck_names)
+        if missing_functionality_disabled:
+            cleanup_missing_students_data(deck_names)
         cleanup_disabled_students_data(disabled_students_set, deck_names)
 
         # Retornar resultados
         missing_result = {
-            "missing_cleanup_count": 1,
-            "missing_cleanup_message": "Dados [MISSING A.] removidos",
+            "missing_cleanup_count": 1 if missing_functionality_disabled else 0,
+            "missing_cleanup_message": "Dados [MISSING A.] removidos" if missing_functionality_disabled else "",
         }
 
         cleanup_result = {
