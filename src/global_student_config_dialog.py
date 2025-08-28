@@ -354,13 +354,6 @@ class GlobalStudentConfigDialog(QDialog):
 
         menu.addSeparator()
 
-        # Ação para editar nome
-        edit_action = QAction("Editar Nome...", self)
-        edit_action.triggered.connect(
-            lambda: self._edit_student_name(self.available_list)
-        )
-        menu.addAction(edit_action)
-
         # Ação para deletar
         delete_action = QAction("Deletar Aluno", self)
         delete_action.triggered.connect(
@@ -385,13 +378,6 @@ class GlobalStudentConfigDialog(QDialog):
 
         menu.addSeparator()
 
-        # Ação para editar nome
-        edit_action = QAction("Editar Nome...", self)
-        edit_action.triggered.connect(
-            lambda: self._edit_student_name(self.selected_list)
-        )
-        menu.addAction(edit_action)
-
         # Ação para deletar
         delete_action = QAction("Deletar Aluno", self)
         delete_action.triggered.connect(
@@ -400,46 +386,6 @@ class GlobalStudentConfigDialog(QDialog):
         menu.addAction(delete_action)
 
         safe_exec_menu(menu, self.selected_list.mapToGlobal(position))
-
-    def _edit_student_name(self, list_widget):
-        """Permite editar o nome de um aluno."""
-        current_item = list_widget.currentItem()
-        if not current_item:
-            return
-
-        old_name = current_item.text()
-
-        new_name, ok = QInputDialog.getText(
-            self,
-            "Editar Nome do Aluno",
-            f"Editar nome do aluno '{old_name}':",
-            text=old_name,
-        )
-
-        if ok and new_name.strip() and new_name.strip() != old_name:
-            clean_new_name = new_name.strip()
-
-            # Verificar se o novo nome já existe (case sensitive)
-            if self._student_name_exists(clean_new_name):
-                QMessageBox.warning(
-                    self,
-                    "Nome já existe",
-                    f"O aluno '{clean_new_name}' já está na lista.",
-                )
-                return
-
-            # Atualizar conjunto interno
-            self.available_students.discard(old_name)
-            self.available_students.add(clean_new_name)
-
-            # Remover item antigo e adicionar novo ordenado
-            row = list_widget.row(current_item)
-            list_widget.takeItem(row)
-
-            if list_widget == self.available_list:
-                self._add_to_available_sorted(clean_new_name)
-            else:
-                self._add_to_selected_sorted(clean_new_name)
 
     def _delete_student(self, list_widget):
         """Permite deletar um aluno da lista."""

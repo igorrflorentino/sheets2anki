@@ -1708,6 +1708,18 @@ def _sync_single_deck(
         remote_deck_url
     )
     stored_remote_name = currentRemoteInfo.get("remote_deck_name")
+    
+    # Verificar se conseguimos extrair um nome válido da URL
+    if not new_remote_name_from_url:
+        add_debug_message(
+            f"[NAME_EXTRACT_ERROR] Não foi possível extrair nome da URL: {remote_deck_url}",
+            "SYNC",
+        )
+        # Usar nome armazenado como fallback
+        new_remote_name_from_url = stored_remote_name or "Deck Sem Nome"
+    
+    # Inicialização defensiva da variável current_remote_name
+    current_remote_name = stored_remote_name or new_remote_name_from_url
 
     # IMPORTANTE: Lógica aprimorada para resolver conflitos dinâmicamente
     # Verificar se o nome remoto mudou e reavaliar resolução de conflitos
@@ -1780,6 +1792,7 @@ def _sync_single_deck(
                         "SYNC",
                     )
                 else:
+                    current_remote_name = stored_remote_name  # Manter o nome existente
                     add_debug_message(
                         f"[CONFLICT_UNCHANGED] Mantendo resolução existente: '{stored_remote_name}'",
                         "SYNC",
@@ -1796,6 +1809,12 @@ def _sync_single_deck(
                 current_remote_name = resolved_remote_name
                 add_debug_message(
                     f"[CONFLICT_RESOLVE] Aplicando resolução: '{new_remote_name_from_url}' → '{resolved_remote_name}'",
+                    "SYNC",
+                )
+            else:
+                current_remote_name = stored_remote_name  # Manter o nome existente
+                add_debug_message(
+                    f"[CONFLICT_KEEP] Mantendo nome resolvido: '{stored_remote_name}'",
                     "SYNC",
                 )
 
@@ -2430,14 +2449,21 @@ def _handle_consolidated_cleanup(remote_decks):
     Returns:
         tuple: (missing_cleanup_result, cleanup_result)
     """
+    add_debug_message("🧹 CLEANUP: Iniciando verificação consolidada de limpeza...", "CLEANUP")
+    
     # Verificar se precisa de limpeza [MISSING A.]
+    add_debug_message("📋 CLEANUP: Verificando necessidade de limpeza [MISSING A.]...", "CLEANUP")
     needs_missing_cleanup = _needs_missing_students_cleanup(remote_decks)
+    add_debug_message(f"   ➜ Limpeza [MISSING A.] {'NECESSÁRIA' if needs_missing_cleanup else 'NÃO necessária'}", "CLEANUP")
 
     # Verificar se precisa de limpeza de alunos desabilitados
+    add_debug_message("📋 CLEANUP: Verificando necessidade de limpeza de alunos desabilitados...", "CLEANUP")
     needs_disabled_cleanup = _needs_disabled_students_cleanup(remote_decks)
+    add_debug_message(f"   ➜ Limpeza de alunos {'NECESSÁRIA' if needs_disabled_cleanup else 'NÃO necessária'}", "CLEANUP")
 
     if not needs_missing_cleanup and not needs_disabled_cleanup:
         # Nenhuma limpeza necessária
+        add_debug_message("✅ CLEANUP: Nenhuma limpeza necessária, continuando sincronização...", "CLEANUP")
         return None, None
 
     if needs_missing_cleanup and needs_disabled_cleanup:
@@ -2552,8 +2578,14 @@ def _needs_disabled_students_cleanup(remote_decks):
     from .config_manager import get_global_student_config
     from .config_manager import is_auto_remove_disabled_students
 
+    add_debug_message("🔍 CLEANUP: Verificando se limpeza de alunos desabilitados é necessária...", "CLEANUP")
+
     # PRIMEIRA VERIFICAÇÃO: Auto-remoção deve estar ativa
-    if not is_auto_remove_disabled_students():
+    auto_remove_enabled = is_auto_remove_disabled_students()
+    add_debug_message(f"   📋 Auto-remoção está {'ATIVADA' if auto_remove_enabled else 'DESATIVADA'}", "CLEANUP")
+    
+    if not auto_remove_enabled:
+        add_debug_message("🚫 CLEANUP: Auto-remoção desativada, pulando verificação", "CLEANUP")
         return False
 
     config = get_global_student_config()
@@ -2563,6 +2595,8 @@ def _needs_disabled_students_cleanup(remote_decks):
     current_enabled_set = {
         student for student in current_enabled_raw if student and student.strip()
     }
+    
+    add_debug_message(f"   👥 Alunos atualmente habilitados: {sorted(current_enabled_set)}", "CLEANUP")
 
     # MÚLTIPLAS FONTES para detectar alunos anteriormente habilitados (ROBUSTEZ)
     previous_enabled_raw = set()
@@ -2570,25 +2604,32 @@ def _needs_disabled_students_cleanup(remote_decks):
     # Fonte 1: Todos os estudantes disponíveis
     available_students = config.get("available_students", [])
     previous_enabled_raw.update(available_students)
+    add_debug_message(f"   📚 Alunos disponíveis na config: {sorted(available_students)}", "CLEANUP")
 
     # Fonte 3: Verificar se há decks/notas de alunos no Anki (scan direto)
     if mw and hasattr(mw, "col") and mw.col:
         anki_students = _get_students_from_anki_data()
         previous_enabled_raw.update(anki_students)
+        add_debug_message(f"   💾 Alunos encontrados no Anki: {sorted(anki_students)}", "CLEANUP")
 
     # Processar previous_enabled (case-sensitive)
     previous_enabled_set = {
         student for student in previous_enabled_raw if student and student.strip()
     }
 
+    add_debug_message(f"   📈 Total de alunos históricos: {sorted(previous_enabled_set)}", "CLEANUP")
+
     # CALCULAR alunos desabilitados (case-sensitive)
     disabled_students_set = previous_enabled_set - current_enabled_set
 
     if disabled_students_set:
-        print("🔍 CLEANUP: Detectados alunos para limpeza:")
-        print(f"  • Atualmente habilitados: {sorted(current_enabled_raw)}")
-        print(f"  • Anteriormente habilitados: {sorted(previous_enabled_set)}")
-        print(f"  • Alunos a remover: {sorted(disabled_students_set)}")
+        add_debug_message("🔍 CLEANUP: Detectados alunos para limpeza:", "CLEANUP")
+        add_debug_message(f"  • Atualmente habilitados: {sorted(current_enabled_raw)}", "CLEANUP")
+        add_debug_message(f"  • Anteriormente habilitados: {sorted(previous_enabled_set)}", "CLEANUP")
+        add_debug_message(f"  • Alunos a remover: {sorted(disabled_students_set)}", "CLEANUP")
+        add_debug_message("✅ CLEANUP: Limpeza é NECESSÁRIA", "CLEANUP")
+    else:
+        add_debug_message("✅ CLEANUP: Nenhum aluno foi desabilitado, limpeza NÃO necessária", "CLEANUP")
 
     return bool(disabled_students_set)
 
@@ -2911,7 +2952,7 @@ def _handle_disabled_students_cleanup(remote_decks):
     if not is_auto_remove_disabled_students():
         return None  # Auto-remoção desativada, nada a fazer
 
-    print("🔍 CLEANUP: Auto-remoção está ATIVADA, verificando alunos desabilitados...")
+    add_debug_message("🔍 CLEANUP: Auto-remoção está ATIVADA, verificando alunos desabilitados...", "CLEANUP")
 
     # Obter configuração atual
     config = get_global_student_config()
@@ -2925,32 +2966,28 @@ def _handle_disabled_students_cleanup(remote_decks):
 
     if is_sync_missing_students_notes():
         current_enabled.add("[MISSING A.]")
-        print(
-            "🔍 CLEANUP: [MISSING A.] incluído na lista atual (funcionalidade ativa)"
+        add_debug_message(
+            "🔍 CLEANUP: [MISSING A.] incluído na lista atual (funcionalidade ativa)", "CLEANUP"
         )
     else:
-        print(
-            "🔍 CLEANUP: [MISSING A.] excluído da lista atual (funcionalidade desativada)"
+        add_debug_message(
+            "🔍 CLEANUP: [MISSING A.] excluído da lista atual (funcionalidade desativada)", "CLEANUP"
         )
-        print(
-            "          Se houver notas [MISSING A.] existentes, serão detectadas para remoção"
+        add_debug_message(
+            "          Se houver notas [MISSING A.] existentes, serão detectadas para remoção", "CLEANUP"
         )
 
-    # Para detectar alunos desabilitados, usar histórico persistente ao invés de note types
-    # A função obsoleta foi removida - usando sistema robusto baseado em histórico
-    previous_enabled = set()  # Simplificado - usar outras fontes de dados
-
-    # Identificar alunos desabilitados
+    # CORRIGIDO: Usar get_disabled_students_for_cleanup que já usa o histórico
     disabled_students = get_disabled_students_for_cleanup(
-        current_enabled, previous_enabled
+        current_enabled, set()  # previous_enabled é ignorado na nova implementação
     )
 
     if not disabled_students:
-        print("✅ CLEANUP: Nenhum aluno desabilitado detectado")
+        add_debug_message("✅ CLEANUP: Nenhum aluno desabilitado detectado", "CLEANUP")
         return None
 
-    print(
-        f"⚠️ CLEANUP: Detectados {len(disabled_students)} alunos desabilitados: {sorted(disabled_students)}"
+    add_debug_message(
+        f"⚠️ CLEANUP: Detectados {len(disabled_students)} alunos desabilitados: {sorted(disabled_students)}", "CLEANUP"
     )
 
     # Mostrar diálogo de confirmação
@@ -2961,16 +2998,16 @@ def _handle_disabled_students_cleanup(remote_decks):
         ]
         deck_names = [name for name in deck_names if name]  # Filtrar nomes vazios
 
-        print(f"🧹 CLEANUP: Iniciando limpeza para decks: {deck_names}")
+        add_debug_message(f"🧹 CLEANUP: Iniciando limpeza para decks: {deck_names}", "CLEANUP")
 
         cleanup_disabled_students_data(disabled_students, deck_names)
 
         # Log simples da limpeza concluída
-        print(f"✅ CLEANUP: Limpeza concluída para {len(disabled_students)} alunos")
+        add_debug_message(f"✅ CLEANUP: Limpeza concluída para {len(disabled_students)} alunos", "CLEANUP")
         return {
             "disabled_students_count": len(disabled_students),
             "disabled_students_names": ", ".join(sorted(disabled_students)),
         }
     else:
-        print("🛡️ CLEANUP: Usuário cancelou a limpeza, dados preservados")
+        add_debug_message("🛡️ CLEANUP: Usuário cancelou a limpeza, dados preservados", "CLEANUP")
         return None

@@ -950,29 +950,8 @@ def _remove_student_note_types(student: str, deck_names: List[str]) -> int:
         # Tentar remover os note types encontrados
         for note_type_name, note_type_id, match_reason in student_note_types_found:
             try:
-                # Verificar se o note type está em uso com abordagem defensiva
-                from anki.models import NotetypeId
-                use_count = 0
-                
-                try:
-                    # Método 1: Tentar com NotetypeId
-                    use_count = col.models.useCount(NotetypeId(note_type_id))
-                except (TypeError, AttributeError) as e:
-                    log_func(f"⚠️ Método NotetypeId falhou para {note_type_id}: {e}")
-                    try:
-                        # Método 2: Tentar com int diretamente (versões antigas)
-                        use_count = col.models.useCount(note_type_id)
-                    except Exception as e2:
-                        log_func(f"⚠️ Método int também falhou para {note_type_id}: {e2}")
-                        try:
-                            # Método 3: Buscar notas que usam este note type manualmente
-                            note_ids = col.find_notes(f"mid:{note_type_id}")
-                            use_count = len(note_ids)
-                            log_func(f"ℹ️ Usando busca manual: {use_count} notas encontradas para note type {note_type_id}")
-                        except Exception as e3:
-                            log_func(f"❌ Todos os métodos falharam para {note_type_id}: {e3}")
-                            # Se não conseguimos verificar, assumimos que está em uso para segurança
-                            use_count = 1
+                # Verificar se o note type está em uso
+                use_count = col.models.useCount(note_type_id)
                 
                 if use_count > 0:
                     log_func(f"⚠️ Note type '{note_type_name}' ainda tem {use_count} notas, pulando remoção")
@@ -981,18 +960,8 @@ def _remove_student_note_types(student: str, deck_names: List[str]) -> int:
                 # Note type não está em uso, pode remover
                 log_func(f"🗑️ REMOVENDO note type '{note_type_name}' (ID: {note_type_id})...")
                 
-                try:
-                    # Tentar remoção com NotetypeId
-                    col.models.remove(NotetypeId(note_type_id))
-                except (TypeError, AttributeError) as e:
-                    log_func(f"⚠️ Remoção com NotetypeId falhou: {e}")
-                    try:
-                        # Fallback: tentar com int diretamente
-                        col.models.remove(note_type_id)
-                    except Exception as e2:
-                        log_func(f"❌ Remoção falhou completamente: {e2}")
-                        continue
-                
+                from anki.models import NotetypeId
+                col.models.remove(NotetypeId(note_type_id))
                 removed_count += 1
                 log_func(f"✅ Note type '{note_type_name}' removido com sucesso")
 
@@ -1222,38 +1191,23 @@ def get_disabled_students_for_cleanup(
                         if student_name and student_name != "[MISSING A.]":
                             anki_detected_students.add(student_name)
             
-            log_func(f"🔍 Alunos encontrados no Anki via note types: {sorted(anki_detected_students)}")
-            log_func(f"🔍 Alunos encontrados no Anki via note types: {sorted(anki_detected_students)}")
+            all_known_students.update(anki_detected_students)
+            log_func(f"   � Alunos encontrados no Anki: {sorted(anki_detected_students)}")
         except Exception as e:
-            log_func(f"⚠️ Erro ao verificar note types no Anki: {e}")
+            log_func(f"   ⚠️ Erro ao verificar note types no Anki: {e}")
     
-    # COMBINAR: Alunos que tiveram dados criados (sync_history + note types existentes)
-    students_with_created_data = historically_synced_students.union(anki_detected_students)
+    # FONTE 4: Previous enabled como fonte adicional (se fornecido)
+    if previous_enabled:
+        all_known_students.update(previous_enabled)
     
-    # INCLUIR available_students apenas se também estão no histórico ou têm note types
-    from .config_manager import get_global_student_config
-    config = get_global_student_config()
-    available_students = set(config.get("available_students", []))
-    
-    # Alunos em available_students que também têm evidência de sincronização
-    available_and_synced = available_students.intersection(students_with_created_data)
-    
-    # Combinar todas as fontes de alunos que tiveram dados criados
-    all_students_with_data = students_with_created_data.union(available_and_synced)
-    
-    log_func(f"📊 Relatório de fontes:")
-    log_func(f"   • Histórico de sincronização: {sorted(historically_synced_students)}")
-    log_func(f"   • Note types no Anki: {sorted(anki_detected_students)}")
-    log_func(f"   • Available students: {sorted(available_students)}")
-    log_func(f"   • Available + com dados: {sorted(available_and_synced)}")
-    log_func(f"   • TOTAL com dados criados: {sorted(all_students_with_data)}")
+    log_func(f"   📈 Total de alunos históricos: {sorted(all_known_students)}")
     
     # Remover [MISSING A.] da comparação, pois não é um "aluno real"
     current_real_students = {s for s in current_enabled if s != "[MISSING A.]"}
-    students_with_data_real = {s for s in all_students_with_data if s != "[MISSING A.]"}
+    all_known_real_students = {s for s in all_known_students if s != "[MISSING A.]"}
 
-    log_func(f"✅ Alunos reais atualmente habilitados: {sorted(current_real_students)}")
-    log_func(f"📖 Alunos reais com dados criados: {sorted(students_with_data_real)}")
+    log_func(f"   ✅ Alunos reais atualmente habilitados: {sorted(current_real_students)}")
+    log_func(f"   📖 Alunos reais conhecidos: {sorted(all_known_real_students)}")
 
     # DETECÇÃO PRINCIPAL: Alunos que tinham dados mas não estão mais habilitados
     disabled_students = students_with_data_real - current_real_students
@@ -1269,6 +1223,8 @@ def get_disabled_students_for_cleanup(
     log_func("🔍 CLEANUP: [MISSING A.] excluído da comparação (não é aluno real)")
 
     return disabled_students
+
+
 def show_cleanup_confirmation_dialog(disabled_students: Set[str]) -> bool:
     """
     Mostra um diálogo de confirmação antes de remover dados de alunos desabilitados.
@@ -1471,86 +1427,25 @@ def cleanup_missing_students_data(deck_names: List[str]) -> Dict[str, int]:
                     if (note_student == "[MISSING A.]" and 
                         note_type_suffix in ["Basic", "Cloze"]):
                         should_remove = True
-                        try:
-                            from .utils import add_debug_message
-                            add_debug_message(f"🔍 Note type [MISSING A.] órfão '{note_type_name}' found", "CLEANUP_MISSING")
-                        except:
-                            print(f"   🔍 Note type [MISSING A.] órfão '{note_type_name}' found")
+                        print(f"   🔍 Note type [MISSING A.] órfão '{note_type_name}' found")
             
             if should_remove:
                 try:
-                    # Verificar se o note type está em uso com abordagem defensiva
-                    from anki.models import NotetypeId
-                    use_count = 0
-                    
-                    try:
-                        # Método 1: Tentar com NotetypeId
-                        use_count = col.models.useCount(NotetypeId(note_type_id))
-                    except (TypeError, AttributeError) as e:
-                        try:
-                            from .utils import add_debug_message
-                            add_debug_message(f"⚠️ Método NotetypeId falhou para [MISSING A.] {note_type_id}: {e}", "CLEANUP_MISSING")
-                        except:
-                            print(f"   ⚠️ Método NotetypeId falhou para [MISSING A.] {note_type_id}: {e}")
-                        try:
-                            # Método 2: Tentar com int diretamente
-                            use_count = col.models.useCount(note_type_id)
-                        except Exception as e2:
-                            try:
-                                # Método 3: Buscar notas manualmente
-                                note_ids = col.find_notes(f"mid:{note_type_id}")
-                                use_count = len(note_ids)
-                                try:
-                                    from .utils import add_debug_message
-                                    add_debug_message(f"ℹ️ Usando busca manual para [MISSING A.]: {use_count} notas", "CLEANUP_MISSING")
-                                except:
-                                    print(f"   ℹ️ Usando busca manual para [MISSING A.]: {use_count} notas")
-                            except Exception as e3:
-                                # Se falhar tudo, assumir que está em uso por segurança
-                                use_count = 1
+                    # Verificar se o note type está em uso
+                    use_count = col.models.useCount(note_type_id)
                     
                     if use_count > 0:
-                        try:
-                            from .utils import add_debug_message
-                            add_debug_message(f"⚠️ Note type [MISSING A.] '{note_type_name}' ainda tem {use_count} notas, pulando", "CLEANUP_MISSING")
-                        except:
-                            print(f"   ⚠️ Note type [MISSING A.] '{note_type_name}' ainda tem {use_count} notas, pulando")
+                        print(f"   ⚠️ Note type [MISSING A.] '{note_type_name}' ainda tem {use_count} notas, pulando")
                         continue
                     
                     # Note type não está em uso, pode remover
-                    try:
-                        # Tentar remoção com NotetypeId
-                        col.models.remove(NotetypeId(note_type_id))
-                    except (TypeError, AttributeError) as e:
-                        try:
-                            from .utils import add_debug_message
-                            add_debug_message(f"⚠️ Remoção com NotetypeId falhou para [MISSING A.]: {e}", "CLEANUP_MISSING")
-                        except:
-                            print(f"   ⚠️ Remoção com NotetypeId falhou para [MISSING A.]: {e}")
-                        try:
-                            # Fallback: tentar com int diretamente
-                            col.models.remove(note_type_id)
-                        except Exception as e2:
-                            try:
-                                from .utils import add_debug_message
-                                add_debug_message(f"❌ Remoção falhou completamente para [MISSING A.]: {e2}", "CLEANUP_MISSING")
-                            except:
-                                print(f"   ❌ Remoção falhou completamente para [MISSING A.]: {e2}")
-                            continue
-                    
+                    from anki.models import NotetypeId
+                    col.models.remove(NotetypeId(note_type_id))
                     stats["note_types_removed"] += 1
-                    try:
-                        from .utils import add_debug_message
-                        add_debug_message(f"🗑️ Note type [MISSING A.] '{note_type_name}' removido", "CLEANUP_MISSING")
-                    except:
-                        print(f"   🗑️ Note type [MISSING A.] '{note_type_name}' removido")
+                    print(f"   🗑️ Note type [MISSING A.] '{note_type_name}' removido")
                     
                 except Exception as e:
-                    try:
-                        from .utils import add_debug_message
-                        add_debug_message(f"❌ Erro ao remover note type [MISSING A.] '{note_type_name}': {e}", "CLEANUP_MISSING")
-                    except:
-                        print(f"   ❌ Erro ao remover note type [MISSING A.] '{note_type_name}': {e}")
+                    print(f"   ❌ Erro ao remover note type [MISSING A.] '{note_type_name}': {e}")
 
         # NOVO: Atualizar meta.json após limpeza
         _update_meta_after_missing_cleanup(deck_names)

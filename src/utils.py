@@ -262,7 +262,8 @@ def sync_note_type_names_with_config(col, deck_url, debug_messages=None):
                 add_debug_msg(f"🔍 Processando note type ID {note_type_id}...")
 
                 # Buscar o note type no Anki
-                note_type = col.models.get(note_type_id)
+                from anki.models import NotetypeId
+                note_type = col.models.get(NotetypeId(note_type_id))
                 if not note_type:
                     add_debug_msg(f"❌ Note type ID {note_type_id} não existe no Anki")
                     stats["error_note_types"] += 1
@@ -288,7 +289,7 @@ def sync_note_type_names_with_config(col, deck_url, debug_messages=None):
                     add_debug_msg("💾 Collection salva para garantir persistência")
 
                     # Verificar se realmente foi atualizado
-                    updated_note_type = col.models.get(note_type_id)
+                    updated_note_type = col.models.get(NotetypeId(note_type_id))
                     if (
                         updated_note_type
                         and updated_note_type.get("name") == expected_name
@@ -649,7 +650,8 @@ def delete_deck_note_types_by_ids(url):
         for (
             note_type_id
         ) in note_type_ids.copy():  # Usar cópia para modificar durante iteração
-            model = mw.col.models.get(note_type_id)
+            from anki.models import NotetypeId
+            model = mw.col.models.get(NotetypeId(note_type_id))
             if model:
                 model_name = model["name"]
 
@@ -719,7 +721,8 @@ def rename_note_type_in_anki(note_type_id, new_name):
             return False
 
         # Obter o model existente
-        model = mw.col.models.get(note_type_id)  # type: ignore
+        from anki.models import NotetypeId
+        model = mw.col.models.get(NotetypeId(note_type_id))  # type: ignore
         if not model:
             print(f"[RENAME_NOTE_TYPE] Note type ID {note_type_id} não encontrado")
             return False
@@ -809,7 +812,8 @@ def cleanup_orphaned_note_types():
                 try:
                     note_type_id = int(note_type_id_str)
                     # Usar o mesmo padrão do resto do código
-                    model = mw.col.models.get(note_type_id)  # type: ignore
+                    from anki.models import NotetypeId
+                    model = mw.col.models.get(NotetypeId(note_type_id))  # type: ignore
 
                     if not model:
                         orphaned_ids.append(note_type_id_str)

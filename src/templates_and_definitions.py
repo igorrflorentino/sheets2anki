@@ -454,7 +454,8 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
             if note_type_name.endswith(target_pattern):
                 try:
                     note_type_id = int(note_type_id_str)
-                    model = col.models.get(note_type_id)
+                    from anki.models import NotetypeId
+                    model = col.models.get(NotetypeId(note_type_id))
                     if model:
                         add_debug_msg(
                             f"Encontrado note type existente: ID {note_type_id} - '{note_type_name}'"

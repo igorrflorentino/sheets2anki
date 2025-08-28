@@ -683,6 +683,18 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
             url, current_remote_name
         )
         deck_info["remote_deck_name"] = resolved_remote_name
+        
+        # Atualizar também o local_deck_configurations_package_name para manter consistência
+        deck_options_mode = get_deck_options_mode()
+        if deck_options_mode == "individual":
+            new_package_name = f"Sheets2Anki - {resolved_remote_name}"
+            deck_info["local_deck_configurations_package_name"] = new_package_name
+            print(f"[Sheets2Anki] Package name updated to '{new_package_name}'")
+        elif deck_options_mode == "shared":
+            deck_info["local_deck_configurations_package_name"] = "Sheets2Anki - Default Options"
+        else:  # manual
+            deck_info["local_deck_configurations_package_name"] = None
+        
         updated = True
         if not silent:
             print(
@@ -1142,7 +1154,12 @@ def get_students_with_sync_history():
     sync_history = get_student_sync_history()
     historical_students = set(sync_history.keys())
     
-    print(f"📚 HISTORY: Encontrados {len(historical_students)} alunos no histórico: {sorted(historical_students)}")
+    try:
+        from .utils import add_debug_message
+        add_debug_message(f"📚 HISTORY: Encontrados {len(historical_students)} alunos no histórico: {sorted(historical_students)}", "CLEANUP")
+    except:
+        print(f"📚 HISTORY: Encontrados {len(historical_students)} alunos no histórico: {sorted(historical_students)}")
+    
     return historical_students
 
 
@@ -1930,31 +1947,45 @@ def set_deck_configurations_package_name(url, package_name):
 def ensure_deck_configurations_consistency():
     """
     Garante que todos os decks tenham a configuração local_deck_configurations_package_name
-    baseada no modo atual.
+    baseada no modo atual e que esteja consistente com o remote_deck_name.
     """
     current_mode = get_deck_options_mode()
     meta = get_meta()
     remote_decks = meta.get("decks", {})
     
-    updated_count = 0
+    added_count = 0
+    fixed_count = 0
     
     for deck_hash, deck_info in remote_decks.items():
+        remote_deck_name = deck_info.get("remote_deck_name", "UnknownDeck")
+        current_package_name = deck_info.get("local_deck_configurations_package_name")
+        
+        # Calcular qual deveria ser o nome correto
+        if current_mode == "individual":
+            expected_package_name = f"Sheets2Anki - {remote_deck_name}"
+        elif current_mode == "shared":
+            expected_package_name = "Sheets2Anki - Default Options"
+        else:  # manual
+            expected_package_name = None
+        
+        # Se não existe a configuração, adicionar
         if "local_deck_configurations_package_name" not in deck_info:
-            remote_deck_name = deck_info.get("remote_deck_name", "UnknownDeck")
-            
-            if current_mode == "individual":
-                options_group_name = f"Sheets2Anki - {remote_deck_name}"
-            elif current_mode == "shared":
-                options_group_name = "Sheets2Anki - Default Options"
-            else:  # manual
-                options_group_name = None
-                
-            deck_info["local_deck_configurations_package_name"] = options_group_name
-            updated_count += 1
+            deck_info["local_deck_configurations_package_name"] = expected_package_name
+            added_count += 1
+        # Se existe mas está inconsistente, corrigir
+        elif current_package_name != expected_package_name:
+            deck_info["local_deck_configurations_package_name"] = expected_package_name
+            fixed_count += 1
     
-    if updated_count > 0:
+    total_changes = added_count + fixed_count
+    if total_changes > 0:
         save_meta(meta)
-        print(f"[DECK_CONFIG_CONSISTENCY] Adicionada configuração local_deck_configurations_package_name a {updated_count} decks")
+        if added_count > 0:
+            print(f"[DECK_CONFIG_CONSISTENCY] Adicionada configuração local_deck_configurations_package_name a {added_count} decks")
+        if fixed_count > 0:
+            print(f"[DECK_CONFIG_CONSISTENCY] Corrigidas inconsistências em {fixed_count} decks")
+    
+    return total_changes
     
     return updated_count
 
