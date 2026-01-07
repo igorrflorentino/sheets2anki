@@ -117,26 +117,26 @@ class RemoteDeck:
         self.total_table_lines += 1
 
         # 2 e 3. Linhas válidas vs inválidas (baseado no ID)
-        note_id = note_data.get(cols.ID, "").strip()
+        note_id = note_data.get(cols.identificador, "").strip()
         if note_id:
             self.valid_note_lines += 1
         else:
             self.invalid_note_lines += 1
             # Log de debug para linhas inválidas
             print(
-                f"[DEBUG] Linha inválida encontrada: ID='{note_data.get(cols.ID, '')}', PERGUNTA='{note_data.get(cols.PERGUNTA, '')[:50]}...'"
+                f"[DEBUG] Linha inválida encontrada: ID='{note_data.get(cols.identificador, '')}', PERGUNTA='{note_data.get(cols.pergunta, '')[:50]}...'"
             )
             # Para linhas inválidas, não processar métricas adicionais
             # mas continuar para permitir outras contabilizações se necessário
             return
 
         # 4. Linhas marcadas para sincronizar (apenas para linhas válidas)
-        sync_value = str(note_data.get(cols.SYNC, "")).strip().lower()
+        sync_value = str(note_data.get(cols.is_sync, "")).strip().lower()
         if sync_value in ["true", "1", "yes", "sim"]:
             self.sync_marked_lines += 1
 
         # Análise de alunos para métricas 5-9 (apenas para linhas válidas)
-        alunos_str = note_data.get(cols.ALUNOS, "").strip()
+        alunos_str = note_data.get(cols.alunos, "").strip()
 
         if not alunos_str:
             # 7. Nota para [MISSING A.]
@@ -447,7 +447,7 @@ def parse_tsv_data(tsv_data, debug_messages=None):
         add_debug_msg(f"Linhas de dados: {len(data_rows)}")
 
         # Validar headers obrigatórios (apenas ID e MATCH são realmente obrigatórios)
-        required_headers = [cols.ID, cols.MATCH]
+        required_headers = [cols.identificador, cols.resposta]
         missing_headers = [h for h in required_headers if h not in headers]
 
         if missing_headers:
@@ -511,21 +511,21 @@ def build_remote_deck_from_tsv(
             remote_deck.add_note(note_data)
 
             # Validar se é uma nota processável (apenas ID é obrigatório)
-            if not note_data.get(cols.ID):
+            if not note_data.get(cols.identificador):
                 add_debug_msg(
                     f"Linha {row_index + 2}: nota inválida (ID vazio)"
                 )
                 continue
 
             # Verificar se deve sincronizar
-            sync_value = str(note_data.get(cols.SYNC, "")).strip().lower()
+            sync_value = str(note_data.get(cols.is_sync, "")).strip().lower()
             if sync_value not in ["true", "1", "yes", "sim"]:
                 add_debug_msg(f"Linha {row_index + 2}: nota não marcada para sync")
                 continue
 
             # Verificar filtro de alunos
             if enabled_students:
-                note_students = note_data.get(cols.ALUNOS, "").strip()
+                note_students = note_data.get(cols.alunos, "").strip()
                 if note_students:
                     # Verificar se algum aluno habilitado está na nota
                     students_list = [s.strip() for s in note_students.split(",")]
@@ -620,9 +620,9 @@ def create_tags_from_fields(note_data):
     # (Tags de alunos foram eliminadas conforme solicitado)
 
     # 2. Tags hierárquicas de TOPICO::SUBTOPICO::CONCEITO (aninhadas)
-    topico = note_data.get(cols.TOPICO, "").strip()
-    subtopico = note_data.get(cols.SUBTOPICO, "").strip()
-    conceito = note_data.get(cols.CONCEITO, "").strip()
+    topico = note_data.get(cols.hierarquia_2, "").strip()
+    subtopico = note_data.get(cols.hierarquia_3, "").strip()
+    conceito = note_data.get(cols.hierarquia_4, "").strip()
 
     # Usar valores padrão se estiverem vazios
     if not topico:
@@ -651,7 +651,7 @@ def create_tags_from_fields(note_data):
         tags.append(f"{TAG_ROOT}::{TAG_CONCEPTS}::{conceito_clean}")
 
     # 4. Tags de BANCAS
-    bancas = note_data.get(cols.BANCAS, "").strip()
+    bancas = note_data.get(cols.tags_1, "").strip()
     if bancas:
         for banca in bancas.split(","):
             banca_clean = clean_tag_text(banca)
@@ -659,7 +659,7 @@ def create_tags_from_fields(note_data):
                 tags.append(f"{TAG_ROOT}::{TAG_BANCAS}::{banca_clean}")
 
     # 5. Tags de ANOS
-    ano = note_data.get(cols.ANO, "").strip()
+    ano = note_data.get(cols.tags_2, "").strip()
     if ano:
         for ano_item in ano.split(","):
             ano_clean = clean_tag_text(ano_item)
@@ -667,7 +667,7 @@ def create_tags_from_fields(note_data):
                 tags.append(f"{TAG_ROOT}::{TAG_ANOS}::{ano_clean}")
 
     # 6. Tags de CARREIRAS
-    carreira = note_data.get(cols.CARREIRAS, "").strip()
+    carreira = note_data.get(cols.tags_3, "").strip()
     if carreira:
         for carr in carreira.split(","):
             carr_clean = clean_tag_text(carr)
@@ -675,14 +675,14 @@ def create_tags_from_fields(note_data):
                 tags.append(f"{TAG_ROOT}::{TAG_CARREIRAS}::{carr_clean}")
 
     # 7. Tags de IMPORTANCIA
-    importancia = note_data.get(cols.IMPORTANCIA, "").strip()
+    importancia = note_data.get(cols.hierarquia_1, "").strip()
     if importancia:
         importancia_clean = clean_tag_text(importancia)
         if importancia_clean:
             tags.append(f"{TAG_ROOT}::{TAG_IMPORTANCIA}::{importancia_clean}")
 
     # 8. Tags ADICIONAIS
-    tags_adicionais = note_data.get(cols.MORE_TAGS, "").strip()
+    tags_adicionais = note_data.get(cols.tags_4, "").strip()
     if tags_adicionais:
         # Suporta tanto separação por vírgula quanto por ponto e vírgula
         separadores = [",", ";"]
@@ -811,19 +811,19 @@ def create_or_update_notes(
         expected_student_note_ids = set()
 
         for note_data in remoteDeck.notes:
-            note_id = note_data.get(cols.ID, "").strip()
+            note_id = note_data.get(cols.identificador, "").strip()
 
             # Pular linhas inválidas (sem ID)
             if not note_id:
                 continue
 
             # Verificar se deve sincronizar esta nota
-            sync_value = str(note_data.get(cols.SYNC, "")).strip().lower()
+            sync_value = str(note_data.get(cols.is_sync, "")).strip().lower()
             if sync_value not in ["true", "1", "yes", "sim"]:
                 continue
 
             # Obter lista de alunos desta nota
-            alunos_str = note_data.get(cols.ALUNOS, "").strip()
+            alunos_str = note_data.get(cols.alunos, "").strip()
             if not alunos_str:
                 # Nota sem alunos específicos - verificar [MISSING A.]
                 if sync_missing_students:
@@ -894,19 +894,19 @@ def create_or_update_notes(
 
         # 5. Processar cada nota remota para cada aluno
         for note_data in remoteDeck.notes:
-            note_id = note_data.get(cols.ID, "").strip()
+            note_id = note_data.get(cols.identificador, "").strip()
             if not note_id:
                 # Linha com ID vazio não é erro, é situação normal já contabilizada nas métricas
                 continue
 
             # Verificar se deve sincronizar
-            sync_value = str(note_data.get(cols.SYNC, "")).strip().lower()
+            sync_value = str(note_data.get(cols.is_sync, "")).strip().lower()
             if sync_value not in ["true", "1", "yes", "sim"]:
                 stats.skipped += 1
                 continue
 
             # Obter lista de alunos da nota
-            alunos_str = note_data.get(cols.ALUNOS, "").strip()
+            alunos_str = note_data.get(cols.alunos, "").strip()
 
             if not alunos_str:
                 # Nota sem alunos específicos - verificar se deve processar como [MISSING A.]
@@ -938,7 +938,7 @@ def create_or_update_notes(
                                     update_detail = {
                                         "student_note_id": student_note_id,
                                         "student": student,
-                                        "note_id": note_data.get(cols.ID, "").strip(),
+                                        "note_id": note_data.get(cols.identificador, "").strip(),
                                         "changes": changes,
                                     }
                                     stats.update_details.append(update_detail)
@@ -968,13 +968,13 @@ def create_or_update_notes(
                                 stats.created += 1
                                 # Capturar detalhes da criação
                                 creation_detail = {
-                                    "student_note_id": f"{student}_{note_data.get(cols.ID, '').strip()}",
+                                    "student_note_id": f"{student}_{note_data.get(cols.identificador, '').strip()}",
                                     "student": student,
-                                    "note_id": note_data.get(cols.ID, "").strip(),
-                                    "pergunta": note_data.get(cols.PERGUNTA, "")[:100]
+                                    "note_id": note_data.get(cols.identificador, "").strip(),
+                                    "pergunta": note_data.get(cols.pergunta, "")[:100]
                                     + (
                                         "..."
-                                        if len(note_data.get(cols.PERGUNTA, "")) > 100
+                                        if len(note_data.get(cols.pergunta, "")) > 100
                                         else ""
                                     ),
                                 }
@@ -1034,7 +1034,7 @@ def create_or_update_notes(
                                 update_detail = {
                                     "student_note_id": student_note_id,
                                     "student": student,
-                                    "note_id": note_data.get(cols.ID, "").strip(),
+                                    "note_id": note_data.get(cols.identificador, "").strip(),
                                     "changes": changes,
                                 }
                                 stats.update_details.append(update_detail)
@@ -1057,11 +1057,11 @@ def create_or_update_notes(
                             creation_detail = {
                                 "student_note_id": student_note_id,
                                 "student": student,
-                                "note_id": note_data.get(cols.ID, "").strip(),
-                                "pergunta": note_data.get(cols.PERGUNTA, "")[:100]
+                                "note_id": note_data.get(cols.identificador, "").strip(),
+                                "pergunta": note_data.get(cols.pergunta, "")[:100]
                                 + (
                                     "..."
-                                    if len(note_data.get(cols.PERGUNTA, "")) > 100
+                                    if len(note_data.get(cols.pergunta, "")) > 100
                                     else ""
                                 ),
                             }
@@ -1098,7 +1098,7 @@ def create_or_update_notes(
             # Verificar se a nota ainda existe na planilha remota
             note_exists_in_remote = False
             for note_data in remoteDeck.notes:
-                remote_note_id = note_data.get(cols.ID, "").strip()
+                remote_note_id = note_data.get(cols.identificador, "").strip()
                 if remote_note_id == note_id:
                     note_exists_in_remote = True
                     break
@@ -1262,7 +1262,7 @@ def get_existing_notes_by_student_id(col, deck_id):
 
                 # Obter ID da nota do campo ID
                 note_fields = note.keys()
-                if cols.ID in note_fields:
+                if cols.identificador in note_fields:
                     full_note_id = note[cols.ID].strip()
                     if full_note_id:
                         # O campo ID já contém o formato "{aluno}_{note_id}" após a refatoração
@@ -1321,11 +1321,11 @@ def create_new_note_for_student(
         add_debug_message(message, category)
 
     try:
-        note_id = note_data.get(cols.ID, "").strip()
+        note_id = note_data.get(cols.identificador, "").strip()
         add_debug_msg(f"Criando nova nota para aluno {student}: {note_id}")
 
         # Determinar tipo de nota (cloze ou básica)
-        pergunta = note_data.get(cols.PERGUNTA, "")
+        pergunta = note_data.get(cols.pergunta, "")
         is_cloze = has_cloze_deletion(pergunta)
 
         # Obter modelo apropriado para o aluno específico
@@ -1400,11 +1400,11 @@ def create_new_note_for_student(
 
         error_details = traceback.format_exc()
         add_debug_msg(
-            f"❌ ERRO ao criar nota {note_data.get(cols.ID, 'UNKNOWN')} para {student}: {e}"
+            f"❌ ERRO ao criar nota {note_data.get(cols.identificador, 'UNKNOWN')} para {student}: {e}"
         )
         add_debug_msg(f"❌ Stack trace: {error_details}")
         print(
-            f"[CREATE_NOTE_ERROR] {note_data.get(cols.ID, 'UNKNOWN')} para {student}: {e}"
+            f"[CREATE_NOTE_ERROR] {note_data.get(cols.identificador, 'UNKNOWN')} para {student}: {e}"
         )
         print(f"[CREATE_NOTE_ERROR] Stack trace: {error_details}")
         return False
@@ -1441,22 +1441,26 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
     # O ID na nota existente já está no formato "{aluno}_{id}" e não deve ser comparado
     # CORREÇÃO: Usar os nomes reais dos campos no Anki (que são iguais aos da planilha)
     for field_key, field_anki_name in [
-        (cols.PERGUNTA, cols.PERGUNTA),
-        (cols.MATCH, cols.MATCH),
-        (cols.EXTRA_INFO_1, cols.EXTRA_INFO_1),
-        (cols.EXTRA_INFO_2, cols.EXTRA_INFO_2),
-        (cols.ILUSTRACAO_HTML, cols.ILUSTRACAO_HTML),
-        (cols.EXEMPLO_1, cols.EXEMPLO_1),
-        (cols.EXEMPLO_2, cols.EXEMPLO_2),
-        (cols.EXEMPLO_3, cols.EXEMPLO_3),
-        (cols.TOPICO, cols.TOPICO),
-        (cols.SUBTOPICO, cols.SUBTOPICO),
-        (cols.CONCEITO, cols.CONCEITO),
-        (cols.BANCAS, cols.BANCAS),
-        (cols.ANO, cols.ANO),
-        (cols.CARREIRAS, cols.CARREIRAS),
-        (cols.IMPORTANCIA, cols.IMPORTANCIA),
-        (cols.MORE_TAGS, cols.MORE_TAGS),
+        (cols.pergunta, cols.pergunta),
+        (cols.resposta, cols.resposta),
+        (cols.info_1, cols.info_1),
+        (cols.info_2, cols.info_2),
+        (cols.multimidia_1, cols.multimidia_1),
+        (cols.multimidia_2, cols.multimidia_2),
+        (cols.exemplo_1, cols.exemplo_1),
+        (cols.exemplo_2, cols.exemplo_2),
+        (cols.exemplo_3, cols.exemplo_3),
+        (cols.hierarquia_1, cols.hierarquia_1),
+        (cols.hierarquia_2, cols.hierarquia_2),
+        (cols.hierarquia_3, cols.hierarquia_3),
+        (cols.hierarquia_4, cols.hierarquia_4),
+        (cols.tags_1, cols.tags_1),
+        (cols.tags_2, cols.tags_2),
+        (cols.tags_3, cols.tags_3),
+        (cols.tags_4, cols.tags_4),
+        (cols.extra_field_1, cols.extra_field_1),
+        (cols.extra_field_2, cols.extra_field_2),
+        (cols.extra_field_3, cols.extra_field_3),
     ]:
         if field_anki_name in existing_note:
             old_value = str(existing_note[field_anki_name]).strip()
@@ -1532,7 +1536,7 @@ def update_existing_note_for_student(
         add_debug_message(message, category)
 
     try:
-        note_id = new_data.get(cols.ID, "").strip()
+        note_id = new_data.get(cols.identificador, "").strip()
         add_debug_msg(
             f"Verificando se nota {note_id} precisa ser atualizada para aluno {student}"
         )
@@ -1617,31 +1621,36 @@ def fill_note_fields_for_student(note, note_data, student):
         student (str): Nome do aluno para formar o ID único
     """
     # Obter o ID original da planilha
-    original_id = note_data.get(cols.ID, "").strip()
+    original_id = note_data.get(cols.identificador, "").strip()
 
     # Criar identificador único para esta combinação aluno-nota
     unique_student_note_id = f"{student}_{original_id}"
 
     # Mapeamento de campos com tratamento especial para ID
     field_mappings = {
-        cols.ID: unique_student_note_id,  # ID único por aluno
-        cols.PERGUNTA: note_data.get(cols.PERGUNTA, "").strip(),
-        cols.MATCH: note_data.get(cols.MATCH, "").strip(),
-        cols.TOPICO: note_data.get(cols.TOPICO, "").strip(),
-        cols.SUBTOPICO: note_data.get(cols.SUBTOPICO, "").strip(),
-        cols.CONCEITO: note_data.get(cols.CONCEITO, "").strip(),
-        cols.EXTRA_INFO_1: note_data.get(cols.EXTRA_INFO_1, "").strip(),
-        cols.EXTRA_INFO_2: note_data.get(cols.EXTRA_INFO_2, "").strip(),
-        cols.ILUSTRACAO_HTML: note_data.get(cols.ILUSTRACAO_HTML, "").strip(),
-        cols.EXEMPLO_1: note_data.get(cols.EXEMPLO_1, "").strip(),
-        cols.EXEMPLO_2: note_data.get(cols.EXEMPLO_2, "").strip(),
-        cols.EXEMPLO_3: note_data.get(cols.EXEMPLO_3, "").strip(),
+        cols.identificador: unique_student_note_id,  # ID único por aluno
+        cols.pergunta: note_data.get(cols.pergunta, "").strip(),
+        cols.resposta: note_data.get(cols.resposta, "").strip(),
+        cols.hierarquia_1: note_data.get(cols.hierarquia_1, "").strip(),
+        cols.hierarquia_2: note_data.get(cols.hierarquia_2, "").strip(),
+        cols.hierarquia_3: note_data.get(cols.hierarquia_3, "").strip(),
+        cols.hierarquia_4: note_data.get(cols.hierarquia_4, "").strip(),
+        cols.info_1: note_data.get(cols.info_1, "").strip(),
+        cols.info_2: note_data.get(cols.info_2, "").strip(),
+        cols.multimidia_1: note_data.get(cols.multimidia_1, "").strip(),
+        cols.multimidia_2: note_data.get(cols.multimidia_2, "").strip(),
+        cols.exemplo_1: note_data.get(cols.exemplo_1, "").strip(),
+        cols.exemplo_2: note_data.get(cols.exemplo_2, "").strip(),
+        cols.exemplo_3: note_data.get(cols.exemplo_3, "").strip(),
         # Campos de metadados
-        cols.BANCAS: note_data.get(cols.BANCAS, "").strip(),
-        cols.ANO: note_data.get(cols.ANO, "").strip(),
-        cols.CARREIRAS: note_data.get(cols.CARREIRAS, "").strip(),
-        cols.IMPORTANCIA: note_data.get(cols.IMPORTANCIA, "").strip(),
-        cols.MORE_TAGS: note_data.get(cols.MORE_TAGS, "").strip(),
+        cols.tags_1: note_data.get(cols.tags_1, "").strip(),
+        cols.tags_2: note_data.get(cols.tags_2, "").strip(),
+        cols.tags_3: note_data.get(cols.tags_3, "").strip(),
+        cols.tags_4: note_data.get(cols.tags_4, "").strip(),
+        # Campos extras personalizáveis
+        cols.extra_field_1: note_data.get(cols.extra_field_1, "").strip(),
+        cols.extra_field_2: note_data.get(cols.extra_field_2, "").strip(),
+        cols.extra_field_3: note_data.get(cols.extra_field_3, "").strip(),
     }
 
     # Preencher campos disponíveis na nota

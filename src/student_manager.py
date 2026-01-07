@@ -209,7 +209,7 @@ def extract_students_from_remote_data(remote_deck) -> Set[str]:
         return students
 
     for note_data in remote_deck.notes:
-        alunos_field = note_data.get(cols.ALUNOS, "").strip()
+        alunos_field = note_data.get(cols.alunos, "").strip()
 
         if alunos_field:
             # Separar múltiplos alunos por vírgula
@@ -355,7 +355,7 @@ def filter_questions_by_selected_students(
 
     for i, question in enumerate(questions):
         fields = question.get("fields", {})
-        alunos_field = fields.get(cols.ALUNOS, "").strip()
+        alunos_field = fields.get(cols.alunos, "").strip()
 
         if not alunos_field:
             # NOVO: Se funcionalidade [MISSING A.] estiver ativa, incluir nota
@@ -414,10 +414,10 @@ def get_student_subdeck_name(main_deck_name: str, student: str, fields: Dict) ->
     from .templates_and_definitions import DEFAULT_TOPIC
 
     # Obter valores dos campos, usando valores padrão se estiverem vazios
-    importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE
-    topico = fields.get(cols.TOPICO, "").strip() or DEFAULT_TOPIC
-    subtopico = fields.get(cols.SUBTOPICO, "").strip() or DEFAULT_SUBTOPIC
-    conceito = fields.get(cols.CONCEITO, "").strip() or DEFAULT_CONCEPT
+    importancia = fields.get(cols.hierarquia_1, "").strip() or DEFAULT_IMPORTANCE
+    topico = fields.get(cols.hierarquia_2, "").strip() or DEFAULT_TOPIC
+    subtopico = fields.get(cols.hierarquia_3, "").strip() or DEFAULT_SUBTOPIC
+    conceito = fields.get(cols.hierarquia_4, "").strip() or DEFAULT_CONCEPT
 
     # Criar hierarquia completa incluindo o aluno
     return (
@@ -444,10 +444,10 @@ def get_missing_students_subdeck_name(main_deck_name: str, fields: Dict) -> str:
     from .templates_and_definitions import DEFAULT_TOPIC
 
     # Obter valores dos campos, usando valores padrão se estiverem vazios
-    importancia = fields.get(cols.IMPORTANCIA, "").strip() or DEFAULT_IMPORTANCE
-    topico = fields.get(cols.TOPICO, "").strip() or DEFAULT_TOPIC
-    subtopico = fields.get(cols.SUBTOPICO, "").strip() or DEFAULT_SUBTOPIC
-    conceito = fields.get(cols.CONCEITO, "").strip() or DEFAULT_CONCEPT
+    importancia = fields.get(cols.hierarquia_1, "").strip() or DEFAULT_IMPORTANCE
+    topico = fields.get(cols.hierarquia_2, "").strip() or DEFAULT_TOPIC
+    subtopico = fields.get(cols.hierarquia_3, "").strip() or DEFAULT_SUBTOPIC
+    conceito = fields.get(cols.hierarquia_4, "").strip() or DEFAULT_CONCEPT
 
     # Criar hierarquia completa com [MISSING A.] como "aluno"
     return f"{main_deck_name}::[MISSING A.]::{importancia}::{topico}::{subtopico}::{conceito}"
@@ -464,7 +464,7 @@ def get_students_from_question(fields: Dict) -> Set[str]:
         Set[str]: Conjunto de alunos desta questão
     """
     students = set()
-    alunos_field = fields.get(cols.ALUNOS, "").strip()
+    alunos_field = fields.get(cols.alunos, "").strip()
 
     if alunos_field:
         alunos_list = re.split(r"[,;|]", alunos_field)
@@ -660,10 +660,10 @@ def discover_students_from_tsv_url(url: str) -> Set[str]:
         # Verificar cabeçalhos primeiro
         fieldnames = csv_reader.fieldnames
         print(f"📋 DEBUG TSV: Fieldnames encontrados: {fieldnames}")
-        print(f"🎯 DEBUG TSV: Procurando por coluna '{cols.ALUNOS}'")
+        print(f"🎯 DEBUG TSV: Procurando por coluna '{cols.alunos}'")
 
-        if not fieldnames or cols.ALUNOS not in fieldnames:
-            print(f"⚠️ DEBUG TSV: Coluna '{cols.ALUNOS}' não encontrada nos cabeçalhos")
+        if not fieldnames or cols.alunos not in fieldnames:
+            print(f"⚠️ DEBUG TSV: Coluna '{cols.alunos}' não encontrada nos cabeçalhos")
             available_cols = [col for col in fieldnames if col] if fieldnames else []
             print(f"📝 DEBUG TSV: Colunas disponíveis: {available_cols}")
             return set()
@@ -676,9 +676,9 @@ def discover_students_from_tsv_url(url: str) -> Set[str]:
                 print(f"📊 DEBUG TSV: Linha {row_count}: {dict(row)}")
 
             # Verificar se a coluna ALUNOS existe e tem conteúdo
-            if cols.ALUNOS in row and row[cols.ALUNOS]:
+            if cols.alunos in row and row[cols.alunos]:
                 # Extrair alunos (podem estar separados por vírgula)
-                alunos_str = row[cols.ALUNOS].strip()
+                alunos_str = row[cols.alunos].strip()
                 if alunos_str:
                     print(
                         f"👥 DEBUG TSV: Linha {row_count} - Alunos encontrados: '{alunos_str}'"

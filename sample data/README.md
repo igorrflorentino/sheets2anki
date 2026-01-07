@@ -13,7 +13,7 @@ O arquivo possui as seguintes colunas obrigatórias:
 - **ID**: Identificador único da questão
 - **PERGUNTA**: Texto principal da questão/frente do cartão  
 - **LEVAR PARA PROVA**: Resposta sucinta e atômica da pergunta
-- **SYNC?**: Campo de controle de sincronização (true/false/1/0)
+- **SYNC**: Campo de controle de sincronização (true/false/1/0)
 - **ALUNOS**: Indica quais alunos têm interesse em estudar esta nota
 - **INFO COMPLEMENTAR**: Informação complementar básica
 - **INFO DETALHADA**: Informação detalhada adicional
@@ -31,7 +31,7 @@ O arquivo possui as seguintes colunas obrigatórias:
 
 O arquivo contém diferentes cenários de teste:
 
-1. **Teste básico de sincronização**: Questões com diferentes valores de SYNC?
+1. **Teste básico de sincronização**: Questões com diferentes valores de SYNC
 2. **Teste de alunos**: Questões com e sem alunos específicos
 3. **Teste de erros**: Tratamento de erros de fórmula (#NAME?, #REF!, etc.)
 4. **Teste de case insensitive**: Diferentes formas de especificar valores booleanos

@@ -13,51 +13,75 @@ Consolidado de:
 """
 
 # =============================================================================
-# DEFINIÇÕES DE COLUNAS PRINCIPAIS
+# CAMPOS DE CONTROLE
 # =============================================================================
 
 # Campos básicos do sistema
-ID = "ID"  # Identificador único da questão (obrigatório)
-PERGUNTA = "PERGUNTA"  # Texto principal da questão/frente do cartão (opcional)
-MATCH = (
-    "LEVAR PARA PROVA"  # Resposta sucinta e atômica da pergunta (núcleo da resposta)
-)
-SYNC = "SYNC?"  # Campo de controle de sincronização (true/false/1/0)
-ALUNOS = "ALUNOS"  # Indica quais alunos têm interesse em estudar esta nota
+identificador = "ID"  # Identificador único da questão (obrigatório)
+alunos = "ALUNOS"  # Indica quais alunos têm interesse em estudar esta nota
+is_sync = "SYNC"  # Campo de controle de sincronização (true/false/1/0)
 
 # =============================================================================
-# CAMPOS INFORMATIVOS E COMPLEMENTARES
+# CAMPOS PRINCIPAIS
+# =============================================================================
+
+# Campos principais da questão
+pergunta = "PERGUNTA"  # Texto principal da questão/frente do cartão
+resposta = "LEVAR PARA PROVA"  # Resposta sucinta e atômica da pergunta
+
+# =============================================================================
+# CAMPOS DE DETALHES
 # =============================================================================
 
 # Informações adicionais sobre a questão
-EXTRA_INFO_1 = "INFO COMPLEMENTAR"  # Informação complementar básica
-EXTRA_INFO_2 = "INFO DETALHADA"  # Informação detalhada adicional
-ILUSTRACAO_HTML = "ILUSTRAÇÃO HTML"  # Código HTML para imagens e ilustrações renderizáveis
+info_1 = "INFO COMPLEMENTAR"  # Informação complementar básica
+info_2 = "INFO DETALHADA"  # Informação detalhada adicional
 
 # =============================================================================
 # CAMPOS DE EXEMPLOS
 # =============================================================================
 
 # Exemplos relacionados à questão (até 3 exemplos)
-EXEMPLO_1 = "EXEMPLO 1"  # Primeiro exemplo
-EXEMPLO_2 = "EXEMPLO 2"  # Segundo exemplo
-EXEMPLO_3 = "EXEMPLO 3"  # Terceiro exemplo
+exemplo_1 = "EXEMPLO 1"  # Primeiro exemplo
+exemplo_2 = "EXEMPLO 2"  # Segundo exemplo
+exemplo_3 = "EXEMPLO 3"  # Terceiro exemplo
 
 # =============================================================================
-# CAMPOS DE CATEGORIZAÇÃO E METADADOS
+# CAMPOS DE MULTIMIDIA
+# =============================================================================
+
+# Ajuda a tornar a informação visualmente mais atraente
+multimidia_1 = "IMAGEM HTML"  # Código HTML para imagens e ilustrações renderizáveis
+multimidia_2 = "VÍDEO HTML"  # Código HTML para vídeos embedded (YouTube, Vimeo, etc.)
+
+# =============================================================================
+# CAMPOS DE CATEGORIZAÇÃO
 # =============================================================================
 
 # Categorização hierárquica do conteúdo
-TOPICO = "TOPICO"  # Tópico principal da questão
-SUBTOPICO = "SUBTOPICO"  # Subtópico específico
-CONCEITO = "CONCEITO"  # Conceito atômico sendo perguntado (mais refinado que subtópico)
+hierarquia_1 = "IMPORTANCIA"  # Nível de importância da questão
+hierarquia_2 = "TOPICO"  # Tópico principal da questão
+hierarquia_3 = "SUBTOPICO"  # Subtópico específico
+hierarquia_4 = "CONCEITO"  # Conceito atômico sendo perguntado (mais refinado que subtópico)
+
+# =============================================================================
+# CAMPOS DE METADADOS
+# =============================================================================
 
 # Informações de contexto e fonte
-BANCAS = "BANCAS"  # Bancas organizadoras relacionadas
-ANO = "ULTIMO ANO EM PROVA"  # Último ano em que apareceu em prova
-CARREIRAS = "CARREIRAS"  # Carreiras ou áreas profissionais relacionadas
-IMPORTANCIA = "IMPORTANCIA"  # Nível de importância da questão
-MORE_TAGS = "TAGS ADICIONAIS"  # Tags adicionais para organização
+tags_1 = "BANCAS"  # Bancas organizadoras relacionadas
+tags_2 = "ULTIMO ANO EM PROVA"  # Último ano em que apareceu em prova
+tags_3 = "CARREIRAS"  # Carreiras ou áreas profissionais relacionadas
+tags_4 = "TAGS ADICIONAIS"  # Tags adicionais para organização
+
+# =============================================================================
+# CAMPOS EXTRAS PERSONALIZÁVEIS
+# =============================================================================
+
+# Campos extras para uso personalizado do usuário
+extra_field_1 = "EXTRA 1"  # Campo extra 1 - uso livre
+extra_field_2 = "EXTRA 2"  # Campo extra 2 - uso livre
+extra_field_3 = "EXTRA 3"  # Campo extra 3 - uso livre
 
 # =============================================================================
 # CONFIGURAÇÕES DE VALIDAÇÃO
@@ -65,87 +89,166 @@ MORE_TAGS = "TAGS ADICIONAIS"  # Tags adicionais para organização
 
 # Lista completa de todas as colunas disponíveis na planilha
 ALL_AVAILABLE_COLUMNS = [
-    ID,  # Identificador único (obrigatório)
-    MATCH,  # Resposta sucinta (núcleo da resposta) (obrigatório para headers)
-    SYNC,  # Controle de sincronização
-    ALUNOS,  # Controle de alunos interessados
-    EXTRA_INFO_1,  # Info complementar
-    EXTRA_INFO_2,  # Info detalhada
-    ILUSTRACAO_HTML,  # Código HTML para imagens e ilustrações
-    EXEMPLO_1,  # Primeiro exemplo
-    EXEMPLO_2,  # Segundo exemplo
-    EXEMPLO_3,  # Terceiro exemplo
-    TOPICO,  # Tópico principal
-    SUBTOPICO,  # Subtópico
-    CONCEITO,  # Conceito atômico
-    BANCAS,  # Bancas relacionadas
-    ANO,  # Ano da prova
-    CARREIRAS,  # Carreiras ou áreas profissionais
-    IMPORTANCIA,  # Nível de importância
-    MORE_TAGS,  # Tags adicionais
+    identificador,  # Identificador único
+    alunos,  # Controle de alunos interessados
+    is_sync,  # Controle de sincronização
+
+    hierarquia_1,  # Nível de importância
+    hierarquia_2,  # Tópico principal
+    hierarquia_3,  # Subtópico
+    hierarquia_4,  # Conceito atômico
+
+    pergunta,  # Texto principal da questão/frente do cartão
+    resposta,  # Resposta sucinta (núcleo da resposta)
+
+    info_1,  # Info complementar
+    info_2,  # Info detalhada
+
+    exemplo_1,  # Primeiro exemplo
+    exemplo_2,  # Segundo exemplo
+    exemplo_3,  # Terceiro exemplo
+
+    multimidia_1,  # Código HTML para imagens e ilustrações
+    multimidia_2,  # Código HTML para vídeos embedded
+
+    tags_1,  # Bancas relacionadas
+    tags_2,  # Ano da prova
+    tags_3,  # Carreiras ou áreas profissionais
+    tags_4,  # Tags adicionais
+
+    extra_field_1,  # Campo extra 1
+    extra_field_2,  # Campo extra 2
+    extra_field_3,  # Campo extra 3
 ]
 
-# =============================================================================
-# CONFIGURAÇÕES ESPECIAIS
-# =============================================================================
-
 # Campos que são considerados obrigatórios para criação de notas
-ESSENTIAL_FIELDS = [ID]
+ESSENTIAL_FIELDS = [identificador]
 
 # Campos que são obrigatórios nos headers da planilha (para parsing funcionar)
-REQUIRED_HEADERS = [ID, PERGUNTA, MATCH]
+REQUIRED_HEADERS = [identificador, pergunta, resposta]
 
-# Campos que podem ser usados para filtragem/seleção (exceto SYNC que é apenas controle interno)
-FILTER_FIELDS = [TOPICO, SUBTOPICO, CONCEITO, BANCAS, CARREIRAS, IMPORTANCIA, MORE_TAGS]
+# Campos que podem ser usados para filtragem/seleção
+FILTER_FIELDS = [hierarquia_1, hierarquia_2, hierarquia_3, hierarquia_4,
+                 tags_1, tags_2, tags_3, tags_4]
 
 # Campos que contêm informações textuais extensas
 TEXT_FIELDS = [
-    PERGUNTA,
-    MATCH,
-    EXTRA_INFO_1,
-    EXTRA_INFO_2,
-    EXEMPLO_1,
-    EXEMPLO_2,
-    EXEMPLO_3,
+    pergunta,
+    resposta,
+    info_1,
+    info_2,
+    exemplo_1,
+    exemplo_2,
+    exemplo_3,
+    extra_field_1,
+    extra_field_2,
+    extra_field_3,
 ]
 
 # Campos que contêm mídias (imagens, vídeos, etc.)
 MEDIA_FIELDS = [
-    ILUSTRACAO_HTML,
+    multimidia_1,
+    multimidia_2,
 ]
 
-# Campos que devem ser incluídos nas notas do Anki (excluindo controles internos)
+# Campos que devem ser incluídos nas notas do Anki
 NOTE_FIELDS = [
-    ID,  # Identificador único
-    PERGUNTA,  # Texto da questão
-    MATCH,  # Resposta sucinta (núcleo da resposta)
-    EXTRA_INFO_1,  # Info complementar
-    EXTRA_INFO_2,  # Info detalhada
-    ILUSTRACAO_HTML,  # Código HTML para imagens e ilustrações
-    EXEMPLO_1,  # Primeiro exemplo
-    EXEMPLO_2,  # Segundo exemplo
-    EXEMPLO_3,  # Terceiro exemplo
-    TOPICO,  # Tópico principal
-    SUBTOPICO,  # Subtópico
-    CONCEITO,  # Conceito atômico
-    BANCAS,  # Bancas relacionadas
-    ANO,  # Ano da prova
-    CARREIRAS,  # Carreiras ou áreas profissionais
-    IMPORTANCIA,  # Nível de importância
-    MORE_TAGS,  # Tags adicionais
+    identificador,  # Identificador único
+    
+    hierarquia_1,  # Nível de importância
+    hierarquia_2,  # Tópico principal
+    hierarquia_3,  # Subtópico
+    hierarquia_4,  # Conceito atômico
+    
+    pergunta,  # Texto da questão
+    resposta,  # Resposta sucinta (núcleo da resposta)
+    
+    info_1,  # Info complementar
+    info_2,  # Info detalhada
+    
+    exemplo_1,  # Primeiro exemplo
+    exemplo_2,  # Segundo exemplo
+    exemplo_3,  # Terceiro exemplo
+    
+    multimidia_1,  # Código HTML para imagens e ilustrações
+    multimidia_2,  # Código HTML para vídeos embedded
+
+    extra_field_1,  # Campo extra 1
+    extra_field_2,  # Campo extra 2
+    extra_field_3,  # Campo extra 3
+    
+    tags_1,  # Bancas relacionadas
+    tags_2,  # Ano da prova
+    tags_3,  # Carreiras ou áreas profissionais
+    tags_4,  # Tags adicionais
 ]
 
-# Campos que contêm metadados e tags
+# Campos que contêm metadados
 METADATA_FIELDS = [
-    TOPICO,
-    SUBTOPICO,
-    CONCEITO,
-    BANCAS,
-    ANO,
-    CARREIRAS,
-    IMPORTANCIA,
-    MORE_TAGS,
+    hierarquia_1,
+    hierarquia_2,
+    hierarquia_3,
+    hierarquia_4,
+    tags_1,
+    tags_2,
+    tags_3,
+    tags_4,
 ]
+
+# =============================================================================
+# CONSTANTES E TEMPLATES
+# =============================================================================
+
+# Constante para identificar se estamos em modo de desenvolvimento
+# Esta constante será alterada para False durante o processo de build
+IS_DEVELOPMENT_MODE = True
+
+# URLs hardcoded para testes e simulações
+TEST_SHEETS_URLS = [
+    (
+        "Sheets2Anki Template (Edit Link)",
+        "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing",
+    )
+]
+
+# Template constants para geração de cards
+CARD_SHOW_ALLWAYS_TEMPLATE = """
+<b>➡️ {field_name}</b><br>
+{{{{{field_value}}}}}<br><br>
+"""
+
+CARD_SHOW_HIDE_TEMPLATE = """
+{{{{#{field_value}}}}}
+<b>➡️ {field_name}</b><br>
+{{{{{field_value}}}}}<br><br>
+{{{{/{field_value}}}}}
+"""
+
+MARCADORES_TEMPLATE = """
+<h2 style="color: orange; text-align: center; margin-bottom: 0;">{texto}</h2>
+<div style="text-align: center; font-size: 0.8em; color: gray;">{observacao}</div>
+<hr>
+"""
+
+# Valores padrão para campos vazios
+DEFAULT_IMPORTANCE = "[MISSING I.]"
+DEFAULT_TOPIC = "[MISSING T.]"
+DEFAULT_SUBTOPIC = "[MISSING S.]"
+DEFAULT_CONCEPT = "[MISSING C.]"
+
+# Nome do deck raiz - constante não modificável pelo usuário
+DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
+
+# Prefixos para tags
+TAG_ROOT = "Sheets2Anki"
+TAG_TOPICS = "topicos"
+TAG_SUBTOPICS = "subtopicos"
+TAG_CONCEPTS = "conceitos"
+TAG_BANCAS = "bancas"
+TAG_ANOS = "anos"
+TAG_CARREIRAS = "carreiras"
+TAG_IMPORTANCIA = "importancia"
+TAG_ADICIONAIS = "adicionais"
 
 # =============================================================================
 # FUNÇÕES DE VALIDAÇÃO DE COLUNAS
@@ -226,22 +329,17 @@ def should_sync_question(fields):
     Returns:
         bool: True se deve sincronizar, False caso contrário
     """
-    sync_value = fields.get(SYNC, "").strip().lower()
+    sync_value = fields.get(is_sync, "").strip().lower()
 
     # Considerar valores positivos: true, 1, sim, yes, verdadeiro
     positive_values = ["true", "1", "sim", "yes", "verdadeiro", "v"]
 
-    # Considerar valores negativos: false, 0, não, no, falso
-    negative_values = ["false", "0", "não", "nao", "no", "falso", "f"]
-
     if sync_value in positive_values:
         return True
-    elif sync_value in negative_values:
-        return False
     else:
-        # Se o valor não for reconhecido, assumir que deve sincronizar
-        # para manter compatibilidade com planilhas antigas
-        return True
+        # Se o valor não for reconhecido ou estiver vazio, NÃO sincronizar
+        # A sincronização deve ser explicitamente marcada
+        return False
 
 
 def get_all_column_info():
@@ -284,9 +382,10 @@ def create_card_template(is_cloze=False):
 
     # Campos de cabeçalho comuns
     header_fields = [
-        (TOPICO, TOPICO),
-        (SUBTOPICO, SUBTOPICO),
-        (CONCEITO, CONCEITO),
+        (hierarquia_1, hierarquia_1),
+        (hierarquia_2, hierarquia_2),
+        (hierarquia_3, hierarquia_3),
+        (hierarquia_4, hierarquia_4),
     ]
 
     # Construir seção de cabeçalho
@@ -298,39 +397,37 @@ def create_card_template(is_cloze=False):
 
     # Formato da pergunta
     question = (
-        "<hr><br>"
-        f"<b>{PERGUNTA.capitalize()}:</b><br>"
-        f"{{{{{'cloze:' if is_cloze else ''}{PERGUNTA}}}}}"
+        f"<b>❓ {pergunta.capitalize()}</b><br>"
+        f"{{{{{'cloze:' if is_cloze else ''}{pergunta}}}}}<br><br>"
     )
 
     # Formato da resposta
-    match = (
-        "<br><br>"
-        f"<b>{MATCH.capitalize()}:</b><br>"
-        f"{{{{{'cloze:' if is_cloze else ''}{MATCH}}}}}"
-        "<br><br><hr><br>"
+    answer = (
+        f"<b>❗️ {resposta.capitalize()}</b><br>"
+        f"{{{{{'cloze:' if is_cloze else ''}{resposta}}}}}<br><br>"
     )
 
-    # Campos de informação extra
-    extra_info_fields = [EXTRA_INFO_1, EXTRA_INFO_2]
+    # Campos de informações
+    info_fields = [info_1, info_2]
 
-    extra_info = ""
-    for field in extra_info_fields:
-        extra_info += CARD_SHOW_HIDE_TEMPLATE.format(
-            field_name=field.capitalize(), field_value=field
+    extra_infos = ""
+    for info_field in info_fields:
+        extra_infos += CARD_SHOW_HIDE_TEMPLATE.format(
+            field_name=info_field.capitalize(), field_value=info_field
         )
 
-    # Campo de ilustração HTML (após informações extras, para contextualizar a resposta)
-    illustration = (
-        f"{{{{#{ILUSTRACAO_HTML}}}}}"
-        "<br><br>"
-        f"{{{{{ILUSTRACAO_HTML}}}}}"
-        "<br><br>"
-        f"{{{{/{ILUSTRACAO_HTML}}}}}"
+    # Campo de multimídia imagem
+    image_html = CARD_SHOW_HIDE_TEMPLATE.format(
+        field_name=multimidia_1.capitalize(), field_value=multimidia_1
+    )
+
+    # Campo de multimídia vídeo
+    video_html = CARD_SHOW_HIDE_TEMPLATE.format(
+        field_name=multimidia_2.capitalize(), field_value=multimidia_2
     )
 
     # Campos de exemplo
-    example_fields = [EXEMPLO_1, EXEMPLO_2, EXEMPLO_3]
+    example_fields = [exemplo_1, exemplo_2, exemplo_3]
 
     examples = ""
     for field in example_fields:
@@ -338,13 +435,21 @@ def create_card_template(is_cloze=False):
             field_name=field.capitalize(), field_value=field
         )
 
+    # Campos extras personalizáveis
+    extra_fields = [extra_field_1, extra_field_2, extra_field_3]
+
+    extras = ""
+    for field in extra_fields:
+        extras += CARD_SHOW_HIDE_TEMPLATE.format(
+            field_name=field.capitalize(), field_value=field
+        )
+
     # Campos de rodapé
     footer_fields = [
-        (BANCAS, BANCAS),
-        (ANO, ANO),
-        (CARREIRAS, CARREIRAS),
-        (IMPORTANCIA, IMPORTANCIA),
-        (MORE_TAGS, MORE_TAGS),
+        (tags_1, tags_1),
+        (tags_2, tags_2),
+        (tags_3, tags_3),
+        (tags_4, tags_4),
     ]
 
     # Construir seção de rodapé
@@ -355,11 +460,37 @@ def create_card_template(is_cloze=False):
         )
 
     # Construir templates completos
-    qfmt = header + question  # Frente: apenas cabeçalho e pergunta
+    qfmt = (
+        MARCADORES_TEMPLATE.format(texto="CONTEXTO", observacao="") +
+        header +        
+        MARCADORES_TEMPLATE.format(texto="CARD", observacao="") +
+        question  # Frente: apenas cabeçalho e pergunta
+    )
     afmt = (
-        (header + question + match + extra_info + illustration + examples + "<hr><br>" + footer)
+        MARCADORES_TEMPLATE.format(texto="CONTEXTO", observacao="") +
+        (header + 
+        MARCADORES_TEMPLATE.format(texto="CARD", observacao="") +
+         question +
+        MARCADORES_TEMPLATE.format(texto="INFORMAÇÕES", observacao="Pode vir vazio") +
+         extra_infos + 
+         examples + 
+         image_html + 
+         video_html + 
+         extras + 
+         MARCADORES_TEMPLATE.format(texto="TAGS", observacao="Pode vir vazio") + 
+         footer)
         if is_cloze
-        else ("{{FrontSide}}" + match + extra_info + illustration + examples + "<hr><br>" + footer)
+        else (
+            "{{FrontSide}}" + 
+            answer +
+            MARCADORES_TEMPLATE.format(texto="INFORMAÇÕES", observacao="Pode vir vazio") +
+            extra_infos + 
+            examples + 
+            image_html + 
+            video_html + 
+            extras + 
+            MARCADORES_TEMPLATE.format(texto="TAGS", observacao="Pode vir vazio") +
+            footer)
     )
 
     return {"qfmt": qfmt, "afmt": afmt}
@@ -385,7 +516,7 @@ def create_model(col, model_name, is_cloze=False, url=None, debug_messages=None)
     if is_cloze:
         model["type"] = 1  # Definir como tipo cloze
 
-    # Adicionar campos (excluindo campos de controle interno como SYNC?)
+    # Adicionar campos (excluindo campos de controle interno como SYNC)
     for field in NOTE_FIELDS:
         template = col.models.new_field(field)
         col.models.add_field(model, template)
@@ -555,57 +686,6 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
 
     return models
 
-
-# =============================================================================
-# CONSTANTES E TEMPLATES (movidas de utils.py)
-# =============================================================================
-
-# Constante para identificar se estamos em modo de desenvolvimento
-# Esta constante será alterada para False durante o processo de build
-IS_DEVELOPMENT_MODE = True
-
-# URLs hardcoded para testes e simulações
-TEST_SHEETS_URLS = [
-    (
-        "Sheets2Anki Template (Edit Link)",
-        "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing",
-    )
-]
-
-# Template constants para geração de cards
-CARD_SHOW_ALLWAYS_TEMPLATE = """
-<b>{field_name}:</b><br>
-{{{{{field_value}}}}}<br><br>
-"""
-
-CARD_SHOW_HIDE_TEMPLATE = """
-{{{{#{field_value}}}}}
-<b>{field_name}:</b><br>
-{{{{{field_value}}}}}<br><br>
-{{{{/{field_value}}}}}
-"""
-
-# Valores padrão para campos vazios
-DEFAULT_IMPORTANCE = "[MISSING I.]"
-DEFAULT_TOPIC = "[MISSING T.]"
-DEFAULT_SUBTOPIC = "[MISSING S.]"
-DEFAULT_CONCEPT = "[MISSING C.]"
-
-# Nome do deck raiz - constante não modificável pelo usuário
-DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
-
-# Prefixos para tags
-TAG_ROOT = "Sheets2Anki"
-TAG_TOPICS = "topicos"
-TAG_SUBTOPICS = "subtopicos"
-TAG_CONCEPTS = "conceitos"
-TAG_BANCAS = "bancas"
-TAG_ANOS = "anos"
-TAG_CARREIRAS = "carreiras"
-TAG_IMPORTANCIA = "importancia"
-TAG_ADICIONAIS = "adicionais"
-
-
 def update_existing_note_type_templates(col, debug_messages=None):
     """
     Atualiza os templates de todos os note types existentes do Sheets2Anki
@@ -652,13 +732,13 @@ def update_existing_note_type_templates(col, debug_messages=None):
                     field_name = getattr(field, 'name', "")
                 existing_fields.append(field_name)
             
-            if ILUSTRACAO_HTML not in existing_fields:
-                debug_messages.append(f"[UPDATE_TEMPLATES] Adicionando campo {ILUSTRACAO_HTML}")
+            if multimidia_1 not in existing_fields:
+                debug_messages.append(f"[UPDATE_TEMPLATES] Adicionando campo {multimidia_1}")
                 # Adicionar o campo ILUSTRAÇÃO HTML
-                field_template = col.models.new_field(ILUSTRACAO_HTML)
+                field_template = col.models.new_field(multimidia_1)
                 col.models.add_field(model, field_template)
             else:
-                debug_messages.append(f"[UPDATE_TEMPLATES] Campo {ILUSTRACAO_HTML} já existe")
+                debug_messages.append(f"[UPDATE_TEMPLATES] Campo {multimidia_1} já existe")
             
             # Atualizar templates de cards
             templates = model.get("tmpls", [])
@@ -679,7 +759,7 @@ def update_existing_note_type_templates(col, debug_messages=None):
                         old_afmt = getattr(template, 'afmt', "")
                     
                     # Verificar se precisa atualizar (se não tem ILUSTRAÇÃO HTML no template)
-                    needs_update = ILUSTRACAO_HTML not in old_afmt
+                    needs_update = multimidia_1 not in old_afmt
                     
                     if needs_update:
                         # Atualizar template
@@ -696,7 +776,7 @@ def update_existing_note_type_templates(col, debug_messages=None):
                         template_updated = True
                         debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} atualizado para {model_name}")
                     else:
-                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} já contém {ILUSTRACAO_HTML}")
+                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} já contém {multimidia_1}")
                 
                 if not template_updated:
                     debug_messages.append(f"[UPDATE_TEMPLATES] Nenhum template precisou ser atualizado para {model_name}")

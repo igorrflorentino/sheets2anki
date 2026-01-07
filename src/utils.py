@@ -2335,10 +2335,10 @@ def get_subdeck_name(main_deck_name, fields, student=None):
     from . import templates_and_definitions as cols
 
     # Obter valores dos campos, usando valores padrão se estiverem vazios
-    importancia = fields.get(cols.IMPORTANCIA, "").strip() or cols.DEFAULT_IMPORTANCE
-    topico = fields.get(cols.TOPICO, "").strip() or cols.DEFAULT_TOPIC
-    subtopico = fields.get(cols.SUBTOPICO, "").strip() or cols.DEFAULT_SUBTOPIC
-    conceito = fields.get(cols.CONCEITO, "").strip() or cols.DEFAULT_CONCEPT
+    importancia = fields.get(cols.hierarquia_1, "").strip() or cols.DEFAULT_IMPORTANCE
+    topico = fields.get(cols.hierarquia_2, "").strip() or cols.DEFAULT_TOPIC
+    subtopico = fields.get(cols.hierarquia_3, "").strip() or cols.DEFAULT_SUBTOPIC
+    conceito = fields.get(cols.hierarquia_4, "").strip() or cols.DEFAULT_CONCEPT
 
     # Criar hierarquia completa de subdecks
     if student:

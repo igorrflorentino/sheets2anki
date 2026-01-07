@@ -532,7 +532,7 @@ SAMPLE_TSV_DATA = [
         'ID': 'Q001',
         'PERGUNTA': 'Capital do Brasil?',
         'LEVAR PARA PROVA': 'Brasília',
-        'SYNC?': 'true',
+        'SYNC': 'true',
         'ALUNOS': 'João, Maria',
         # ... mais 13 colunas
     }

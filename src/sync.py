@@ -73,7 +73,7 @@ class SyncStats:
     # 3. Total de linhas inválidas (ID vazio)
     remote_invalid_note_lines: int = 0
 
-    # 4. Total de linhas marcadas para sincronizar (SYNC? = true)
+    # 4. Total de linhas marcadas para sincronizar (SYNC = true)
     remote_sync_marked_lines: int = 0
 
     # 5. Total potencial de notas que serão criadas no Anki (ID × alunos + [MISSING A.])

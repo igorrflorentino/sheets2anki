@@ -101,7 +101,8 @@ class TestColumnValidation:
             "ALUNOS",
             "INFO COMPLEMENTAR",
             "INFO DETALHADA",
-            "ILUSTRAÇÃO HTML",
+            "IMAGEM HTML",
+            "VÍDEO HTML",
             "EXEMPLO 1",
             "EXEMPLO 2",
             "EXEMPLO 3",
@@ -113,6 +114,9 @@ class TestColumnValidation:
             "CARREIRA",
             "IMPORTANCIA",
             "TAGS ADICIONAIS",
+            "EXTRA 1",
+            "EXTRA 2",
+            "EXTRA 3",
         ]
 
         def validate_columns(data):

@@ -68,10 +68,10 @@
 - **Métricas Detalhadas**: Estatísticas completas da planilha e resultados por deck
 - **Interface Responsiva**: Suporte automático para dark mode e layout adaptável
 
-#### 🖼️ **Suporte a ILUSTRAÇÃO HTML**
-- **Nova Coluna**: Campo "ILUSTRAÇÃO HTML" para imagens, diagramas e conteúdo HTML
-- **Atualização Automática de Templates**: Adiciona campo automaticamente aos note types existentes
-- **Posicionamento Inteligente**: Ilustrações aparecem no verso do card para melhor pedagogia
+#### 🖼️ **Suporte a Campos Multimídia**
+- **Campos de Mídia**: "IMAGEM HTML" para imagens/ilustrações e "VÍDEO HTML" para vídeos embedded
+- **Atualização Automática de Templates**: Adiciona campos automaticamente aos note types existentes
+- **Posicionamento Inteligente**: Mídias aparecem no verso do card para melhor pedagogia
 - **Templates Seguros**: Não duplica campos e preserva dados existentes
 
 ### 🔄 **Melhorias e Otimizações**
@@ -112,7 +112,7 @@
 ## 🏗️ **v2.0.0** - Julho 2025
 
 ### ✨ **Funcionalidades Principais**
-- **Sincronização Seletiva**: Coluna `SYNC?` para controle individual de cards
+- **Sincronização Seletiva**: Coluna `SYNC` para controle individual de cards
 - **Sistema de Backup Básico**: Backup manual e restauração de decks
 - **Sincronização com AnkiWeb**: Automática após atualizações
 - **Suporte a Cards Cloze**: Detecção automática de padrões `{{c1::texto}}`
@@ -185,7 +185,7 @@
 - [`NAME_CONSISTENCY_SYSTEM.md`](./NAME_CONSISTENCY_SYSTEM.md) - Sistema de consistência automática de nomes
 - [`TEMPLATE_UPDATE.md`](./TEMPLATE_UPDATE.md) - Atualização automática de templates
 - [`SUMMARY_VISUALIZATION.md`](./SUMMARY_VISUALIZATION.md) - Resumo de sincronização aprimorado
-- [`ILUSTRACAO_HTML.md`](./ILUSTRACAO_HTML.md) - Suporte a ilustrações HTML
+- [`MULTIMIDIA_HTML.md`](./MULTIMIDIA_HTML.md) - Suporte a campos multimídia (IMAGEM HTML e VÍDEO HTML)
 
 ### 🛠️ **Para Desenvolvedores**
 - [`README.md`](../README.md) - Documentação principal do usuário
