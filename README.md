@@ -1,12 +1,5 @@
 # 📚 Sheets2Anki
 
-**### 🔧 **Sistema de Consistência de Nomes Automático** ⭐ *NOVIDADE*
-- **Correção Automática:** O sistema detecta e corrige automaticamente inconsistências nos nomes dos note types
-- **Sincronização Inteligente:** Durante cada sincronização, verifica se os nomes no Anki estão alinhados com a configuração
-- **Atualização Transparente:** Corrige diferenças entre nomes remotos e locais sem intervenção manual
-- **Preservação de Dados:** Mantém todo o histórico de estudo e configurações durante as correções
-- **Configurações de Deck:** Adiciona automaticamente configurações de opções apropriadas para cada deck (`local_deck_configurations_package_name`)forme suas planilhas do Google Sheets em poderosos decks do Anki!**
-
 O **Sheets2Anki** é um add-on profissional que sincroniza automaticamente seus decks do Anki com planilhas do Google Sheets. Sua planilha funciona como a fonte principal dos seus cards - todas as mudanças, adições e remoções são refletidas automaticamente no Anki quando você sincroniza.
 
 🎯 **Ideal para:** Professores, estudantes, criadores de conteúdo educacional e qualquer pessoa que precise organizar grandes quantidades de flashcards de forma colaborativa e eficiente.
@@ -23,7 +16,7 @@ O **Sheets2Anki** é um add-on profissional que sincroniza automaticamente seus 
 
 ## ✨ Principais Funcionalidades
 
-### � **Sistema de Consistência de Nomes Automático** ⭐ *NOVIDADE*
+### � **Sistema de Consistência de Nomes Automático**
 - **Correção Automática:** O sistema detecta e corrige automaticamente inconsistências nos nomes dos note types
 - **Sincronização Inteligente:** Durante cada sincronização, verifica se os nomes no Anki estão alinhados com a configuração
 - **Atualização Transparente:** Corrige diferenças entre nomes remotos e locais sem intervenção manual
@@ -41,7 +34,7 @@ O **Sheets2Anki** é um add-on profissional que sincroniza automaticamente seus 
 - **Sincronização AnkiWeb:** Automática após atualizar seus decks
 - **Backup de Segurança:** Proteção automática antes de restaurações
 
-### 📊 **Resumo de Sincronização Aprimorado** ⭐ *NOVIDADE*
+### 📊 **Resumo de Sincronização Aprimorado**
 - **Visualização Dupla:** Modos "Simplificado" e "Completo" para diferentes necessidades
 - **Ordem Otimizada:** No modo "Completo", o resumo geral agregado aparece primeiro, seguido dos detalhes individuais
 - **Métricas Detalhadas:** Estatísticas completas da planilha e resultados por deck
@@ -49,12 +42,12 @@ O **Sheets2Anki** é um add-on profissional que sincroniza automaticamente seus 
 
 ### 🏷️ **Sistema de Tags Hierárquico Completo**
 Organização automática em 8 categorias:
-- **👥 Alunos:** `Sheets2Anki::Alunos::nome_aluno`
+- **👥 Alunos:** `Sheets2Anki::Alunos::aluno`
 - **📚 Tópicos:** `Sheets2Anki::Topicos::topico::subtopico::conceito`
-- **🏛️ Bancas:** `Sheets2Anki::Bancas::nome_banca`
-- **📅 Anos:** `Sheets2Anki::Anos::2024`
+- **🏛️ Bancas:** `Sheets2Anki::Bancas::banca`
+- **📅 Anos:** `Sheets2Anki::Anos::ano`
 - **💼 Carreiras:** `Sheets2Anki::Carreiras::carreira`
-- **⭐ Importância:** `Sheets2Anki::Importancia::alta`
+- **⭐ Importância:** `Sheets2Anki::Importancia::importancia`
 - **🔖 Tags Extras:** Suporte a tags personalizadas
 
 ### 💾 **Sistema de Backup Profissional**
@@ -69,33 +62,34 @@ Organização automática em 8 categorias:
 - **Flexibilidade Total:** Misture cards básicos e cloze na mesma planilha
 ## 📋 Como Configurar sua Planilha
 
-Sua planilha do Google Sheets deve ter exatamente **19 colunas obrigatórias**. Use nosso [**modelo pronto**](https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing) como base!
+Sua planilha do Google Sheets deve ter exatamente **19 colunas obrigatórias**. 
+Use nosso [**modelo pronto**](https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing) como base!
 
 ### 📊 **Estrutura das Colunas**
 
 | # | Coluna | Descrição | Exemplo |
 |---|--------|-----------|---------|
 | 1 | **ID** | Identificador único | `Q001`, `Q002` |
-| 2 | **PERGUNTA** | Texto do card/frente | `Qual é a capital do Brasil?` |
-| 3 | **LEVAR PARA PROVA** | Resposta principal/verso | `Brasília` |
-| 4 | **SYNC?** | Controle de sincronização | `true`, `false`, `sim` |
-| 5 | **ALUNOS** | Lista de alunos (separados por vírgula) | `João, Maria, Pedro` |
-| 6 | **INFO COMPLEMENTAR** | Informações extras | `Fundada em 1960` |
-| 7 | **INFO DETALHADA** | Detalhes expandidos | `Planejada por Oscar Niemeyer` |
-| 8 | **ILUSTRAÇÃO HTML** | Imagens e HTML | `<img src="https://...">` |
-| 9 | **EXEMPLO 1** | Primeiro exemplo | `Também é sede do governo` |
-| 10 | **EXEMPLO 2** | Segundo exemplo | `Localizada no Distrito Federal` |
-| 11 | **EXEMPLO 3** | Terceiro exemplo | `Patrimônio da Humanidade` |
-| 12 | **TOPICO** | Categoria principal | `Geografia` |
-| 13 | **SUBTOPICO** | Subcategoria | `Capitais` |
-| 14 | **CONCEITO** | Conceito específico | `Brasil` |
-| 15 | **BANCAS** | Bancas organizadoras | `CESPE, FCC` |
-| 16 | **ULTIMO ANO EM PROVA** | Ano da última questão | `2024` |
-| 17 | **CARREIRA** | Área/carreira | `Concursos Públicos` |
-| 18 | **IMPORTANCIA** | Nível de relevância | `Alta`, `Média`, `Baixa` |
+| 2 | **ALUNOS** | Lista de alunos (separados por vírgula) | `João, Maria, Pedro` |
+| 3 | **SYNC?** | Controle de sincronização | `true`, `false`, `sim` |
+| 4 | **IMPORTANCIA** | Nível de relevância | `Alta`, `Média`, `Baixa` |
+| 5 | **TOPICO** | Categoria principal | `Geografia` |
+| 6 | **SUBTOPICO** | Subcategoria | `Capitais` |
+| 7 | **CONCEITO** | Conceito específico | `Brasil` |
+| 8 | **PERGUNTA** | Texto do card/frente | `Qual é a capital do Brasil?` |
+| 9 | **LEVAR PARA PROVA** | Resposta principal/verso | `Brasília` |
+| 10 | **INFO COMPLEMENTAR** | Informações extras | `Fundada em 1960` |
+| 11 | **INFO DETALHADA** | Detalhes expandidos | `Planejada por Oscar Niemeyer` |
+| 12 | **ILUSTRAÇÃO HTML** | Imagens e HTML | `<img src="https://...">` |
+| 13 | **EXEMPLO 1** | Primeiro exemplo | `Também é sede do governo` |
+| 14 | **EXEMPLO 2** | Segundo exemplo | `Localizada no Distrito Federal` |
+| 15 | **EXEMPLO 3** | Terceiro exemplo | `Patrimônio da Humanidade` |
+| 16 | **BANCAS** | Bancas organizadoras | `CESPE, FCC` |
+| 17 | **ULTIMO ANO EM PROVA** | Ano da última questão | `2024` |
+| 18 | **CARREIRAS** | Área/carreira | `Concursos Públicos` |
 | 19 | **TAGS ADICIONAIS** | Tags extras | `fundamental, básico` |
 
-### 🖼️ **Nova Coluna: ILUSTRAÇÃO HTML**
+### 🖼️ **Coluna ILUSTRAÇÃO HTML**
 
 A coluna **ILUSTRAÇÃO HTML** permite adicionar imagens, diagramas e qualquer conteúdo HTML aos seus cards:
 
@@ -105,8 +99,6 @@ A coluna **ILUSTRAÇÃO HTML** permite adicionar imagens, diagramas e qualquer c
 - `<div style="color:red;">Texto destacado</div>`
 
 **🎯 Posicionamento:** A ilustração aparece no **verso do card**, após a resposta principal, para contextualizar a informação sem "dar dicas" na pergunta.
-
-**🔄 Atualização Automática:** Note types existentes são automaticamente atualizados durante a sincronização para suportar esta nova coluna.
 
 ### 👥 **Campo ALUNOS - Funcionalidade Principal**
 
@@ -127,7 +119,7 @@ O campo **ALUNOS** é o coração do sistema de gestão individualizada:
 ### 🔄 **Controle de Sincronização (SYNC?)**
 
 **✅ Para SINCRONIZAR:**
-- `true`, `TRUE`, `sim`, `SIM`, `yes`, `1`, `v` ou deixar vazio
+- `true`, `TRUE`, `sim`, `SIM`, `yes`, `1`, `v`
 
 **❌ Para NÃO sincronizar:**
 - `false`, `FALSE`, `não`, `nao`, `no`, `0`, `f`
@@ -153,72 +145,29 @@ O add-on detectará automaticamente e criará note types cloze personalizados pa
 ### 🏁 **Primeiros Passos - Setup Inicial**
 
 #### **Passo 1: Prepare sua Planilha**
-1. **Use o modelo:** [Template Google Sheets](https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing)
-2. **Preencha os dados:** Adicione suas questões seguindo as 19 colunas
-3. **Configure alunos:** Liste os nomes na coluna ALUNOS
+- Use o modelo [Template Google Sheets](https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing).
+- Crie uma cópia do modelo.
+- Preencha os dados seguindo a estrutura das colunas.
 
-**Opções de Compartilhamento:**
+#### **Passo 2: Configure o comportamento do addon**
+- Configure a Configuração Global de Alunos.
+- Configure o Gerenciamento de Opções de Deck.
+- Configure a Sincronização Automática com AnkiWeb.
 
-**📝 Opção 1: URL de Edição (Mais Fácil)**
-- Simplesmente copie o link de compartilhamento da planilha: `Compartilhar → Copiar link`
-- ✅ **Recomendado**: Mais fácil e funciona imediatamente
-#### **Passo 1: Prepare sua Planilha**
+#### **Passo 3: Adicione o Deck Remoto**
+- Abra sua planilha no Google Sheets.
+- Clique em `Compartilhar` (canto superior direito).
+- Configure como `Qualquer pessoa com o link pode ver`.
+- Copie o link de compartilhamento (`/edit?usp=sharing`).
+- Cole o link dentro do addon.
+- Confirme, o addon criará automaticamente toda a estrutura!
 
-**📊 URL de Edição (Método Simplificado)**
-- Crie ou abra sua planilha no Google Sheets
-- Clique em `Compartilhar` (canto superior direito)
-- Configure como `Qualquer pessoa com o link pode ver`
-- Copie o link de compartilhamento (`/edit?usp=sharing`)
-- ✅ **Pronto!** O addon processa automaticamente
+#### **Passo 4: Sincronização**
+- Modifique os dados da planilha.
+- Faça uma sincroniação dentro do addon
+- Seus cards serão atualizados automaticamente.
 
-#### **Passo 2: Configure os Alunos Globalmente**
-```
-Ferramentas → Sheets2Anki → Configurar Alunos Globalmente (Ctrl+Shift+G)
-```
-- ✅ Marque os alunos que devem aparecer em TODOS os decks
-- 💡 Alunos não marcados aqui NÃO aparecerão em nenhum deck
-- 🔄 Use "Selecionar Todos" ou "Desmarcar Todos" para facilitar
-
-#### **Passo 3: Adicione seu Primeiro Deck**
-```
-Ferramentas → Sheets2Anki → Adicionar Novo Deck Remoto (Ctrl+Shift+A)
-```
-1. **Cole a URL de edição** da planilha do Google Sheets
-2. **Nomeie seu deck** (sugestão automática disponível)
-3. **Confirme** - o addon criará automaticamente toda a estrutura!
-
-#### **Passo 4: Primeira Sincronização**
-```
-Ferramentas → Sheets2Anki → Sincronizar Decks Remotos (Ctrl+Shift+S)
-```
-- 🎉 Seus cards serão criados automaticamente
-- 📂 Subdecks organizados por aluno, importância e tópico
-- 🏷️ Tags hierárquicas aplicadas automaticamente
-
-### ⚙️ **Configurações Opcionais**
-
-#### **Sincronização AnkiWeb Automática**
-```
-Ferramentas → Sheets2Anki → Configurar Sincronização AnkiWeb (Ctrl+Shift+W)
-```
-- **🚫 Desabilitado:** Não sincroniza automaticamente
-- **🔄 Automático:** Sincroniza com AnkiWeb após atualizar decks
-- **🧪 Testar Conexão:** Verifica se está funcionando
-
-#### **Sistema de Backup**
-```
-Ferramentas → Sheets2Anki → Backup de Decks Remotos
-```
-- 💾 Backup manual de todas as configurações
-- 🔄 Restauração completa se necessário
-- �️ Backup de segurança antes de operações importantes
-
-### 🔄 **Fluxo de Trabalho Diário**
-
-1. **📝 Edite sua planilha** no Google Sheets (adicione/modifique/remova cards)
-2. **🔄 Sincronize no Anki:** `Ctrl+Shift+S` 
-3. **📱 Estude normalmente** - cards atualizados automaticamente
-4. **☁️ AnkiWeb sincroniza** sozinho (se configurado)
+## 🎯 Recursos Avançados
 
 ### ⌨️ **Atalhos Essenciais**
 
@@ -229,7 +178,6 @@ Ferramentas → Sheets2Anki → Backup de Decks Remotos
 | **Config. Alunos** | `Ctrl+Shift+G` | Gerencia alunos globais |
 | **Config. AnkiWeb** | `Ctrl+Shift+W` | Configura sync automático |
 | **Desconectar Deck** | `Ctrl+Shift+D` | Remove conexão com planilha |
-## 🎯 Recursos Avançados
 
 ### 📂 **Como Funciona a Estrutura de Subdecks**
 
@@ -259,8 +207,6 @@ Cada card recebe tags organizadas automaticamente:
 - `Sheets2Anki::Carreiras::concursos_publicos` - Área de aplicação
 - `Sheets2Anki::Importancia::alta` - Nível de relevância
 
-> **📝 Nota:** Tags baseadas na coluna ALUNOS foram removidas para simplificar a lógica do sistema.
-
 ### 🔄 **Sincronização Inteligente**
 
 **🎯 O que acontece durante a sincronização:**
@@ -274,7 +220,7 @@ Cada card recebe tags organizadas automaticamente:
 
 **💡 Dica:** O progresso de revisão (intervalos, facilidade) é sempre preservado!
 
-### 🔧 **Melhorias Técnicas Recentes** ⭐ *NOVIDADES*
+### 🔧 **Gerenciamento de Cards** ⭐
 
 #### **Sistema de Consistência de Nomes**
 - **Detecção Automática:** Identifica inconsistências entre nomes remotos e locais durante a sincronização
@@ -328,6 +274,7 @@ Ferramentas → Sheets2Anki → Backup de Decks Remotos
 - ✅ Anki 2.1.50+ (método moderno)
 - ✅ Versões anteriores (métodos de compatibilidade)
 - ✅ AnkiMobile, AnkiDroid, AnkiWeb
+
 ## 🛠️ Solução de Problemas
 
 ### ❓ **Problemas Comuns e Soluções**
@@ -338,20 +285,9 @@ Ferramentas → Sheets2Anki → Backup de Decks Remotos
 2. Verifique se os nomes na planilha estão exatamente iguais aos configurados
 3. Certifique-se de que a coluna ALUNOS está preenchida
 
-#### **� "Erro ao carregar planilha" ou "URL inválida"**
-**💡 Soluções:**
-1. **Verifique a publicação:**
-   - `Arquivo → Compartilhar → Publicar na web`
-   - **Importante:** `Valores separados por tabulação (.tsv)`
-2. **URL deve ser parecida com:**
-   ```
-   https://docs.google.com/spreadsheets/d/e/[ID]/pub?output=tsv
-   ```
-3. **Teste no navegador:** Cole a URL - deve baixar um arquivo .tsv
-
 #### **🔴 Cards não aparecem após sincronização**
 **� Soluções:**
-1. **Verifique a coluna SYNC?:** Deve estar `true`, `sim`, `1` ou vazia
+1. **Verifique a coluna SYNC?:** Deve estar `true`, `sim`, `1`
 2. **IDs únicos:** Cada linha deve ter um ID diferente na coluna 1
 3. **Alunos habilitados:** `Ctrl+Shift+G` → Confirme os alunos marcados
 
@@ -373,8 +309,7 @@ Ferramentas → Sheets2Anki → Backup de Decks Remotos
 - [ ] Exatamente **19 colunas** na ordem correta
 - [ ] Campo **ID** preenchido e único para cada linha
 - [ ] Campo **ALUNOS** preenchido (ou deixar vazio para `[MISSING A.]`)
-- [ ] Coluna **SYNC?** configurada (`true`/`false` ou vazio)
-- [ ] Planilha **publicada** como TSV (não apenas compartilhada)
+- [ ] Coluna **SYNC?** configurada (`true`/`false`)
 
 #### **✅ Checklist do Anki**
 - [ ] Alunos configurados globalmente (`Ctrl+Shift+G`)
@@ -420,44 +355,6 @@ Se perdeu dados importantes:
 3. Escolha o backup desejado
 4. Confirme a restauração
 
-## 📊 Compatibilidade e Requisitos
-
-### ✅ **Requisitos do Sistema**
-- **Anki:** Versão 2.1.50 ou superior
-- **Sistema Operacional:** Windows, macOS ou Linux
-- **Conexão:** Internet estável para sincronização
-- **Google Sheets:** Planilha publicada com as 19 colunas obrigatórias
-
-### 🔧 **Compatibilidade Testada**
-- ✅ **Anki Desktop:** 2.1.50 - 2.1.66 (e superiores)
-- ✅ **AnkiMobile:** iOS (sincronização via AnkiWeb)
-- ✅ **AnkiDroid:** Android (sincronização via AnkiWeb) 
-- ✅ **AnkiWeb:** Navegador (acesso completo aos decks)
-
-### 🌐 **Funcionalidades por Plataforma**
-
-| Funcionalidade | Anki Desktop | AnkiMobile | AnkiDroid | AnkiWeb |
-|----------------|--------------|------------|-----------|---------|
-| **Criar/Editar Cards** | ❌ Planilha | ❌ Planilha | ❌ Planilha | ❌ Planilha |
-| **Estudar Cards** | ✅ Completo | ✅ Completo | ✅ Completo | ✅ Completo |
-| **Ver Subdecks** | ✅ Completo | ✅ Completo | ✅ Completo | ✅ Completo |
-| **Tags Hierárquicas** | ✅ Completo | ✅ Completo | ✅ Completo | ✅ Completo |
-| **Sincronização** | ✅ Automática | ✅ Via AnkiWeb | ✅ Via AnkiWeb | ✅ Nativo |
-
-### 🚀 **Performance e Limites**
-
-**📈 Capacidade Testada:**
-- ✅ **Até 10.000 cards** por deck (performance excelente)
-- ✅ **Até 50 alunos** por deck (organizados automaticamente)
-- ✅ **Até 20 decks** conectados simultaneamente
-- ✅ **Sincronização rápida** (< 30 segundos para 1000 cards)
-
-**⚡ Otimizações:**
-- Sincronização incremental (apenas mudanças)
-- Cache inteligente de planilhas
-- Processamento paralelo de alunos
-- Limpeza automática de dados órfãos
-
 ## 🏆 Casos de Uso Reais
 
 ### 👨‍🏫 **Para Professores**
@@ -501,7 +398,6 @@ CONCEITO: Círculo
 ## 💡 Dicas e Melhores Práticas
 
 ### � **Organização da Planilha**
-1. **IDs Consistentes:** Use prefixos como `MAT001`, `HIS001`, `BIO001`
 2. **Nomes de Alunos:** Mantenha sempre os mesmos nomes (case-sensitive)
 3. **Categorização:** Preencha SEMPRE os campos TOPICO, SUBTOPICO, CONCEITO
 4. **Importância:** Use escalas consistentes (`Alta`, `Média`, `Baixa`)
@@ -523,23 +419,8 @@ CONCEITO: Círculo
 2. **Versione Planilhas:** Mantenha copies de segurança no Google Drive
 3. **Teste Restauração:** Pratique a restauração em ambiente de teste
 4. **Documente Mudanças:** Registre alterações importantes
+
 ## ❓ FAQ - Perguntas Frequentes
-
-### **🆕 Sobre as Novas Funcionalidades**
-
-### **🤔 "O que é o Sistema de Consistência de Nomes?"**
-**R:** É uma funcionalidade automática que detecta e corrige inconsistências nos nomes dos note types durante a sincronização. Se o nome remoto de um deck mudar, o sistema atualiza automaticamente todos os note types relacionados para manter a consistência.
-
-### **🤔 "Como funciona o novo resumo de sincronização?"**
-**R:** O resumo agora tem dois modos: "Simplificado" (dados agregados) e "Completo" (detalhes por deck). No modo "Completo", o resumo geral aparece primeiro, seguido dos detalhes individuais de cada deck para melhor organização.
-
-### **🤔 "As novas funcionalidades afetam meus dados existentes?"**
-**R:** Não! Todas as melhorias são transparentes e preservam completamente seus dados de estudo, configurações e progresso. O sistema apenas corrige inconsistências automaticamente.
-
-### **🆔 Sobre Funcionalidades Existentes**
-
-### **🤔 "Posso usar qualquer planilha do Google Sheets?"**
-**R:** Não. A planilha deve ter exatamente as 19 colunas na ordem especificada e estar **publicada** como TSV. Use nosso [template](https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing) como base.
 
 ### **🤔 "Como funciona o sistema de alunos?"**
 **R:** Cada nome na coluna ALUNOS gera um subdeck separado. Configure globalmente (`Ctrl+Shift+G`) quais alunos sincronizar. Alunos não configurados não aparecerão em nenhum deck.
@@ -561,19 +442,6 @@ CONCEITO: Círculo
 
 ### **🤔 "Posso usar offline?"**
 **R:** Apenas para estudar. A sincronização com planilhas requer internet, mas você pode estudar os cards normalmente offline.
-
-### **🔧 "O que é a configuração 'local_deck_configurations_package_name'?"**
-**R:** É uma nova funcionalidade que armazena qual grupo de opções de deck deve ser usado para cada deck remoto. Esta configuração é adicionada automaticamente pelo sistema de consistência e garante que cada deck tenha as opções de estudo apropriadas (individual, compartilhada ou manual) conforme configurado.
-
-### **⚠️ "Recebi erro sobre 'double quotes' na busca, o que fazer?"**
-**R:** Este erro foi corrigido na versão atual. Se ainda ocorrer, reinstale o add-on. Era causado por uma incompatibilidade com versões mais recentes do Anki que não aceitam buscas com aspas duplas vazias. O sistema agora usa padrões de busca compatíveis.
-
-## 🔗 Links Úteis
-
-- 📋 **[Template Google Sheets](https://docs.google.com/spreadsheets/d/1urrp2t8xA2C0f3vLTdQyQblVu5ur0lirFCN9KyCVLlY/edit?usp=sharing)** - Modelo pronto para usar
-- 📚 **[AnkiWeb](https://ankiweb.net)** - Sincronização na nuvem
-- 🎯 **[Manual do Anki](https://docs.ankiweb.net/)** - Documentação oficial
-- 💾 **[Backup Google Drive](https://drive.google.com)** - Para suas planilhas
 
 ---
 
