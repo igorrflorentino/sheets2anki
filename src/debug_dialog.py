@@ -18,7 +18,6 @@ from .compat import (
     QTextEdit,
     QCheckBox,
     QGroupBox,
-    QMessageBox,
     safe_exec_dialog,
     Palette_Window,
 )
@@ -29,6 +28,7 @@ from .utils import (
     add_debug_message,
 )
 from .config_manager import get_meta, save_meta
+from .styled_messages import StyledMessageBox
 
 
 
@@ -299,7 +299,7 @@ class DebugModeDialog(QDialog):
                 add_debug_message("🔧 Debug mode ENABLED by user", "DEBUG")
             
         except Exception as e:
-            QMessageBox.warning(
+            StyledMessageBox.warning(
                 self,
                 "Error",
                 f"Failed to update debug mode: {e}"
@@ -350,26 +350,25 @@ class DebugModeDialog(QDialog):
 
     def _clear_log(self):
         """Clears the debug log file after confirmation."""
-        reply = QMessageBox.question(
+        if StyledMessageBox.question(
             self,
             "Clear Debug Log",
-            "Are you sure you want to clear the debug log?\n\n"
-            "This will delete all logged messages. This action cannot be undone.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
+            "Are you sure you want to clear the debug log?",
+            detailed_text="This will delete all logged messages. This action cannot be undone.",
+            yes_text="Clear Log",
+            no_text="Cancel",
+            destructive=True
+        ):
             try:
                 clear_debug_log()
                 self._load_log_content()
-                QMessageBox.information(
+                StyledMessageBox.information(
                     self,
                     "Log Cleared",
                     "The debug log has been cleared successfully."
                 )
             except Exception as e:
-                QMessageBox.warning(
+                StyledMessageBox.warning(
                     self,
                     "Error",
                     f"Failed to clear log: {e}"
@@ -392,7 +391,7 @@ class DebugModeDialog(QDialog):
                 subprocess.run(["xdg-open", folder_path])
                 
         except Exception as e:
-            QMessageBox.warning(
+            StyledMessageBox.warning(
                 self,
                 "Error",
                 f"Failed to open folder: {e}"

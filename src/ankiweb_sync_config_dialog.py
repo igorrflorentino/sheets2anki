@@ -21,7 +21,7 @@ from .compat import QRadioButton
 from .compat import QSpinBox
 from .compat import QVBoxLayout
 from .compat import safe_exec_dialog
-from .compat import showWarning
+from .styled_messages import StyledMessageBox
 
 
 class AnkiWebSyncConfigDialog(QDialog):
@@ -385,13 +385,12 @@ class AnkiWebSyncConfigDialog(QDialog):
             result = test_ankiweb_connection()
 
             if result["success"]:
-                from .compat import showInfo
-                showInfo(f"✅ {result['message']}")
+                StyledMessageBox.success(self, "Connection Successful", result['message'])
             else:
                 status = get_sync_status()
                 debug_info = status.get("debug_info", {})
 
-                error_msg = f"❌ {result['error']}\n\n"
+                error_msg = f"{result['error']}\n\n"
                 error_msg += "Diagnostic information:\n"
                 error_msg += f"• Sync system available: {debug_info.get('has_sync_system', 'N/A')}\n"
                 error_msg += f"• Sync key present: {debug_info.get('has_sync_key', 'N/A')}\n"
@@ -399,10 +398,10 @@ class AnkiWebSyncConfigDialog(QDialog):
                 error_msg += f"• Profile syncKey: {debug_info.get('has_profile_synckey', 'N/A')}\n"
                 error_msg += f"• Profile syncUser: {debug_info.get('has_profile_syncuser', 'N/A')}\n"
 
-                showWarning(error_msg)
+                StyledMessageBox.warning(self, "Connection Failed", "Connection test failed", detailed_text=error_msg)
 
         except Exception as e:
-            showWarning(f"Error testing connection: {str(e)}")
+            StyledMessageBox.warning(self, "Error", f"Error testing connection: {str(e)}")
         finally:
             self.test_button.setText("🔍 Test Connection")
             self.test_button.setEnabled(True)
@@ -424,7 +423,7 @@ class AnkiWebSyncConfigDialog(QDialog):
             self.accept()
 
         except Exception as e:
-            showWarning(f"Error saving settings: {str(e)}")
+            StyledMessageBox.warning(self, "Error", f"Error saving settings: {str(e)}")
 
     @staticmethod
     def show_config_dialog():

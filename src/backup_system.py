@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 from aqt import mw
-from aqt.utils import showInfo, showWarning, showCritical, askUser
+from .styled_messages import StyledMessageBox
 
 try:
     from .compat import QDialog, QVBoxLayout, QPushButton, QLabel, QFileDialog, QTextEdit, QGroupBox, QProgressDialog, WINDOW_MODAL
@@ -84,7 +84,7 @@ class SimplifiedBackupManager:
         """Creates a full backup of the Sheets2Anki system"""
         try:
             if not mw or not mw.col:
-                showCritical("Anki is not available for backup.")
+                StyledMessageBox.critical(mw, "Error", "Anki is not available for backup.")
                 return False
 
             # Create temporary directory
@@ -94,7 +94,7 @@ class SimplifiedBackupManager:
                 # 1. Export main deck as .apkg
                 apkg_success = self._export_main_deck_apkg(temp_path)
                 if not apkg_success:
-                    showWarning("Deck 'Sheets2Anki' not found. Creating a backup of settings only.")
+                    StyledMessageBox.warning(mw, "Warning", "Deck 'Sheets2Anki' not found. Creating a backup of settings only.")
                 
                 # 2. Save all settings
                 self._save_configurations(temp_path)
@@ -108,14 +108,14 @@ class SimplifiedBackupManager:
             return True
             
         except Exception as e:
-            showCritical(f"Error creating backup: {str(e)}")
+            StyledMessageBox.critical(mw, "Error", f"Error creating backup: {str(e)}")
             return False
 
     def create_config_backup(self, backup_path: str) -> bool:
         """Creates a backup of addon settings only"""
         try:
             if not mw or not mw.col:
-                showCritical("Anki is not available for backup.")
+                StyledMessageBox.critical(mw, "Error", "Anki is not available for backup.")
                 return False
 
             # Create temporary directory
@@ -134,7 +134,7 @@ class SimplifiedBackupManager:
             return True
             
         except Exception as e:
-            showCritical(f"Error creating configuration backup: {str(e)}")
+            StyledMessageBox.critical(mw, "Error", f"Error creating configuration backup: {str(e)}")
             return False
 
     def create_safety_backup(self) -> Optional[str]:
@@ -189,14 +189,21 @@ class SimplifiedBackupManager:
                 return False
 
             # Confirm operation
-            if not askUser(
-                "⚠️ ATTENTION: This operation will:\n\n"
-                "• Create a safety backup of your current state\n"
-                "• Remove the current 'Sheets2Anki' deck and all its subdecks\n"
-                "• Restore settings from the backup\n"
-                "• Import the deck from the backup\n"
-                "• Recreate all links between remote and local decks\n\n"
-                "Do you want to continue?"
+            if not StyledMessageBox.question(
+                mw,
+                "Confirm Restoration",
+                "Are you sure you want to restore this backup?",
+                detailed_text=(
+                    "This operation will:\n"
+                    "• Create a safety backup of your current state\n"
+                    "• Remove the current 'Sheets2Anki' deck and all its subdecks\n"
+                    "• Restore settings from the backup\n"
+                    "• Import the deck from the backup\n"
+                    "• Recreate all links between remote and local decks"
+                ),
+                yes_text="Restore",
+                no_text="Cancel",
+                destructive=True
             ):
                 return False
 
@@ -208,10 +215,14 @@ class SimplifiedBackupManager:
                     add_debug_message(f"Safety backup created at: {safety_backup_path}", "BACKUP")
                 else:
                     # Ask user if they want to continue without safety backup
-                    if not askUser(
-                        "⚠️ Could not create safety backup.\n\n"
-                        "Do you want to continue anyway?\n"
-                        "(This is not recommended as you may lose current data)"
+                    if not StyledMessageBox.question(
+                        mw,
+                        "Safety Backup Failed",
+                        "Could not create safety backup.",
+                        detailed_text="Do you want to continue anyway?\n(This is not recommended as you may lose current data)",
+                        yes_text="Continue Anyway",
+                        no_text="Cancel",
+                        destructive=True
                     ):
                         return False
 
@@ -224,7 +235,7 @@ class SimplifiedBackupManager:
                 
                 # 2. Validate backup
                 if not self._validate_backup(temp_path):
-                    showCritical("Invalid or corrupted backup file.")
+                    StyledMessageBox.critical(mw, "Error", "Invalid or corrupted backup file.")
                     return False
                 
                 # 3. Remove current deck
@@ -242,15 +253,15 @@ class SimplifiedBackupManager:
                 self._recreate_deck_links()
             
             # Show success message with safety backup info
-            success_msg = "✅ Backup restored successfully!\n\n"
+            success_msg = "Backup restored successfully!\n\n"
             if safety_backup_path:
                 success_msg += f"📦 Safety backup saved at:\n{safety_backup_path}\n\n"
             success_msg += "Restart Anki to ensure all settings are applied."
-            showInfo(success_msg)
+            StyledMessageBox.success(mw, "Restore Complete", success_msg)
             return True
             
         except Exception as e:
-            showCritical(f"Error restoring backup: {str(e)}")
+            StyledMessageBox.critical(mw, "Error", f"Error restoring backup: {str(e)}")
             return False
 
     def restore_config_only(self, backup_path: str, create_safety: bool = True) -> bool:
@@ -262,25 +273,29 @@ class SimplifiedBackupManager:
         """
         try:
             if not os.path.exists(backup_path):
-                showCritical("Backup file not found.")
+                StyledMessageBox.critical(mw, "Error", "Backup file not found.")
                 return False
 
             if not mw or not mw.col:
-                showCritical("Anki is not available for restoration.")
+                StyledMessageBox.critical(mw, "Error", "Anki is not available for restoration.")
                 return False
 
             # Confirm operation
-            if not askUser(
-                "🔧 CONFIGURATION RECOVERY\n\n"
-                "This operation will:\n\n"
-                "• Create a safety backup of your current settings\n"
-                "• Restore all addon settings\n"
-                "• Restore remote deck information\n"
-                "• Recreate links between remote and local decks\n"
-                "• NOT change any Anki data (notes, cards, etc.)\n\n"
-                "Ideal for when you have reinstalled the addon and want\n"
-                "to recover only the settings.\n\n"
-                "Do you want to continue?"
+            if not StyledMessageBox.question(
+                mw,
+                "Confirm Configuration Recovery",
+                "Are you sure you want to restore the configuration?",
+                detailed_text=(
+                    "This operation will:\n"
+                    "• Create a safety backup of your current settings\n"
+                    "• Restore all addon settings\n"
+                    "• Restore remote deck information\n"
+                    "• Recreate links between remote and local decks\n"
+                    "• NOT change any Anki data (notes, cards, etc.)"
+                ),
+                yes_text="Restore",
+                no_text="Cancel",
+                destructive=True
             ):
                 return False
 
@@ -292,9 +307,14 @@ class SimplifiedBackupManager:
                     add_debug_message(f"Safety config backup created at: {safety_backup_path}", "BACKUP")
                 else:
                     # Ask user if they want to continue without safety backup
-                    if not askUser(
-                        "⚠️ Could not create safety backup of current settings.\n\n"
-                        "Do you want to continue anyway?"
+                    if not StyledMessageBox.question(
+                        mw,
+                        "Safety Backup Failed",
+                        "Could not create safety backup of current settings.",
+                        detailed_text="Do you want to continue anyway?",
+                        yes_text="Continue Anyway",
+                        no_text="Cancel",
+                        destructive=True
                     ):
                         return False
 
@@ -308,12 +328,12 @@ class SimplifiedBackupManager:
                 # 2. Validate backup
                 backup_info = self._get_backup_info(temp_path)
                 if not backup_info:
-                    showCritical("Invalid or corrupted backup file.")
+                    StyledMessageBox.critical(mw, "Error", "Invalid or corrupted backup file.")
                     return False
                 
                 # 3. Check if it's a valid backup (full or config only)
                 if backup_info.get("version") != self.backup_version:
-                    showCritical("Incompatible backup version.")
+                    StyledMessageBox.critical(mw, "Error", "Incompatible backup version.")
                     return False
                 
                 # 4. Restore settings only
@@ -323,7 +343,7 @@ class SimplifiedBackupManager:
                 self._recreate_deck_links()
             
             # Show success message with safety backup info
-            success_msg = "✅ Settings restored successfully!\n\n"
+            success_msg = "Settings restored successfully!\n\n"
             if safety_backup_path:
                 success_msg += f"📦 Safety backup saved at:\n{safety_backup_path}\n\n"
             success_msg += (
@@ -333,11 +353,11 @@ class SimplifiedBackupManager:
                 "Restart Anki to ensure all\n"
                 "settings are applied correctly."
             )
-            showInfo(success_msg)
+            StyledMessageBox.success(mw, "Restore Complete", success_msg)
             return True
             
         except Exception as e:
-            showCritical(f"Error restoring configurations: {str(e)}")
+            StyledMessageBox.critical(mw, "Error", f"Error restoring configurations: {str(e)}")
             return False
 
     def _create_config_safety_backup(self) -> Optional[str]:
@@ -532,7 +552,7 @@ class SimplifiedBackupManager:
                 mw.col.save()
                 
                 add_debug_message("Deck imported successfully (modern API)", "BACKUP")
-                showInfo("✅ Deck imported successfully from backup!")
+                StyledMessageBox.success(mw, "Import Successful", "Deck imported successfully from backup!")
                 return
                 
             except Exception as e:
@@ -546,7 +566,7 @@ class SimplifiedBackupManager:
                 importFile(mw, apkg_path)
                 
                 add_debug_message("Deck imported successfully (UI method)", "BACKUP")
-                showInfo("✅ Deck imported successfully from backup!")
+                StyledMessageBox.success(mw, "Import Successful", "Deck imported successfully from backup!")
                 return
                 
             except Exception as e:
@@ -558,7 +578,7 @@ class SimplifiedBackupManager:
                 doImport(mw, apkg_path)
                 
                 add_debug_message("Deck imported successfully (legacy method)", "BACKUP")
-                showInfo("✅ Deck imported successfully from backup!")
+                StyledMessageBox.success(mw, "Import Successful", "Deck imported successfully from backup!")
                 return
                 
             except Exception as e:
@@ -569,20 +589,24 @@ class SimplifiedBackupManager:
             
         except Exception as e:
             add_debug_message(f"Error importing deck: {e}", "BACKUP")
-            showCritical(f"❌ Error importing deck from backup:\n{e}\n\nTry manually importing the .apkg file via Anki's File > Import menu.")
+            StyledMessageBox.critical(mw, "Import Error", f"Error importing deck from backup:\n{e}\n\nTry manually importing the .apkg file via Anki's File > Import menu.")
 
     def _import_deck_manual(self, apkg_path: str) -> None:
         """Manual import method as a last resort"""
         # This method was removed as it is too complex and risky
         # Instead, we guide the user to import manually
-        showInfo(
-            "⚠️ Automatic import failed.\n\n"
-            "To recover your data:\n"
-            "1. Open Anki\n"
-            "2. Go to File > Import\n"
-            f"3. Select file: {apkg_path}\n"
-            "4. Follow the on-screen instructions\n\n"
-            "Your data is safe in the backup file!"
+        StyledMessageBox.warning(
+            mw,
+            "Import Failed",
+            "Automatic import failed.",
+            detailed_text=(
+                "To recover your data:\n"
+                "1. Open Anki\n"
+                "2. Go to File > Import\n"
+                f"3. Select file: {apkg_path}\n"
+                "4. Follow the on-screen instructions\n\n"
+                "Your data is safe in the backup file!"
+            )
         )
 
     def _recreate_deck_links(self) -> None:

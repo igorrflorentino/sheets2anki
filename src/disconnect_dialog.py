@@ -13,8 +13,8 @@ from .compat import QFrame
 from .compat import QGroupBox
 from .compat import QHBoxLayout
 from .compat import QLabel
-from .compat import QMessageBox
 from .compat import QPushButton
+from .styled_messages import StyledMessageBox
 from .compat import QScrollArea
 from .compat import QVBoxLayout
 from .compat import QWidget
@@ -637,37 +637,36 @@ class DisconnectDialog(QDialog):
                     break
 
             if delete_local_data:
-                msg = (
-                    f"Disconnect deck '{deck_name}' and DELETE all local data?"
-                )
+                question_text = f"Disconnect deck '{deck_name}' and DELETE all local data?"
             else:
-                msg = f"Disconnect deck '{deck_name}' from remote source?"
+                question_text = f"Disconnect deck '{deck_name}' from remote source?"
         else:
             if delete_local_data:
-                msg = f"Disconnect {selected_count} decks and DELETE all local data?"
+                question_text = f"Disconnect {selected_count} decks and DELETE all local data?"
             else:
-                msg = f"Disconnect {selected_count} decks from their remote sources?"
+                question_text = f"Disconnect {selected_count} decks from their remote sources?"
 
+        detailed_text = ""
         if delete_local_data:
-            msg += (
-                "\n\n⚠️ ATTENTION: ALL LOCAL DATA WILL BE PERMANENTLY DELETED!"
+            detailed_text = (
+                "⚠️ ATTENTION: ALL LOCAL DATA WILL BE PERMANENTLY DELETED!\n"
+                "• Local decks and subdecks\n"
+                "• All cards and notes\n"
+                "• Specific note types (if not used in other decks)\n\n"
+                "This action CANNOT be undone!"
             )
-            msg += "\n• Local decks and subdecks"
-            msg += "\n• All cards and notes"
-            msg += "\n• Specific note types (if not used in other decks)"
-            msg += "\n\nThis action CANNOT be undone!"
         else:
-            msg += "\n\nThis action cannot be undone. Local decks will remain in Anki."
+            detailed_text = "This action cannot be undone. Local decks will remain in Anki."
 
-        reply = QMessageBox.question(
+        if StyledMessageBox.question(
             self,
             "Confirm Disconnection",
-            msg,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
+            question_text,
+            detailed_text=detailed_text,
+            yes_text="Disconnect",
+            no_text="Cancel",
+            destructive=delete_local_data
+        ):
             self.accept()
 
     def get_selected_urls(self):

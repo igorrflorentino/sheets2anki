@@ -6,7 +6,8 @@ confirmation messages when student data needs to be removed.
 """
 
 from typing import List, Optional
-from .compat import MessageBox_No, MessageBox_Yes, MessageBox_Cancel, QMessageBox, safe_exec_dialog
+from .compat import MessageBox_No, MessageBox_Yes, MessageBox_Cancel, safe_exec_dialog
+from .styled_messages import StyledMessageBox
 from .templates_and_definitions import DEFAULT_STUDENT
 
 
@@ -71,37 +72,40 @@ def show_data_removal_confirmation_dialog(
     # Generate message using centralized function
     message = generate_data_removal_confirmation_message(students_to_remove)
     
-    # Create custom MessageBox
-    msg_box = QMessageBox()
-    msg_box.setIcon(QMessageBox.Icon.Warning)
-    msg_box.setWindowTitle(window_title)
-    msg_box.setText(message)
-    msg_box.setStandardButtons(MessageBox_Yes | MessageBox_No | MessageBox_Cancel)
-    msg_box.setDefaultButton(MessageBox_No)  # Default is NOT to remove
+    # Create custom buttons
+    buttons = [
+        {
+            "text": "🗑️ YES, DELETE DATA",
+            "role": "custom",
+            "result_code": MessageBox_Yes,
+            "primary": True,
+            "destructive": True
+        },
+        {
+            "text": "🛡️ NO, KEEP DATA",
+            "role": "custom",
+            "result_code": MessageBox_No,
+            "primary": True
+        },
+        {
+            "text": "🚫 CANCEL SYNC",
+            "role": "custom",
+            "result_code": MessageBox_Cancel,
+            "primary": False
+        }
+    ]
     
-    # Customize buttons
-    yes_btn = msg_box.button(MessageBox_Yes)
-    no_btn = msg_box.button(MessageBox_No)
-    cancel_btn = msg_box.button(MessageBox_Cancel)
+    # Create and show dialog
+    dlg = StyledMessageBox(
+        parent,
+        window_title,
+        message,
+        message_type=StyledMessageBox.WARNING,
+        buttons=buttons
+    )
     
-    if yes_btn:
-        yes_btn.setText("🗑️ YES, DELETE DATA")
-        yes_btn.setStyleSheet(
-            "QPushButton { background-color: #d73027; color: white; font-weight: bold; }"
-        )
-    
-    if no_btn:
-        no_btn.setText("🛡️ NO, KEEP DATA")
-        no_btn.setStyleSheet(
-            "QPushButton { background-color: #4575b4; color: white; font-weight: bold; }"
-        )
-        
-    if cancel_btn:
-        cancel_btn.setText("🚫 CANCEL SYNC")
-        
-    # Execute dialog
-    result = safe_exec_dialog(msg_box)
-    return result
+    # Execute dialog and return result
+    return dlg.exec()
 
 
 def collect_students_for_removal(

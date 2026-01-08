@@ -21,8 +21,8 @@ from .compat import QInputDialog
 from .compat import QLabel
 from .compat import QListWidget
 from .compat import QMenu
-from .compat import QMessageBox
 from .compat import QPushButton
+from .styled_messages import StyledMessageBox
 from .compat import QSplitter
 from .compat import QVBoxLayout
 from .compat import QWidget
@@ -427,11 +427,16 @@ class GlobalStudentConfigDialog(QDialog):
             else:
                 message = f"Search completed!\nNo new students found.\nTotal available students: {len(discovered_students)}"
 
-            QMessageBox.information(self, "Automatic Search", message)
+            StyledMessageBox.information(
+                self, 
+                "Automatic Search", 
+                "Search completed!", 
+                detailed_text=message.replace("Search completed!\n", "")
+            )
 
         except Exception as e:
-            QMessageBox.warning(
-                self, "Search Error", f"Error discovering students:\n{str(e)}"
+            StyledMessageBox.warning(
+                self, "Search Error", f"Error discovering students: {str(e)}"
             )
 
     def _load_current_config(self):
@@ -508,8 +513,8 @@ class GlobalStudentConfigDialog(QDialog):
             clean_name = student_name.strip()
 
             if self._student_name_exists(clean_name):
-                QMessageBox.warning(
-                    self, "Student already exists", f"Student '{clean_name}' is already in the list."
+                StyledMessageBox.warning(
+                    self, "Student Exists", f"Student '{clean_name}' is already in the list."
                 )
                 return
 
@@ -568,15 +573,14 @@ class GlobalStudentConfigDialog(QDialog):
 
         student_name = current_item.text()
 
-        reply = QMessageBox.question(
+        if StyledMessageBox.question(
             self,
             "Confirm Deletion",
             f"Are you sure you want to delete student '{student_name}'?",
-            MessageBox_Yes | MessageBox_No,
-            MessageBox_No,
-        )
-
-        if reply == MessageBox_Yes:
+            yes_text="Delete",
+            no_text="Cancel",
+            destructive=True
+        ):
             self.available_students.discard(student_name)
             row = list_widget.row(current_item)
             list_widget.takeItem(row)

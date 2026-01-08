@@ -36,7 +36,7 @@ from .compat import QVBoxLayout
 from .compat import QWidget
 from .compat import mw
 from .compat import safe_exec_dialog
-from .compat import showInfo
+from .styled_messages import StyledMessageBox
 from .config_manager import get_enabled_students
 from .config_manager import get_meta
 from .config_manager import is_student_filter_active
@@ -303,7 +303,7 @@ def show_student_selection_dialog(
         Optional[Set[str]]: Set of selected students or None if canceled
     """
     if not available_students:
-        showInfo("No students were found in the STUDENTS column of the spreadsheet.")
+        StyledMessageBox.warning(None, "No Students", "No students were found in the STUDENTS column of the spreadsheet.")
         return None
 
     current_selection = get_selected_students_for_deck(deck_url)

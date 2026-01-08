@@ -18,11 +18,12 @@ import time
 import traceback
 
 try:
-    from .compat import mw, showWarning
+    from .compat import mw
+    from .styled_messages import StyledMessageBox
     from .utils import get_spreadsheet_id_from_url, add_debug_message
 except ImportError:
     # For standalone tests
-    from compat import mw, showWarning
+    from compat import mw
     from utils import get_spreadsheet_id_from_url, add_debug_message
 
 
@@ -120,9 +121,13 @@ def get_config():
         else:
             return DEFAULT_CONFIG.copy()
     except Exception as e:
-        showWarning(
-            f"Error loading config.json: {str(e)}. Using default configuration."
-        )
+        if mw:
+            StyledMessageBox.warning(
+                mw,
+                "Config Load Error",
+                f"Error loading config.json: {str(e)}",
+                detailed_text="Using default configuration."
+            )
         return DEFAULT_CONFIG.copy()
 
 
@@ -152,9 +157,13 @@ def get_meta():
 
         return meta
     except Exception as e:
-        showWarning(
-            f"Error loading meta.json: {str(e)}. Using default configuration."
-        )
+        if mw:
+            StyledMessageBox.warning(
+                mw,
+                "Meta Load Error",
+                f"Error loading meta.json: {str(e)}",
+                detailed_text="Using default configuration."
+            )
         return DEFAULT_META.copy()
 
 
@@ -176,7 +185,8 @@ def save_meta(meta):
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        showWarning(f"Error saving meta.json: {str(e)}")
+        if mw:
+            StyledMessageBox.warning(mw, "Meta Save Error", f"Error saving meta.json: {str(e)}")
 
 
 def get_remote_decks():

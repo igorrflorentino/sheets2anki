@@ -14,10 +14,11 @@ from .compat import QHBoxLayout
 from .compat import QInputDialog
 from .compat import QLabel
 from .compat import QPushButton
+from .styled_messages import StyledMessageBox
 from .compat import QVBoxLayout
 from .compat import mw
 from .compat import safe_exec
-from .compat import showInfo
+
 from .config_manager import add_remote_deck
 from .config_manager import create_deck_info
 from .config_manager import detect_deck_name_changes
@@ -283,19 +284,24 @@ def check_and_update_deck_names(silent=False):
                 deck_names.append(deck_name)
 
             if len(deck_names) == 1:
-                showInfo(
-                    f"Deck name '{deck_names[0]}' was updated in configuration."
+                StyledMessageBox.information(
+                    None,
+                    "Deck Name Updated",
+                    f"The deck '{deck_names[0]}' was renamed in the configuration to match the remote source."
                 )
             else:
-                names_str = "', '".join(deck_names)
-                showInfo(
-                    f"Deck names '{names_str}' were updated in configuration."
+                names_str = "\n• " + "\n• ".join(deck_names)
+                StyledMessageBox.information(
+                    None,
+                    "Deck Names Updated",
+                    "The following decks were renamed in the configuration:",
+                    detailed_text=f"• {names_str}"
                 )
 
         return updated_urls
     except Exception as e:
         if not silent:
-            showInfo(f"Error checking deck names: {str(e)}")
+            StyledMessageBox.warning(None, "Error Checking Names", f"An error occurred while checking for deck name updates: {str(e)}")
         return []
 
 
@@ -354,7 +360,7 @@ def _show_selection_dialog_and_sync(deck_info_list):
 
             syncDecks(selected_decks)
         else:
-            showInfo("No deck was selected for synchronization.")
+            StyledMessageBox.information(mw, "No Selection", "No deck was selected for synchronization.")
 
 
 def import_test_deck():
@@ -391,7 +397,7 @@ def import_test_deck():
     remote_decks = get_remote_decks()
     if url in remote_decks:
         local_name = get_deck_local_name(url) or "Deck"
-        showInfo(f"This test deck is already configured as '{local_name}'.")
+        StyledMessageBox.warning(mw, "Already Configured", f"This test deck is already configured as '{local_name}'.")
         return
 
     try:
@@ -425,7 +431,7 @@ def import_test_deck():
             final_deck_name = actual_name
 
     except Exception as e:
-        showInfo(f"Error importing test deck:\n{str(e)}")
+        StyledMessageBox.critical(mw, "Import Error", "Error importing test deck", detailed_text=str(e))
         return
 
 
@@ -547,7 +553,7 @@ def removeRemoteDeck():
                     f"To reconnect, you will need to add them again."
                 )
 
-        showInfo(message)
+        StyledMessageBox.success(mw, "Decks Disconnected", "Selected decks have been disconnected.", detailed_text=message)
 
     return
 
@@ -562,7 +568,7 @@ def manage_deck_students():
     remote_decks = get_remote_decks()
 
     if not remote_decks:
-        showInfo("No remote deck configured. Add a deck first.")
+        StyledMessageBox.warning(None, "No Decks", "No remote deck configured. Please add a deck first.")
         return
 
     # Create options list for user to select a deck
@@ -599,15 +605,17 @@ def manage_deck_students():
 
     try:
         # Download remote data to extract students
-        showInfo("Downloading spreadsheet data to obtain students list...")
+        StyledMessageBox.information(None, "Downloading Data", "Downloading spreadsheet data to obtain students list...\nThis may take a moment.")
 
         remote_deck = getRemoteDeck(selected_url)
         available_students = extract_students_from_remote_data(remote_deck)
 
         if not available_students:
-            showInfo(
-                "No students found in STUDENTS column of this spreadsheet.\n\n"
-                "Make sure the spreadsheet contains STUDENTS column with student names."
+            StyledMessageBox.warning(
+                None,
+                "No Students Found",
+                "No students found in the STUDENTS column of this spreadsheet.",
+                detailed_text="Make sure the spreadsheet contains a 'STUDENTS' or 'ALUNOS' column with student names."
             )
             return
 
@@ -622,22 +630,27 @@ def manage_deck_students():
             total_count = len(available_students)
 
             if selected_count == 0:
-                showInfo(
-                    f"No student selected for deck '{deck_name}'.\n\n"
-                    "No notes will be synced for this deck until you select at least one student."
+                StyledMessageBox.information(
+                    None,
+                    "No Selection",
+                    f"No student selected for deck '{deck_name}'.",
+                    detailed_text="No notes will be synced for this deck until you select at least one student."
                 )
             else:
                 alunos_list = ", ".join(sorted(selected_students))
-                showInfo(
-                    f"Configuration saved for deck '{deck_name}'!\n\n"
-                    f"Selected students ({selected_count} of {total_count}):\n{alunos_list}\n\n"
-                    "On the next sync, only notes of selected students will be included."
+                StyledMessageBox.success(
+                    None,
+                    "Configuration Saved",
+                    f"Configuration saved for deck '{deck_name}'!",
+                    detailed_text=f"Selected students ({selected_count} of {total_count}):\n{alunos_list}\n\nOn the next sync, only notes of selected students will be included."
                 )
 
     except Exception as e:
-        showInfo(
-            f"Error managing students: {str(e)}\n\n"
-            "Check if deck URL is correct and if spreadsheet is accessible."
+        StyledMessageBox.critical(
+            None,
+            "Student Management Error",
+            f"Error managing students: {str(e)}",
+            detailed_text="Check if deck URL is correct and if spreadsheet is accessible."
         )
 
 
@@ -645,28 +658,26 @@ def reset_student_selection():
     """
     Removes student selection from all decks, returning to default behavior.
     """
-    from .compat import MessageBox_No
-    from .compat import MessageBox_Yes
-    from .compat import QMessageBox
+
 
     remote_decks = get_remote_decks()
 
     if not remote_decks:
-        showInfo("No remote deck configured.")
+        StyledMessageBox.warning(None, "No Decks", "No remote deck configured.")
         return
 
     # Confirm with user
-    reply = QMessageBox.question(
+    confirmed = StyledMessageBox.question(
         None,
         "Reset Student Selection",
-        "Are you sure you want to remove student selection from all decks?\n\n"
-        "This will make all decks return to default behavior "
-        "(sync all notes regardless of STUDENTS column).",
-        MessageBox_Yes | MessageBox_No,
-        MessageBox_No,
+        "Are you sure you want to remove student selection from all decks?",
+        detailed_text="This will make all decks return to default behavior (sync all notes regardless of STUDENTS column).",
+        yes_text="Reset All",
+        no_text="Cancel",
+        destructive=True
     )
 
-    if reply != MessageBox_Yes:
+    if not confirmed:
         return
 
     try:
@@ -686,15 +697,17 @@ def reset_student_selection():
         save_meta(meta)
 
         if removed_count > 0:
-            showInfo(
-                f"Student selection removed from {removed_count} deck(s).\n\n"
-                "All decks will now return to default behavior on next sync."
+            StyledMessageBox.success(
+                None,
+                "Reset Complete",
+                f"Student selection removed from {removed_count} deck(s).",
+                detailed_text="All decks will now return to default behavior on next sync."
             )
         else:
-            showInfo("No student selection found to remove.")
+            StyledMessageBox.information(None, "No Changes", "No student selection found to remove.")
 
     except Exception as e:
-        showInfo(f"Error resetting student selection: {str(e)}")
+        StyledMessageBox.critical(None, "Reset Error", f"Error resetting student selection: {str(e)}")
 
 
 # =============================================================================

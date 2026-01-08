@@ -19,6 +19,7 @@ from .compat import QLabel
 from .compat import QPushButton
 from .compat import QRadioButton
 from .compat import QVBoxLayout
+from .styled_messages import StyledMessageBox
 from .compat import safe_exec_dialog
 
 
@@ -317,78 +318,60 @@ class DeckOptionsConfigDialog(QDialog):
                 from .utils import apply_automatic_deck_options_system
                 auto_result = apply_automatic_deck_options_system()
 
-                # Feedback for the user
+                # Feedback logic
                 mode_names = {
                     "shared": "Shared Options",
                     "individual": "Individual Options",
                     "manual": "Manual Configuration",
                 }
 
-                from .compat import QMessageBox
-
-                msg = QMessageBox()
-                msg.setWindowTitle("Configuration Applied")
-                msg.setText(f"Mode changed to: {mode_names[new_mode]}")
+                info_text = ""
+                message_type = StyledMessageBox.SUCCESS
+                title = "Configuration Applied"
+                main_text = f"Mode changed to: {mode_names[new_mode]}"
 
                 if new_mode == "manual":
-                    msg.setInformativeText(
-                        "Options will no longer be applied automatically. You have full control over deck settings."
-                    )
+                    info_text = "Options will no longer be applied automatically. You have full control over deck settings."
                 elif auto_result.get("success", False):
                     details = []
                     if auto_result.get("root_deck_updated", False):
-                        details.append(
-                            "Root deck configured with 'Sheets2Anki - Root Options'"
-                        )
+                        details.append("Root deck configured with 'Sheets2Anki - Root Options'")
                     if auto_result.get("remote_decks_updated", 0) > 0:
                         deck_count = auto_result["remote_decks_updated"]
                         if new_mode == "individual":
-                            details.append(
-                                f"{deck_count} decks configured with individual options"
-                            )
+                            details.append(f"{deck_count} decks configured with individual options")
                         else:
-                            details.append(
-                                f"{deck_count} decks configured with 'Sheets2Anki - Default Options'"
-                            )
+                            details.append(f"{deck_count} decks configured with 'Sheets2Anki - Default Options'")
                     if auto_result.get("cleaned_groups", 0) > 0:
-                        details.append(
-                            f"{auto_result['cleaned_groups']} orphaned groups removed"
-                        )
+                        details.append(f"{auto_result['cleaned_groups']} orphaned groups removed")
 
                     if details:
-                        msg.setInformativeText(
-                            "Automatic system applied:\n• " + "\n• ".join(details)
-                        )
+                        info_text = "Automatic system applied:\n• " + "\n• ".join(details)
                     else:
                         if new_mode == "individual":
-                            msg.setInformativeText(
-                                "Each new deck will have its own custom options group."
-                            )
+                            info_text = "Each new deck will have its own custom options group."
                         else:
-                            msg.setInformativeText(
-                                "All decks will use 'Sheets2Anki - Default Options' group."
-                            )
+                            info_text = "All decks will use 'Sheets2Anki - Default Options' group."
 
                     if auto_result.get("errors"):
                         errors_text = "\n".join(auto_result["errors"])
-                        current_text = msg.informativeText()
-                        msg.setInformativeText(
-                            f"{current_text}\n\nWarnings:\n{errors_text}"
-                        )
+                        info_text += f"\n\nWarnings:\n{errors_text}"
+                        message_type = StyledMessageBox.WARNING
                 else:
-                    msg.setInformativeText(
-                        f"Mode changed, but there were problems applying the settings: {auto_result.get('error', 'Unknown error')}"
-                    )
+                    info_text = f"Mode changed, but there were problems applying the settings: {auto_result.get('error', 'Unknown error')}"
+                    message_type = StyledMessageBox.WARNING
 
-                msg.setStandardButtons(MessageBox_Ok)
-                safe_exec_dialog(msg)
+                # Show message
+                if message_type == StyledMessageBox.SUCCESS:
+                    StyledMessageBox.success(self, title, main_text, detailed_text=info_text)
+                else:
+                    StyledMessageBox.warning(self, title, main_text, detailed_text=info_text)
 
                 self.accept()
 
             except Exception as e:
-                from .compat import QMessageBox
-                QMessageBox.critical(
-                    self, "Error", f"Error applying configuration:\n{str(e)}"
+                StyledMessageBox.critical(
+                    self, "Error", "Error applying configuration", detailed_text=str(e)
                 )
 
 

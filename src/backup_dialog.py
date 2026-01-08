@@ -32,10 +32,9 @@ from .compat import (
     safe_exec_dialog,
     Palette_Window,
     AlignCenter,
-    showInfo,
-    showWarning,
     ScrollBarAlwaysOff,
 )
+from .styled_messages import StyledMessageBox
 from .backup_system import BackupManager
 from .config_manager import (
     get_auto_backup_config,
@@ -765,7 +764,12 @@ class BackupDialog(QDialog):
         path = self._get_save_filename(default_name)
         if path:
             if self.backup_manager.create_config_backup(path):
-                showInfo(f"✅ Simple backup created successfully!\n\n📁 Location:\n{path}")
+                StyledMessageBox.success(
+                    self, 
+                    "Backup Created", 
+                    "Simple backup created successfully!", 
+                    detailed_text=f"Location: {path}"
+                )
                 self._refresh_backup_status()
 
     def _create_complete_backup(self):
@@ -776,7 +780,12 @@ class BackupDialog(QDialog):
         path = self._get_save_filename(default_name)
         if path:
             if self.backup_manager.create_backup(path):
-                showInfo(f"✅ Complete backup created successfully!\n\n📁 Location:\n{path}")
+                StyledMessageBox.success(
+                    self, 
+                    "Backup Created", 
+                    "Complete backup created successfully!", 
+                    detailed_text=f"Location: {path}"
+                )
                 self._refresh_backup_status()
 
     def _restore_config_backup(self):
@@ -784,6 +793,13 @@ class BackupDialog(QDialog):
         path = self._get_open_filename()
         if path:
             if self.backup_manager.restore_config_only(path):
+                # The Manager might show success, but let's be sure
+                # Actually, restore_config_only might show a confirm dialog.
+                # If we want to move UI logic here, we'd need to check if manager raises exceptions or returns bool.
+                # Assuming manager handles internal confirmations, but if it returns True, we might want to show success if manager doesn't.
+                # However, looking at the code, it just refreshes status.
+                # Let's assume manager handles critical UI interaction or returns True on success.
+                pass
                 self._refresh_backup_status()
 
     def _restore_full_backup(self):
@@ -845,12 +861,12 @@ class BackupDialog(QDialog):
             )
             
             if success:
-                showInfo("✅ Auto-backup settings saved successfully!")
+                StyledMessageBox.success(self, "Settings Saved", "Auto-backup settings saved successfully!")
             else:
-                showWarning("⚠️ There was an issue saving the settings.")
+                StyledMessageBox.warning(self, "Saving Issue", "There was an issue saving the settings.")
                 
         except Exception as e:
-            showWarning(f"❌ Error saving settings: {str(e)}")
+            StyledMessageBox.critical(self, "Error Saving Settings", f"Error saving settings: {str(e)}")
 
 
 def show_backup_dialog():

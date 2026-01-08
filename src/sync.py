@@ -28,7 +28,7 @@ from .compat import QVBoxLayout
 from .compat import Qt
 from .compat import mw
 from .compat import safe_exec_dialog
-from .compat import showInfo
+from .styled_messages import StyledMessageBox
 from .config_manager import get_deck_local_name
 from .config_manager import get_remote_decks
 from .config_manager import save_remote_decks
@@ -1510,7 +1510,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
     """
     # Check if mw.col is available
     if not _is_anki_ready():
-        showInfo("Anki is not ready. Please try again in a few moments.")
+        StyledMessageBox.warning(None, "Anki Not Ready", "Anki is not ready. Please try again in a few moments.")
         return
 
     col = mw.col
@@ -1751,11 +1751,14 @@ def _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls
 def _show_no_decks_message(selected_deck_names):
     """Shows message when there are no decks to synchronize."""
     if selected_deck_names is not None:
-        showInfo(
-            f"None of the selected decks were found in the configuration.\n\nSelected decks: {', '.join(selected_deck_names)}"
+        StyledMessageBox.warning(
+            None,
+            "Decks Not Found",
+            f"None of the selected decks were found in the configuration.",
+            detailed_text=f"Selected decks: {', '.join(selected_deck_names)}"
         )
     else:
-        showInfo("No remote decks configured for synchronization.")
+        StyledMessageBox.information(None, "No Remote Decks", "No remote decks configured for synchronization.")
 
 
 def _setup_progress_dialog(total_decks):

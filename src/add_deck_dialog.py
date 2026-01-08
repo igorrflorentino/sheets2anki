@@ -27,6 +27,7 @@ from .config_manager import is_deck_disconnected
 from .data_processor import RemoteDeckError
 from .data_processor import getRemoteDeck
 from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
+from .styled_messages import StyledMessageBox
 from .utils import get_or_create_deck, validate_url, get_spreadsheet_id_from_url, add_debug_message
 
 
@@ -731,17 +732,18 @@ class AddDeckDialog(QDialog):
         url = self.url_edit.text().strip()
 
         if not url or not self.remote_deck:
-            QMessageBox.warning(self, "Error", "Please validate the URL first.")
+            StyledMessageBox.warning(self, "Validation Required", "Please validate the URL before proceeding.", detailed_text="The URL needs to be checked to ensure it points to a valid Google Sheet.")
             return
 
         # Final validation
         is_duplicate, deck_info, is_disconnected = self._check_duplicate_spreadsheet(url)
         if is_duplicate and not is_disconnected:
             deck_name = deck_info.get('remote_deck_name', 'Unknown') if deck_info else 'Unknown'
-            QMessageBox.warning(
+            StyledMessageBox.warning(
                 self,
                 "Already Registered",
-                f"This spreadsheet is already registered as:\n{deck_name}"
+                "This spreadsheet is already connected.",
+                detailed_text=f"It is currently registered as: {deck_name}\n\nYou don't need to add it again."
             )
             return
 
@@ -791,9 +793,12 @@ class AddDeckDialog(QDialog):
                 reconnect_deck(url)
 
             self.accept()
+            
+            # Show success message (optional, but nice)
+            # StyledMessageBox.success(self.parent(), "Success", f"Deck '{final_remote_name}' added successfully!")
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error adding deck:\n{str(e)}")
+            StyledMessageBox.critical(self, "Error Adding Deck", "An unexpected error occurred while adding the deck.", detailed_text=str(e))
             self.add_button.setEnabled(True)
             self.add_button.setText("✓ Add Deck")
         finally:

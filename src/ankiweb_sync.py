@@ -14,7 +14,7 @@ Features:
 """
 
 from .compat import mw
-from .compat import showWarning
+from .styled_messages import StyledMessageBox
 from .config_manager import get_ankiweb_sync_mode
 from .config_manager import get_ankiweb_sync_notifications
 from .config_manager import get_ankiweb_sync_timeout
@@ -201,7 +201,7 @@ def execute_ankiweb_sync_if_configured():
         add_debug_message(f"⚠️ {error_msg}", "ANKIWEB_SYNC")
 
         if get_ankiweb_sync_notifications():
-            showWarning(f"Sheets2Anki: {error_msg}")
+            StyledMessageBox.warning(None, "AnkiWeb Config Error", f"Sheets2Anki: {error_msg}")
 
         return {"success": False, "error": error_msg}
 

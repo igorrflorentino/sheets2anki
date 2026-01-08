@@ -42,6 +42,7 @@ from aqt.qt import (
     QPushButton,
     QRadioButton,
     QScrollArea,
+    QSize,
     QSizePolicy,
     QSpinBox,
     QSplitter,
