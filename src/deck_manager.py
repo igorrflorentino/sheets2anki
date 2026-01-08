@@ -1,9 +1,9 @@
 """
-Gerenciamento de decks para o addon Sheets2Anki.
+Deck management for the Sheets2Anki addon.
 
-Este módulo contém funções para adicionar, remover e gerenciar
-decks remotos no Anki com suporte a nomeação automática e
-desconexão de decks, incluindo gerenciamento de alunos.
+This module contains functions for adding, removing, and managing
+remote decks in Anki with support for automatic naming and
+deck disconnection, including student management.
 """
 
 from .add_deck_dialog import show_add_deck_dialog
@@ -28,17 +28,22 @@ from .data_processor import getRemoteDeck
 from .disconnect_dialog import show_disconnect_dialog
 from .sync_dialog import show_sync_dialog
 from .templates_and_definitions import TEST_SHEETS_URLS
-from .utils import get_or_create_deck
+from .utils import get_or_create_deck, add_debug_message
+
+
+def add_debug_msg(message, category="DECK_MANAGER"):
+    """Local helper for debug messages."""
+    add_debug_message(message, category)
 
 
 def _delete_local_deck_data(deck_id, deck_name, url):
     """
-    Deleta completamente os dados locais de um deck (deck, cards, notas e note types).
+    Completely deletes local data of a deck (deck, cards, notes, and note types).
 
     Args:
-        deck_id: ID do deck no Anki
-        deck_name: Nome do deck para logs
-        url: URL do deck remoto para identificação de note types
+        deck_id: Anki deck ID
+        deck_name: Deck name for logs
+        url: Remote deck URL identifying note types
     """
     if not mw or not mw.col:
         return
@@ -47,14 +52,14 @@ def _delete_local_deck_data(deck_id, deck_name, url):
         from .config_manager import get_deck_note_type_ids
         from .config_manager import get_deck_remote_name
 
-        # Obter note types configurados para este deck
+        # Get note types configured for this deck
         note_types_config = get_deck_note_type_ids(url)
         remote_deck_name = get_deck_remote_name(url) or "RemoteDeck"
-        print(f"[DEBUG] URL: {url}")
-        print(f"[DEBUG] Remote deck name: {remote_deck_name}")
-        print(f"[DEBUG] Configured note types: {note_types_config}")
+        add_debug_msg(f"[DEBUG] URL: {url}")
+        add_debug_msg(f"[DEBUG] Remote deck name: {remote_deck_name}")
+        add_debug_msg(f"[DEBUG] Configured note types: {note_types_config}")
 
-        # 1. Identificar note types específicos deste deck baseado na configuração
+        # 1. Identify specific note types for this deck based on configuration
         models_to_delete = []
         for note_type_id_str, note_type_name in note_types_config.items():
             try:
@@ -64,80 +69,80 @@ def _delete_local_deck_data(deck_id, deck_name, url):
                 model = mw.col.models.get(NotetypeId(note_type_id))
 
                 if not model:
-                    print(f"[DEBUG] Note type ID {note_type_id} não encontrado no Anki")
+                    add_debug_msg(f"[DEBUG] Note type ID {note_type_id} not found in Anki")
                     continue
 
                 model_name = model["name"]
-                print(f"[DEBUG] Found note type: {model_name} (ID: {note_type_id})")
+                add_debug_msg(f"[DEBUG] Found note type: {model_name} (ID: {note_type_id})")
 
-                # Verificar se o note type é usado apenas por este deck
+                # Check if note type is used only by this deck
                 notes_with_model = mw.col.find_notes(f'note:"{model_name}"')
-                print(
-                    f"[DEBUG] Notes with model '{model_name}': {len(notes_with_model)}"
+                add_debug_msg(
+                    f"[DEBUG] Checking note type '{model_name}' for deck-exclusive usage..."
                 )
 
-                # Se há notas, verificar se são apenas deste deck
+                # If there are notes, check if they are only from this deck
                 if notes_with_model:
                     cards_from_other_decks = []
                     for note_id in notes_with_model:
                         card_ids = mw.col.card_ids_of_note(note_id)
                         for card_id in card_ids:
                             card = mw.col.get_card(card_id)
-                            if card.did != deck_id:  # Card de outro deck
+                            if card.did != deck_id:  # Card from another deck
                                 cards_from_other_decks.append(card_id)
 
-                    # Se não há cartas de outros decks, pode deletar o note type
+                    # If no cards from other decks, note type can be deleted
                     if not cards_from_other_decks:
                         models_to_delete.append(model)
-                        print(f"[DEBUG] Note type '{model_name}' marcado para deleção")
+                        add_debug_msg(f"[DEBUG] Note type '{model_name}' marked for deletion")
                     else:
-                        print(
-                            f"[DEBUG] Note type '{model_name}' usado em outros decks, mantendo"
+                        add_debug_msg(
+                            f"[DEBUG] Pattern found in '{model_name}', adding to deletion list"
                         )
                 else:
-                    # Nenhuma nota usando este model, pode deletar
+                    # No notes using this model, can delete
                     models_to_delete.append(model)
-                    print(
-                        f"[DEBUG] Note type '{model_name}' sem notas, marcado para deleção"
+                    add_debug_msg(
+                        f"[DEBUG] Note type '{model_name}' has no notes, marked for deletion"
                     )
 
             except Exception as e:
-                print(f"[DEBUG] Erro ao verificar note type {note_type_id_str}: {e}")
+                add_debug_msg(f"[DEBUG] Error checking note type {note_type_id_str}: {e}")
 
-        # 2. Deletar todas as notas do deck
+        # 2. Delete all notes from the deck
         escaped_deck_name = deck_name.replace('"', '\\"')
         card_ids = mw.col.find_cards(f'deck:"{escaped_deck_name}"')
-        print(f"[DEBUG] Cards encontrados para deletar: {len(card_ids)}")
+        add_debug_msg(f"[DEBUG] Cards found for deletion: {len(card_ids)}")
         if card_ids:
             mw.col.remove_cards_and_orphaned_notes(card_ids)
 
-        # 3. Deletar o deck (isso remove automaticamente subdecks)
+        # 3. Delete deck (this automatically removes subdecks)
         if mw.col.decks.get(deck_id):
             mw.col.decks.rem(
                 deck_id, cardsToo=True
-            )  # cardsToo=True força remoção de cards restantes
-            print(f"[DEBUG] Deck {deck_name} deletado")
+            )  # cardsToo=True forces removal of remaining cards
+            add_debug_msg(f"[DEBUG] Deck {deck_name} deleted")
 
-        # 4. Agora deletar os note types identificados
+        # 4. Now delete identified note types
         for model in models_to_delete:
             try:
                 mw.col.models.rem(model)
-                print(f"[DEBUG] Note type '{model['name']}' deletado com sucesso")
+                add_debug_msg(f"[DEBUG] Note type '{model['name']}' successfully deleted")
             except Exception as e:
-                print(f"[DEBUG] Erro ao deletar note type '{model['name']}': {e}")
+                add_debug_msg(f"[DEBUG] Error deleting note type '{model['name']}': {e}")
 
-        # 5. Forçar salvar e atualizar a interface
+        # 5. Force save and UI update
         mw.col.save()
         if hasattr(mw, "deckBrowser"):
             mw.deckBrowser.refresh()
         if hasattr(mw, "reset"):
-            mw.reset()  # Força reload completo da interface
+            mw.reset()  # Forces full UI reload
 
-        print(f"[DEBUG] Deleção completa do deck '{deck_name}' finalizada")
+        add_debug_msg(f"[DEBUG] Complete deletion of deck '{deck_name}' finished")
 
     except Exception as e:
-        # Em caso de erro, continuar mas reportar
-        print(f"Erro ao deletar dados locais do deck '{deck_name}': {str(e)}")
+        # On error, continue but report
+        add_debug_msg(f"Error deleting local data of deck '{deck_name}': {str(e)}")
         import traceback
 
         traceback.print_exc()
@@ -145,98 +150,102 @@ def _delete_local_deck_data(deck_id, deck_name, url):
 
 def _force_delete_note_types_by_suffix(suffix, remote_deck_name=None, url=None):
     """
-    Força a deleção de note types usando IDs armazenados (preferido) ou padrões de nome.
-    Usado como fallback se a deleção segura falhar.
+    Forces note type deletion using stored IDs (preferred) or name patterns.
+    Used as fallback if safe deletion fails.
 
     Args:
-        suffix (str): Sufixo do hash da URL
-        remote_deck_name (str, optional): Nome do deck remoto para busca específica
-        url (str, optional): URL para extrair informações adicionais
+        suffix (str): URL hash suffix
+        remote_deck_name (str, optional): Remote deck name for specific search
+        url (str, optional): URL to extract additional information
     """
     if not mw or not mw.col:
         return
 
     try:
-        # Primeiro, tentar deletar usando IDs armazenados se temos a URL
+        # First, try to delete using stored IDs if we have the URL
         if url:
             from .utils import delete_deck_note_types_by_ids
 
             deleted_by_ids = delete_deck_note_types_by_ids(url)
 
             if deleted_by_ids > 0:
-                print(
-                    f"[FORCE DELETE] Deletados {deleted_by_ids} note types usando IDs armazenados"
+                add_debug_msg(
+                    f"[FORCE DELETE] {deleted_by_ids} note types deleted using stored IDs"
                 )
-                # Forçar salvar e reset
+                # Force save and reset
                 mw.col.save()
                 if hasattr(mw, "reset"):
                     mw.reset()
                 return
 
-            print(
-                "[FORCE DELETE] Nenhum note type encontrado via IDs, tentando método direto..."
+            add_debug_msg(
+                "[FORCE DELETE] No note type found via IDs, trying direct method..."
             )
 
-        # Fallback: buscar note types diretamente no Anki baseado no nome do deck remoto
+        # Fallback: find note types directly in Anki based on remote deck name
         from .config_manager import get_deck_remote_name
 
         if not remote_deck_name and url:
             remote_deck_name = get_deck_remote_name(url) or "RemoteDeck"
 
-        print(
-            f"[FORCE DELETE] Buscando note types para deck remoto: '{remote_deck_name}'"
+        add_debug_msg(
+            f"[FORCE DELETE] Searching for note types for remote deck: '{remote_deck_name}'"
         )
 
         models_to_delete = []
         for model in mw.col.models.all():
             model_name = model["name"]
 
-            # Verificar se é um note type do Sheets2Anki e contém o nome do deck remoto
+            # Check if it's a Sheets2Anki note type and contains remote deck name
             if (
                 model_name.startswith("Sheets2Anki - ")
                 and remote_deck_name
                 and remote_deck_name in model_name
             ):
                 models_to_delete.append(model)
-                print(f"[FORCE DELETE] Forçando deleção do note type: {model_name}")
+                add_debug_msg(f"[FORCE DELETE] Forcing deletion of note type: {model_name}")
 
-        # Deletar os note types encontrados
+        add_debug_msg(
+            f"[FORCE DELETE] Identified {len(models_to_delete)} note types for deletion"
+        )
+
+        # Delete found note types
         for model in models_to_delete:
             try:
                 mw.col.models.rem(model)
-                print(
-                    f"[FORCE DELETE] Note type '{model['name']}' deletado com sucesso"
+                add_debug_msg(
+                    f"   Note type found: {model['name']} (ID: {model['id']})"
                 )
             except Exception as e:
-                print(
-                    f"[FORCE DELETE] Erro ao deletar note type '{model['name']}': {e}"
+                add_debug_msg(
+                    f"[FORCE DELETE] ❌ Error deleting note type '{model_name}': {e}"
                 )
 
-        # Forçar salvar
+        # Force save
         mw.col.save()
         if hasattr(mw, "reset"):
             mw.reset()
 
     except Exception as e:
-        print(f"[FORCE DELETE] Erro na deleção forçada: {e}")
+        add_debug_msg(f"[FORCE DELETE] Error in forced deletion: {e}")
 
 
 def syncDecksWithSelection():
     """
-    Mostra interface para selecionar decks e sincroniza apenas os selecionados.
+    Shows interface to select decks and syncs only selected ones.
 
-    Esta função é o ponto de entrada principal para sincronização interativa.
-    Utiliza o novo sistema de configuração e permite reconexão de decks desconectados.
+    This function is the main entry point for interactive synchronization.
+    Uses new configuration system and allows reconnection of disconnected decks.
 
-    Nota: Os nomes dos decks só serão atualizados quando o usuário clicar em 'sincronizar selecionados'.
+    Note: Deck names will only be updated when user clicks 'sync selected'.
     """
-    # Usar o novo diálogo de sincronização sem verificar mudanças nos nomes dos decks
-    # para evitar notificações indesejadas
+    # Use new sync dialog without checking for deck name changes
+    # to avoid unwanted notifications
     success, selected_urls = show_sync_dialog(mw)
 
     if success and selected_urls:
-        # Sincronizar apenas os decks selecionados
-        # As atualizações de nomes serão feitas silenciosamente durante a sincronização
+        # Sync only selected decks
+        # Name updates will be done silently during synchronization
         from .sync import syncDecks
 
         syncDecks(selected_deck_urls=selected_urls)
@@ -246,80 +255,80 @@ def syncDecksWithSelection():
 
 def check_and_update_deck_names(silent=False):
     """
-    Verifica e atualiza os nomes dos decks na configuração.
+    Checks and updates deck names in configuration.
 
-    Esta função deve ser chamada regularmente para garantir que
-    a configuração sempre reflita os nomes atuais dos decks.
+    This function should be called regularly to ensure that
+    the configuration always reflects current deck names.
 
-    Nota: Decks deletados não são atualizados automaticamente.
+    Note: Deleted decks are not automatically updated.
 
     Args:
-        silent (bool): Se True, não mostra notificações
+        silent (bool): If True, does not show notifications
 
     Returns:
-        list: Lista de URLs dos decks que foram atualizados
+        list: List of URLs of updated decks
     """
     try:
         updated_urls = detect_deck_name_changes(skip_deleted=True)
 
         if updated_urls and not silent:
-            # Mostrar informação sobre as atualizações apenas se não estiver em modo silencioso
+            # Show update info only if not in silent mode
             deck_names = []
             remote_decks = get_remote_decks()
 
             for url in updated_urls:
                 deck_info = remote_decks.get(url, {})
-                # Usar local_deck_name da nova estrutura, com fallback para deck_name antigo
+                # Use local_deck_name from new structure, with fallback to old deck_name
                 deck_name = get_deck_local_name(url) or "Deck"
                 deck_names.append(deck_name)
 
             if len(deck_names) == 1:
                 showInfo(
-                    f"Nome do deck '{deck_names[0]}' foi atualizado na configuração."
+                    f"Deck name '{deck_names[0]}' was updated in configuration."
                 )
             else:
                 names_str = "', '".join(deck_names)
                 showInfo(
-                    f"Nomes dos decks '{names_str}' foram atualizados na configuração."
+                    f"Deck names '{names_str}' were updated in configuration."
                 )
 
         return updated_urls
     except Exception as e:
         if not silent:
-            showInfo(f"Erro ao verificar nomes dos decks: {str(e)}")
+            showInfo(f"Error checking deck names: {str(e)}")
         return []
 
 
 def _get_valid_deck_info(config):
     """
-    Extrai informações dos decks válidos da configuração.
+    Extracts valid deck info from configuration.
 
     Args:
-        config: Configuração do addon
+        config: Addon configuration
 
     Returns:
-        tuple: (deck_info_list, valid_decks) onde deck_info_list contém
-               tuplas (deck_name, card_count) e valid_decks mapeia
-               nomes para informações dos decks
+        tuple: (deck_info_list, valid_decks) where deck_info_list contains
+               (deck_name, card_count) tuples and valid_decks maps
+               names to deck info
     """
     deck_info_list = []
     valid_decks = {}
 
     for url, deck_info in get_remote_decks().items():
         deck_id = deck_info["deck_id"]
-        # Verificar se a coleção e o gerenciador de decks estão disponíveis
+        # Check if collection and deck manager are available
         if mw and mw.col and mw.col.decks:
             deck = mw.col.decks.get(deck_id)
 
-            # Verificar se o deck ainda existe e não é o deck padrão
+            # Check if deck still exists and is not default deck
             if deck and deck["name"].strip().lower() != "default":
                 deck_name = deck["name"]
-                # Contar cards no deck (verificando se find_cards está disponível)
+                # Count cards in deck (checking if find_cards is available)
                 if mw.col.find_cards:
                     escaped_deck_name = deck_name.replace('"', '\\"')
                     card_count = len(mw.col.find_cards(f'deck:"{escaped_deck_name}"'))
                 else:
-                    card_count = 0  # Fallback se find_cards não estiver disponível
+                    card_count = 0  # Fallback if find_cards not available
                 deck_info_list.append((deck_name, card_count))
                 valid_decks[deck_name] = deck_info
 
@@ -328,14 +337,14 @@ def _get_valid_deck_info(config):
 
 def _show_selection_dialog_and_sync(deck_info_list):
     """
-    Mostra o dialog de seleção e executa a sincronização dos decks selecionados.
+    Shows selection dialog and executes sync for selected decks.
 
     Args:
-        deck_info_list: Lista de informações dos decks válidos
+        deck_info_list: Valid deck info list
     """
     dialog = DeckSelectionDialog(deck_info_list, mw)
 
-    # Usar função de compatibilidade para exec/exec_
+    # Use compatibility function for exec/exec_
     result = safe_exec(dialog)
 
     if result == DialogAccepted:
@@ -345,24 +354,24 @@ def _show_selection_dialog_and_sync(deck_info_list):
 
             syncDecks(selected_decks)
         else:
-            showInfo("Nenhum deck foi selecionado para sincronização.")
+            showInfo("No deck was selected for synchronization.")
 
 
 def import_test_deck():
     """
-    Importa um deck de teste para desenvolvimento e demonstração.
+    Imports a test deck for development and demonstration.
 
-    Esta função permite selecionar entre diferentes planilhas de teste
-    pré-configuradas e usar o sistema de nomeação automática.
+    This function allows selecting between different pre-configured
+    test spreadsheets and using the automatic naming system.
     """
-    # Obter lista de nomes dos decks de teste
+    # Get test deck names list
     names = [name for name, url in TEST_SHEETS_URLS]
 
-    # Mostrar dialog de seleção
+    # Show selection dialog
     selection, okPressed = QInputDialog.getItem(
         mw,
-        "Importar Deck de Teste",
-        "Escolha um deck de teste para importar:",
+        "Import Test Deck",
+        "Choose a test deck to import:",
         names,
         0,
         False,
@@ -371,28 +380,28 @@ def import_test_deck():
     if not okPressed or not selection:
         return
 
-    # Buscar a URL correspondente ao deck selecionado
+    # Find URL corresponding to selected deck
     url = dict(TEST_SHEETS_URLS)[selection]
 
-    # Gerar nome automático para o deck usando DeckNameManager
+    # Generate automatic deck name using DeckNameManager
     remote_name = DeckNameManager.extract_remote_name_from_url(url)
     deck_name = DeckNameManager.generate_local_name(remote_name)
 
-    # Verificar se URL já está configurada
+    # Check if URL is already configured
     remote_decks = get_remote_decks()
     if url in remote_decks:
         local_name = get_deck_local_name(url) or "Deck"
-        showInfo(f"Este deck de teste já está configurado como '{local_name}'.")
+        showInfo(f"This test deck is already configured as '{local_name}'.")
         return
 
     try:
-        # Criar deck no Anki
+        # Create deck in Anki
         deck_id, actual_name = get_or_create_deck(mw.col, deck_name)
 
-        # Extrair nome remoto da URL usando DeckNameManager
+        # Extract remote name from URL using DeckNameManager
         remote_deck_name = DeckNameManager.extract_remote_name_from_url(url)
 
-        # Adicionar à configuração usando a nova estrutura modular
+        # Add to configuration using modular structure
         deck_info = create_deck_info(
             url=url,
             local_deck_id=deck_id,
@@ -403,12 +412,12 @@ def import_test_deck():
 
         add_remote_deck(url, deck_info)
 
-        # Sincronizar o deck
+        # Synchronize deck
         from .sync import syncDecks
 
         syncDecks(selected_deck_urls=[url], new_deck_mode=True)
 
-        # Obter o nome final do deck após a sincronização (pode ter sido alterado)
+        # Get final deck name after synchronization (it might have changed)
         remote_decks = get_remote_decks()
         if url in remote_decks:
             final_deck_name = get_deck_local_name(url) or actual_name
@@ -416,28 +425,28 @@ def import_test_deck():
             final_deck_name = actual_name
 
     except Exception as e:
-        showInfo(f"Erro ao importar deck de teste:\n{str(e)}")
+        showInfo(f"Error importing test deck:\n{str(e)}")
         return
 
 
 def addNewDeck():
     """
-    Adiciona um novo deck remoto usando o novo sistema de configuração.
+    Adds a new remote deck using the new configuration system.
 
-    Esta função utiliza o diálogo aprimorado que suporta nomeação automática,
-    resolução de conflitos e reconexão de decks desconectados.
+    This function uses the enhanced dialog that supports automatic naming,
+    conflict resolution, and reconnection of disconnected decks.
     """
-    # Usar o novo diálogo de adicionar deck
+    # Use new add deck dialog
     success, deck_info = show_add_deck_dialog(mw)
 
     if success and deck_info:
-        # Sincronizar apenas o deck recém-adicionado
+        # Sync only the newly added deck
         url = deck_info["url"]
         from .sync import syncDecks
 
         syncDecks(selected_deck_urls=[url])
 
-        # Obter o nome final do deck após a sincronização (pode ter sido alterado)
+        # Get final deck name after synchronization (it might have changed)
         from .config_manager import get_remote_decks
 
         remote_decks = get_remote_decks()
@@ -449,23 +458,23 @@ def addNewDeck():
 
 def removeRemoteDeck():
     """
-    Remove decks remotos da configuração usando interface com checkboxes.
+    Removes remote decks from configuration using checkbox interface.
 
-    Esta função utiliza o novo diálogo de desconexão que permite selecionar
-    múltiplos decks para desconexão simultânea, mantendo os decks locais.
+    This function uses the new disconnect dialog that allows selecting
+    multiple decks for simultaneous disconnection, while keeping local decks.
     """
-    # Usar o novo diálogo de desconexão
+    # Use new disconnect dialog
     success, selected_urls, delete_local_data = show_disconnect_dialog(mw)
 
     if success and selected_urls:
-        # Processar desconexão dos decks selecionados
+        # Process disconnection of selected decks
         disconnected_decks = []
 
         for url in selected_urls:
-            # Obter informações do deck antes de desconectar
+            # Get deck info before disconnecting
             from .utils import get_spreadsheet_id_from_url
 
-            # Gerar ID da planilha
+            # Generate spreadsheet ID
             spreadsheet_id = get_spreadsheet_id_from_url(url)
 
             remote_decks = get_remote_decks()
@@ -473,20 +482,20 @@ def removeRemoteDeck():
                 deck_info = remote_decks[spreadsheet_id]
                 deck_id = deck_info["local_deck_id"]
                 deck = None
-                # Verificar se a coleção e o gerenciador de decks estão disponíveis
+                # Check if collection and deck manager are available
                 if mw and mw.col and mw.col.decks:
                     deck = mw.col.decks.get(deck_id)
                 deck_name = (
                     deck["name"]
                     if deck
-                    else (get_deck_local_name(url) or "Deck Desconhecido")
+                    else (get_deck_local_name(url) or "Unknown Deck")
                 )
 
-                # Se deve deletar dados locais, fazê-lo antes da desconexão
+                # If local data should be deleted, do it before disconnection
                 if delete_local_data and deck:
                     _delete_local_deck_data(deck_id, deck_name, url)
 
-                    # Fallback: tentar deleção forçada dos note types
+                    # Fallback: try forced deletion of note types
                     try:
                         from .config_manager import get_deck_remote_name
                         from .utils import get_model_suffix_from_url
@@ -497,45 +506,45 @@ def removeRemoteDeck():
                             suffix, remote_deck_name, url
                         )
                     except Exception as fallback_error:
-                        print(f"[DEBUG] Fallback também falhou: {fallback_error}")
+                        add_debug_msg(f"[DEBUG] Fallback also failed: {fallback_error}")
 
-                # Desconectar o deck
+                # Disconnect deck
                 disconnect_deck(url)
                 disconnected_decks.append(deck_name)
 
-        # Mostrar mensagem de sucesso
+        # Show success message
         if len(disconnected_decks) == 1:
             if delete_local_data:
                 message = (
-                    f"O deck '{disconnected_decks[0]}' foi desconectado e todos os dados locais foram deletados.\n\n"
-                    f"Dados deletados:\n"
-                    f"• Deck local e subdecks\n"
-                    f"• Todas as cartas e notas\n"
-                    f"• Note types específicos (se não usados em outros decks)\n\n"
-                    f"Para reconectar, você precisará adicioná-lo novamente."
+                    f"The deck '{disconnected_decks[0]}' was disconnected and all local data was deleted.\n\n"
+                    f"Deleted data:\n"
+                    f"• Local deck and subdecks\n"
+                    f"• All cards and notes\n"
+                    f"• Specific note types (if not used in other decks)\n\n"
+                    f"To reconnect, you will need to add it again."
                 )
             else:
                 message = (
-                    f"O deck '{disconnected_decks[0]}' foi desconectado de sua fonte remota.\n\n"
-                    f"O deck local permanece no Anki e pode ser gerenciado normalmente.\n"
-                    f"Para reconectar, você precisará adicioná-lo novamente."
+                    f"The deck '{disconnected_decks[0]}' was disconnected from its remote source.\n\n"
+                    f"The local deck remains in Anki and can be managed normally.\n"
+                    f"To reconnect, you will need to add it again."
                 )
         else:
             decks_list = "', '".join(disconnected_decks)
             if delete_local_data:
                 message = (
-                    f"Os decks '{decks_list}' foram desconectados e todos os dados locais foram deletados.\n\n"
-                    f"Dados deletados para cada deck:\n"
-                    f"• Decks locais e subdecks\n"
-                    f"• Todas as cartas e notas\n"
-                    f"• Note types específicos (se não usados em outros decks)\n\n"
-                    f"Para reconectar, você precisará adicioná-los novamente."
+                    f"The decks '{decks_list}' were disconnected and all local data was deleted.\n\n"
+                    f"Deleted data for each deck:\n"
+                    f"• Local decks and subdecks\n"
+                    f"• All cards and notes\n"
+                    f"• Specific note types (if not used in other decks)\n\n"
+                    f"To reconnect, you will need to add them again."
                 )
             else:
                 message = (
-                    f"Os decks '{decks_list}' foram desconectados de suas fontes remotas.\n\n"
-                    f"Os decks locais permanecem no Anki e podem ser gerenciados normalmente.\n"
-                    f"Para reconectar, você precisará adicioná-los novamente."
+                    f"The decks '{decks_list}' were disconnected from their remote sources.\n\n"
+                    f"The local decks remain in Anki and can be managed normally.\n"
+                    f"To reconnect, you will need to add them again."
                 )
 
         showInfo(message)
@@ -545,7 +554,7 @@ def removeRemoteDeck():
 
 def manage_deck_students():
     """
-    Permite ao usuário gerenciar quais alunos deseja sincronizar para cada deck remoto.
+    Allows user to manage which students they want to sync for each remote deck.
     """
     from .student_manager import extract_students_from_remote_data
     from .student_manager import show_student_selection_dialog
@@ -553,29 +562,29 @@ def manage_deck_students():
     remote_decks = get_remote_decks()
 
     if not remote_decks:
-        showInfo("Nenhum deck remoto configurado. Adicione um deck primeiro.")
+        showInfo("No remote deck configured. Add a deck first.")
         return
 
-    # Criar lista de opções para o usuário selecionar um deck
+    # Create options list for user to select a deck
     deck_options = []
     deck_urls = []
 
     for url, deck_info in remote_decks.items():
         try:
-            deck_name = get_deck_local_name(url) or "Deck sem nome"
+            deck_name = get_deck_local_name(url) or "Unnamed deck"
             deck_options.append(f"{deck_name} ({url[:50]}...)")
             deck_urls.append(url)
         except Exception:
-            deck_options.append(f"Deck com erro ({url[:50]}...)")
+            deck_options.append(f"Deck with error ({url[:50]}...)")
             deck_urls.append(url)
 
-    # Mostrar dialog de seleção de deck
+    # Show deck selection dialog
     from .compat import QInputDialog
 
     deck_choice, ok = QInputDialog.getItem(
         None,
-        "Gerenciar Alunos - Selecionar Deck",
-        "Selecione o deck para gerenciar alunos:",
+        "Manage Students - Select Deck",
+        "Select deck to manage students:",
         deck_options,
         0,
         False,
@@ -584,57 +593,57 @@ def manage_deck_students():
     if not ok:
         return
 
-    # Obter URL do deck selecionado
+    # Get URL of selected deck
     deck_index = deck_options.index(deck_choice)
     selected_url = deck_urls[deck_index]
 
     try:
-        # Baixar dados remotos para extrair alunos
-        showInfo("Baixando dados da planilha para obter lista de alunos...")
+        # Download remote data to extract students
+        showInfo("Downloading spreadsheet data to obtain students list...")
 
         remote_deck = getRemoteDeck(selected_url)
         available_students = extract_students_from_remote_data(remote_deck)
 
         if not available_students:
             showInfo(
-                "Não foram encontrados alunos na coluna ALUNOS desta planilha.\n\n"
-                "Certifique-se de que a planilha contém a coluna ALUNOS com nomes de alunos."
+                "No students found in STUDENTS column of this spreadsheet.\n\n"
+                "Make sure the spreadsheet contains STUDENTS column with student names."
             )
             return
 
-        # Mostrar dialog de seleção de alunos
+        # Show student selection dialog
         selected_students = show_student_selection_dialog(
             selected_url, available_students
         )
 
         if selected_students is not None:
-            deck_name = get_deck_local_name(selected_url) or "Deck remoto"
+            deck_name = get_deck_local_name(selected_url) or "Remote deck"
             selected_count = len(selected_students)
             total_count = len(available_students)
 
             if selected_count == 0:
                 showInfo(
-                    f"Nenhum aluno foi selecionado para o deck '{deck_name}'.\n\n"
-                    "Nenhuma nota será sincronizada para este deck até que você selecione ao menos um aluno."
+                    f"No student selected for deck '{deck_name}'.\n\n"
+                    "No notes will be synced for this deck until you select at least one student."
                 )
             else:
                 alunos_list = ", ".join(sorted(selected_students))
                 showInfo(
-                    f"Configuração salva para o deck '{deck_name}'!\n\n"
-                    f"Alunos selecionados ({selected_count} de {total_count}):\n{alunos_list}\n\n"
-                    "Na próxima sincronização, apenas as notas dos alunos selecionados serão incluídas."
+                    f"Configuration saved for deck '{deck_name}'!\n\n"
+                    f"Selected students ({selected_count} of {total_count}):\n{alunos_list}\n\n"
+                    "On the next sync, only notes of selected students will be included."
                 )
 
     except Exception as e:
         showInfo(
-            f"Erro ao gerenciar alunos: {str(e)}\n\n"
-            "Verifique se a URL do deck está correta e se a planilha está acessível."
+            f"Error managing students: {str(e)}\n\n"
+            "Check if deck URL is correct and if spreadsheet is accessible."
         )
 
 
 def reset_student_selection():
     """
-    Remove a seleção de alunos de todos os decks, voltando ao comportamento padrão.
+    Removes student selection from all decks, returning to default behavior.
     """
     from .compat import MessageBox_No
     from .compat import MessageBox_Yes
@@ -643,16 +652,16 @@ def reset_student_selection():
     remote_decks = get_remote_decks()
 
     if not remote_decks:
-        showInfo("Nenhum deck remoto configurado.")
+        showInfo("No remote deck configured.")
         return
 
-    # Confirmar com o usuário
+    # Confirm with user
     reply = QMessageBox.question(
         None,
-        "Resetar Seleção de Alunos",
-        "Tem certeza de que deseja remover a seleção de alunos de todos os decks?\n\n"
-        "Isso fará com que todos os decks voltem ao comportamento padrão "
-        "(sincronizar todas as notas independentemente da coluna ALUNOS).",
+        "Reset Student Selection",
+        "Are you sure you want to remove student selection from all decks?\n\n"
+        "This will make all decks return to default behavior "
+        "(sync all notes regardless of STUDENTS column).",
         MessageBox_Yes | MessageBox_No,
         MessageBox_No,
     )
@@ -667,7 +676,7 @@ def reset_student_selection():
         meta = get_meta()
         removed_count = 0
 
-        # Remover student_selection de todos os decks
+        # Remove student_selection from all decks
         if "decks" in meta:
             for deck_url in meta["decks"]:
                 if "student_selection" in meta["decks"][deck_url]:
@@ -678,18 +687,18 @@ def reset_student_selection():
 
         if removed_count > 0:
             showInfo(
-                f"Seleção de alunos removida de {removed_count} deck(s).\n\n"
-                "Todos os decks agora voltarão ao comportamento padrão na próxima sincronização."
+                f"Student selection removed from {removed_count} deck(s).\n\n"
+                "All decks will now return to default behavior on next sync."
             )
         else:
-            showInfo("Nenhuma seleção de alunos foi encontrada para remover.")
+            showInfo("No student selection found to remove.")
 
     except Exception as e:
-        showInfo(f"Erro ao resetar seleção de alunos: {str(e)}")
+        showInfo(f"Error resetting student selection: {str(e)}")
 
 
 # =============================================================================
-# GERENCIAMENTO DE NOMES DE DECKS (antigo deck_name_manager.py)
+# DECK NAME MANAGEMENT (formerly deck_name_manager.py)
 # =============================================================================
 
 import re
@@ -703,43 +712,43 @@ from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 
 class DeckNameManager:
     """
-    Classe centralizada para gerenciar todos os aspectos da nomeação de decks.
+    Centralized class to manage all aspects of deck naming.
 
-    Esta classe unifica e substitui toda a lógica dispersa de:
-    - Extração de nomes de URLs
-    - Resolução de conflitos
-    - Sincronização com configuração
-    - Atualização automática de nomes
-    - Geração de nomes hierárquicos
+    This class unifies and replaces all scattered logic of:
+    - extracting names from URLs
+    - conflict resolution
+    - configuration synchronization
+    - automatic name update
+    - hierarchical name generation
     """
 
     # =============================================================================
-    # MÉTODOS DE EXTRAÇÃO E GERAÇÃO DE NOMES
+    # NAME EXTRACTION AND GENERATION METHODS
     # =============================================================================
 
     @staticmethod
     def extract_remote_name_from_url(url: str) -> str:
         """
-        Extrai o nome remoto do deck usando estratégias múltiplas.
+        Extracts remote deck name using multiple strategies.
 
         Args:
-            url: URL do Google Sheets
+            url: Google Sheets URL
 
         Returns:
-            Nome remoto extraído ou fallback
+            Extracted remote name or fallback
         """
         try:
-            # Estratégia 1: Título da planilha via HTML
+            # Strategy 1: Spreadsheet title via HTML
             title = DeckNameManager._extract_spreadsheet_title(url)
             if title and title != "auto name fail":
                 return DeckNameManager.clean_name(title)
 
-            # Estratégia 2: Nome do arquivo via Content-Disposition
+            # Strategy 2: Filename via Content-Disposition
             filename = DeckNameManager._extract_filename_from_headers(url)
             if filename and filename != "auto name fail":
                 return DeckNameManager.clean_name(filename)
 
-            # Estratégia 3: Fallback para ID da planilha e GID
+            # Strategy 3: Fallback to spreadsheet ID and GID
             return DeckNameManager._generate_fallback_name(url)
 
         except Exception:
@@ -750,14 +759,14 @@ class DeckNameManager:
         remote_name: str, parent_name: str = DEFAULT_PARENT_DECK_NAME
     ) -> str:
         """
-        Gera o nome local hierárquico: {parent}::{remote_name}
+        Generates hierarchical local name: {parent}::{remote_name}
 
         Args:
-            remote_name: Nome remoto do deck
-            parent_name: Nome do deck pai
+            remote_name: Remote deck name
+            parent_name: Parent deck name
 
         Returns:
-            Nome local no formato hierárquico
+            Local name in hierarchical format
         """
         if not remote_name:
             return f"{parent_name}::UnknownDeck"
@@ -768,33 +777,33 @@ class DeckNameManager:
     @staticmethod
     def generate_complete_names(url: str) -> Tuple[str, str]:
         """
-        Gera tanto o nome local quanto remoto para uma URL.
+        Generates both local and remote name for a URL.
 
         Args:
-            url: URL do Google Sheets
+            url: Google Sheets URL
 
         Returns:
-            Tupla (local_name, remote_name)
+            Tuple (local_name, remote_name)
         """
         remote_name = DeckNameManager.extract_remote_name_from_url(url)
         local_name = DeckNameManager.generate_local_name(remote_name)
         return local_name, remote_name
 
     # =============================================================================
-    # MÉTODOS DE RESOLUÇÃO DE CONFLITOS
+    # CONFLICT RESOLUTION METHODS
     # =============================================================================
 
     @staticmethod
     def resolve_remote_name_conflict(url: str, remote_name: str) -> str:
         """
-        Resolve conflitos de nome remoto centralizadamente.
+        Resolves remote name conflicts centrally.
 
         Args:
-            url: URL do deck (para identificação única)
-            remote_name: Nome remoto proposto
+            url: Deck URL (for unique identification)
+            remote_name: Proposed remote name
 
         Returns:
-            Nome remoto resolvido (pode ter sufixo #conflito se necessário)
+            Resolved remote name (may have #conflict suffix if necessary)
         """
         if not remote_name:
             return "RemoteDeck"
@@ -803,39 +812,39 @@ class DeckNameManager:
         if not clean_name:
             return "RemoteDeck"
 
-        # Obter todos os nomes remotos existentes (exceto o deck atual)
+        # Get all existing remote names (except current deck)
         existing_names = DeckNameManager._get_existing_remote_names(exclude_url=url)
 
-        # Se não há conflito, usar nome original
+        # If no conflict, use original name
         if clean_name not in existing_names:
             return clean_name
 
-        # Resolver conflito com sufixo
+        # Resolve conflict with suffix
         conflict_index = 1
         while conflict_index <= 100:
-            candidate_name = f"{clean_name} #conflito{conflict_index}"
+            candidate_name = f"{clean_name} #conflict{conflict_index}"
             if candidate_name not in existing_names:
                 return candidate_name
             conflict_index += 1
 
-        # Fallback se não conseguir resolver
-        return f"{clean_name} #conflito{conflict_index}"
+        # Fallback if unable to resolve
+        return f"{clean_name} #conflict{conflict_index}"
 
     @staticmethod
     def resolve_local_name_conflict(local_name: str) -> str:
         """
-        Resolve conflitos de nome local no Anki.
+        Resolves local name conflicts in Anki.
 
         Args:
-            local_name: Nome local proposto
+            local_name: Proposed local name
 
         Returns:
-            Nome local único (pode ter sufixo _X se necessário)
+            Unique local name (may have _X suffix if necessary)
         """
         if not DeckNameManager._check_anki_name_conflict(local_name):
             return local_name
 
-        # Adicionar sufixo numérico
+        # Add numeric suffix
         counter = 2
         while counter <= 100:
             candidate_name = f"{local_name}_{counter}"
@@ -843,14 +852,14 @@ class DeckNameManager:
                 return candidate_name
             counter += 1
 
-        # Fallback com timestamp
+        # Fallback with timestamp
         import time
 
         timestamp = int(time.time())
         return f"{local_name}_{timestamp}"
 
     # =============================================================================
-    # MÉTODOS DE SINCRONIZAÇÃO E ATUALIZAÇÃO
+    # SYNCHRONIZATION AND UPDATE METHODS
     # =============================================================================
 
     @staticmethod
@@ -858,14 +867,14 @@ class DeckNameManager:
         deck_url: str, debug_callback=None
     ) -> Optional[Tuple[int, str]]:
         """
-        Sincroniza nome do deck no Anki com a configuração (source of truth).
+        Syncs deck name in Anki with configuration (source of truth).
 
         Args:
-            deck_url: URL do deck remoto
-            debug_callback: Função para callback de debug (opcional)
+            deck_url: Remote deck URL
+            debug_callback: Debug callback function (optional)
 
         Returns:
-            Tupla (deck_id, synced_name) ou None se erro
+            Tuple (deck_id, synced_name) or None if error
         """
         from .config_manager import get_deck_local_id
         from .config_manager import get_deck_local_name
@@ -875,44 +884,44 @@ class DeckNameManager:
                 debug_callback(f"[DECK_SYNC] {message}")
 
         try:
-            # Obter informações do meta.json
+            # Get info from meta.json
             local_deck_id = get_deck_local_id(deck_url)
             expected_name = get_deck_local_name(deck_url)
 
             if not local_deck_id or not expected_name:
                 debug(
-                    f"Deck não encontrado na configuração: ID={local_deck_id}, Nome='{expected_name}'"
+                    f"Deck not found in configuration: ID={local_deck_id}, Name='{expected_name}'"
                 )
                 return None
 
-            # Verificar se o deck existe no Anki
+            # Check if deck exists in Anki
             if not mw or not mw.col:
-                debug("Anki não disponível")
+                debug("Anki not available")
                 return None
 
             from anki.decks import DeckId
 
             deck = mw.col.decks.get(DeckId(local_deck_id))
             if not deck:
-                debug(f"❌ ERRO: Deck ID {local_deck_id} não existe no Anki")
+                debug(f"❌ ERROR: Deck ID {local_deck_id} does not exist in Anki")
                 return None
 
             current_name = deck["name"]
-            debug(f"Nome atual: '{current_name}' -> Esperado: '{expected_name}'")
+            debug(f"Current name: '{current_name}' -> Expected: '{expected_name}'")
 
-            # Sincronizar se necessário
+            # Sync if necessary
             if current_name != expected_name:
-                debug(f"📝 Atualizando nome: '{current_name}' -> '{expected_name}'")
+                debug(f"📝 Updating name: '{current_name}' -> '{expected_name}'")
                 deck["name"] = expected_name
                 mw.col.decks.save(deck)
-                debug("✅ Nome atualizado com sucesso")
+                debug("✅ Name successfully updated")
                 return (local_deck_id, expected_name)
             else:
-                debug("✅ Nome já sincronizado")
+                debug("✅ Name already synchronized")
                 return (local_deck_id, current_name)
 
         except Exception as e:
-            debug(f"❌ ERRO na sincronização: {e}")
+            debug(f"❌ ERROR in synchronization: {e}")
             return None
 
     @staticmethod
@@ -924,19 +933,19 @@ class DeckNameManager:
         debug_callback=None,
     ) -> str:
         """
-        Atualiza nomes de deck automaticamente se necessário.
+        Updates deck names automatically if necessary.
 
-        Esta função centraliza toda a lógica de atualização automática de nomes.
+        This function centralizes all automatic name update logic.
 
         Args:
-            deck_url: URL do deck
-            deck_id: ID do deck no Anki
-            current_local_name: Nome local atual
-            remote_name: Nome remoto (se já conhecido)
-            debug_callback: Função para debug
+            deck_url: Deck URL
+            deck_id: Anki deck ID
+            current_local_name: Current local name
+            remote_name: Remote name (if already known)
+            debug_callback: Debug function
 
         Returns:
-            Nome local final (atualizado ou mantido)
+            Final local name (updated or maintained)
         """
 
         def debug(message: str):
@@ -944,42 +953,42 @@ class DeckNameManager:
                 debug_callback(f"[NAME_UPDATE] {message}")
 
         try:
-            # Obter nome remoto se não fornecido
+            # Get remote name if not provided
             if not remote_name:
                 remote_name = DeckNameManager.extract_remote_name_from_url(deck_url)
 
-            # Gerar nome local desejado
+            # Generate desired local name
             desired_local_name = DeckNameManager.generate_local_name(remote_name)
             debug(
-                f"Nome desejado: '{desired_local_name}' (atual: '{current_local_name}')"
+                f"Desired name: '{desired_local_name}' (current: '{current_local_name}')"
             )
 
-            # Verificar se precisa atualizar
+            # Check if update is needed
             if not DeckNameManager._should_update_name(
                 current_local_name, desired_local_name
             ):
-                debug("Não precisa atualizar")
+                debug("No update needed")
                 return current_local_name
 
-            # Obter nome disponível
+            # Get available name
             available_name = DeckNameManager.resolve_local_name_conflict(
                 desired_local_name
             )
-            debug(f"Nome disponível: '{available_name}'")
+            debug(f"Available name: '{available_name}'")
 
-            # Atualizar no Anki
+            # Update in Anki
             success = DeckNameManager._update_deck_in_anki(deck_id, available_name)
             if success:
-                # Atualizar na configuração
+                # Update in configuration
                 DeckNameManager._update_name_in_config(deck_url, available_name)
-                debug(f"✅ Nome atualizado para: '{available_name}'")
+                debug(f"✅ Name updated to: '{available_name}'")
                 return available_name
             else:
-                debug("❌ Falha ao atualizar no Anki")
+                debug("❌ Failed to update in Anki")
                 return current_local_name
 
         except Exception as e:
-            debug(f"❌ ERRO na atualização: {e}")
+            debug(f"❌ ERROR in update: {e}")
             return current_local_name
 
     @staticmethod
@@ -987,18 +996,18 @@ class DeckNameManager:
         deck_url: str, suggested_remote_name: Optional[str] = None
     ) -> Tuple[int, str, str]:
         """
-        Cria um deck com nomeação adequada e resolve todos os conflitos.
+        Creates a deck with proper naming and resolves all conflicts.
 
-        Esta função centraliza toda a lógica usada em add_deck_dialog.py.
+        This function centralizes all logic used in add_deck_dialog.py.
 
         Args:
-            deck_url: URL do deck
-            suggested_remote_name: Nome remoto sugerido (opcional)
+            deck_url: Deck URL
+            suggested_remote_name: Suggested remote name (optional)
 
         Returns:
-            Tupla (deck_id, final_local_name, final_remote_name)
+            Tuple (deck_id, final_local_name, final_remote_name)
         """
-        # Obter nome remoto final
+        # Get final remote name
         if suggested_remote_name:
             final_remote_name = DeckNameManager.resolve_remote_name_conflict(
                 deck_url, suggested_remote_name
@@ -1009,13 +1018,13 @@ class DeckNameManager:
                 deck_url, extracted_name
             )
 
-        # Gerar nome local hierárquico
+        # Generate hierarchical local name
         desired_local_name = DeckNameManager.generate_local_name(final_remote_name)
         final_local_name = DeckNameManager.resolve_local_name_conflict(
             desired_local_name
         )
 
-        # Criar deck no Anki
+        # Create deck in Anki
         from .utils import get_or_create_deck
 
         deck_id, actual_name = get_or_create_deck(mw.col, final_local_name)
@@ -1023,19 +1032,19 @@ class DeckNameManager:
         return deck_id, actual_name, final_remote_name
 
     # =============================================================================
-    # MÉTODOS PRIVADOS/INTERNOS
+    # PRIVATE/INTERNAL METHODS
     # =============================================================================
 
     @staticmethod
     def _get_existing_remote_names(exclude_url: Optional[str] = None) -> set:
-        """Obtém todos os nomes remotos existentes."""
+        """Gets all existing remote names."""
         from .config_manager import get_remote_decks
 
         existing_names = set()
         remote_decks = get_remote_decks()
 
         for deck_url, deck_info in remote_decks.items():
-            # Pular o deck atual se especificado
+            # Skip current deck if specified
             if exclude_url and deck_info.get("remote_deck_url") == exclude_url:
                 continue
 
@@ -1047,7 +1056,7 @@ class DeckNameManager:
 
     @staticmethod
     def _check_anki_name_conflict(name: str) -> bool:
-        """Verifica se há conflito de nome no Anki."""
+        """Checks if there is a name conflict in Anki."""
         try:
             if mw and mw.col and mw.col.decks:
                 existing_deck = mw.col.decks.by_name(name)
@@ -1058,11 +1067,11 @@ class DeckNameManager:
 
     @staticmethod
     def _should_update_name(current_name: str, desired_name: str) -> bool:
-        """Determina se deve atualizar o nome."""
+        """Determines whether to update the name."""
         if not current_name or not desired_name:
             return False
 
-        # Extrair nome base (sem sufixo numérico)
+        # Extract base name (without numeric suffix)
         has_suffix, base_name, _ = DeckNameManager._extract_numeric_suffix(current_name)
         comparison_name = base_name if has_suffix else current_name
 
@@ -1070,7 +1079,7 @@ class DeckNameManager:
 
     @staticmethod
     def _extract_numeric_suffix(name: str) -> Tuple[bool, str, Optional[int]]:
-        """Extrai sufixo numérico do nome."""
+        """Extracts numeric suffix from name."""
         suffix_match = re.search(r"_(\d+)$", name)
         if suffix_match:
             suffix_number = int(suffix_match.group(1))
@@ -1080,7 +1089,7 @@ class DeckNameManager:
 
     @staticmethod
     def _update_deck_in_anki(deck_id: int, new_name: str) -> bool:
-        """Atualiza nome do deck no Anki."""
+        """Updates deck name in Anki."""
         try:
             if mw and mw.col and mw.col.decks:
                 from anki.decks import DeckId
@@ -1096,7 +1105,7 @@ class DeckNameManager:
 
     @staticmethod
     def _update_name_in_config(deck_url: str, new_name: str) -> bool:
-        """Atualiza nome na configuração."""
+        """Updates name in configuration."""
         try:
             from .config_manager import get_deck_id
             from .config_manager import get_meta
@@ -1114,29 +1123,29 @@ class DeckNameManager:
             return False
 
     # =============================================================================
-    # MÉTODOS DE LIMPEZA E EXTRAÇÃO ESPECÍFICOS
+    # SPECIFIC CLEANING AND EXTRACTION METHODS
     # =============================================================================
 
     @staticmethod
     def clean_name(name: str) -> str:
-        """Limpa e normaliza um nome de deck."""
+        """Cleans and normalizes a deck name."""
         if not name:
             return "auto name fatal fail"
 
         name = str(name).strip()
 
-        # Remover terminação " - Google Drive" ou " - Google Sheets"
+        # Remove " - Google Drive" or " - Google Sheets" suffix
         name = re.sub(
             r"\s*-\s*Google\s+(Drive|Sheets)\s*$", "", name, flags=re.IGNORECASE
         )
 
-        # Remover caracteres problemáticos, mas manter espaços
+        # Remove problematic characters, but keep spaces
         name = re.sub(r'[<>:"/\\|?*]', "_", name)
 
         if not name:
             return "auto name fatal fail"
 
-        # Limitar tamanho
+        # Limit length
         if len(name) > 100:
             name = name[:100]
 
@@ -1144,12 +1153,12 @@ class DeckNameManager:
 
     @staticmethod
     def _extract_spreadsheet_title(url: str) -> Optional[str]:
-        """Extrai título da planilha via HTML."""
+        """Extracts spreadsheet title via HTML."""
         try:
             import urllib.parse
             import urllib.request
 
-            # Construir URL para metadados
+            # Build URL for metadata
             base_url = (
                 url.replace("&output=tsv", "")
                 .replace("?output=tsv", "")
@@ -1158,7 +1167,7 @@ class DeckNameManager:
             parsed = urllib.parse.urlparse(base_url)
             query_params = urllib.parse.parse_qs(parsed.query)
 
-            # Manter apenas gid se existir
+            # Keep only gid if it exists
             filtered_params = {}
             if "gid" in query_params:
                 filtered_params["gid"] = query_params["gid"]
@@ -1184,9 +1193,9 @@ class DeckNameManager:
             with urllib.request.urlopen(request, timeout=15) as response:
                 html = response.read().decode("utf-8", errors="ignore")
 
-                # Múltiplos padrões para extrair título
+                # Multiple patterns to extract title
                 title_patterns = [
-                    # Padrão específico para remover sufixos do Google Sheets/Planilhas (todas as variações)
+                    # Specific pattern to remove Google Sheets/Planilhas suffixes (all variations)
                     r"<title>([^<]+?)\s*-\s*(Google\s*(Sheets|Planilhas)|Planilhas\s*Google)</title>",
                     r"<title>([^<]+)</title>",
                     r'"title":"([^"]+)"',
@@ -1199,7 +1208,7 @@ class DeckNameManager:
                     if match:
                         title = match.group(1).strip()
                         
-                        # Limpar sufixos adicionais que podem ter escapado do regex
+                        # Clean additional suffixes that may have escaped the regex
                         title = re.sub(r'\s*-\s*(Google\s*(Sheets|Planilhas)|Planilhas\s+Google)$', '', title, flags=re.IGNORECASE).strip()
                         
                         if title and title.lower() not in [
@@ -1216,7 +1225,7 @@ class DeckNameManager:
 
     @staticmethod
     def _extract_filename_from_headers(url: str) -> Optional[str]:
-        """Extrai nome do arquivo via headers."""
+        """Extracts filename via headers."""
         try:
             import urllib.request
 
@@ -1243,12 +1252,12 @@ class DeckNameManager:
 
     @staticmethod
     def _generate_fallback_name(url: str) -> str:
-        """Gera nome fallback baseado em ID da planilha."""
+        """Generates fallback name based on spreadsheet ID."""
         try:
             from urllib.parse import parse_qs
             from urllib.parse import urlparse
 
-            # Extrair ID da planilha
+            # Extract spreadsheet ID
             match = re.search(r"/spreadsheets/d/e/([a-zA-Z0-9-_]+)", url)
             if not match:
                 match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", url)
@@ -1256,60 +1265,60 @@ class DeckNameManager:
             if match:
                 spreadsheet_id = match.group(1)
 
-                # Extrair GID
+                # Extract GID
                 parsed_url = urlparse(url)
                 query_params = parse_qs(parsed_url.query)
                 gid = query_params.get("gid", ["0"])[0]
 
                 if gid != "0":
-                    return f"Planilha {spreadsheet_id[:8]} - Aba {gid}"
+                    return f"Spreadsheet {spreadsheet_id[:8]} - Tab {gid}"
                 else:
-                    return f"Planilha {spreadsheet_id[:8]} - Aba Principal"
+                    return f"Spreadsheet {spreadsheet_id[:8]} - Main Tab"
 
-            return "Planilha Externa"
+            return "External Spreadsheet"
 
         except Exception:
             return "auto name fatal fail"
 
 
 # =============================================================================
-# GERENCIAMENTO DE SUBDECKS (antigo subdeck_manager.py)
+# SUBDECK MANAGEMENT (formerly subdeck_manager.py)
 # =============================================================================
 
 # =============================================================================
-# RECREAÇÃO DE DECKS (antigo deck_recreation.py)
+# DECK RECREATION (formerly deck_recreation.py)
 # =============================================================================
 
 
 class DeckRecreationManager:
-    """Gerenciador para recreação de decks deletados."""
+    """Manager for recreating deleted decks."""
 
     @staticmethod
     def recreate_deck_if_missing(
         deck_info: Dict[str, Any],
     ) -> Tuple[bool, Optional[int], Optional[str]]:
         """
-        Recria um deck se ele estiver faltando.
+        Recreates a deck if it is missing.
 
         Args:
-            deck_info: Informações do deck da configuração
+            deck_info: Deck info from configuration
 
         Returns:
             Tuple[bool, Optional[int], Optional[str]]:
-            (foi_recriado, novo_deck_id, nome_atual)
+            (was_recreated, new_deck_id, current_name)
         """
         from .utils import add_debug_message
 
-        # Verificar se mw e col estão disponíveis
+        # Check if mw and col are available
         if not mw or not mw.col:
-            raise ValueError("Anki não está disponível")
+            raise ValueError("Anki is not available")
 
         local_deck_id = deck_info.get("local_deck_id")
         add_debug_message(
-            f"🔍 Verificando deck com ID: {local_deck_id}", "DECK_RECREATION"
+            f"🔍 Checking deck with ID: {local_deck_id}", "DECK_RECREATION"
         )
 
-        # Verificar se o deck existe
+        # Check if deck exists
         deck = mw.col.decks.get(local_deck_id) if local_deck_id is not None else None
 
         if deck:
@@ -1317,83 +1326,83 @@ class DeckRecreationManager:
             expected_name = deck_info.get("local_deck_name", "")
 
             add_debug_message(
-                f"📋 Deck encontrado: '{deck_name}' (ID: {local_deck_id})",
+                f"📋 Deck found: '{deck_name}' (ID: {local_deck_id})",
                 "DECK_RECREATION",
             )
-            add_debug_message(f"📋 Nome esperado: '{expected_name}'", "DECK_RECREATION")
+            add_debug_message(f"📋 Expected name: '{expected_name}'", "DECK_RECREATION")
 
-            # Verificar se é realmente o deck correto ou se foi renomeado/alterado
+            # Check if it's really the correct deck or if it was renamed/changed
             if deck_name == expected_name or expected_name in deck_name:
-                add_debug_message("✅ Deck existe e nome confere", "DECK_RECREATION")
+                add_debug_message("✅ Deck exists and name matches", "DECK_RECREATION")
                 return False, local_deck_id, deck_name
             else:
                 add_debug_message(
-                    f"⚠️ ATENÇÃO: Deck existe mas nome mudou: '{deck_name}' != '{expected_name}'",
+                    f"⚠️ WARNING: Deck exists but name changed: '{deck_name}' != '{expected_name}'",
                     "DECK_RECREATION",
                 )
                 add_debug_message(
-                    "🔧 Considerando como deck a ser recriado devido à inconsistência de nome",
+                    "🔧 Considering as deck to be recreated due to name inconsistency",
                     "DECK_RECREATION",
                 )
-                # Continuar para recriação
+                # Continue to recreation
         else:
             add_debug_message(
-                f"❌ Deck com ID {local_deck_id} não encontrado", "DECK_RECREATION"
+                f"❌ Deck with ID {local_deck_id} not found", "DECK_RECREATION"
             )
 
-        # Deck não existe ou foi alterado, precisa recriar
+        # Deck does not exist or was changed, need to recreate
         add_debug_message(
-            "⚠️ Deck local foi deletado ou alterado, iniciando recriação",
+            "⚠️ Local deck was deleted or changed, starting recreation",
             "DECK_RECREATION",
         )
 
         try:
             new_deck_id, actual_name = DeckRecreationManager._create_new_deck(deck_info)
 
-            # Aplicar opções do Sheets2Anki ao deck recriado
+            # Apply Sheets2Anki options to recreated deck
             from .utils import apply_sheets2anki_options_to_deck
 
             remote_deck_name = deck_info.get("remote_deck_name")
             try:
                 apply_sheets2anki_options_to_deck(new_deck_id, remote_deck_name)
                 add_debug_message(
-                    f"✅ Opções aplicadas ao deck recriado: {actual_name}",
+                    f"✅ Options applied to recreated deck: {actual_name}",
                     "DECK_RECREATION",
                 )
             except Exception as e:
                 add_debug_message(
-                    f"⚠️ Falha ao aplicar opções ao deck recriado: {e}",
+                    f"⚠️ Failed to apply options to recreated deck: {e}",
                     "DECK_RECREATION",
                 )
 
             add_debug_message(
-                f"✅ Deck recriado com sucesso: {actual_name} (ID: {new_deck_id})",
+                f"✅ Deck successfully recreated: {actual_name} (ID: {new_deck_id})",
                 "DECK_RECREATION",
             )
             return True, new_deck_id, actual_name
 
         except Exception as e:
-            add_debug_message(f"❌ Erro na recreação do deck: {e}", "DECK_RECREATION")
+            add_debug_message(f"❌ Error recreating deck: {e}", "DECK_RECREATION")
             raise
 
     @staticmethod
     def _create_new_deck(deck_info: Dict[str, Any]) -> Tuple[int, str]:
         """
-        Cria um novo deck com base nas informações fornecidas.
+        Creates a new deck based on provided information.
 
         Args:
-            deck_info: Informações do deck
+            deck_info: Deck info
 
         Returns:
-            Tuple[int, str]: (deck_id, nome_atual)
+            Tuple[int, str]: (deck_id, current_name)
         """
         from .utils import add_debug_message
 
-        # Verificar se mw e col estão disponíveis
+        # Check if mw and col are available
         if not mw or not mw.col:
-            raise ValueError("Anki não está disponível")
+            raise ValueError("Anki is not available")
 
-        # Determinar o nome desejado para o deck
+        # Determine desired deck name
         current_remote_name = deck_info.get("remote_deck_name")
 
         if current_remote_name:
@@ -1401,90 +1410,90 @@ class DeckRecreationManager:
                 current_remote_name
             )
         else:
-            # Fallback para o nome salvo na configuração
+            # Fallback to name saved in configuration
             local_deck_id = deck_info.get("local_deck_id")
             desired_local_name = (
                 deck_info.get("local_deck_name") or f"Sheets2Anki::Deck_{local_deck_id}"
             )
 
         add_debug_message(
-            f"🎯 Nome desejado para recreação: {desired_local_name}", "DECK_RECREATION"
+            f"🎯 Desired name for recreation: {desired_local_name}", "DECK_RECREATION"
         )
 
-        # Verificar se já existe um deck com esse nome antes de criar
+        # Check if a deck with this name already exists before creating
         existing_deck = mw.col.decks.by_name(desired_local_name)
 
         if existing_deck:
-            # Deck já existe, usar o existente
+            # Deck already exists, use existing one
             new_deck_id = existing_deck["id"]
             actual_name = existing_deck["name"]
             add_debug_message(
-                f"📂 Usando deck existente: {actual_name} (ID: {new_deck_id})",
+                f"📂 Using existing deck: {actual_name} (ID: {new_deck_id})",
                 "DECK_RECREATION",
             )
         else:
-            # Deck não existe, criar novo
+            # Deck does not exist, create new one
             try:
                 add_debug_message(
-                    f"🆕 Criando novo deck: '{desired_local_name}'", "DECK_RECREATION"
+                    f"🆕 Creating new deck: '{desired_local_name}'", "DECK_RECREATION"
                 )
                 new_deck_id = mw.col.decks.id(desired_local_name)
                 add_debug_message(
-                    f"🆔 ID retornado pela API do Anki: {new_deck_id} (tipo: {type(new_deck_id)})",
+                    f"🆔 ID returned by Anki API: {new_deck_id} (type: {type(new_deck_id)})",
                     "DECK_RECREATION",
                 )
 
-                # Verificar se o deck foi criado corretamente
+                # Check if deck was correctly created
                 if new_deck_id is None:
-                    raise ValueError(f"Falha ao criar deck: {desired_local_name}")
+                    raise ValueError(f"Failed to create deck: {desired_local_name}")
 
-                # Verificar se o nome foi mantido ou alterado pelo Anki
+                # Check if name was kept or changed by Anki
                 new_deck = mw.col.decks.get(new_deck_id)
                 if not new_deck:
                     raise ValueError(
-                        f"Falha ao obter deck criado: {desired_local_name}"
+                        f"Failed to obtain created deck: {desired_local_name}"
                     )
 
                 actual_name = new_deck["name"]
                 add_debug_message(
-                    f"✅ Deck confirmado no Anki: '{actual_name}' (ID: {new_deck_id})",
+                    f"✅ Deck confirmed in Anki: '{actual_name}' (ID: {new_deck_id})",
                     "DECK_RECREATION",
                 )
 
                 if actual_name != desired_local_name:
                     add_debug_message(
-                        f"📝 Nome alterado durante criação: {desired_local_name} -> {actual_name}",
+                        f"📝 Name changed during creation: {desired_local_name} -> {actual_name}",
                         "DECK_RECREATION",
                     )
 
                 add_debug_message(
-                    f"🆕 Novo deck criado: {actual_name} (ID: {new_deck_id})",
+                    f"🆕 New deck created: {actual_name} (ID: {new_deck_id})",
                     "DECK_RECREATION",
                 )
 
             except Exception:
-                # Em caso de erro, usar nome único baseado em timestamp
+                # On error, use unique name based on timestamp
                 import time
 
                 unique_suffix = str(int(time.time()))[-6:]
                 fallback_name = f"Sheets2Anki::Deck_{unique_suffix}"
 
                 add_debug_message(
-                    f"🔄 Criando com nome de fallback: {fallback_name}",
+                    f"🔄 Creating with fallback name: {fallback_name}",
                     "DECK_RECREATION",
                 )
 
                 new_deck_id = mw.col.decks.id(fallback_name)
                 if new_deck_id is None:
                     raise ValueError(
-                        f"Falha ao criar deck com nome de fallback: {fallback_name}"
+                        f"Failed to create deck with fallback name: {fallback_name}"
                     )
 
                 new_deck = mw.col.decks.get(new_deck_id)
 
                 if not new_deck:
                     raise ValueError(
-                        f"Falha ao obter deck com nome de fallback: {fallback_name}"
+                        f"Failed to obtain deck with fallback name: {fallback_name}"
                     )
 
                 actual_name = new_deck["name"]
@@ -1496,12 +1505,12 @@ class DeckRecreationManager:
         deck_info: Dict[str, Any], new_deck_id: int, actual_name: str
     ) -> None:
         """
-        Atualiza as informações do deck após recreação.
+        Updates deck info after recreation.
 
         Args:
-            deck_info: Informações do deck (será modificado in-place)
-            new_deck_id: Novo ID do deck
-            actual_name: Nome atual do deck
+            deck_info: Deck info (will be modified in-place)
+            new_deck_id: New deck ID
+            actual_name: Current deck name
         """
         from .utils import add_debug_message
 
@@ -1509,19 +1518,19 @@ class DeckRecreationManager:
 
         if new_deck_id != old_deck_id:
             add_debug_message(
-                f"🔄 Atualizando deck ID: {old_deck_id} -> {new_deck_id}",
+                f"🔄 Updating deck ID: {old_deck_id} -> {new_deck_id}",
                 "DECK_RECREATION",
             )
             deck_info["local_deck_id"] = new_deck_id
             add_debug_message(
-                f"✅ Confirmação: deck_info['local_deck_id'] agora = {deck_info['local_deck_id']}",
+                f"✅ Confirmation: deck_info['local_deck_id'] now = {deck_info['local_deck_id']}",
                 "DECK_RECREATION",
             )
 
         old_name = deck_info.get("local_deck_name", "")
         if actual_name != old_name:
             add_debug_message(
-                f"📝 Atualizando nome do deck: '{old_name}' -> '{actual_name}'",
+                f"📝 Updating deck name: '{old_name}' -> '{actual_name}'",
                 "DECK_RECREATION",
             )
             deck_info["local_deck_name"] = actual_name
@@ -1529,138 +1538,138 @@ class DeckRecreationManager:
 
 class DeckSelectionDialog(QDialog):
     """
-    Dialog para seleção de decks para sincronização.
+    Dialog for selecting decks for synchronization.
 
-    Permite ao usuário escolher quais decks remotos devem ser sincronizados,
-    mostrando informações como nome do deck e número de cards.
+    Allows user to choose which remote decks should be synced,
+    showing information such as deck name and card count.
     """
 
     def __init__(self, deck_info_list, parent=None):
         """
-        Inicializa o dialog de seleção de decks.
+        Initializes the deck selection dialog.
 
         Args:
-            deck_info_list: Lista de tuplas (deck_name, card_count)
-            parent: Widget pai (opcional)
+            deck_info_list: List of (deck_name, card_count) tuples
+            parent: Parent widget (optional)
         """
         super().__init__(parent)
-        self.setWindowTitle("Selecionar Decks para Sincronizar")
+        self.setWindowTitle("Select Decks to Sync")
         self.setMinimumSize(500, 350)
 
-        # Armazenar informações dos decks
+        # Store deck info
         self.deck_info_list = deck_info_list
 
-        # Configurar interface
+        # Setup interface
         self._setup_ui()
 
-        # Conectar eventos após criar todos os elementos
+        # Connect events after creating all elements
         self._connect_events()
 
-        # Atualizar status inicial
+        # Update initial status
         self.update_status()
 
     def _setup_ui(self):
-        """Configura os elementos da interface do usuário."""
-        # Layout principal
+        """Configures the user interface elements."""
+        # Main layout
         layout = QVBoxLayout()
 
-        # Label de instruções
-        instruction_label = QLabel("Selecione os decks que deseja sincronizar:")
+        # Instruction label
+        instruction_label = QLabel("Select decks you want to sync:")
         instruction_label.setStyleSheet("font-weight: bold; margin-bottom: 10px;")
         layout.addWidget(instruction_label)
 
-        # Criar checkboxes para cada deck
+        # Create checkboxes for each deck
         self.checkboxes = {}
         for deck_name, card_count in self.deck_info_list:
-            # Mostrar nome do deck e número de cards
+            # Show deck name and number of cards
             display_text = f"{deck_name} ({card_count} cards)"
             checkbox = QCheckBox(display_text)
-            checkbox.setChecked(True)  # Por padrão, todos selecionados
+            checkbox.setChecked(True)  # By default, all selected
             self.checkboxes[deck_name] = checkbox
             layout.addWidget(checkbox)
 
-        # Espaçador
+        # Spacer
         layout.addSpacing(10)
 
-        # Botões de seleção rápida
+        # Quick selection buttons
         self._add_selection_buttons(layout)
 
-        # Espaçador
+        # Spacer
         layout.addSpacing(10)
 
-        # Label de status
+        # Status label
         self.status_label = QLabel("")
         self.status_label.setStyleSheet("color: #666; font-size: 11px;")
         layout.addWidget(self.status_label)
 
-        # Botões de confirmação
+        # Confirmation buttons
         self._add_confirmation_buttons(layout)
 
         self.setLayout(layout)
 
     def _add_selection_buttons(self, layout):
-        """Adiciona botões de seleção rápida (Selecionar/Desmarcar Todos)."""
+        """Adds quick selection buttons (Select/Deselect All)."""
         button_layout = QHBoxLayout()
 
-        select_all_btn = QPushButton("Selecionar Todos")
+        select_all_btn = QPushButton("Select All")
         select_all_btn.clicked.connect(self.select_all)
         button_layout.addWidget(select_all_btn)
 
-        deselect_all_btn = QPushButton("Desmarcar Todos")
+        deselect_all_btn = QPushButton("Deselect All")
         deselect_all_btn.clicked.connect(self.deselect_all)
         button_layout.addWidget(deselect_all_btn)
 
         layout.addLayout(button_layout)
 
     def _add_confirmation_buttons(self, layout):
-        """Adiciona botões OK e Cancel."""
+        """Adds OK and Cancel buttons."""
         confirm_layout = QHBoxLayout()
 
-        self.ok_btn = QPushButton("Sincronizar")
+        self.ok_btn = QPushButton("Sync")
         self.ok_btn.clicked.connect(self.accept)
         confirm_layout.addWidget(self.ok_btn)
 
-        cancel_btn = QPushButton("Cancelar")
+        cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
         confirm_layout.addWidget(cancel_btn)
 
         layout.addLayout(confirm_layout)
 
     def _connect_events(self):
-        """Conecta eventos após todos os elementos serem criados."""
+        """Connects events after all elements are created."""
         for checkbox in self.checkboxes.values():
             checkbox.stateChanged.connect(self.update_status)
 
     def select_all(self):
-        """Marca todos os checkboxes."""
+        """Checks all checkboxes."""
         for checkbox in self.checkboxes.values():
             checkbox.setChecked(True)
 
     def deselect_all(self):
-        """Desmarca todos os checkboxes."""
+        """Unchecks all checkboxes."""
         for checkbox in self.checkboxes.values():
             checkbox.setChecked(False)
 
     def update_status(self):
-        """Atualiza o label de status e habilita/desabilita o botão OK."""
+        """Updates status label and enables/disables OK button."""
         selected_count = len(self.get_selected_decks())
         total_count = len(self.checkboxes)
 
         if selected_count == 0:
-            self.status_label.setText("Nenhum deck selecionado")
+            self.status_label.setText("No deck selected")
             self.ok_btn.setEnabled(False)
         else:
             self.status_label.setText(
-                f"{selected_count} de {total_count} decks selecionados"
+                f"{selected_count} of {total_count} decks selected"
             )
             self.ok_btn.setEnabled(True)
 
     def get_selected_decks(self):
         """
-        Retorna lista com nomes dos decks selecionados.
+        Returns list of selected deck names.
 
         Returns:
-            list: Lista de nomes dos decks marcados
+            list: List of checked deck names
         """
         selected = []
         for deck_name, checkbox in self.checkboxes.items():

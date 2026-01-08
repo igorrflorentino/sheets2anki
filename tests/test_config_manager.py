@@ -1,35 +1,34 @@
 #!/usr/bin/env python3
 """
-Testes para o módulo config_manager.py
+Tests for the config_manager.py module
 
-Testa funcionalidades de:
-- Gerenciamento de configurações
-- Persistência de dados
-- Configuração de decks remotos
-- Configuração de alunos globais
+Tests functionalities for:
+- Settings management
+- Data persistence
+- Remote deck configuration
+- Global student configuration
 """
 
 import json
 import os
 import tempfile
+import pytest
 from pathlib import Path
 from unittest.mock import Mock
 from unittest.mock import mock_open
 from unittest.mock import patch
 
-import pytest
-
 # =============================================================================
-# TESTES DE CONFIGURAÇÃO BÁSICA
+# BASIC CONFIGURATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestConfigManager:
-    """Classe para testes do gerenciador de configurações."""
+    """Class for configuration manager tests."""
 
     def test_load_config_success(self, temp_config_file):
-        """Teste de carregamento bem-sucedido de configuração."""
+        """Successful configuration loading test."""
 
         def load_config(config_path):
             if not os.path.exists(config_path):
@@ -45,7 +44,7 @@ class TestConfigManager:
         assert "global_students" in config
 
     def test_load_config_not_exists(self):
-        """Teste de carregamento com arquivo inexistente."""
+        """Loading test with non-existent file."""
 
         def load_config_safe(config_path):
             if not os.path.exists(config_path):
@@ -71,11 +70,11 @@ class TestConfigManager:
         assert config["global_students"] == []
 
     def test_save_config_success(self, tmp_path):
-        """Teste de salvamento bem-sucedido de configuração."""
+        """Successful configuration saving test."""
         config_file = tmp_path / "test_save_config.json"
         test_config = {
             "remote_decks": {"Test Deck": "https://example.com"},
-            "global_students": ["João", "Maria"],
+            "global_students": ["John", "Mary"],
             "ankiweb_sync": {"enabled": True},
         }
 
@@ -85,7 +84,7 @@ class TestConfigManager:
 
         save_config(str(config_file), test_config)
 
-        # Verificar se foi salvo corretamente
+        # Check if saved correctly
         with open(config_file, encoding="utf-8") as f:
             loaded_config = json.load(f)
 
@@ -93,16 +92,16 @@ class TestConfigManager:
 
 
 # =============================================================================
-# TESTES DE GERENCIAMENTO DE DECKS REMOTOS
+# REMOTE DECK MANAGEMENT TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestRemoteDeckConfig:
-    """Testes para configuração de decks remotos."""
+    """Tests for remote deck configuration."""
 
     def test_add_remote_deck(self):
-        """Teste de adição de deck remoto."""
+        """Remote deck addition test."""
 
         def add_remote_deck(config, deck_name, url):
             if "remote_decks" not in config:
@@ -121,7 +120,7 @@ class TestRemoteDeckConfig:
         assert updated_config["remote_decks"][deck_name] == url
 
     def test_remove_remote_deck(self):
-        """Teste de remoção de deck remoto."""
+        """Remote deck removal test."""
 
         def remove_remote_deck(config, deck_name):
             if "remote_decks" in config and deck_name in config["remote_decks"]:
@@ -138,26 +137,26 @@ class TestRemoteDeckConfig:
         assert "Deck 2" in updated_config["remote_decks"]
 
     def test_get_remote_decks(self):
-        """Teste de obtenção de decks remotos."""
+        """Remote decks retrieval test."""
 
         def get_remote_decks(config):
             return config.get("remote_decks", {})
 
         config = {
             "remote_decks": {
-                "Geografia": "https://geo.com",
-                "História": "https://hist.com",
+                "Geography": "https://geo.com",
+                "History": "https://hist.com",
             }
         }
 
         decks = get_remote_decks(config)
 
         assert len(decks) == 2
-        assert "Geografia" in decks
-        assert "História" in decks
+        assert "Geography" in decks
+        assert "History" in decks
 
     def test_get_deck_url(self):
-        """Teste de obtenção de URL de deck específico."""
+        """Specific deck URL retrieval test."""
 
         def get_deck_url(config, deck_name):
             return config.get("remote_decks", {}).get(deck_name)
@@ -172,46 +171,46 @@ class TestRemoteDeckConfig:
 
 
 # =============================================================================
-# TESTES DE CONFIGURAÇÃO DE ALUNOS
+# STUDENT CONFIGURATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestStudentConfig:
-    """Testes para configuração de alunos globais."""
+    """Tests for global student configuration."""
 
     def test_set_global_students(self):
-        """Teste de definição de alunos globais."""
+        """Global student definition test."""
 
         def set_global_students(config, students):
             config["global_students"] = students
             return config
 
         config = {"global_students": []}
-        students = ["João", "Maria", "Pedro"]
+        students = ["John", "Mary", "Peter"]
 
         updated_config = set_global_students(config, students)
 
         assert updated_config["global_students"] == students
 
     def test_get_global_students(self):
-        """Teste de obtenção de alunos globais."""
+        """Global student retrieval test."""
 
         def get_global_students(config):
             return config.get("global_students", [])
 
-        config = {"global_students": ["Ana", "Carlos"]}
+        config = {"global_students": ["Ann", "Charles"]}
         students = get_global_students(config)
 
-        assert students == ["Ana", "Carlos"]
+        assert students == ["Ann", "Charles"]
 
-        # Teste com configuração vazia
+        # Test with empty configuration
         empty_config = {}
         students = get_global_students(empty_config)
         assert students == []
 
     def test_add_student(self):
-        """Teste de adição de aluno individual."""
+        """Individual student addition test."""
 
         def add_student(config, student_name):
             if "global_students" not in config:
@@ -222,19 +221,19 @@ class TestStudentConfig:
 
             return config
 
-        config = {"global_students": ["João"]}
+        config = {"global_students": ["John"]}
 
-        # Adicionar novo aluno
-        updated_config = add_student(config, "Maria")
-        assert "Maria" in updated_config["global_students"]
+        # Add new student
+        updated_config = add_student(config, "Mary")
+        assert "Mary" in updated_config["global_students"]
         assert len(updated_config["global_students"]) == 2
 
-        # Tentar adicionar aluno duplicado
-        updated_config = add_student(config, "João")
-        assert updated_config["global_students"].count("João") == 1
+        # Try to add duplicate student
+        updated_config = add_student(config, "John")
+        assert updated_config["global_students"].count("John") == 1
 
     def test_remove_student(self):
-        """Teste de remoção de aluno."""
+        """Student removal test."""
 
         def remove_student(config, student_name):
             if (
@@ -244,27 +243,27 @@ class TestStudentConfig:
                 config["global_students"].remove(student_name)
             return config
 
-        config = {"global_students": ["João", "Maria", "Pedro"]}
+        config = {"global_students": ["John", "Mary", "Peter"]}
 
-        updated_config = remove_student(config, "Maria")
+        updated_config = remove_student(config, "Mary")
 
-        assert "Maria" not in updated_config["global_students"]
+        assert "Mary" not in updated_config["global_students"]
         assert len(updated_config["global_students"]) == 2
-        assert "João" in updated_config["global_students"]
-        assert "Pedro" in updated_config["global_students"]
+        assert "John" in updated_config["global_students"]
+        assert "Peter" in updated_config["global_students"]
 
 
 # =============================================================================
-# TESTES DE CONFIGURAÇÃO ANKIWEB
+# ANKIWEB CONFIGURATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestAnkiWebConfig:
-    """Testes para configuração do AnkiWeb."""
+    """Tests for AnkiWeb configuration."""
 
     def test_set_ankiweb_sync_enabled(self):
-        """Teste de habilitação/desabilitação do sync AnkiWeb."""
+        """AnkiWeb sync enabling/disabling test."""
 
         def set_ankiweb_sync_enabled(config, enabled):
             if "ankiweb_sync" not in config:
@@ -274,16 +273,16 @@ class TestAnkiWebConfig:
 
         config = {}
 
-        # Habilitar sync
+        # Enable sync
         updated_config = set_ankiweb_sync_enabled(config, True)
         assert updated_config["ankiweb_sync"]["enabled"] == True
 
-        # Desabilitar sync
+        # Disable sync
         updated_config = set_ankiweb_sync_enabled(config, False)
         assert updated_config["ankiweb_sync"]["enabled"] == False
 
     def test_get_ankiweb_sync_status(self):
-        """Teste de obtenção do status do sync AnkiWeb."""
+        """AnkiWeb sync status retrieval test."""
 
         def get_ankiweb_sync_status(config):
             return config.get("ankiweb_sync", {}).get("enabled", False)
@@ -297,7 +296,7 @@ class TestAnkiWebConfig:
         assert get_ankiweb_sync_status(config_empty) == False
 
     def test_set_auto_sync(self):
-        """Teste de configuração de auto-sync."""
+        """Auto-sync configuration test."""
 
         def set_auto_sync(config, auto_sync):
             if "ankiweb_sync" not in config:
@@ -312,16 +311,16 @@ class TestAnkiWebConfig:
 
 
 # =============================================================================
-# TESTES DE BACKUP E RESTORE
+# BACKUP AND RESTORE TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestBackupConfig:
-    """Testes para configuração de backup."""
+    """Tests for backup configuration."""
 
     def test_set_backup_before_sync(self):
-        """Teste de configuração de backup antes da sincronização."""
+        """Backup before sync configuration test."""
 
         def set_backup_before_sync(config, enabled):
             config["backup_before_sync"] = enabled
@@ -333,7 +332,7 @@ class TestBackupConfig:
         assert updated_config["backup_before_sync"] == True
 
     def test_get_backup_settings(self):
-        """Teste de obtenção de configurações de backup."""
+        """Backup settings retrieval test."""
 
         def get_backup_settings(config):
             return {
@@ -352,22 +351,22 @@ class TestBackupConfig:
 
 
 # =============================================================================
-# TESTES DE VALIDAÇÃO
+# VALIDATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestConfigValidation:
-    """Testes para validação de configurações."""
+    """Tests for settings validation."""
 
     def test_validate_url(self):
-        """Teste de validação de URL."""
+        """URL validation test."""
 
         def validate_url(url):
             if not url:
                 return False
 
-            # Deve conter google.com e pub?output=tsv
+            # Must contain google.com and pub?output=tsv
             required_parts = ["docs.google.com", "pub?output=tsv"]
             return all(part in url for part in required_parts)
 
@@ -379,18 +378,18 @@ class TestConfigValidation:
         assert validate_url("") == False
 
     def test_validate_config_structure(self):
-        """Teste de validação da estrutura de configuração."""
+        """Configuration structure validation test."""
 
         def validate_config_structure(config):
             required_keys = ["remote_decks", "global_students"]
             optional_keys = ["ankiweb_sync", "backup_before_sync"]
 
-            # Verificar chaves obrigatórias
+            # Check mandatory keys
             for key in required_keys:
                 if key not in config:
                     return False
 
-            # Verificar tipos
+            # Check types
             if not isinstance(config["remote_decks"], dict):
                 return False
             if not isinstance(config["global_students"], list):
@@ -398,10 +397,10 @@ class TestConfigValidation:
 
             return True
 
-        valid_config = {"remote_decks": {"Deck1": "url1"}, "global_students": ["João"]}
+        valid_config = {"remote_decks": {"Deck1": "url1"}, "global_students": ["John"]}
 
         invalid_config = {
-            "remote_decks": "not_a_dict",  # Tipo incorreto
+            "remote_decks": "not_a_dict",  # Incorrect type
             "global_students": [],
         }
 
@@ -410,26 +409,26 @@ class TestConfigValidation:
 
 
 # =============================================================================
-# TESTES DE MIGRAÇÃO DE CONFIGURAÇÃO
+# CONFIGURATION MIGRATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestConfigMigration:
-    """Testes para migração de configurações antigas."""
+    """Tests for old configuration migration."""
 
     def test_migrate_old_config_format(self):
-        """Teste de migração de formato antigo de configuração."""
+        """Old configuration format migration test."""
 
         def migrate_config(old_config):
-            # Formato antigo para novo
+            # Old format to new
             if "decks" in old_config and "remote_decks" not in old_config:
                 old_config["remote_decks"] = old_config.pop("decks")
 
             if "students" in old_config and "global_students" not in old_config:
                 old_config["global_students"] = old_config.pop("students")
 
-            # Adicionar configurações padrão se não existirem
+            # Add default settings if they don't exist
             if "ankiweb_sync" not in old_config:
                 old_config["ankiweb_sync"] = {"enabled": False}
 
@@ -447,19 +446,19 @@ class TestConfigMigration:
 
 
 # =============================================================================
-# TESTES DE INTEGRAÇÃO
+# INTEGRATION TESTS
 # =============================================================================
 
 
 @pytest.mark.integration
 class TestConfigIntegration:
-    """Testes de integração do sistema de configuração."""
+    """Integration tests for the configuration system."""
 
     def test_full_config_lifecycle(self, tmp_path):
-        """Teste completo do ciclo de vida de configuração."""
+        """Complete configuration lifecycle test."""
         config_file = tmp_path / "integration_test.json"
 
-        # Funções helper
+        # Helper functions
         def load_config(path):
             if not os.path.exists(path):
                 return {"remote_decks": {}, "global_students": []}
@@ -470,30 +469,30 @@ class TestConfigIntegration:
             with open(path, "w") as f:
                 json.dump(config, f, indent=2)
 
-        # 1. Carregar configuração inicial (vazia)
+        # 1. Load initial configuration (empty)
         config = load_config(str(config_file))
         assert config["remote_decks"] == {}
 
-        # 2. Adicionar deck
+        # 2. Add deck
         config["remote_decks"]["Test Deck"] = "https://test.com"
-        config["global_students"] = ["João", "Maria"]
+        config["global_students"] = ["John", "Mary"]
 
-        # 3. Salvar configuração
+        # 3. Save configuration
         save_config(str(config_file), config)
 
-        # 4. Recarregar e verificar
+        # 4. Reload and verify
         reloaded_config = load_config(str(config_file))
         assert "Test Deck" in reloaded_config["remote_decks"]
-        assert "João" in reloaded_config["global_students"]
+        assert "John" in reloaded_config["global_students"]
 
-        # 5. Modificar e salvar novamente
-        reloaded_config["global_students"].append("Pedro")
+        # 5. Modify and save again
+        reloaded_config["global_students"].append("Peter")
         save_config(str(config_file), reloaded_config)
 
-        # 6. Verificar mudanças persistiram
+        # 6. Verify changes persisted
         final_config = load_config(str(config_file))
         assert len(final_config["global_students"]) == 3
-        assert "Pedro" in final_config["global_students"]
+        assert "Peter" in final_config["global_students"]
 
 
 if __name__ == "__main__":

@@ -1,23 +1,23 @@
-# 🛠️ Sheets2Anki - Documentação para Desenvolvedores
+# 🛠️ Sheets2Anki - Developer Documentation
 
-Este documento fornece informações técnicas sobre o add-on **Sheets2Anki** para desenvolvedores que desejam contribuir, entender a arquitetura ou fazer modificações.
+This document provides technical information about the **Sheets2Anki** add-on for developers who want to contribute, understand the architecture, or make modifications.
 
-## 📋 Índice
-- [Arquitetura do Sistema](#-arquitetura-do-sistema)
-- [Estrutura do Projeto](#-estrutura-do-projeto)
-- [Componentes Principais](#-componentes-principais)
-- [Fluxo de Dados](#-fluxo-de-dados)
-- [APIs e Integrações](#-apis-e-integrações)
-- [Setup de Desenvolvimento](#-setup-de-desenvolvimento)
-- [Build e Deploy](#-build-e-deploy)
-- [Testes](#-testes)
+## 📋 Table of Contents
+- [System Architecture](#-system-architecture)
+- [Project Structure](#-project-structure)
+- [Main Components](#-main-components)
+- [Data Flow](#-data-flow)
+- [APIs and Integrations](#-apis-and-integrations)
+- [Development Setup](#-development-setup)
+- [Build and Deploy](#-build-and-deploy)
+- [Tests](#-tests)
 - [Debugging](#-debugging)
-- [Contribuindo](#-contribuindo)
+- [Contributing](#-contributing)
 
-## 🏗️ Arquitetura do Sistema
+## 🏗️ System Architecture
 
-### Visão Geral
-O Sheets2Anki é um add-on modular para Anki que sincroniza dados do Google Sheets com decks locais. A arquitetura segue o padrão **MVC** adaptado para add-ons Anki:
+### Overview
+Sheets2Anki is a modular add-on for Anki that synchronizes Google Sheets data with local decks. The architecture follows the **MVC** pattern adapted for Anki add-ons:
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -34,32 +34,32 @@ O Sheets2Anki é um add-on modular para Anki que sincroniza dados do Google Shee
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
-### Principais Design Patterns
+### Main Design Patterns
 
 #### 1. **Manager Pattern**
-- `ConfigManager`: Configurações persistentes
-- `DeckManager`: Operações com decks Anki
-- `StudentManager`: Gestão de alunos
-- `BackupManager`: Sistema de backup
+- `ConfigManager`: Persistent settings
+- `DeckManager`: Anki deck operations
+- `StudentManager`: Student management
+- `BackupManager`: Backup system
 
 #### 2. **Strategy Pattern**
-- `DataProcessor`: Diferentes estratégias de processamento (Basic vs Cloze cards)
-- Sync strategies: incremental vs full sync
+- `DataProcessor`: Different processing strategies (Basic vs Cloze cards)
+- Sync strategies: Incremental vs full sync
 
 #### 3. **Observer Pattern**
-- Event-driven updates entre componentes
-- Progress callbacks durante sincronização
+- Event-driven updates between components
+- Progress callbacks during synchronization
 
-## 🆕 Melhorias Recentes - Versão Atual
+## 🆕 Recent Improvements - Current Version
 
-### 🔧 **Sistema de Consistência de Nomes** (`src/name_consistency_manager.py`)
+### 🔧 **Name Consistency System** (`src/name_consistency_manager.py`)
 
-#### **Problema Resolvido:**
-- Inconsistências entre nomes de note types no Anki vs. configuração
-- Reversão de correções por operações posteriores de save
-- Falta de sincronização automática durante o processo de sync
+#### **Solved Problem:**
+- Inconsistencies between note type names in Anki vs. configuration
+- Correction reversals by later save operations
+- Lack of automatic synchronization during the sync process
 
-#### **Solução Implementada:**
+#### **Implemented Solution:**
 ```python
 class NameConsistencyManager:
     @staticmethod
@@ -68,7 +68,7 @@ class NameConsistencyManager:
         remote_decks: Optional[Dict] = None,
         debug_callback=None
     ) -> Dict[str, Any]:
-        """Garante consistência de nomes durante sincronização"""
+        """Ensures name consistency during synchronization"""
         
     @staticmethod
     def update_remote_decks_in_memory(
@@ -78,45 +78,45 @@ class NameConsistencyManager:
         note_types: Dict[str, str],
         debug_callback
     ):
-        """Atualiza dados em memória para evitar reversão"""
+        """Updates in-memory data to avoid reversal"""
 ```
 
-#### **Características Técnicas:**
-- **Detecção Automática:** Verifica inconsistências após cada deck sync
-- **Correção Dual:** Atualiza tanto meta.json quanto dicionário em memória
-- **Prevenção de Reversão:** Evita que `save_remote_decks()` posterior reverta mudanças
-- **Debug Detalhado:** Log completo de todas as operações de consistência
+#### **Technical Features:**
+- **Automatic Detection:** Checks for inconsistencies after each deck sync
+- **Dual Correction:** Updates both meta.json and in-memory dictionary
+- **Reversal Prevention:** Prevents later `save_remote_decks()` from reverting changes
+- **Detailed Debug:** Complete log of all consistency operations
 
-### 📊 **Interface de Resumo Aprimorada** (`src/sync.py`)
+### 📊 **Enhanced Summary Interface** (`src/sync.py`)
 
-#### **Reorganização da Função `generate_detailed_view()`:**
+#### **Reorganization of `generate_detailed_view()`:**
 ```python
 def generate_detailed_view(total_stats, sync_errors=None, deck_results=None):
     """
-    Gera visualização detalhada com ordem otimizada:
-    1. PRIMEIRO: Resumo geral agregado
-    2. SEGUNDO: Detalhes individuais por deck
+    Generates detailed view with optimized order:
+    1. FIRST: Aggregated general summary
+    2. SECOND: Individual details per deck
     """
     details_content = []
     
-    # PRIMEIRO: Mostrar resumo geral agregado
+    # FIRST: Show aggregated general summary
     aggregated_summary = generate_aggregated_summary_only(total_stats, sync_errors)
     if aggregated_summary:
-        details_content.append("📋 RESUMO GERAL AGREGADO:")
+        details_content.append("📋 AGGREGATED GENERAL SUMMARY:")
         details_content.extend(aggregated_summary)
     
-    # SEGUNDO: Mostrar resumo por deck individual
+    # SECOND: Show summary per individual deck
     if deck_results and len(deck_results) > 1:
-        details_content.append("📊 RESUMO POR DECK INDIVIDUAL:")
-        # ... detalhes por deck
+        details_content.append("📊 INDIVIDUAL DECK SUMMARY:")
+        # ... deck details
 ```
 
-#### **Melhorias de UX:**
-- **Ordem Lógica:** Visão geral → Detalhes específicos
-- **Performance:** Rendering otimizado para grandes volumes
-- **Consistência:** Padrão uniforme de apresentação de dados
+#### **UX Improvements:**
+- **Logical Order:** General Overview → Specific Details
+- **Performance:** Optimized rendering for large volumes
+- **Consistency:** Uniform data presentation standard
 
-### 🔄 **Fluxo de Sync Atualizado:**
+### 🔄 **Updated Sync Flow:**
 
 ```mermaid
 graph TD
@@ -131,73 +131,73 @@ graph TD
     I --> J[🆕 Consistency Preserved]
 ```
 
-#### **Pontos Críticos de Melhoria:**
-1. **Linha 2002 sync.py:** Chamada do sistema de consistência
-2. **Atualização Dual:** Meta.json + remote_decks em memória
-3. **Save Final:** Garantia de persistência das correções
-- Progress callbacks durante sincronização
+#### **Critical Improvement Points:**
+1. **Line 2002 sync.py:** Consistency system call
+2. **Dual Update:** Meta.json + in-memory remote_decks
+3. **Final Save:** Correctness persistence guarantee
+- Progress callbacks during synchronization
 
-## 📁 Estrutura do Projeto
+## 📁 Project Structure
 
 ```
 sheets2anki/
-├── 📄 __init__.py              # Entry point do add-on
-├── 📄 config.json              # Configurações padrão
-├── 📄 manifest.json            # Metadados do add-on
-├── 📄 meta.json                # Informações AnkiWeb
-├── 📁 src/                     # Código fonte principal
+├── 📄 __init__.py              # Add-on entry point
+├── 📄 config.json              # Default settings
+├── 📄 manifest.json            # Add-on metadata
+├── 📄 meta.json                # AnkiWeb info
+├── 📁 src/                     # Main source code
 │   ├── 📄 __init__.py
-│   ├── 📄 sync.py              # 🔥 Motor de sincronização (2142 linhas)
-│   ├── 📄 data_processor.py    # Processamento de dados TSV
-│   ├── 📄 config_manager.py    # Gerenciamento de configurações
-│   ├── 📄 deck_manager.py      # Operações com decks Anki
-│   ├── 📄 student_manager.py   # Sistema de gestão de alunos
-│   ├── 📄 backup_system.py     # Sistema de backup/restore
-│   ├── 📄 ankiweb_sync.py      # Integração AnkiWeb
-│   ├── 📄 utils.py             # Utilitários gerais
-│   ├── 📄 compat.py            # Compatibilidade entre versões
-│   ├── 📄 templates_and_definitions.py  # Templates de cards
-│   └── 📄 *_dialog.py          # Interfaces de usuário
-├── 📁 libs/                    # Bibliotecas externas bundled
+│   ├── 📄 sync.py              # 🔥 Synchronization engine (2142 lines)
+│   ├── 📄 data_processor.py    # TSV data processing
+│   ├── 📄 config_manager.py    # Settings management
+│   ├── 📄 deck_manager.py      # Anki deck operations
+│   ├── 📄 student_manager.py   # Student management system
+│   ├── 📄 backup_system.py     # Backup/restore system
+│   ├── 📄 ankiweb_sync.py      # AnkiWeb integration
+│   ├── 📄 utils.py             # General utilities
+│   ├── 📄 compat.py            # Version compatibility
+│   ├── 📄 templates_and_definitions.py  # Card templates
+│   └── 📄 *_dialog.py          # User interfaces
+├── 📁 libs/                    # Bundled external libraries
 │   ├── 📄 beautifulsoup4/
 │   ├── 📄 chardet/
 │   └── 📄 org_to_anki/
-├── 📁 build/                   # Artefatos de build
-├── 📁 scripts/                 # Scripts de build e deploy
-├── 📁 tests/                   # Testes unitários
-└── 📁 docs/                    # Documentação
+├── 📁 build/                   # Build artifacts
+├── 📁 scripts/                 # Build and deploy scripts
+├── 📁 tests/                   # Unit tests
+└── 📁 docs/                    # Documentation
 ```
 
-### Arquivos Críticos
+### Critical Files
 
-#### **src/sync.py** (2142 linhas)
-O coração do sistema. Contém:
-- `SyncManager` class principal
-- `syncDecks()`: Entry point da sincronização
-- `_sync_single_deck()`: Lógica de sincronização por deck
-- `_process_students()`: Processamento de alunos
-- Gerenciamento de tags hierárquicas
-- Detecção e criação de note types
+#### **src/sync.py** (2142 lines)
+The heart of the system. Contains:
+- `SyncManager` main class
+- `syncDecks()`: Synchronization entry point
+- `_sync_single_deck()`: Per-deck synchronization logic
+- `_process_students()`: Student processing
+- Hierarchical tag management
+- Note type detection and creation
 
 #### **src/data_processor.py**
-Responsável por:
-- Parsing de TSV do Google Sheets
-- Validação de dados (18 colunas obrigatórias)
-- Detecção automática de cards Cloze
-- Normalização de dados de entrada
+Responsible for:
+- Parsing Google Sheets TSV
+- Data validation (23 supported columns)
+- Automatic Cloze card detection
+- Input data normalization
 
 #### **src/config_manager.py**
-Gerencia:
-- Configurações persistentes em JSON
-- URLs de planilhas conectadas
-- Preferências de sincronização
-- Settings de backup
+Manages:
+- Persistent JSON settings
+- Connected spreadsheet URLs
+- Sync preferences
+- Backup settings
 
-## 🔧 Componentes Principais
+## 🔧 Main Components
 
-### 1. **Sistema de Sincronização** (`src/sync.py`)
+### 1. **Synchronization System** (`src/sync.py`)
 
-#### Classes Principais:
+#### Main Classes:
 ```python
 class SyncManager:
     def __init__(self, mw: AnkiQt)
@@ -207,22 +207,22 @@ class SyncManager:
     def _create_or_update_note(note_data: Dict) -> Note
 ```
 
-#### Fluxo de Sincronização:
-1. **Fetch Data**: Download TSV da planilha
-2. **Parse & Validate**: Validação das 18 colunas
-3. **Student Processing**: Filtragem por alunos ativos
-4. **Note Creation/Update**: CRUD de notes Anki
-5. **Tag Management**: Aplicação de tags hierárquicas
-6. **Deck Organization**: Criação de subdecks
-7. **Cleanup**: Remoção de dados órfãos
+#### Sync Flow:
+1. **Fetch Data**: Spreadsheet TSV download
+2. **Parse & Validate**: 23 columns validation
+3. **Student Processing**: Active students filtering
+4. **Note Creation/Update**: Anki notes CRUD
+5. **Tag Management**: Hierarchical tags application
+6. **Deck Organization**: Subdecks creation
+7. **Cleanup**: Orphaned data removal
 
-### 2. **Sistema de Gestão de Alunos** (`src/student_manager.py`)
+### 2. **Student Management System** (`src/student_manager.py`)
 
-#### Funcionalidades:
-- **Global Configuration**: Alunos ativos em todos os decks
-- **Individual Filtering**: Por deck específico
-- **Automatic Subdeck Creation**: Estrutura hierárquica
-- **Custom Note Types**: Um por aluno
+#### Features:
+- **Global Configuration**: Active students across all decks
+- **Individual Filtering**: Per specific deck
+- **Automatic Subdeck Creation**: Hierarchical structure
+- **Custom Note Types**: One per student
 
 ```python
 class StudentManager:
@@ -232,13 +232,13 @@ class StudentManager:
     def create_student_subdecks(deck_name: str, students: List[str]) -> None
 ```
 
-### 3. **Processador de Dados** (`src/data_processor.py`)
+### 3. **Data Processor** (`src/data_processor.py`)
 
-#### Responsabilidades:
-- **TSV Parsing**: Conversão string → estrutura dados
-- **Column Validation**: Verificação das 18 colunas
-- **Cloze Detection**: Regex para `{{c1::text}}`
-- **Data Normalization**: Limpeza e padronização
+#### Responsibilities:
+- **TSV Parsing**: String → data structure conversion
+- **Column Validation**: 23 columns verification
+- **Cloze Detection**: Regex for `{{c1::text}}`
+- **Data Normalization**: Cleanup and standardization
 
 ```python
 class DataProcessor:
@@ -248,11 +248,11 @@ class DataProcessor:
     def normalize_student_names(names: str) -> List[str]
 ```
 
-### 4. **Sistema de Backup** (`src/backup_system.py`)
+### 4. **Backup System** (`src/backup_system.py`)
 
-#### Tipos de Backup:
-- **Manual Backup**: Iniciado pelo usuário
-- **Safety Backup**: Antes de restore operations
+#### Backup Types:
+- **Manual Backup**: User initiated
+- **Safety Backup**: Before restore operations
 - **Configuration Backup**: Settings + decks + students
 
 ```python
@@ -262,26 +262,26 @@ class BackupManager:
     def list_available_backups() -> List[BackupInfo]
 ```
 
-### 5. **Integração AnkiWeb** (`src/ankiweb_sync.py`)
+### 5. **AnkiWeb Integration** (`src/ankiweb_sync.py`)
 
-#### Compatibilidade Multi-versão:
+#### Multi-version Compatibility:
 ```python
 class AnkiWebSyncManager:
     def auto_sync_after_changes() -> None
     def test_connectivity() -> SyncStatus
     def _sync_modern(mw) -> None      # Anki 2.1.50+
-    def _sync_legacy(mw) -> None      # Versões anteriores
+    def _sync_legacy(mw) -> None      # Previous versions
 ```
 
-## 🔄 Fluxo de Dados
+## 🔄 Data Flow
 
 ### 1. **User Action → Sync Trigger**
 ```
-User clicks "Sincronizar" (Ctrl+Shift+S)
+User clicks "Sync" (Ctrl+Shift+S)
     ↓
 sync_dialog.py → SyncManager.syncDecks()
     ↓
-Para cada deck configurado:
+For each configured deck:
     ↓
 _sync_single_deck(deck_name, url)
 ```
@@ -327,7 +327,7 @@ Update UI with results
 Log completion stats
 ```
 
-## 🔌 APIs e Integrações
+## 🔌 APIs and Integrations
 
 ### **Anki API Usage**
 
@@ -357,7 +357,7 @@ mw.col.models.save()
 
 #### TSV Format Requirements:
 - **Flexible URLs**: Supports both published TSV and edit URLs
-- **18 Columns**: Mandatory structure
+- **23 Columns**: Mandatory structure
 - **UTF-8 Encoding**: Character encoding
 - **Tab Separated**: Not comma-separated
 
@@ -392,40 +392,40 @@ BACKUP_DIR = os.path.join(ADDON_DIR, "backups")
 LOG_FILE = os.path.join(ADDON_DIR, "debug_sheets2anki.log")
 ```
 
-## 🚀 Setup de Desenvolvimento
+## 🚀 Development Setup
 
-### **Pré-requisitos**
+### **Prerequisites**
 ```bash
-# Python 3.9+ (compatível com Anki)
+# Python 3.9+ (compatible with Anki)
 python --version
 
-# Anki instalado para desenvolvimento
+# Anki installed for development
 # Download: https://apps.ankiweb.net/
 ```
 
-### **Clone e Setup**
+### **Clone and Setup**
 ```bash
-# Clone do repositório
+# Clone the repository
 git clone https://github.com/igorrflorentino/sheets2anki.git
 cd sheets2anki
 
-# Instalar dependências de desenvolvimento
+# Install development dependencies
 pip install -r requirements-dev.txt
 
-# Instalar em modo desenvolvimento no Anki
-# Copiar pasta para: ~/Documents/Anki2/addons21/sheets2anki_dev/
+# Install in development mode in Anki
+# Copy folder to: ~/Documents/Anki2/addons21/sheets2anki_dev/
 ```
 
-### **Estrutura de Desenvolvimento**
+### **Development Structure**
 ```bash
-# Link simbólico para desenvolvimento ativo
+# Symbolic link for active development
 ln -s /path/to/dev/sheets2anki ~/.local/share/Anki2/addons21/sheets2anki_dev
 
-# Ou copiar arquivos
+# Or copy files
 cp -r src/* ~/.local/share/Anki2/addons21/sheets2anki_dev/
 ```
 
-### **Configuração do IDE**
+### **IDE Configuration**
 ```json
 // .vscode/settings.json
 {
@@ -437,25 +437,25 @@ cp -r src/* ~/.local/share/Anki2/addons21/sheets2anki_dev/
 }
 ```
 
-## 🏗️ Build e Deploy
+## 🏗️ Build and Deploy
 
-### **Scripts de Build**
+### **Build Scripts**
 
 #### **1. Build Standalone Package**
 ```bash
-# Cria pacote com todas as dependências
+# Creates package with all dependencies
 python scripts/create_standalone_package.py
 ```
 
 #### **2. Build AnkiWeb Package**
 ```bash
-# Cria pacote compatível com AnkiWeb
+# Creates AnkiWeb compatible package
 python scripts/create_ankiweb_package.py
 ```
 
 #### **3. Validate Packages**
 ```bash
-# Valida estrutura dos pacotes criados
+# Validates the structure of created packages
 python scripts/validate_packages.py
 ```
 
@@ -463,14 +463,14 @@ python scripts/validate_packages.py
 
 #### Standalone Package:
 1. **Copy Source**: `src/` → `build/sheets2anki-standalone/`
-2. **Bundle Dependencies**: `libs/` incluídas
-3. **Create Manifest**: Metadados completos
+2. **Bundle Dependencies**: `libs/` included
+3. **Create Manifest**: Complete metadata
 4. **ZIP Package**: `sheets2anki-standalone.ankiaddon`
 
 #### AnkiWeb Package:
 1. **Copy Source**: `src/` → `build/sheets2anki/`
-2. **Exclude Dependencies**: AnkiWeb instala automaticamente
-3. **Minimal Manifest**: Metadados essenciais
+2. **Exclude Dependencies**: AnkiWeb installs automatically
+3. **Minimal Manifest**: Essential metadata
 4. **ZIP Package**: `sheets2anki.ankiaddon`
 
 ### **Deploy Pipeline**
@@ -484,43 +484,43 @@ python -m pytest tests/
 python scripts/build_packages.py
 
 # 3. Test installation
-# Install em Anki de teste
+# Install in test Anki
 
 # 4. Upload to AnkiWeb
-# Via interface web oficial
+# Via official web interface
 ```
 
 #### Release Process:
-1. **Version Bump**: `meta.json` e `manifest.json`
-2. **Changelog**: Documentar mudanças
-3. **Build & Test**: Pacotes funcionais
+1. **Version Bump**: `meta.json` and `manifest.json`
+2. **Changelog**: Document changes
+3. **Build & Test**: Functional packages
 4. **Tag Release**: `git tag v1.x.x`
 5. **Upload**: AnkiWeb submission
 
-## 🧪 Testes
+## 🧪 Tests
 
-### **Estrutura de Testes**
+### **Test Structure**
 ```
 tests/
-├── test_sync.py              # Testes do motor de sincronização
-├── test_data_processor.py    # Testes do processador TSV
-├── test_student_manager.py   # Testes de gestão de alunos
-├── test_backup_system.py     # Testes de backup/restore
-├── test_config_manager.py    # Testes de configuração
-└── fixtures/                 # Dados de teste
+├── test_sync.py              # Synchronization engine tests
+├── test_data_processor.py    # TSV processor tests
+├── test_student_manager.py   # Student management tests
+├── test_backup_system.py     # Backup/restore tests
+├── test_config_manager.py    # Configuration tests
+└── fixtures/                 # Test data
     ├── sample_tsv/
     └── mock_configs/
 ```
 
-### **Rodando Testes**
+### **Running Tests**
 ```bash
-# Todos os testes
+# All tests
 python -m pytest tests/ -v
 
-# Testes específicos
+# Specific tests
 python -m pytest tests/test_sync.py -v
 
-# Com coverage
+# With coverage
 python -m pytest tests/ --cov=src/ --cov-report=html
 ```
 
@@ -530,11 +530,11 @@ python -m pytest tests/ --cov=src/ --cov-report=html
 SAMPLE_TSV_DATA = [
     {
         'ID': 'Q001',
-        'PERGUNTA': 'Capital do Brasil?',
+        'PERGUNTA': 'Capital of Brazil?',
         'LEVAR PARA PROVA': 'Brasília',
         'SYNC': 'true',
         'ALUNOS': 'João, Maria',
-        # ... mais 13 colunas
+        # ... 18 more columns
     }
 ]
 ```
@@ -542,30 +542,30 @@ SAMPLE_TSV_DATA = [
 ### **Test Categories**
 
 #### **1. Unit Tests**
-- Funções isoladas
-- Mocking de dependências externas
-- Validação de lógica de negócio
+- Isolated functions
+- Mocking of external dependencies
+- Business logic validation
 
 #### **2. Integration Tests**
-- Fluxo completo de sincronização
-- Integração com Anki API
-- Processamento de dados reais
+- Complete sync flow
+- Anki API integration
+- Real data processing
 
 #### **3. UI Tests**
-- Dialogs e interações
-- Validação de inputs
+- Dialogs and interactions
+- Input validation
 - Error handling
 
 ## 🐛 Debugging
 
 ### **Logging System**
 ```python
-# Configuração de logs
+# Logs configuration
 import logging
 logger = logging.getLogger("sheets2anki")
 logger.setLevel(logging.DEBUG)
 
-# Output para arquivo
+# File output
 handler = logging.FileHandler("debug_sheets2anki.log")
 logger.addHandler(handler)
 ```
@@ -574,7 +574,7 @@ logger.addHandler(handler)
 
 #### **1. Anki Developer Mode**
 ```python
-# No __init__.py
+# In __init__.py
 from anki import buildinfo
 if buildinfo.version.startswith("2.1"):
     # Enable debug mode
@@ -584,10 +584,10 @@ if buildinfo.version.startswith("2.1"):
 
 #### **2. Remote Debugging**
 ```python
-# Para PyCharm/VSCode remote debugging
+# For PyCharm/VSCode remote debugging
 import pdb; pdb.set_trace()
 
-# Ou remote debugger
+# Or remote debugger
 import debugpy
 debugpy.listen(5678)
 debugpy.wait_for_client()
@@ -595,83 +595,77 @@ debugpy.wait_for_client()
 
 #### **3. Console Output**
 ```python
-#### **3. Console Output**
-```python
-# Debug prints visíveis no Anki
+# Debug prints visible in Anki
 from aqt.utils import showInfo
 showInfo(f"Debug: {variable_content}")
 
-# Debug específico para name consistency
+# Specific debug for name consistency
 from .utils import add_debug_message
 add_debug_message("Consistency check started", "NAME_CONSISTENCY")
 ```
 
-### 🆕 **Debugging das Novas Funcionalidades**
+### 🆕 **Debugging New Features**
 
-#### **Sistema de Consistência de Nomes**
+#### **Name Consistency System**
 
-**Logs Importantes:**
+**Important Logs:**
 ```bash
-# Arquivo: debug_sheets2anki.log
+# File: debug_sheets2anki.log
 
-# Início da verificação
-[13:11:11.617] [NAME_CONSISTENCY] 🔧 Iniciando verificação de consistência
+# Verification start
+[13:11:11.617] [NAME_CONSISTENCY] 🔧 Starting consistency check
 
-# Detecção de inconsistência
+# Inconsistency detection
 [13:11:11.618] [NAME_CONSISTENCY] Note type 1756222007332: 'old_name' vs 'new_name'
 
-# Correção aplicada
-[13:11:11.618] [NAME_CONSISTENCY] 📋 Note type correto no Anki, atualizando meta.json
+# Applied correction
+[13:11:11.618] [NAME_CONSISTENCY] 📋 Correct note type in Anki, updating meta.json
 
-# Atualização em memória
-[13:11:11.619] [NAME_CONSISTENCY] 💾 Dicionário remote_decks em memória atualizado
+# In-memory update
+[13:11:11.619] [NAME_CONSISTENCY] 💾 In-memory remote_decks dictionary updated
 
-# Save final
-[13:11:11.621] [SYNC] 💾 FINAL_SAVE: Configurações salvas após verificação
+# Final save
+[13:11:11.621] [SYNC] 💾 FINAL_SAVE: Settings saved after verification
 ```
 
 **Debugging Checklist:**
 ```python
 def debug_consistency_system():
-    """Para debuggar problemas de consistência"""
+    """To debug consistency issues"""
     
-    # 1. Verificar se função é chamada
+    # 1. Check if function is called
     assert "ensure_consistency_during_sync" in locals()
     
-    # 2. Verificar se remote_decks é passado
+    # 2. Check if remote_decks is passed
     assert remote_decks_param is not None
     
-    # 3. Verificar save operations order
-    # Meta.json deve ser salvo APÓS consistência
+    # 3. Check save operations order
+    # Meta.json must be saved AFTER consistency
     
-    # 4. Verificar se mudanças persistem
-    # Comparar antes/depois no meta.json
+    # 4. Check if changes persist
+    # Compare before/after in meta.json
 ```
 
-**Problemas Comuns:**
-- **Reversão de mudanças:** `save_remote_decks()` posterior sobrescreve
-- **Dados não persistem:** FINAL_SAVE não executado
-- **Logs ausentes:** debug_callback não configurado
+**Common Issues:**
+- **Changes reversal:** later `save_remote_decks()` overwrites
+- **Data doesn't persist:** FINAL_SAVE not executed
+- **Missing logs:** debug_callback not configured
 
-#### **Interface de Resumo**
+#### **Summary Interface**
 
-**Verificar Ordem das Seções:**
+**Check Section Order:**
 ```python
 def test_summary_order():
     result = generate_detailed_view(stats, errors, deck_results)
     
-    # Procurar índices das seções
+    # Find section indices
     agregado_idx = next(i for i, line in enumerate(result) 
-                       if "RESUMO GERAL AGREGADO" in line)
+                       if "AGGREGATED GENERAL SUMMARY" in line)
     individual_idx = next(i for i, line in enumerate(result) 
-                         if "RESUMO POR DECK INDIVIDUAL" in line)
+                         if "INDIVIDUAL DECK SUMMARY" in line)
     
-    # Verificar ordem correta
-    assert agregado_idx < individual_idx, "Ordem incorreta!"
-```
-
-# Para desenvolvimento
-print(f"DEBUG: {data}", file=sys.stderr)
+    # Verify correct order
+    assert agregado_idx < individual_idx, "Incorrect order!"
 ```
 
 ### **Common Issues**
@@ -705,11 +699,11 @@ def safe_ui_update():
     QTimer.singleShot(0, lambda: update_progress_bar())
 ```
 
-## 📝 Code Style e Conventions
+## 📝 Code Style and Conventions
 
 ### **Python Style Guide**
 - **PEP 8**: Standard Python style
-- **Type Hints**: Quando possível
+- **Type Hints**: When possible
 - **Docstrings**: Google style
 - **Line Length**: 88 characters (Black formatter)
 
@@ -731,95 +725,95 @@ def _internal_helper():
 ### **Documentation Standards**
 ```python
 def sync_single_deck(deck_name: str, url: str) -> Dict[str, Any]:
-    """Sincroniza um deck específico com planilha remota.
+    """Synchronizes a specific deck with remote spreadsheet.
     
     Args:
-        deck_name: Nome do deck no Anki
-        url: URL da planilha Google Sheets (TSV)
+        deck_name: Deck name in Anki
+        url: Google Sheets (TSV) URL
         
     Returns:
-        Dict contendo estatísticas da sincronização:
+        Dict containing sync statistics:
         - cards_created: int
         - cards_updated: int  
         - cards_deleted: int
         - students_processed: List[str]
         
     Raises:
-        SyncError: Se a URL for inválida ou dados corrompidos
-        ConnectionError: Se não conseguir conectar à planilha
+        SyncError: If URL is invalid or data is corrupted
+        ConnectionError: If cannot connect to spreadsheet
     """
 ```
 
-## 🤝 Contribuindo
+## 🤝 Contributing
 
-### **Process de Contribuição**
+### **Contribution Process**
 
 #### **1. Fork & Clone**
 ```bash
-# Fork no GitHub
-# Clone seu fork
-git clone https://github.com/seu-usuario/sheets2anki.git
+# Fork on GitHub
+# Clone your fork
+git clone https://github.com/your-username/sheets2anki.git
 cd sheets2anki
 ```
 
 #### **2. Create Branch**
 ```bash
-# Branch descritiva
-git checkout -b feature/adicionar-suporte-excel
-git checkout -b fix/corrigir-encoding-tsv
-git checkout -b docs/atualizar-readme-dev
+# Descriptive branch
+git checkout -b feature/add-excel-support
+git checkout -b fix/fix-tsv-encoding
+git checkout -b docs/update-readme-dev
 ```
 
 #### **3. Development**
 ```bash
-# Instalar em modo dev
-# Fazer alterações
-# Testar localmente
+# Install in dev mode
+# Make changes
+# Test locally
 python -m pytest tests/
 ```
 
 #### **4. Commit & Push**
 ```bash
-# Commits descritivos
+# Descriptive commits
 git add .
-git commit -m "feat: adicionar suporte a arquivos Excel
+git commit -m "feat: add support for Excel files
 
-- Implementar parser para .xlsx
-- Adicionar validação de colunas Excel  
-- Manter compatibilidade com TSV
-- Adicionar testes para Excel parser"
+- Implement parser for .xlsx
+- Add Excel column validation  
+- Maintain TSV compatibility
+- Add tests for Excel parser"
 
-git push origin feature/adicionar-suporte-excel
+git push origin feature/add-excel-support
 ```
 
 #### **5. Pull Request**
-- **Título claro**: Descreva a mudança
-- **Descrição detalhada**: O que, por que, como
-- **Testes**: Evidências de que funciona
-- **Screenshots**: Para mudanças de UI
+- **Clear title**: Describe the change
+- **Detailed description**: What, why, how
+- **Tests**: Evidence that it works
+- **Screenshots**: For UI changes
 
 ### **Contribution Guidelines**
 
 #### **Code Quality**
-- ✅ Testes passando: `pytest tests/`
+- ✅ Tests passing: `pytest tests/`
 - ✅ Style check: `flake8 src/`
 - ✅ Type check: `mypy src/`
-- ✅ Documentação atualizada
+- ✅ Documentation updated
 
 #### **Types of Contributions**
-- 🐛 **Bug Fixes**: Correções de problemas
-- ✨ **Features**: Novas funcionalidades
-- 📚 **Documentation**: Melhorias na docs
-- 🎨 **UI/UX**: Melhorias de interface
-- ⚡ **Performance**: Otimizações
-- 🧪 **Tests**: Cobertura de testes
+- 🐛 **Bug Fixes**: Problem corrections
+- ✨ **Features**: New functionalities
+- 📚 **Documentation**: Docs improvements
+- 🎨 **UI/UX**: Interface improvements
+- ⚡ **Performance**: Optimizations
+- 🧪 **Tests**: Test coverage
 
 #### **Priority Areas**
-1. **Error Handling**: Melhor tratamento de erros
-2. **Performance**: Otimização para grandes datasets
-3. **UI/UX**: Interface mais intuitiva
-4. **Testing**: Maior cobertura de testes
-5. **Documentation**: Mais exemplos e tutoriais
+1. **Error Handling**: Better error treatment
+2. **Performance**: Optimization for large datasets
+3. **UI/UX**: More intuitive interface
+4. **Testing**: Greater test coverage
+5. **Documentation**: More examples and tutorials
 
 ### **Development Resources**
 
@@ -835,8 +829,8 @@ git push origin feature/adicionar-suporte-excel
 
 #### **Tools & Libraries**
 - **BeautifulSoup4**: HTML/XML parsing
-- **Requests**: HTTP client (se necessário)
-- **PyQt5/6**: GUI framework (usado pelo Anki)
+- **Requests**: HTTP client (if needed)
+- **PyQt5/6**: GUI framework (used by Anki)
 
 ## 📊 Performance Considerations
 
@@ -844,7 +838,7 @@ git push origin feature/adicionar-suporte-excel
 
 #### **1. Large Dataset Handling**
 ```python
-# Batch processing para grandes planilhas
+# Batch processing for large spreadsheets
 def process_in_batches(data: List[Dict], batch_size: int = 100):
     for i in range(0, len(data), batch_size):
         batch = data[i:i + batch_size]
@@ -860,7 +854,7 @@ def parse_tsv_stream(file_path: str):
 
 #### **2. Database Optimization**
 ```python
-# Bulk operations quando possível
+# Bulk operations when possible
 notes_to_add = []
 for data_row in processed_data:
     note = create_note(data_row)
@@ -874,7 +868,7 @@ with mw.col.backend.db.begin():
 
 #### **3. Caching Strategy**
 ```python
-# Cache de note types para evitar recriação
+# Note types cache to avoid recreation
 _note_type_cache = {}
 
 def get_or_create_note_type(deck_name: str, student: str) -> NotetypeDict:
@@ -885,34 +879,34 @@ def get_or_create_note_type(deck_name: str, student: str) -> NotetypeDict:
 ```
 
 ### **Memory Management**
-- **Lazy Loading**: Carregar dados sob demanda
-- **Cleanup**: Limpar objetos não utilizados
-- **Progress Callbacks**: Evitar blocking da UI
+- **Lazy Loading**: Load data on demand
+- **Cleanup**: Clear unused objects
+- **Progress Callbacks**: Avoid blocking UI
 
 ### **Network Optimization**
-- **Connection Pooling**: Para múltiplas requests
-- **Retry Logic**: Com backoff exponencial
-- **Timeout Handling**: Evitar travamentos
+- **Connection Pooling**: For multiple requests
+- **Retry Logic**: With exponential backoff
+- **Timeout Handling**: Avoid hangs
 
 ---
 
-## 📚 Recursos Adicionais
+## 📚 Additional Resources
 
 ### **Architecture Diagrams**
-*(Considerar adicionar diagramas visuais da arquitetura)*
+*(Consider adding visual architecture diagrams)*
 
 ### **API Reference**
-*(Link para documentação detalhada das APIs)*
+*(Link to detailed API documentation)*
 
 ### **Examples & Tutorials**
-*(Exemplos práticos de desenvolvimento)*
+*(Practical development examples)*
 
 ### **Troubleshooting**
-*(Guia de solução de problemas comuns)*
+*(Common issues solution guide)*
 
 ---
 
-**📞 Contato para Desenvolvedores**
-Para dúvidas técnicas, abra uma issue no GitHub ou entre em contato através dos canais oficiais.
+**📞 Developer Contact**
+For technical questions, open an issue on GitHub or contact us through official channels.
 
-**🔄 Última atualização:** Agosto 2025
+**🔄 Last updated:** August 2025

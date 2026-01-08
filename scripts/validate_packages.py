@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Validador de Pacotes Anki Add-on
+Anki Add-on Package Validator
 
-Este script valida se um pacote .ankiaddon está correto de acordo com as especificações
-do AnkiWeb e melhores práticas para add-ons do Anki.
+This script validates whether an .ankiaddon package is correct according to
+AnkiWeb specifications and best practices for Anki add-ons.
 """
 
 import zipfile
@@ -13,154 +13,154 @@ from pathlib import Path
 
 def validate_ankiaddon(ankiaddon_path):
     """
-    Valida um arquivo .ankiaddon
+    Validates an .ankiaddon file
     
     Args:
-        ankiaddon_path: Caminho para o arquivo .ankiaddon
+        ankiaddon_path: Path to the .ankiaddon file
         
     Returns:
-        bool: True se válido, False caso contrário
+        bool: True if valid, False otherwise
     """
-    print(f"🔍 VALIDANDO: {ankiaddon_path}")
+    print(f"🔍 VALIDATING: {ankiaddon_path}")
     print("=" * 50)
     
     if not Path(ankiaddon_path).exists():
-        print("❌ ERRO: Arquivo não encontrado")
+        print("❌ ERROR: File not found")
         return False
     
     try:
         with zipfile.ZipFile(ankiaddon_path, 'r') as zipf:
             return validate_zip_contents(zipf)
     except zipfile.BadZipFile:
-        print("❌ ERRO: Arquivo ZIP corrompido")
+        print("❌ ERROR: Corrupted ZIP file")
         return False
     except Exception as e:
-        print(f"❌ ERRO: {e}")
+        print(f"❌ ERROR: {e}")
         return False
 
 def validate_zip_contents(zipf):
-    """Valida o conteúdo do arquivo ZIP"""
+    """Validates ZIP file contents"""
     
-    # Obter lista de arquivos
+    # Get file list
     files = zipf.namelist()
     
-    print("1. Verificando estrutura do ZIP...")
+    print("1. Checking ZIP structure...")
     
-    # Verificar se há pasta raiz (não deve ter)
+    # Check if there's a root folder (should not have one)
     root_folders = [f for f in files if f.endswith('/') and '/' not in f.rstrip('/')]
     if root_folders:
-        print(f"❌ ERRO: ZIP contém pastas raiz - AnkiWeb não aceita!")
-        print(f"   Pastas encontradas: {root_folders}")
+        print(f"❌ ERROR: ZIP contains root folders - AnkiWeb does not accept!")
+        print(f"   Folders found: {root_folders}")
         return False
     
-    print("   ✅ Estrutura sem pasta raiz: OK")
+    print("   ✅ Structure without root folder: OK")
     
-    # Verificar arquivos obrigatórios
-    print("\n2. Verificando arquivos obrigatórios...")
+    # Check mandatory files
+    print("\n2. Checking mandatory files...")
     
     root_files = [f for f in files if '/' not in f and f != '']
     
     if '__init__.py' not in root_files:
-        print("❌ ERRO: __init__.py não encontrado na raiz")
+        print("❌ ERROR: __init__.py not found at root")
         return False
     print("   ✅ __init__.py: OK")
     
     if 'manifest.json' not in root_files:
-        print("❌ ERRO: manifest.json não encontrado na raiz")
+        print("❌ ERROR: manifest.json not found at root")
         return False
     print("   ✅ manifest.json: OK")
     
-    # Verificar cache Python
-    print("\n3. Verificando cache Python...")
+    # Check Python cache
+    print("\n3. Checking Python cache...")
     
     cache_files = [f for f in files if '__pycache__' in f or f.endswith(('.pyc', '.pyo'))]
     if cache_files:
-        print("❌ ERRO CRÍTICO: Cache Python encontrado - AnkiWeb não aceita!")
-        print("   Arquivos problemáticos:")
-        for f in cache_files[:5]:  # Mostrar apenas os primeiros 5
+        print("❌ CRITICAL ERROR: Python cache found - AnkiWeb does not accept!")
+        print("   Problematic files:")
+        for f in cache_files[:5]:  # Show only the first 5
             print(f"   - {f}")
         if len(cache_files) > 5:
-            print(f"   ... e mais {len(cache_files) - 5} arquivos")
+            print(f"   ... and {len(cache_files) - 5} more files")
         return False
     
-    print("   ✅ Sem cache Python: OK")
+    print("   ✅ No Python cache: OK")
     
-    # Validar manifest.json
-    print("\n4. Validando manifest.json...")
+    # Validate manifest.json
+    print("\n4. Validating manifest.json...")
     
     try:
         manifest_data = zipf.read('manifest.json')
         manifest = json.loads(manifest_data.decode('utf-8'))
     except Exception as e:
-        print(f"❌ ERRO: Não foi possível ler manifest.json: {e}")
+        print(f"❌ ERROR: Could not read manifest.json: {e}")
         return False
     
-    # Verificar campos obrigatórios
+    # Check mandatory fields
     required_fields = ['package', 'name']
     for field in required_fields:
         if field not in manifest:
-            print(f"❌ ERRO: Campo obrigatório ausente: {field}")
+            print(f"❌ ERROR: Mandatory field missing: {field}")
             return False
         if not manifest[field] or not isinstance(manifest[field], str):
-            print(f"❌ ERRO: Campo '{field}' deve ser uma string não vazia")
+            print(f"❌ ERROR: Field '{field}' must be a non-empty string")
             return False
         print(f"   ✅ {field}: {manifest[field]}")
     
-    # Verificar campos opcionais
+    # Check optional fields
     optional_fields = ['version', 'author', 'description', 'conflicts', 'mod']
     for field in optional_fields:
         if field in manifest:
             if field == 'conflicts' and not isinstance(manifest[field], list):
-                print(f"❌ ERRO: Campo '{field}' deve ser uma lista")
+                print(f"❌ ERROR: Field '{field}' must be a list")
                 return False
             print(f"   ✅ {field}: {manifest[field]}")
     
-    # Verificar arquivos suspeitos
-    print("\n5. Verificando arquivos suspeitos...")
+    # Check suspicious files
+    print("\n5. Checking suspicious files...")
     
     suspicious_files = [f for f in files if f.startswith('.') or f.endswith('.tmp')]
     if suspicious_files:
-        print("⚠️  Arquivos suspeitos encontrados:")
+        print("⚠️  Suspicious files found:")
         for f in suspicious_files:
             print(f"   - {f}")
     else:
-        print("   ✅ Nenhum arquivo suspeito encontrado")
+        print("   ✅ No suspicious files found")
     
-    # Estatísticas
-    print("\n6. Estatísticas do pacote...")
+    # Statistics
+    print("\n6. Package statistics...")
     
     total_files = len(files)
     total_size = sum(zipf.getinfo(f).file_size for f in files)
     
-    print(f"   📁 Total de arquivos: {total_files}")
-    print(f"   📦 Tamanho descompactado: {total_size / 1024:.1f} KB")
+    print(f"   📁 Total files: {total_files}")
+    print(f"   📦 Unpacked size: {total_size / 1024:.1f} KB")
     
-    # Listar arquivos por tipo
+    # List files by type
     python_files = [f for f in files if f.endswith('.py')]
     json_files = [f for f in files if f.endswith('.json')]
     other_files = [f for f in files if not f.endswith(('.py', '.json'))]
     
-    print(f"   🐍 Arquivos Python: {len(python_files)}")
-    print(f"   📄 Arquivos JSON: {len(json_files)}")
-    print(f"   📎 Outros arquivos: {len(other_files)}")
+    print(f"   🐍 Python files: {len(python_files)}")
+    print(f"   📄 JSON files: {len(json_files)}")
+    print(f"   📎 Other files: {len(other_files)}")
     
     return True
 
 def main():
-    """Função principal"""
+    """Main function"""
     if len(sys.argv) != 2:
-        print("Uso: python validate_ankiaddon.py <arquivo.ankiaddon>")
+        print("Usage: python validate_packages.py <file.ankiaddon>")
         sys.exit(1)
     
     ankiaddon_path = sys.argv[1]
     
     if validate_ankiaddon(ankiaddon_path):
-        print("\n🎉 VALIDAÇÃO COMPLETA!")
-        print("✅ O arquivo está pronto para distribuição")
-        print("🚀 Pode ser enviado para o AnkiWeb")
+        print("\n🎉 VALIDATION COMPLETE!")
+        print("✅ File is ready for distribution")
+        print("🚀 Can be uploaded to AnkiWeb")
     else:
-        print("\n❌ VALIDAÇÃO FALHOU!")
-        print("🔧 Corrija os problemas antes de distribuir")
+        print("\n❌ VALIDATION FAILED!")
+        print("🔧 Fix issues before distributing")
         sys.exit(1)
 
 if __name__ == "__main__":

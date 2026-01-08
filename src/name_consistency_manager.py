@@ -1,43 +1,44 @@
-# NameConsistencyManager - Sistema de Consistência Automática de Nomes
-# Este módulo garante que todos os nomes (decks, note types, deck options) estejam
-# sempre consistentes com o remote_deck_name em todo o Anki.
+# NameConsistencyManager - Automatic Name Consistency System
+# This module ensures that all names (decks, note types, deck options) are
+# always consistent with the remote_deck_name throughout Anki.
 
 from typing import Dict, List, Tuple, Optional, Any
 from aqt import mw
 from anki.decks import DeckId
 from anki.models import NotetypeId
+from .templates_and_definitions import DEFAULT_STUDENT
 
 class NameConsistencyManager:
     """
-    Classe responsável por garantir a consistência automática de nomes durante a sincronização.
+    Class responsible for ensuring automatic name consistency during synchronization.
     
-    Implementa a lógica especificada para:
-    1. Recriar strings de referência baseadas no remote_deck_name
-    2. Comparar com nomes reais salvos no Anki
-    3. Atualizar automaticamente se necessário
+    Implements the specified logic for:
+    1. Recreating reference strings based on remote_deck_name
+    2. Comparing with actual names saved in Anki
+    3. Automatically updating if necessary
     """
     
     @staticmethod
     def generate_standard_names(remote_deck_name: str) -> Dict[str, Any]:
         """
-        Gera todas as strings de referência padrão baseadas no remote_deck_name.
+        Generates all standard reference strings based on remote_deck_name.
         
         Args:
-            remote_deck_name: Nome do deck remoto (source of truth)
+            remote_deck_name: Name of the remote deck (source of truth)
             
         Returns:
-            Dict com todas as strings padrão: local_deck_name, note_types, deck_option_name
+            Dict with all standard strings: local_deck_name, note_types, deck_option_name
         """
-        # 2. recriar local_deck_name no padrão "Sheets2Anki::{remote_deck_name}"
+        # 2. recreate local_deck_name in the pattern "Sheets2Anki::{remote_deck_name}"
         local_deck_name = f"Sheets2Anki::{remote_deck_name}"
         
-        # 3. recriar note_types no padrão "Sheets2Anki - {remote_deck_name} - {aluno} - Basic/Cloze"
+        # 3. recreate note_types in the pattern "Sheets2Anki - {remote_deck_name} - {student} - Basic/Cloze"
         note_type_patterns = {
             'basic_template': f"Sheets2Anki - {remote_deck_name} - {{student}} - Basic",
             'cloze_template': f"Sheets2Anki - {remote_deck_name} - {{student}} - Cloze"
         }
         
-        # 4. recriar deck_option_name no padrão "Sheets2Anki - {remote_deck_name}"
+        # 4. recreate deck_option_name in the pattern "Sheets2Anki - {remote_deck_name}"
         deck_option_name = f"Sheets2Anki - {remote_deck_name}"
         
         return {
@@ -56,27 +57,27 @@ class NameConsistencyManager:
         debug_callback=None
     ) -> Dict[str, Any]:
         """
-        Força a consistência de nomes conforme a lógica especificada.
+        Enforces name consistency according to the specified logic.
         
         Args:
-            deck_url: URL do deck remoto
-            remote_deck_name: Nome remoto (source of truth)
-            local_deck_id: ID do deck local no Anki
+            deck_url: URL of the remote deck
+            remote_deck_name: Remote name (source of truth)
+            local_deck_id: ID of the local deck in Anki
             note_types_config: Dict {note_type_id: current_name}
-            debug_callback: Função para debug messages
+            debug_callback: Function for debug messages
             
         Returns:
-            Dict com resultados da operação
+            Dict with operation results
         """
         def debug(message: str):
             if debug_callback:
                 debug_callback(f"[NAME_CONSISTENCY] {message}")
         
         try:
-            debug(f"🔧 Iniciando consistência de nomes para: '{remote_deck_name}'")
+            debug(f"🔧 Starting name consistency for: '{remote_deck_name}'")
             
-            # 1. Salvar remote_deck_name (já feito pelo chamador)
-            # 2-4. Gerar strings de referência padrão
+            # 1. Save remote_deck_name (already done by caller)
+            # 2-4. Generate standard reference strings
             standard_names = NameConsistencyManager.generate_standard_names(remote_deck_name)
             
             results = {
@@ -86,7 +87,7 @@ class NameConsistencyManager:
                 'errors': []
             }
             
-            # 5-6. Verificar e atualizar nome do deck local
+            # 5-6. Check and update local deck name
             deck_result = NameConsistencyManager._enforce_deck_name_consistency(
                 local_deck_id, 
                 standard_names['local_deck_name'],
@@ -96,7 +97,7 @@ class NameConsistencyManager:
             if deck_result.get('error'):
                 results['errors'].append(deck_result['error'])
             
-            # 7. Verificar e atualizar nomes dos note types
+            # 7. Check and update note type names
             note_types_result = NameConsistencyManager._enforce_note_types_consistency(
                 deck_url,
                 note_types_config,
@@ -106,7 +107,7 @@ class NameConsistencyManager:
             results['note_types_updated'] = note_types_result['updated_types']
             results['errors'].extend(note_types_result.get('errors', []))
             
-            # 8. Verificar e atualizar opções do deck (se modo individual)
+            # 8. Check and update deck options (if individual mode)
             deck_options_result = NameConsistencyManager._enforce_deck_options_consistency(
                 local_deck_id,
                 standard_names['deck_option_name'],
@@ -116,8 +117,8 @@ class NameConsistencyManager:
             if deck_options_result.get('error'):
                 results['errors'].append(deck_options_result['error'])
             
-            # Salvar mudanças na configuração
-            # CORREÇÃO: Salvar se houve note types atualizados OU se meta.json foi atualizado
+            # Save changes to configuration
+            # FIX: Save if note types were updated OR if meta.json was updated
             meta_json_changed = (
                 note_types_result.get('final_note_types') and 
                 any(note_types_result['final_note_types'].get(id_) != note_types_config.get(id_) 
@@ -132,7 +133,7 @@ class NameConsistencyManager:
                     debug
                 )
                 
-                # CRÍTICO: Também atualizar remote_decks em memória para evitar reversão
+                # CRITICAL: Also update remote_decks in memory to avoid reversion
                 if remote_decks is not None:
                     NameConsistencyManager.update_remote_decks_in_memory(
                         deck_url,
@@ -143,16 +144,16 @@ class NameConsistencyManager:
                     )
                 
                 if meta_json_changed and not results['note_types_updated']:
-                    debug(f"📋 Meta.json atualizado para sincronizar com Anki")
+                    debug(f"📋 Meta.json updated to sync with Anki")
             
-            debug(f"✅ Consistência aplicada: deck={results['deck_updated']}, "
+            debug(f"✅ Consistency applied: deck={results['deck_updated']}, "
                   f"note_types={len(results['note_types_updated'])}, "
                   f"options={results['deck_options_updated']}")
             
             return results
             
         except Exception as e:
-            error_msg = f"❌ Erro na consistência de nomes: {e}"
+            error_msg = f"❌ Error in name consistency: {e}"
             debug(error_msg)
             return {'errors': [error_msg]}
     
@@ -163,31 +164,31 @@ class NameConsistencyManager:
         debug_callback
     ) -> Dict[str, Any]:
         """
-        6. Caso o nome do deck local esteja diferente de local_deck_name, atualize.
+        6. If the local deck name is different from local_deck_name, update it.
         """
         try:
             if not mw or not mw.col:
-                return {'updated': False, 'error': 'Anki não disponível'}
+                return {'updated': False, 'error': 'Anki not available'}
             
             deck = mw.col.decks.get(DeckId(local_deck_id))
             if not deck:
-                return {'updated': False, 'error': f'Deck ID {local_deck_id} não encontrado'}
+                return {'updated': False, 'error': f'Deck ID {local_deck_id} not found'}
             
             current_name = deck['name']
-            debug_callback(f"Deck atual: '{current_name}' vs esperado: '{expected_name}'")
+            debug_callback(f"Current deck: '{current_name}' vs expected: '{expected_name}'")
             
             if current_name != expected_name:
-                debug_callback(f"📝 Atualizando nome do deck: '{current_name}' → '{expected_name}'")
+                debug_callback(f"📝 Updating deck name: '{current_name}' → '{expected_name}'")
                 deck['name'] = expected_name
                 mw.col.decks.save(deck)
-                debug_callback("✅ Nome do deck atualizado")
+                debug_callback("✅ Deck name updated")
                 return {'updated': True, 'old_name': current_name, 'new_name': expected_name}
             else:
-                debug_callback("✅ Nome do deck já está correto")
+                debug_callback("✅ Deck name is already correct")
                 return {'updated': False}
                 
         except Exception as e:
-            return {'updated': False, 'error': f'Erro ao atualizar deck: {e}'}
+            return {'updated': False, 'error': f'Error updating deck: {e}'}
     
     @staticmethod
     def _enforce_note_types_consistency(
@@ -197,13 +198,13 @@ class NameConsistencyManager:
         debug_callback
     ) -> Dict[str, Any]:
         """
-        7. Caso os nomes dos note types estejam diferentes das strings salvas para cada ID, atualize.
+        7. If note type names are different from saved strings for each ID, update them.
         """
         try:
             if not mw or not mw.col:
-                return {'updated_types': [], 'errors': ['Anki não disponível']}
+                return {'updated_types': [], 'errors': ['Anki not available']}
             
-            # Obter lista de alunos habilitados
+            # Get list of enabled students
             from .config_manager import get_enabled_students
             enabled_students = get_enabled_students()
             
@@ -217,24 +218,24 @@ class NameConsistencyManager:
                     model = mw.col.models.get(NotetypeId(note_type_id))
                     
                     if not model:
-                        errors.append(f"Note type ID {note_type_id} não encontrado")
+                        errors.append(f"Note type ID {note_type_id} not found")
                         continue
                     
-                    # Determinar nome esperado baseado no padrão
+                    # Determine expected name based on pattern
                     expected_name = NameConsistencyManager._determine_expected_note_type_name(
                         current_name, name_patterns, enabled_students
                     )
                     
                     if not expected_name:
-                        # Manter nome atual se não conseguir determinar padrão
+                        # Keep current name if pattern cannot be determined
                         final_note_types[note_type_id_str] = current_name
                         continue
                     
                     debug_callback(f"Note type {note_type_id}: '{current_name}' vs '{expected_name}'")
                     
-                    # Atualizar se necessário
+                    # Update if necessary
                     if model['name'] != expected_name:
-                        debug_callback(f"📝 Atualizando note type: '{model['name']}' → '{expected_name}'")
+                        debug_callback(f"📝 Updating note type: '{model['name']}' → '{expected_name}'")
                         model['name'] = expected_name
                         mw.col.models.save(model)
                         updated_types.append({
@@ -243,23 +244,23 @@ class NameConsistencyManager:
                             'new_name': expected_name
                         })
                         final_note_types[note_type_id_str] = expected_name
-                        debug_callback(f"✅ Note type {note_type_id} atualizado")
+                        debug_callback(f"✅ Note type {note_type_id} updated")
                     else:
-                        # CORREÇÃO: Usar model['name'] em vez de current_name para sincronizar meta.json com Anki
+                        # FIX: Use model['name'] instead of current_name to sync meta.json with Anki
                         actual_anki_name = model['name']
                         final_note_types[note_type_id_str] = actual_anki_name
                         
-                        # Debug adicional para mostrar se meta.json precisa ser atualizado
+                        # Additional debug to show if meta.json needs updating
                         if current_name != actual_anki_name:
-                            debug_callback(f"📋 Note type {note_type_id} correto no Anki, atualizando meta.json: '{current_name}' → '{actual_anki_name}'")
+                            debug_callback(f"📋 Note type {note_type_id} correct in Anki, updating meta.json: '{current_name}' → '{actual_anki_name}'")
                         else:
-                            debug_callback(f"✅ Note type {note_type_id} já está correto")
+                            debug_callback(f"✅ Note type {note_type_id} is already correct")
                         
                 except Exception as e:
-                    error_msg = f"Erro ao processar note type {note_type_id_str}: {e}"
+                    error_msg = f"Error processing note type {note_type_id_str}: {e}"
                     errors.append(error_msg)
                     debug_callback(f"❌ {error_msg}")
-                    # Manter nome atual em caso de erro
+                    # Keep current name in case of error
                     final_note_types[note_type_id_str] = current_name
             
             return {
@@ -269,7 +270,7 @@ class NameConsistencyManager:
             }
             
         except Exception as e:
-            return {'updated_types': [], 'errors': [f'Erro geral nos note types: {e}']}
+            return {'updated_types': [], 'errors': [f'General error in note types: {e}']}
     
     @staticmethod
     def _determine_expected_note_type_name(
@@ -278,9 +279,9 @@ class NameConsistencyManager:
         enabled_students: List[str]
     ) -> Optional[str]:
         """
-        Determina o nome esperado de um note type baseado no padrão e aluno.
+        Determines the expected name of a note type based on pattern and student.
         """
-        # Extrair aluno e tipo do nome atual
+        # Extract student and type from current name
         if " - " not in current_name:
             return None
         
@@ -288,21 +289,21 @@ class NameConsistencyManager:
         if len(parts) < 4:
             return None
         
-        # O formato é: "Sheets2Anki - {remote_name} - {student} - {type}"
-        # Mas remote_name pode conter hífens, então precisamos trabalhar de trás para frente
+        # Format is: "Sheets2Anki - {remote_name} - {student} - {type}"
+        # But remote_name may contain hyphens, so we need to work backwards
         
-        # O último elemento é sempre o tipo (Basic/Cloze)
+        # Last element is always the type (Basic/Cloze)
         note_type = parts[-1]
         
-        # O penúltimo elemento é sempre o aluno
+        # Second to last element is always the student
         student = parts[-2]
         
-        # Verificar se é um aluno válido
-        all_students = enabled_students + ["[MISSING A.]"]
+        # Check if it's a valid student
+        all_students = enabled_students + [DEFAULT_STUDENT]
         if student not in all_students:
             return None
         
-        # Determinar padrão correto
+        # Determine correct pattern
         if note_type == "Basic":
             pattern = patterns.get('basic_template')
         elif note_type == "Cloze":
@@ -322,52 +323,52 @@ class NameConsistencyManager:
         debug_callback
     ) -> Dict[str, Any]:
         """
-        8. Caso o nome das opções do deck esteja diferente e modo seja "individual", atualize.
+        8. If deck options name is different and mode is "individual", update it.
         """
         try:
-            # Verificar se o modo é "individual"
+            # Check if mode is "individual"
             from .config_manager import get_deck_options_mode
             
             if get_deck_options_mode() != "individual":
-                debug_callback("🔄 Modo de opções não é 'individual', pulando atualização")
+                debug_callback("🔄 Options mode is not 'individual', skipping update")
                 return {'updated': False, 'reason': 'mode_not_individual'}
             
             if not mw or not mw.col:
-                return {'updated': False, 'error': 'Anki não disponível'}
+                return {'updated': False, 'error': 'Anki not available'}
             
             deck = mw.col.decks.get(DeckId(local_deck_id))
             if not deck:
-                return {'updated': False, 'error': f'Deck ID {local_deck_id} não encontrado'}
+                return {'updated': False, 'error': f'Deck ID {local_deck_id} not found'}
             
-            # Obter configuração atual das opções
+            # Get current options configuration
             deck_config_id = deck.get('conf')
             if not deck_config_id or deck_config_id == 1:  # 1 = default config
-                debug_callback("🔄 Deck usa configuração padrão, pulando atualização")
+                debug_callback("🔄 Deck uses default configuration, skipping update")
                 return {'updated': False, 'reason': 'using_default_config'}
             
             deck_config = mw.col.decks.get_config(deck_config_id)
             if not deck_config:
-                return {'updated': False, 'error': 'Configuração do deck não encontrada'}
+                return {'updated': False, 'error': 'Deck configuration not found'}
             
             current_options_name = deck_config.get('name', '')
-            debug_callback(f"Opções atuais: '{current_options_name}' vs esperado: '{expected_options_name}'")
+            debug_callback(f"Current options: '{current_options_name}' vs expected: '{expected_options_name}'")
             
             if current_options_name != expected_options_name:
-                debug_callback(f"📝 Atualizando opções do deck: '{current_options_name}' → '{expected_options_name}'")
+                debug_callback(f"📝 Updating deck options: '{current_options_name}' → '{expected_options_name}'")
                 deck_config['name'] = expected_options_name
                 mw.col.decks.save(deck_config)
-                debug_callback("✅ Opções do deck atualizadas")
+                debug_callback("✅ Deck options updated")
                 return {
                     'updated': True,
                     'old_name': current_options_name,
                     'new_name': expected_options_name
                 }
             else:
-                debug_callback("✅ Opções do deck já estão corretas")
+                debug_callback("✅ Deck options are already correct")
                 return {'updated': False}
                 
         except Exception as e:
-            return {'updated': False, 'error': f'Erro ao atualizar opções: {e}'}
+            return {'updated': False, 'error': f'Error updating options: {e}'}
     
     @staticmethod
     def _update_config_with_new_names(
@@ -377,7 +378,7 @@ class NameConsistencyManager:
         debug_callback
     ):
         """
-        Atualiza o meta.json com os novos nomes aplicados.
+        Updates meta.json with the new applied names.
         """
         try:
             from .config_manager import get_meta, save_meta, get_deck_id
@@ -386,19 +387,19 @@ class NameConsistencyManager:
             spreadsheet_id = get_deck_id(deck_url)
             
             if "decks" in meta and spreadsheet_id in meta["decks"]:
-                # Atualizar local_deck_name
+                # Update local_deck_name
                 meta["decks"][spreadsheet_id]["local_deck_name"] = local_deck_name
                 
-                # Atualizar note_types
+                # Update note_types
                 meta["decks"][spreadsheet_id]["note_types"] = note_types
                 
                 save_meta(meta)
-                debug_callback("✅ Configuração atualizada no meta.json")
+                debug_callback("✅ Configuration updated in meta.json")
             else:
-                debug_callback("❌ Deck não encontrado na configuração")
+                debug_callback("❌ Deck not found in configuration")
                 
         except Exception as e:
-            debug_callback(f"❌ Erro ao atualizar configuração: {e}")
+            debug_callback(f"❌ Error updating configuration: {e}")
     
     @staticmethod
     def update_remote_decks_in_memory(
@@ -409,8 +410,8 @@ class NameConsistencyManager:
         debug_callback
     ):
         """
-        CRÍTICO: Atualiza também o dicionário remote_decks em memória
-        para evitar que save_remote_decks() posterior reverta as mudanças.
+        CRITICAL: Also updates the remote_decks dictionary in memory
+        to prevent save_remote_decks() from later reverting changes.
         """
         try:
             from .config_manager import get_deck_id
@@ -418,32 +419,32 @@ class NameConsistencyManager:
             spreadsheet_id = get_deck_id(deck_url)
             
             if spreadsheet_id in remote_decks:
-                # Atualizar local_deck_name no dicionário em memória
+                # Update local_deck_name in memory dictionary
                 remote_decks[spreadsheet_id]["local_deck_name"] = local_deck_name
                 
-                # Atualizar note_types no dicionário em memória
+                # Update note_types in memory dictionary
                 remote_decks[spreadsheet_id]["note_types"] = note_types
                 
-                debug_callback("💾 Dicionário remote_decks em memória atualizado para evitar reversão")
+                debug_callback("💾 In-memory remote_decks dictionary updated to avoid reversion")
             else:
-                debug_callback("❌ Deck hash não encontrado no remote_decks em memória")
+                debug_callback("❌ Deck hash not found in in-memory remote_decks")
                 
         except Exception as e:
-            debug_callback(f"❌ Erro ao atualizar remote_decks em memória: {e}")
+            debug_callback(f"❌ Error updating in-memory remote_decks: {e}")
     
     @staticmethod
     def ensure_consistency_during_sync(deck_url: str, remote_decks: Optional[Dict] = None, debug_callback=None) -> Dict[str, Any]:
         """
-        Função principal para garantir consistência durante a sincronização.
-        Agora também verifica configurações de deck.
+        Main function to ensure consistency during synchronization.
+        Now also checks deck configurations.
         
         Args:
-            deck_url: URL do deck remoto
-            remote_decks: Dicionário de decks em memória (para atualizar e evitar reversão)
-            debug_callback: Função para debug messages
+            deck_url: URL of the remote deck
+            remote_decks: In-memory decks dictionary (to update and avoid reversion)
+            debug_callback: Function for debug messages
             
         Returns:
-            Dict com resultados da operação
+            Dict with operation results
         """
         def debug(message: str):
             if debug_callback:
@@ -455,32 +456,32 @@ class NameConsistencyManager:
                 ensure_deck_configurations_consistency
             )
             
-            # 1. Verificar configurações de deck primeiro
+            # 1. Check deck configurations first
             try:
                 config_corrections = ensure_deck_configurations_consistency()
                 if config_corrections > 0:
-                    debug(f"🔧 Corrigidas {config_corrections} configurações de deck ausentes")
+                    debug(f"🔧 Corrected {config_corrections} missing deck configurations")
             except Exception as e:
-                debug(f"⚠️ Erro ao verificar configurações de deck: {e}")
+                debug(f"⚠️ Error checking deck configurations: {e}")
             
-            # 2. Obter dados atuais da configuração
+            # 2. Get current data from configuration
             remote_deck_name = get_deck_remote_name(deck_url)
             local_deck_id = get_deck_local_id(deck_url)
             note_types_config = get_deck_note_type_ids(deck_url)
             
             if not remote_deck_name:
-                return {'errors': ['remote_deck_name não encontrado na configuração']}
+                return {'errors': ['remote_deck_name not found in configuration']}
             
             if not local_deck_id:
-                return {'errors': ['local_deck_id não encontrado na configuração']}
+                return {'errors': ['local_deck_id not found in configuration']}
             
             if not note_types_config:
-                debug("⚠️ Nenhum note type configurado, pulando consistência de note types")
+                debug("⚠️ No note types configured, skipping note type consistency")
                 note_types_config = {}
             
-            debug(f"🔧 Garantindo consistência para: {remote_deck_name}")
+            debug(f"🔧 Ensuring consistency for: {remote_deck_name}")
             
-            # 3. Aplicar consistência de nomes
+            # 3. Apply name consistency
             return NameConsistencyManager.enforce_name_consistency(
                 deck_url=deck_url,
                 remote_deck_name=remote_deck_name,
@@ -491,6 +492,6 @@ class NameConsistencyManager:
             )
             
         except Exception as e:
-            error_msg = f"❌ Erro na consistência durante sync: {e}"
+            error_msg = f"❌ Error in consistency during sync: {e}"
             debug(error_msg)
             return {'errors': [error_msg]}

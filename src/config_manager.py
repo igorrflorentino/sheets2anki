@@ -1,15 +1,15 @@
 """
-Gerenciador de configurações para o addon Sheets2Anki.
+Configuration manager for the Sheets2Anki addon.
 
-Este módulo implementa um sistema de configuração hierárquico que utiliza:
-- config.json: Configurações padrão do addon
-- meta.json: Configurações do usuário e dados de decks remotos (fonte de verdade)
+This module implements a hierarchical configuration system that uses:
+- config.json: Addon default settings
+- meta.json: User settings and remote deck data (source of truth)
 
-Funcionalidades:
-- Carregamento e salvamento de configurações
-- Migração de configurações antigas
-- Gerenciamento de preferências do usuário
-- Controle de decks remotos
+Features:
+- Loading and saving configurations
+- Migrating old configurations
+- User preference management
+- Remote deck control
 """
 
 import json
@@ -19,35 +19,40 @@ import traceback
 
 try:
     from .compat import mw, showWarning
-    from .utils import get_spreadsheet_id_from_url
+    from .utils import get_spreadsheet_id_from_url, add_debug_message
 except ImportError:
-    # Para testes independentes
+    # For standalone tests
     from compat import mw, showWarning
-    from utils import get_spreadsheet_id_from_url
+    from utils import get_spreadsheet_id_from_url, add_debug_message
+
+
+def add_debug_msg(message, category="CONFIG"):
+    """Local helper for debug messages."""
+    add_debug_message(message, category)
 
 # =============================================================================
-# FUNÇÕES UTILITÁRIAS PARA ID DE PLANILHA
+# UTILITY FUNCTIONS FOR SPREADSHEET ID
 # =============================================================================
 
 
 def get_deck_id(url):
     """
-    Obtém o ID da planilha para identificar um deck.
+    Gets the spreadsheet ID to identify a deck.
 
     Args:
-        url (str): URL de edição do deck remoto
+        url (str): Remote deck edit URL
 
     Returns:
-        str: ID da planilha do Google Sheets
+        str: Google Sheets spreadsheet ID
         
     Raises:
-        ValueError: Se a URL não for uma URL de edição válida
+        ValueError: If the URL is not a valid edit URL
     """
     return get_spreadsheet_id_from_url(url)
 
 
 # =============================================================================
-# CONSTANTES DE CONFIGURAÇÃO
+# CONFIGURATION CONSTANTS
 # =============================================================================
 
 DEFAULT_CONFIG = {
@@ -69,35 +74,35 @@ DEFAULT_META = {
         "show_sync_notifications": True,
         "deck_options_mode": "shared",  # "shared", "individual", "manual"
         "ankiweb_sync_mode": "none",  # "none", "sync"
-        "ankiweb_sync_timeout": 30,  # timeout em segundos para sync do AnkiWeb
-        "show_ankiweb_sync_notifications": True,  # mostrar notificações de sync AnkiWeb
-        # Configurações de backup automático
-        "auto_backup_enabled": True,  # habilitar backup automático de configurações
-        "auto_backup_directory": "",  # diretório para salvar backups automáticos (vazio = usar padrão)
-        "auto_backup_max_files": 50,  # máximo de arquivos de backup a manter
+        "ankiweb_sync_timeout": 30,  # timeout in seconds for AnkiWeb sync
+        "show_ankiweb_sync_notifications": True,  # show AnkiWeb sync notifications
+        # Automatic backup settings
+        "auto_backup_enabled": True,  # enable automatic configuration backup
+        "auto_backup_directory": "",  # directory to save automatic backups (empty = use default)
+        "auto_backup_max_files": 50,  # maximum backup files to keep
     },
     "students": {
         "available_students": [],
         "enabled_students": [],
-        # NOVO: Histórico persistente de alunos que já foram sincronizados
+        # NEW: Persistent history of students who have already been synchronized
         "sync_history": {
-            # formato: "student_name": {"first_sync": timestamp, "last_sync": timestamp, "total_syncs": count}
+            # format: "student_name": {"first_sync": timestamp, "last_sync": timestamp, "total_syncs": count}
         }
     },
     "decks": {},
 }
 
 # =============================================================================
-# FUNÇÕES PRINCIPAIS
+# MAIN FUNCTIONS
 # =============================================================================
 
 
 def get_config():
     """
-    Carrega a configuração padrão do config.json.
+    Loads default configuration from config.json.
 
     Returns:
-        dict: Configuração padrão do addon
+        dict: Addon default configuration
     """
     config_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "config.json"
@@ -108,7 +113,7 @@ def get_config():
             with open(config_path, encoding="utf-8") as f:
                 config = json.load(f)
 
-            # Mesclar com padrões para garantir compatibilidade
+            # Merge with defaults to ensure compatibility
             merged_config = DEFAULT_CONFIG.copy()
             merged_config.update(config)
             return merged_config
@@ -116,23 +121,23 @@ def get_config():
             return DEFAULT_CONFIG.copy()
     except Exception as e:
         showWarning(
-            f"Erro ao carregar config.json: {str(e)}. Usando configuração padrão."
+            f"Error loading config.json: {str(e)}. Using default configuration."
         )
         return DEFAULT_CONFIG.copy()
 
 
 def get_meta():
     """
-    Carrega os metadados do usuário do meta.json (fonte de verdade).
+    Loads user metadata from meta.json (source of truth).
 
     Returns:
-        dict: Metadados do usuário incluindo preferências e decks remotos
+        dict: User metadata including preferences and remote decks
     """
     try:
         import json
         import os
 
-        # Carregar diretamente do arquivo meta.json
+        # Load directly from meta.json file
         addon_path = os.path.dirname(os.path.dirname(__file__))
         meta_path = os.path.join(addon_path, "meta.json")
 
@@ -142,48 +147,48 @@ def get_meta():
         else:
             meta = DEFAULT_META.copy()
 
-        # Garantir estrutura adequada
+        # Ensure proper structure
         meta = _ensure_meta_structure(meta)
 
         return meta
     except Exception as e:
         showWarning(
-            f"Erro ao carregar meta.json: {str(e)}. Usando configuração padrão."
+            f"Error loading meta.json: {str(e)}. Using default configuration."
         )
         return DEFAULT_META.copy()
 
 
 def save_meta(meta):
     """
-    Salva os metadados do usuário no meta.json.
+    Saves user metadata to meta.json.
 
     Args:
-        meta (dict): Metadados para salvar
+        meta (dict): Metadata to save
     """
     try:
         import json
         import os
 
-        # Salvar diretamente no arquivo meta.json
+        # Save directly to meta.json file
         addon_path = os.path.dirname(os.path.dirname(__file__))
         meta_path = os.path.join(addon_path, "meta.json")
 
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        showWarning(f"Erro ao salvar meta.json: {str(e)}")
+        showWarning(f"Error saving meta.json: {str(e)}")
 
 
 def get_remote_decks():
     """
-    Obtém os decks remotos configurados com estrutura baseada em hash.
+    Gets configured remote decks with hash-based structure.
 
     Returns:
-        dict: Dicionário {hash_key: deck_info} onde deck_info contém:
-            - local_deck_id: ID do deck no Anki
-            - local_deck_name: Nome do deck no Anki
-            - remote_deck_url: URL do deck remoto
-            - remote_deck_name: Nome do arquivo remoto
+        dict: Dictionary {hash_key: deck_info} where deck_info contains:
+            - local_deck_id: Deck ID in Anki
+            - local_deck_name: Deck name in Anki
+            - remote_deck_url: Remote deck URL
+            - remote_deck_name: Remote file name
             - note_types: Dict {note_type_id: expected_name}
     """
     meta = get_meta()
@@ -192,15 +197,15 @@ def get_remote_decks():
 
 def save_remote_decks(remote_decks):
     """
-    Salva os decks remotos na configuração usando estrutura baseada em hash.
+    Saves remote decks to the configuration using hash-based structure.
 
     Args:
-        remote_decks (dict): Dicionário {hash_key: deck_info}
+        remote_decks (dict): Dictionary {hash_key: deck_info}
     """
-    # Debug: Log do que está sendo salvo
+    # Debug: Log what is being saved
     from .utils import add_debug_message
 
-    add_debug_message("=== SALVANDO DECK INFO NO META.JSON ===", "Config Manager")
+    add_debug_message("=== SAVING DECK INFO TO META.JSON ===", "Config Manager")
     for hash_key, deck_info in remote_decks.items():
         local_deck_id = deck_info.get("local_deck_id", "N/A")
         local_deck_name = deck_info.get("local_deck_name", "N/A")
@@ -213,18 +218,18 @@ def save_remote_decks(remote_decks):
     meta["decks"] = remote_decks
     save_meta(meta)
 
-    add_debug_message("✓ Deck info salvo no meta.json com sucesso", "Config Manager")
+    add_debug_message("✓ Deck info successfully saved to meta.json", "Config Manager")
 
 
 def add_remote_deck(url, deck_info):
     """
-    Adiciona um deck remoto à configuração usando hash como chave.
+    Adds a remote deck to the configuration using hash as key.
 
     Args:
-        url (str): URL do deck remoto
-        deck_info (dict): Informações do deck na nova estrutura
+        url (str): Remote deck URL
+        deck_info (dict): Deck information in the new structure
     """
-    # Gerar hash da chave de publicação
+    # Generate hash for the spreadsheet ID
     spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
@@ -236,19 +241,19 @@ def create_deck_info(
     url, local_deck_id, local_deck_name, remote_deck_name=None, **additional_info
 ):
     """
-    Cria um dicionário de informações do deck com a nova estrutura.
+    Creates a deck info dictionary with the new structure.
 
     Args:
-        url (str): URL do deck remoto
-        local_deck_id (int): ID do deck no Anki
-        local_deck_name (str): Nome do deck no Anki
-        remote_deck_name (str, optional): Nome do arquivo remoto
-        **additional_info: Campos adicionais
+        url (str): Remote deck URL
+        local_deck_id (int): Deck ID in Anki
+        local_deck_name (str): Deck name in Anki
+        remote_deck_name (str, optional): Remote file name
+        **additional_info: Additional fields
 
     Returns:
-        dict: Estrutura completa do deck
+        dict: Full deck structure
     """
-    # Resolver conflitos no remote_deck_name usando DeckNameManager
+    # Resolve remote_deck_name conflicts using DeckNameManager
     from .deck_manager import DeckNameManager
     import time
 
@@ -256,7 +261,7 @@ def create_deck_info(
         url, remote_deck_name or ""
     )
 
-    # Determinar o nome do grupo de opções baseado no modo atual
+    # Determine options group name based on current mode
     deck_options_mode = get_deck_options_mode()
     if deck_options_mode == "individual":
         options_group_name = f"Sheets2Anki - {resolved_remote_name}"
@@ -265,7 +270,7 @@ def create_deck_info(
     else:  # manual
         options_group_name = None
 
-    # Garantir que created_at sempre exista
+    # Ensure created_at always exists
     current_timestamp = int(time.time())
     created_at = additional_info.pop('created_at', current_timestamp)
 
@@ -279,12 +284,12 @@ def create_deck_info(
         "is_sync": True,
         "local_deck_configurations_package_name": options_group_name,
         "created_at": created_at,
-        "last_sync": None,  # null = nunca sincronizado (NOVO)
-        "first_sync": None,  # Timestamp da primeira sincronização
-        "sync_count": 0,  # Contador de sincronizações
+        "last_sync": None,  # null = never synchronized (NEW)
+        "first_sync": None,  # First synchronization timestamp
+        "sync_count": 0,  # Synchronization counter
     }
 
-    # Adicionar campos extras se fornecidos
+    # Add extra fields if provided
     deck_info.update(additional_info)
 
     return deck_info
@@ -294,14 +299,14 @@ def add_remote_deck_simple(
     url, local_deck_id, local_deck_name, remote_deck_name=None, **additional_info
 ):
     """
-    Versão simplificada para adicionar deck remoto com estrutura limpa.
+    Simplified version to add remote deck with clean structure.
 
     Args:
-        url (str): URL do deck remoto
-        local_deck_id (int): ID do deck no Anki
-        local_deck_name (str): Nome do deck no Anki
-        remote_deck_name (str, optional): Nome do arquivo remoto
-        **additional_info: Campos adicionais
+        url (str): Remote deck URL
+        local_deck_id (int): Deck ID in Anki
+        local_deck_name (str): Deck name in Anki
+        remote_deck_name (str, optional): Remote file name
+        **additional_info: Additional fields
     """
     deck_info = create_deck_info(
         url, local_deck_id, local_deck_name, remote_deck_name, **additional_info
@@ -311,8 +316,8 @@ def add_remote_deck_simple(
 
 def ensure_deck_consistency():
     """
-    Garante que todos os decks tenham todos os campos obrigatórios.
-    Corrige inconsistências em decks existentes.
+    Ensures that all decks have all required fields.
+    Fixes inconsistencies in existing decks.
     """
     import time
     
@@ -330,56 +335,56 @@ def ensure_deck_consistency():
         "is_sync": True,
         "local_deck_configurations_package_name": None,
         "created_at": int(time.time()),
-        "last_sync": None,  # null = nunca sincronizado
-        "first_sync": None,  # Timestamp da primeira sincronização  
-        "sync_count": 0,  # Contador de sincronizações
+        "last_sync": None,  # null = never synchronized
+        "first_sync": None,  # First synchronization timestamp
+        "sync_count": 0,  # Synchronization counter
     }
     
     for spreadsheet_id, deck_info in decks.items():
         for field, default_value in required_fields.items():
             if field not in deck_info:
                 if field == "created_at":
-                    # Para created_at, usar o timestamp baseado no local_deck_id se disponível
-                    # ou timestamp atual como fallback
+                    # For created_at, use timestamp based on local_deck_id if available
+                    # or current timestamp as fallback
                     deck_info[field] = deck_info.get("local_deck_id", int(time.time()))
                 elif field in ["last_sync", "first_sync"]:
-                    # Campos de sincronização sempre começam como None para decks existentes
-                    # que não tinham esses campos (considera-os como já sincronizados)
+                    # Synchronization fields always start as None for existing decks
+                    # that didn't have these fields (consider them as already synced)
                     deck_info[field] = None
                 elif field == "sync_count":
-                    # Para decks existentes sem sync_count, assumir que já foram sincronizados
+                    # For existing decks without sync_count, assume they were already synced
                     deck_info[field] = 1
                 else:
                     deck_info[field] = default_value
                 modified = True
-                print(f"[CONSISTENCY] Adicionado campo '{field}' ao deck {spreadsheet_id}")
+                add_debug_msg(f"[CONSISTENCY] Added field '{field}' to deck {spreadsheet_id}")
     
     if modified:
         save_meta(meta)
-        print(f"[CONSISTENCY] Corrigidos {len(decks)} decks para garantir consistência")
+        add_debug_msg(f"[CONSISTENCY] {len(decks)} decks fixed to ensure consistency")
     else:
-        print("[CONSISTENCY] Todos os decks já estão consistentes")
+        add_debug_msg("[CONSISTENCY] All decks are already consistent")
     
     return modified
 
 
 def update_deck_sync_status(deck_url, success=True):
     """
-    Atualiza os campos de sincronização de um deck após uma sincronização.
+    Updates synchronization fields for a deck after a sync.
     
     Args:
-        deck_url (str): URL do deck sincronizado
-        success (bool): Se a sincronização foi bem-sucedida
+        deck_url (str): Synchronized deck URL
+        success (bool): Whether the sync was successful
     
     Returns:
-        bool: True se o deck era novo (nunca sincronizado), False caso contrário
+        bool: True if deck was new (never synchronized), False otherwise
     """
     import time
     
     meta = get_meta()
     decks = meta.get("decks", {})
     
-    # Encontrar o deck pela URL
+    # Find deck by URL
     deck_hash = None
     deck_info = None
     
@@ -390,42 +395,42 @@ def update_deck_sync_status(deck_url, success=True):
             break
     
     if not deck_info:
-        print(f"[SYNC_STATUS] Deck não encontrado para URL: {deck_url}")
+        add_debug_msg(f"[SYNC_STATUS] Deck not found for URL: {deck_url}")
         return False
     
-    # Verificar se é um deck novo (nunca sincronizado)
+    # Check if it's a new deck (never synchronized)
     was_new_deck = deck_info.get("last_sync") is None
     
     if success:
         current_timestamp = int(time.time())
         
-        # Se é a primeira sincronização bem-sucedida, definir first_sync
+        # If it's the first successful sync, set first_sync
         if deck_info.get("first_sync") is None:
             deck_info["first_sync"] = current_timestamp
         
-        # Atualizar last_sync
+        # Update last_sync
         deck_info["last_sync"] = current_timestamp
         
-        # Incrementar contador
+        # Increment counter
         deck_info["sync_count"] = deck_info.get("sync_count", 0) + 1
         
-        # Salvar mudanças
+        # Save changes
         save_meta(meta)
         
-        print(f"[SYNC_STATUS] Deck {deck_hash} sincronizado (novo: {was_new_deck})")
+        add_debug_msg(f"[SYNC_STATUS] Deck {deck_hash} synced (new: {was_new_deck})")
     
     return was_new_deck
 
 
 def is_deck_new(deck_url):
     """
-    Verifica se um deck é novo (nunca foi sincronizado).
+    Checks if a deck is new (has never been synchronized).
     
     Args:
-        deck_url (str): URL do deck
+        deck_url (str): Deck URL
         
     Returns:
-        bool: True se o deck nunca foi sincronizado, False caso contrário
+        bool: True if the deck has never been synchronized, False otherwise
     """
     meta = get_meta()
     decks = meta.get("decks", {})
@@ -439,15 +444,15 @@ def is_deck_new(deck_url):
 
 def get_deck_local_name(url):
     """
-    Obtém o nome local de um deck a partir da sua URL.
+    Gets the local name of a deck from its URL.
 
     Args:
-        url (str): URL do deck
+        url (str): Deck URL
 
     Returns:
-        str: Nome local do deck ou None se não encontrado
+        str: Local deck name or None if not found
     """
-    # Gerar ID da planilha
+    # Generate spreadsheet ID
     spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
@@ -458,27 +463,27 @@ def get_deck_local_name(url):
 
 def get_deck_remote_name(url):
     """
-    Obtém o nome remoto de um deck a partir da sua URL.
+    Gets the remote name of a deck from its URL.
 
     Args:
-        url (str): URL do deck
+        url (str): Deck URL
 
     Returns:
-        str: Nome remoto do deck ou None se não encontrado
+        str: Remote deck name or None if not found
     """
-    # Gerar hash da chave de publicação
+    # Generate hash for the spreadsheet ID
     spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
     deck_info = remote_decks.get(spreadsheet_id, {})
 
-    # Se existe na nova estrutura, usar
+    # If it exists in the new structure, use it
     if "remote_deck_name" in deck_info:
         return deck_info["remote_deck_name"]
 
-    # Fallback: extrair da URL se não existe
+    # Fallback: extract from URL if it doesn't exist
     if url:
-        # Se o prefixo mudou, extrair novamente da URL para manter consistência
+        # If prefix changed, re-extract from URL to keep consistency
         from .deck_manager import DeckNameManager
 
         return DeckNameManager.extract_remote_name_from_url(url)
@@ -488,12 +493,12 @@ def get_deck_remote_name(url):
 
 def remove_remote_deck(url):
     """
-    Remove um deck remoto da configuração.
+    Removes a remote deck from the configuration.
 
     Args:
-        url (str): URL do deck remoto a ser removido
+        url (str): Remote deck URL to be removed
     """
-    # Gerar hash da chave de publicação
+    # Generate hash for the spreadsheet ID
     spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
@@ -504,19 +509,19 @@ def remove_remote_deck(url):
 
 def disconnect_deck(url):
     """
-    Remove completamente um deck remoto do sistema.
-    Esta ação é irreversível - o deck só pode ser reconectado se for re-cadastrado.
+    Completely removes a remote deck from the system.
+    This action is irreversible - the deck can only be reconnected if it's re-registered.
 
     Args:
-        url (str): URL do deck a ser desconectado
+        url (str): Deck URL to be disconnected
     """
-    # Gerar hash da chave de publicação
+    # Generate hash for the spreadsheet ID
     spreadsheet_id = get_deck_id(url)
 
     meta = get_meta()
     remote_decks = meta.get("decks", {})
 
-    # Remover completamente o deck da lista de decks remotos
+    # Completely remove deck from remote decks list
     if spreadsheet_id in remote_decks:
         del remote_decks[spreadsheet_id]
         meta["decks"] = remote_decks  # type: ignore
@@ -525,15 +530,15 @@ def disconnect_deck(url):
 
 def is_deck_disconnected(url):
     """
-    Verifica se um deck está desconectado (não existe mais na configuração).
+    Checks if a deck is disconnected (no longer in the configuration).
 
     Args:
-        url (str): URL do deck
+        url (str): Deck URL
 
     Returns:
-        bool: True se desconectado (não existe), False se existe
+        bool: True if disconnected (doesn't exist), False if it exists
     """
-    # Gerar hash da chave de publicação
+    # Generate hash for the spreadsheet ID
     spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
@@ -542,11 +547,11 @@ def is_deck_disconnected(url):
 
 def get_active_decks():
     """
-    Obtém todos os decks remotos ativos.
-    Na nova lógica, todos os decks em decks são considerados ativos.
+    Gets all active remote decks.
+    In the new logic, all decks in 'decks' are considered active.
 
     Returns:
-        dict: Dicionário com URLs como chaves e dados dos decks como valores
+        dict: Dictionary with URLs as keys and deck data as values
     """
     meta = get_meta()
     return meta.get("decks", {})
@@ -554,126 +559,126 @@ def get_active_decks():
 
 def is_local_deck_missing(url):
     """
-    Verifica se o deck local correspondente a um deck remoto foi deletado.
+    Checks if the corresponding local deck for a remote deck was deleted.
 
     Args:
-        url (str): URL do deck remoto
+        url (str): Remote deck URL
 
     Returns:
-        bool: True se o deck remoto existe mas o deck local não
+        bool: True if remote deck exists but local deck doesn't
     """
     meta = get_meta()
     remote_decks = meta.get("decks", {})
 
     if url not in remote_decks:
-        return False  # Deck remoto não existe
+        return False  # Remote deck doesn't exist
 
     deck_info = remote_decks[url]
     deck_id = deck_info.get("deck_id")
 
     if not deck_id:
-        return True  # Deck remoto não tem ID local
+        return True  # Remote deck has no local ID
 
     try:
-        # Verificar se o deck local existe no Anki
+        # Check if local deck exists in Anki
         if mw.col and mw.col.decks:
             deck = mw.col.decks.get(deck_id)
             return deck is None
         else:
-            return True  # Collection ou decks não disponível
+            return True  # Collection or decks not available
     except:
-        return True  # Erro ao acessar deck = deck não existe
+        return True  # Error accessing deck = deck doesn't exist
 
 
 def get_deck_naming_mode():
     """
-    Obtém o modo de nomeação de decks atual.
+    Gets current deck naming mode.
 
     Returns:
-        str: Sempre "automatic" (comportamento fixo)
+        str: Always "automatic" (fixed behavior)
     """
     return "automatic"
 
 
 def set_deck_naming_mode(mode):
     """
-    Define o modo de nomeação de decks.
+    Sets deck naming mode.
 
     Args:
-        mode (str): Ignorado - comportamento sempre automático
+        mode (str): Ignored - behavior always automatic
     """
-    # Função mantida para compatibilidade, mas não faz nada
+    # Kept for compatibility, does nothing
     pass
 
 
 def get_create_subdecks_setting():
     """
-    Verifica se a criação de subdecks está habilitada.
+    Checks if subdeck creation is enabled.
 
     Returns:
-        bool: Sempre True (comportamento fixo)
+        bool: Always True (fixed behavior)
     """
     return True
 
 
 def set_create_subdecks_setting(enabled):
     """
-    Define se a criação de subdecks está habilitada.
+    Sets whether subdeck creation is enabled.
 
     Args:
-        enabled (bool): Ignorado - comportamento sempre habilitado
+        enabled (bool): Ignored - behavior always enabled
     """
-    # Função mantida para compatibilidade, mas não faz nada
+    # Kept for compatibility, does nothing
     pass
 
 
 # =============================================================================
-# FUNÇÕES AUXILIARES
+# HELPER FUNCTIONS
 # =============================================================================
 
 
 def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=False):
     """
-    Verifica e atualiza as informações do deck na configuração usando nova estrutura.
+    Verifies and updates deck info in the configuration using the new structure.
 
-    Esta função garante que:
-    1. O local_deck_id está atualizado na configuração
-    2. O local_deck_name está atualizado na configuração
-    3. O remote_deck_name está sincronizado com a URL atual
-    4. As informações correspondem à realidade atual do Anki
+    This function ensures that:
+    1. local_deck_id is updated in the configuration
+    2. local_deck_name is updated in the configuration
+    3. remote_deck_name is synchronized with current URL
+    4. Information matches Anki's current state
 
     Args:
-        url (str): URL do deck remoto
-        local_deck_id (int): ID atual do deck no Anki
-        local_deck_name (str): Nome local atual do deck no Anki
-        silent (bool): Se True, não mostra notificações
+        url (str): Remote deck URL
+        local_deck_id (int): Current deck ID in Anki
+        local_deck_name (str): Current local deck name in Anki
+        silent (bool): If True, doesn't show notifications
 
     Returns:
-        bool: True se houve atualizações, False caso contrário
+        bool: True if there were updates, False otherwise
     """
-    # Gerar hash da chave de publicação
+    # Generate hash for the spreadsheet ID
     spreadsheet_id = get_deck_id(url)
 
     remote_decks = get_remote_decks()
 
-    # Verificar se o deck existe na configuração
+    # Check if deck exists in the configuration
     if spreadsheet_id not in remote_decks:
         return False
 
     deck_info = remote_decks[spreadsheet_id]
     updated = False
 
-    # Verificar se o local_deck_id precisa ser atualizado
+    # Check if local_deck_id needs update
     current_local_deck_id = deck_info.get("local_deck_id")
     if current_local_deck_id != local_deck_id:
         deck_info["local_deck_id"] = local_deck_id
-    # Verificar se o local_deck_name precisa ser atualizado
+    # Check if local_deck_name needs update
     current_local_deck_name = deck_info.get("local_deck_name")
     if current_local_deck_name != local_deck_name:
         deck_info["local_deck_name"] = local_deck_name
         updated = True
 
-    # Verificar se o remote_deck_name precisa ser atualizado usando DeckNameManager
+    # Check if remote_deck_name needs update using DeckNameManager
     from .deck_manager import DeckNameManager
 
     current_remote_name = DeckNameManager.extract_remote_name_from_url(url)
@@ -684,12 +689,12 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
         )
         deck_info["remote_deck_name"] = resolved_remote_name
         
-        # Atualizar também o local_deck_configurations_package_name para manter consistência
+        # Also update local_deck_configurations_package_name for consistency
         deck_options_mode = get_deck_options_mode()
         if deck_options_mode == "individual":
             new_package_name = f"Sheets2Anki - {resolved_remote_name}"
             deck_info["local_deck_configurations_package_name"] = new_package_name
-            print(f"[Sheets2Anki] Package name updated to '{new_package_name}'")
+            add_debug_msg(f"[Sheets2Anki] Package name updated to '{new_package_name}'")
         elif deck_options_mode == "shared":
             deck_info["local_deck_configurations_package_name"] = "Sheets2Anki - Default Options"
         else:  # manual
@@ -697,11 +702,11 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
         
         updated = True
         if not silent:
-            print(
+            add_debug_msg(
                 f"[Sheets2Anki] Remote deck name updated from '{stored_remote_name}' to '{resolved_remote_name}'"
             )
 
-    # Salvar as alterações se houve atualizações
+    # Save changes if there were updates
     if updated:
         save_remote_decks(remote_decks)
         return True
@@ -711,13 +716,13 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
 
 def get_deck_info_by_id(local_deck_id):
     """
-    Obtém informações do deck remoto pelo ID do deck local.
+    Gets remote deck information by local deck ID.
 
     Args:
-        local_deck_id (int): ID do deck no Anki
+        local_deck_id (int): Deck ID in Anki
 
     Returns:
-        tuple: (url_hash, deck_info) ou (None, None) se não encontrado
+        tuple: (url_hash, deck_info) or (None, None) if not found
     """
     remote_decks = get_remote_decks()
 
@@ -730,16 +735,16 @@ def get_deck_info_by_id(local_deck_id):
 
 def detect_deck_name_changes(skip_deleted=False):
     """
-    Detecta mudanças nos nomes dos decks locais e atualiza a configuração.
+    Detects changes in local deck names and updates the configuration.
 
-    Esta função verifica todos os decks remotos configurados e atualiza
-    suas informações se o nome do deck foi alterado no Anki.
+    This function checks all configured remote decks and updates
+    their information if the deck name was changed in Anki.
 
     Args:
-        skip_deleted: Se True, não atualiza nomes de decks que foram deletados
+        skip_deleted: If True, doesn't update names of deleted decks
 
     Returns:
-        list: Lista de hash keys dos decks que foram atualizados
+        list: List of hash keys for the updated decks
     """
     from .compat import mw
 
@@ -751,28 +756,28 @@ def detect_deck_name_changes(skip_deleted=False):
         if not local_deck_id:
             continue
 
-        # Obter deck atual do Anki
+        # Get current deck from Anki
         if not mw.col or not mw.col.decks:
-            continue  # Collection ou decks não disponível
+            continue  # Collection or decks not available
 
         deck = mw.col.decks.get(local_deck_id)
 
-        # Se o deck foi deletado e skip_deleted=True, pular
+        # If deck was deleted and skip_deleted=True, skip
         if not deck and skip_deleted:
             continue
 
-        # Se o deck existe, atualizar o nome
+        # If deck exists, update name
         if deck:
             current_name = deck.get("name", "")
             saved_name = deck_info.get("local_deck_name", "")
 
-            # Verificar se o nome mudou
+            # Check if name changed
             if current_name and current_name != saved_name:
-                # Atualizar nome na configuração
+                # Update name in configuration
                 deck_info["local_deck_name"] = current_name
                 updated_hashes.append(url_hash)
 
-    # Salvar alterações se houve atualizações
+    # Save changes if there were updates
     if updated_hashes:
         save_remote_decks(remote_decks)
 
@@ -781,16 +786,16 @@ def detect_deck_name_changes(skip_deleted=False):
 
 def get_sync_selection():
     """
-    Obtém a seleção persistente de decks para sincronização.
+    Gets persistent selection of decks for synchronization.
 
     Returns:
-        dict: Dicionário com URLs como chaves e bool como valores
+        dict: Dictionary with URLs as keys and bool as values
     """
     remote_decks = get_remote_decks()
     selection = {}
 
     for url, deck_info in remote_decks.items():
-        # Usar o atributo is_sync dos dados do deck, padrão True se não existir
+        # Use is_sync attribute from deck data, default True if doesn't exist
         selection[url] = deck_info.get("is_sync", True)
 
     return selection
@@ -798,14 +803,14 @@ def get_sync_selection():
 
 def save_sync_selection(selection):
     """
-    Salva a seleção persistente de decks para sincronização.
+    Saves the persistent deck selection for synchronization.
 
     Args:
-        selection (dict): Dicionário com URLs como chaves e bool como valores
+        selection (dict): Dictionary with URLs as keys and bool as values
     """
     remote_decks = get_remote_decks()
 
-    # Atualizar o atributo is_sync em cada deck
+    # Update is_sync attribute in each deck
     for url, is_selected in selection.items():
         if url in remote_decks:
             remote_decks[url]["is_sync"] = is_selected
@@ -815,11 +820,11 @@ def save_sync_selection(selection):
 
 def update_sync_selection(url, selected):
     """
-    Atualiza a seleção de um deck específico.
+    Updates selection for a specific deck.
 
     Args:
-        url (str): URL do deck
-        selected (bool): Se o deck está selecionado
+        url (str): Deck URL
+        selected (bool): Whether the deck is selected
     """
     remote_decks = get_remote_decks()
 
@@ -830,7 +835,7 @@ def update_sync_selection(url, selected):
 
 def clear_sync_selection():
     """
-    Limpa toda a seleção persistente (define todos como não selecionados).
+    Clears all persistent selection (sets all as unselected).
     """
     remote_decks = get_remote_decks()
 
@@ -842,10 +847,10 @@ def clear_sync_selection():
 
 def set_all_sync_selection(selected=True):
     """
-    Define todos os decks como selecionados ou não selecionados.
+    Sets all decks as selected or unselected.
 
     Args:
-        selected (bool): True para selecionar todos, False para desmarcar todos
+        selected (bool): True to select all, False to unselect all
     """
     remote_decks = get_remote_decks()
 
@@ -857,34 +862,34 @@ def set_all_sync_selection(selected=True):
 
 def _ensure_meta_structure(meta):
     """
-    Garante que a estrutura do meta.json está correta.
+    Ensures that meta.json structure is correct.
 
     Args:
-        meta (dict): Metadados a serem verificados
+        meta (dict): Metadata to be checked
 
     Returns:
-        dict: Metadados com estrutura corrigida
+        dict: Metadata with corrected structure
     """
-    # Garantir chaves principais
+    # Ensure main keys
     if "decks" not in meta:
         meta["decks"] = {}
 
-    # Migrar dados de remote_decks para decks se necessário
+    # Migrate remote_decks data to decks if necessary
     if "remote_decks" in meta and meta["remote_decks"] and not meta.get("decks"):
         meta["decks"] = meta["remote_decks"]
 
-    # Remover chaves antigas desnecessárias
+    # Remove unnecessary old keys
     if "remote_decks" in meta:
         del meta["remote_decks"]
-    if "user_preferences" in meta:
-        del meta["user_preferences"]
+    if "user_preferencies" in meta:
+        del meta["user_preferencies"]
 
-    # Garantir que todos os decks têm o atributo is_sync
+    # Ensure all decks have is_sync attribute
     for url, deck_info in meta["decks"].items():
         if "is_sync" not in deck_info:
-            deck_info["is_sync"] = True  # Padrão: selecionado para sincronização
+            deck_info["is_sync"] = True  # Default: selected for synchronization
 
-    # Garantir estrutura de students
+    # Ensure students structure
     if "students" not in meta:
         meta["students"] = {
             "enabled_students": [],
@@ -895,22 +900,22 @@ def _ensure_meta_structure(meta):
 
 
 # =============================================================================
-# FUNÇÕES DE GERENCIAMENTO GLOBAL DE ALUNOS
+# GLOBAL STUDENT MANAGEMENT FUNCTIONS
 # =============================================================================
 
 
 def get_global_student_config():
     """
-    Obtém a configuração global de alunos.
+    Gets global student configuration.
 
     Returns:
-        dict: Configuração de alunos com chaves:
-            - available_students: lista de todos os alunos conhecidos
-            - enabled_students: lista de alunos habilitados
-            - student_sync_enabled: se o filtro de alunos está ativo
-            - auto_remove_disabled_students: se deve remover dados de alunos desabilitados
-            - sync_missing_students_notes: se deve sincronizar notas sem alunos específicos
-            - sync_history: histórico detalhado de sincronizações por aluno
+        dict: Student configuration with keys:
+            - available_students: list of all known students
+            - enabled_students: list of enabled students
+            - student_sync_enabled: if student filter is active
+            - auto_remove_disabled_students: if disabled students' data should be removed
+            - sync_missing_students_notes: if notes without specific students should be synced
+            - sync_history: detailed synchronization history per student
     """
     meta = get_meta()
     return meta.get(
@@ -931,45 +936,45 @@ def save_global_student_config(
     sync_missing_students_notes=None,
 ):
     """
-    Salva a configuração global de alunos.
+    Saves global student configuration.
 
     Args:
-        enabled_students (list): Lista de alunos habilitados para sincronização
-        available_students (list): Lista de todos os alunos conhecidos (opcional)
-        auto_remove_disabled_students (bool): Se deve remover dados de alunos desabilitados (opcional)
-        sync_missing_students_notes (bool): Se deve sincronizar notas sem alunos específicos (opcional)
+        enabled_students (list): List of students enabled for synchronization
+        available_students (list): List of all known students (optional)
+        auto_remove_disabled_students (bool): Whether to automatically remove disabled students' data (optional)
+        sync_missing_students_notes (bool): Whether to synchronize notes without specific students (optional)
     """
 
     meta = get_meta()
 
-    # Obter configuração atual
+    # Get current configuration
     current_config = meta.get("students", {})
     current_available = current_config.get("available_students", [])
 
-    # Remover duplicatas das listas de estudantes (case-sensitive)
+    # Remove duplicates from student lists (case-sensitive)
     final_enabled = list(dict.fromkeys(enabled_students)) if enabled_students else []
 
     if available_students is not None:
         final_available = list(dict.fromkeys(available_students))
     else:
-        # Se não fornecido, manter a lista atual e adicionar os habilitados
+        # If not provided, keep current list and add enabled ones
         all_students = list(current_available) + final_enabled
         final_available = list(dict.fromkeys(all_students))
 
-    # Determinar valor para auto_remove_disabled_students
+    # Determine value for auto_remove_disabled_students
     if auto_remove_disabled_students is not None:
         final_auto_remove = bool(auto_remove_disabled_students)
     else:
         final_auto_remove = current_config.get("auto_remove_disabled_students", False)
 
-    # Determinar valor para sync_missing_students_notes
+    # Determine value for sync_missing_students_notes
     if sync_missing_students_notes is not None:
         final_sync_missing = bool(sync_missing_students_notes)
     else:
         final_sync_missing = current_config.get("sync_missing_students_notes", False)
 
-    # ⚠️ PRESERVAR chaves existentes como sync_history
-    # Em vez de sobrescrever toda a seção "students", atualizar apenas as chaves necessárias
+    # ⚠️ PRESERVE existing keys like sync_history
+    # Instead of overwriting the whole "students" section, update only necessary keys
     if "students" not in meta:
         meta["students"] = {}
     
@@ -978,17 +983,17 @@ def save_global_student_config(
     meta["students"]["auto_remove_disabled_students"] = final_auto_remove
     meta["students"]["sync_missing_students_notes"] = final_sync_missing
     
-    # sync_history e outras chaves são preservadas automaticamente
+    # sync_history and other keys are preserved automatically
 
     save_meta(meta)
 
 
 def get_enabled_students():
     """
-    Obtém a lista de alunos habilitados para sincronização.
+    Gets the list of students enabled for synchronization.
 
     Returns:
-        list: Lista de nomes de alunos habilitados
+        list: List of enabled student names
     """
     config = get_global_student_config()
     return config.get("enabled_students", [])
@@ -996,10 +1001,10 @@ def get_enabled_students():
 
 def is_student_filter_active():
     """
-    Verifica se o filtro de alunos está ativo baseado na lista de alunos habilitados.
+    Checks if student filter is active based on enabled students list.
 
     Returns:
-        bool: True se há alunos específicos selecionados (filtro ativo), False caso contrário
+        bool: True if there are specific students selected (filter active), False otherwise
     """
     config = get_global_student_config()
     enabled_students = config.get("enabled_students", [])
@@ -1008,10 +1013,10 @@ def is_student_filter_active():
 
 def add_enabled_student(student_name):
     """
-    Adiciona um aluno à lista de habilitados.
+    Adds a student to the enabled list.
 
     Args:
-        student_name (str): Nome do aluno a ser adicionado
+        student_name (str): Student name to be added
     """
     config = get_global_student_config()
     enabled = set(config.get("enabled_students", []))
@@ -1021,10 +1026,10 @@ def add_enabled_student(student_name):
 
 def remove_enabled_student(student_name):
     """
-    Remove um aluno da lista de habilitados.
+    Removes a student from the enabled list.
 
     Args:
-        student_name (str): Nome do aluno a ser removido
+        student_name (str): Student name to be removed
     """
     config = get_global_student_config()
     enabled = set(config.get("enabled_students", []))
@@ -1034,10 +1039,10 @@ def remove_enabled_student(student_name):
 
 def is_auto_remove_disabled_students():
     """
-    Verifica se a auto-remoção de estudantes desabilitados está ativada.
+    Checks if auto-removal of disabled students is enabled.
 
     Returns:
-        bool: True se deve remover automaticamente dados de estudantes desabilitados
+        bool: True if disabled students' data should be automatically removed
     """
     config = get_global_student_config()
     return config.get("auto_remove_disabled_students", False)
@@ -1045,10 +1050,10 @@ def is_auto_remove_disabled_students():
 
 def set_auto_remove_disabled_students(enabled):
     """
-    Ativa ou desativa a auto-remoção de estudantes desabilitados.
+    Enables or disables auto-removal of disabled students.
 
     Args:
-        enabled (bool): Se deve remover automaticamente dados de estudantes desabilitados
+        enabled (bool): Whether to automatically remove disabled students' data
     """
     config = get_global_student_config()
     save_global_student_config(
@@ -1061,10 +1066,10 @@ def set_auto_remove_disabled_students(enabled):
 
 def is_sync_missing_students_notes():
     """
-    Verifica se a sincronização de notas sem alunos específicos está ativada.
+    Checks if synchronization of notes without specific students is enabled.
 
     Returns:
-        bool: True se deve sincronizar notas com coluna ALUNOS vazia para deck [MISSING A.]
+        bool: True if notes with empty STUDENTS column should be synced for [MISSING STUDENT] deck
     """
     config = get_global_student_config()
     return config.get("sync_missing_students_notes", False)
@@ -1072,10 +1077,10 @@ def is_sync_missing_students_notes():
 
 def set_sync_missing_students_notes(enabled):
     """
-    Ativa ou desativa a sincronização de notas sem alunos específicos.
+    Enables or disables synchronization of notes without specific students.
 
     Args:
-        enabled (bool): Se deve sincronizar notas com coluna ALUNOS vazia
+        enabled (bool): Whether to synchronize notes with empty STUDENTS column
     """
     config = get_global_student_config()
     save_global_student_config(
@@ -1087,15 +1092,15 @@ def set_sync_missing_students_notes(enabled):
 
 
 # =============================================================================
-# GERENCIAMENTO DE HISTÓRICO DE SINCRONIZAÇÃO DE ALUNOS (NOVO)
+# STUDENT SYNCHRONIZATION HISTORY MANAGEMENT (NEW)
 # =============================================================================
 
 def get_student_sync_history():
     """
-    Obtém o histórico completo de sincronização de alunos.
+    Gets full student synchronization history.
     
     Returns:
-        dict: Histórico no formato {
+        dict: History in format {
             "student_name": {
                 "first_sync": timestamp,
                 "last_sync": timestamp, 
@@ -1109,18 +1114,18 @@ def get_student_sync_history():
 
 def update_student_sync_history(students_synced):
     """
-    Atualiza o histórico de sincronização para os alunos especificados.
+    Updates synchronization history for specified students.
     
-    Esta função deve ser chamada SEMPRE que uma sincronização for concluída
-    com sucesso, independentemente de renomeações manuais de note types.
+    This function should be called EVERY TIME a synchronization is completed
+    successfully, regardless of manual note type renames.
     
     Args:
-        students_synced (set): Conjunto de alunos que foram sincronizados
+        students_synced (set): Set of students that were synchronized
     """
     meta = get_meta()
     current_time = int(time.time())
     
-    # Garantir estrutura
+    # Ensure structure
     if "students" not in meta:
         meta["students"] = {}
     if "sync_history" not in meta["students"]:
@@ -1130,53 +1135,53 @@ def update_student_sync_history(students_synced):
     
     for student in students_synced:
         if student in sync_history:
-            # Aluno já existe no histórico - atualizar
+            # Student already exists in history - update
             sync_history[student]["last_sync"] = current_time
             sync_history[student]["total_syncs"] = sync_history[student].get("total_syncs", 0) + 1
         else:
-            # Novo aluno - criar entrada
+            # New student - create entry
             sync_history[student] = {
                 "first_sync": current_time,
                 "last_sync": current_time,
                 "total_syncs": 1
             }
     
-    # Salvar mudanças
+    # Save changes
     save_meta(meta)
-    print(f"📝 HISTORY: Histórico atualizado para {len(students_synced)} alunos: {sorted(students_synced)}")
+    add_debug_msg(f"📝 HISTORY: History updated for {len(students_synced)} students: {sorted(students_synced)}")
 
 
 def get_students_with_sync_history():
     """
-    Retorna conjunto de todos os alunos que já foram sincronizados alguma vez.
+    Returns set of all students who have ever been synchronized.
     
-    Esta é a fonte de verdade definitiva para saber quais alunos existiam,
-    independentemente de renomeações manuais ou outras modificações.
+    This is the definitive source of truth to know which students existed,
+    regardless of manual renames or other modifications.
     
     Returns:
-        set: Conjunto de alunos que já foram sincronizados
+        set: Set of students that have been synchronized
     """
     sync_history = get_student_sync_history()
     historical_students = set(sync_history.keys())
     
     try:
         from .utils import add_debug_message
-        add_debug_message(f"📚 HISTORY: Encontrados {len(historical_students)} alunos no histórico: {sorted(historical_students)}", "CLEANUP")
+        add_debug_message(f"📚 HISTORY: Found {len(historical_students)} students in history: {sorted(historical_students)}", "CLEANUP")
     except:
-        print(f"📚 HISTORY: Encontrados {len(historical_students)} alunos no histórico: {sorted(historical_students)}")
+        add_debug_msg(f"📚 HISTORY: Found {len(historical_students)} students in history: {sorted(historical_students)}")
     
     return historical_students
 
 
 def remove_student_from_sync_history(student_name):
     """
-    Remove um aluno do histórico de sincronização.
+    Removes a student from synchronization history.
     
-    Deve ser chamado APENAS após confirmação de que o usuário quer
-    deletar permanentemente todos os dados do aluno.
+    Should be called ONLY after confirmation that the user wants
+    to permanently delete all student data.
     
     Args:
-        student_name (str): Nome do aluno a ser removido do histórico
+        student_name (str): Student name to be removed from history
     """
     meta = get_meta()
     sync_history = meta.get("students", {}).get("sync_history", {})
@@ -1184,18 +1189,18 @@ def remove_student_from_sync_history(student_name):
     if student_name in sync_history:
         del sync_history[student_name]
         save_meta(meta)
-        print(f"🗑️ HISTORY: Aluno '{student_name}' removido do histórico de sincronização")
+        add_debug_msg(f"🗑️ HISTORY: Student '{student_name}' removed from sync history")
     else:
-        print(f"ℹ️ HISTORY: Aluno '{student_name}' não encontrado no histórico")
+        add_debug_msg(f"ℹ️ HISTORY: Student '{student_name}' not found in history")
 
 
 def cleanup_orphaned_sync_history():
     """
-    Remove entradas do histórico de sincronização que não correspondem
-    mais a dados reais no Anki (limpeza de manutenção).
+    Removes sync history entries that no longer correspond
+    to real data in Anki (maintenance cleanup).
     
     Returns:
-        int: Número de entradas removidas
+        int: Number of entries removed
     """
     if not mw or not hasattr(mw, "col") or not mw.col:
         return 0
@@ -1207,13 +1212,13 @@ def cleanup_orphaned_sync_history():
     orphaned_students = []
     col = mw.col
     
-    # Verificar cada aluno no histórico
+    # Check each student in history
     for student in sync_history.keys():
-        # Buscar notas que tenham ID começando com este aluno
+        # Search for notes that have ID starting with this student
         student_notes = []
         try:
-            # Busca aproximativa por notas que possam pertencer ao aluno
-            all_notes = col.find_notes("*")[:2000]  # Limitar busca para performance - usar wildcard
+            # Approximate search for notes that might belong to student
+            all_notes = col.find_notes("*")[:2000]  # Limit search for performance - use wildcard
             
             for note_id in all_notes:
                 try:
@@ -1222,19 +1227,19 @@ def cleanup_orphaned_sync_history():
                         unique_id = note["ID"].strip()
                         if unique_id.startswith(f"{student}_"):
                             student_notes.append(note_id)
-                            break  # Encontrou pelo menos uma nota, aluno ainda existe
+                            break  # Found at least one note, student still exists
                 except:
                     continue
             
-            # Se não encontrou nenhuma nota, marcar como órfão
+            # If no note found, mark as orphan
             if not student_notes:
                 orphaned_students.append(student)
                 
         except Exception as e:
-            print(f"⚠️ HISTORY: Erro ao verificar aluno '{student}': {e}")
+            add_debug_msg(f"⚠️ HISTORY: Error checking student '{student}': {e}")
             continue
     
-    # Remover órfãos
+    # Remove orphans
     if orphaned_students:
         meta = get_meta()
         sync_history = meta.get("students", {}).get("sync_history", {})
@@ -1244,106 +1249,106 @@ def cleanup_orphaned_sync_history():
                 del sync_history[student]
         
         save_meta(meta)
-        print(f"🧹 HISTORY: Removidas {len(orphaned_students)} entradas órfãs: {orphaned_students}")
+        add_debug_msg(f"Sweep HISTORY: Removed {len(orphaned_students)} orphaned entries: {orphaned_students}")
     
     return len(orphaned_students)
 
 
 def discover_all_students_from_remote_decks():
     """
-    Descobre todos os estudantes únicos de todos os decks remotos configurados.
+    Discovers all unique students from all configured remote decks.
 
     Returns:
-        list: Lista de nomes de estudantes encontrados (normalizados)
+        list: List of student names found (normalized)
     """
     from .student_manager import discover_students_from_tsv_url
 
     all_students = set()
     remote_decks = get_remote_decks()
 
-    print("🔍 DEBUG: Iniciando descoberta de estudantes...")
-    print(f"📋 DEBUG: Encontrados {len(remote_decks)} decks remotos para analisar")
+    add_debug_msg("🔍 DEBUG: Starting student discovery...")
+    add_debug_msg(f"📋 DEBUG: Found {len(remote_decks)} remote decks for analysis")
 
     for i, (hash_key, deck_info) in enumerate(remote_decks.items(), 1):
         deck_name = deck_info.get("remote_deck_name", f"Deck {i}")
         url = deck_info.get("remote_deck_url")
 
         if not url:
-            print(f"   ⚠️ Deck {deck_name} não possui URL configurada, pulando...")
+            add_debug_msg(f"   ⚠️ Deck {deck_name} has no URL configured, skipping...")
             continue
 
-        print(f"🔍 DEBUG: Analisando deck {i}/{len(remote_decks)}: {deck_name}")
-        print(f"🌐 DEBUG: URL: {url}")
+        add_debug_msg(f"🔍 DEBUG: Analyzing deck {i}/{len(remote_decks)}: {deck_name}")
+        add_debug_msg(f"🌐 DEBUG: URL: {url}")
 
         try:
             students = discover_students_from_tsv_url(url)
-            print(f"   ✓ Encontrados {len(students)} estudantes: {sorted(students)}")
+            add_debug_msg(f"   ✓ Found {len(students)} students: {sorted(students)}")
 
-            # Adicionar estudantes encontrados (case-sensitive)
+            # Add discovered students (case-sensitive)
             for student in students:
                 if student and student.strip():
                     all_students.add(student.strip())
 
-            print(f"   ✓ Adicionados {len(students)} estudantes válidos")
+            add_debug_msg(f"   ✓ Added {len(students)} valid students")
 
         except Exception as e:
-            # Em caso de erro, continuar com próximo deck
-            print(f"   ❌ Erro ao descobrir alunos do deck {deck_name}: {e}")
+            # In case of error, continue with next deck
+            add_debug_msg(f"   ❌ Error discovering students from deck {deck_name}: {e}")
             continue
 
     final_students = sorted(all_students)
-    print(
-        f"✅ DEBUG: Descoberta concluída. Total de estudantes únicos: {len(final_students)}"
+    add_debug_msg(
+        f"✅ DEBUG: Discovery completed. Total unique students: {len(final_students)}"
     )
-    print(f"📝 DEBUG: Lista final: {final_students}")
+    add_debug_msg(f"📝 DEBUG: Final list: {final_students}")
 
     return final_students
 
 
 def update_available_students_from_discovery():
     """
-    Atualiza a lista de estudantes disponíveis descobrindo de todos os decks remotos.
+    Updates available students list by discovering from all remote decks.
 
     Returns:
         tuple: (students_found, new_students_count)
     """
-    print("🔄 DEBUG: Iniciando atualização de estudantes disponíveis...")
+    add_debug_msg("🔄 DEBUG: Starting discovery update for available students...")
 
     config = get_global_student_config()
     current_available = set(config.get("available_students", []))
-    print(
-        f"📋 DEBUG: Estudantes disponíveis atuais: {len(current_available)} - {sorted(current_available)}"
+    add_debug_msg(
+        f"📋 DEBUG: Current available students: {len(current_available)} - {sorted(current_available)}"
     )
 
     discovered_students = set(discover_all_students_from_remote_decks())
-    print(
-        f"🔍 DEBUG: Estudantes descobertos: {len(discovered_students)} - {sorted(discovered_students)}"
+    add_debug_msg(
+        f"🔍 DEBUG: Discovered students: {len(discovered_students)} - {sorted(discovered_students)}"
     )
 
-    # Combinar estudantes descobertos com os existentes (case-sensitive)
+    # Combine discovered students with existing ones (case-sensitive)
     all_available = current_available.union(discovered_students)
     final_available = sorted(list(all_available))
 
-    # Contar novos estudantes
+    # Count new students
     new_count = len(discovered_students - current_available)
-    print(f"✨ DEBUG: Novos estudantes encontrados: {new_count}")
+    add_debug_msg(f"✨ DEBUG: New students found: {new_count}")
     if new_count > 0:
         new_students = sorted(discovered_students - current_available)
-        print(f"📝 DEBUG: Lista de novos estudantes: {new_students}")
+        add_debug_msg(f"📝 DEBUG: New students list: {new_students}")
 
-    print(
-        f"💾 DEBUG: Salvando configuração com {len(final_available)} estudantes disponíveis..."
+    add_debug_msg(
+        f"💾 DEBUG: Saving configuration with {len(final_available)} available students..."
     )
 
-    # Atualizar configuração mantendo estudantes habilitados
+    # Update configuration keeping enabled students
     save_global_student_config(config.get("enabled_students", []), final_available)
 
-    print("✅ DEBUG: Atualização concluída com sucesso!")
+    add_debug_msg("✅ DEBUG: Update completed successfully!")
     return final_available, new_count
 
 
 # =============================================================================
-# GERENCIAMENTO DE NOTE TYPE IDS
+# NOTE TYPE IDS MANAGEMENT
 # =============================================================================
 
 
@@ -1351,100 +1356,99 @@ def add_note_type_id_to_deck(
     deck_url, note_type_id, expected_name=None, debug_messages=None
 ):
     """
-    Adiciona um ID de note type ao deck usando nova estrutura baseada em hash.
+    Adds a note type ID to deck using new hash-based structure.
 
     Args:
-        deck_url (str): URL do deck remoto
-        note_type_id (int): ID do note type
-        expected_name (str, optional): Nome esperado do note type
-        debug_messages (list, optional): Lista para acumular mensagens de debug
+        deck_url (str): Remote deck URL
+        note_type_id (int): Note type ID
+        expected_name (str, optional): Expected name of the note type
+        debug_messages (list, optional): List to accumulate debug messages
     """
 
     def add_debug_msg(message, category="CONFIG"):
-        """Helper para adicionar mensagens de debug com timestamp."""
+        """Helper to add debug messages with timestamp."""
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         formatted_msg = f"[{timestamp}] [{category}] {message}"
         if debug_messages is not None:
             debug_messages.append(formatted_msg)
-        print(formatted_msg)  # Também imprimir no console
 
     try:
-        add_debug_msg("CHAMADA add_note_type_id_to_deck:")
+        add_debug_msg("add_note_type_id_to_deck CALL:")
         add_debug_msg(f"  - URL: {deck_url}")
         add_debug_msg(f"  - ID: {note_type_id}")
-        add_debug_msg(f"  - Nome esperado: {expected_name}")
+        add_debug_msg(f"  - Expected name: {expected_name}")
 
-        # Gerar ID da planilha
+        # Generate spreadsheet ID
         spreadsheet_id = get_deck_id(deck_url)
-        add_debug_msg(f"  - ID da Planilha: {spreadsheet_id}")
+        add_debug_msg(f"  - Spreadsheet ID: {spreadsheet_id}")
 
         meta = get_meta()
-        add_debug_msg(f"Meta carregado: {len(meta.get('decks', {}))} decks na config")
+        add_debug_msg(f"Meta loaded: {len(meta.get('decks', {}))} decks in config")
 
         if spreadsheet_id not in meta["decks"]:
-            add_debug_msg(f"ERRO: Deck {spreadsheet_id} não encontrado na configuração")
-            add_debug_msg("Decks disponíveis:")
+            add_debug_msg(f"ERROR: Deck {spreadsheet_id} not found in configuration")
+            add_debug_msg("Available decks:")
             for key in meta.get("decks", {}).keys():
                 add_debug_msg(f"  - {key}")
             return
 
         deck_info = meta["decks"][spreadsheet_id]
-        add_debug_msg(f"Deck info encontrado: {list(deck_info.keys())}")
+        add_debug_msg(f"Deck info found: {list(deck_info.keys())}")
 
-        # Garantir que a estrutura note_types existe
+        # Ensure note_types structure exists
         if "note_types" not in deck_info:
             deck_info["note_types"] = {}
-            add_debug_msg("Inicializando dicionário note_types vazio")
+            add_debug_msg("Initializing empty note_types dictionary")
 
         note_type_id_str = str(note_type_id)
 
-        # Adicionar ou atualizar o note type atual
+        # Add or update current note type
         if note_type_id_str not in deck_info["note_types"]:
-            # Adicionar novo note type com nome esperado
+            # Add new note type with expected name
             deck_info["note_types"][note_type_id_str] = (
                 expected_name or f"Note Type {note_type_id}"
             )
-            add_debug_msg(f"Note type ID {note_type_id} adicionado ao dicionário")
+            add_debug_msg(f"Note type ID {note_type_id} added to dictionary")
         else:
-            # Atualizar nome esperado se fornecido e diferente
+            # Update expected name if provided and different
             current_name = deck_info["note_types"][note_type_id_str]
             if expected_name and current_name != expected_name:
                 old_name = current_name
                 deck_info["note_types"][note_type_id_str] = expected_name
                 add_debug_msg(
-                    f"Nome do note type ID {note_type_id} atualizado de '{old_name}' para '{expected_name}'"
+                    f"Note type ID {note_type_id} name updated from '{old_name}' to '{expected_name}'"
                 )
             else:
                 add_debug_msg(
-                    f"Note type ID {note_type_id} já está registrado com nome correto"
+                    f"Note type ID {note_type_id} already registered with correct name"
                 )
 
-        # Salvar alterações
+        # Save changes
         save_meta(meta)
-        add_debug_msg("Meta salvo com sucesso")
+        add_debug_msg("Meta successfully saved")
 
         name_info = f" ({expected_name})" if expected_name else ""
-        add_debug_msg(f"✅ SUCESSO: Note type ID {note_type_id}{name_info} processado")
+        add_debug_msg(f"✅ SUCCESS: Note type ID {note_type_id}{name_info} processed")
 
     except Exception as e:
-        add_debug_msg(f"❌ ERRO ao adicionar note type ID: {e}")
+        add_debug_msg(f"❌ ERROR adding note type ID: {e}")
         import traceback
 
         error_details = traceback.format_exc()
-        add_debug_msg(f"Detalhes do erro: {error_details}")
+        add_debug_msg(f"Error details: {error_details}")
 
 
 def get_deck_local_id(deck_url):
     """
-    Obtém o ID do deck local de um deck remoto usando nova estrutura.
+    Gets the local deck ID from a remote deck using new structure.
 
     Args:
-        deck_url (str): URL do deck remoto
+        deck_url (str): Remote deck URL
 
     Returns:
-        int: ID do deck local ou None se não encontrado
+        int: Local deck ID or None if not found
     """
     try:
         spreadsheet_id = get_deck_id(deck_url)
@@ -1456,19 +1460,19 @@ def get_deck_local_id(deck_url):
         return None
 
     except Exception as e:
-        print(f"[CONFIG] Erro ao obter ID do deck local: {e}")
+        add_debug_msg(f"[CONFIG] Error getting local deck ID: {e}")
         return None
 
 
 def get_deck_note_type_ids(deck_url):
     """
-    Obtém os IDs dos note types de um deck usando nova estrutura.
+    Gets note type IDs of a deck using new structure.
 
     Args:
-        deck_url (str): URL do deck remoto
+        deck_url (str): Remote deck URL
 
     Returns:
-        dict: Dicionário {note_type_id: expected_name}
+        dict: {note_type_id: expected_name} dictionary
     """
     try:
         spreadsheet_id = get_deck_id(deck_url)
@@ -1480,17 +1484,17 @@ def get_deck_note_type_ids(deck_url):
         return {}
 
     except Exception as e:
-        print(f"[NOTE_TYPE_IDS] Erro ao obter note type IDs: {e}")
+        add_debug_msg(f"[NOTE_TYPE_IDS] Error getting note type IDs: {e}")
         return {}
 
 
 def remove_note_type_id_from_deck(deck_url, note_type_id):
     """
-    Remove um ID de note type de um deck usando nova estrutura.
+    Removes a note type ID from a deck using new structure.
 
     Args:
-        deck_url (str): URL do deck remoto
-        note_type_id (int): ID do note type a ser removido
+        deck_url (str): Remote deck URL
+        note_type_id (int): Note type ID to be removed
     """
     try:
         spreadsheet_id = get_deck_id(deck_url)
@@ -1506,20 +1510,20 @@ def remove_note_type_id_from_deck(deck_url, note_type_id):
         if "note_types" in deck_info and note_type_id_str in deck_info["note_types"]:
             del deck_info["note_types"][note_type_id_str]
             save_meta(meta)
-            print(
-                f"[NOTE_TYPE_IDS] Removido note type ID {note_type_id} do deck {spreadsheet_id}"
+            add_debug_msg(
+                f"[NOTE_TYPE_IDS] Removed note type ID {note_type_id} from deck {spreadsheet_id}"
             )
 
     except Exception as e:
-        print(f"[NOTE_TYPE_IDS] Erro ao remover note type ID: {e}")
+        add_debug_msg(f"[NOTE_TYPE_IDS] Error removing note type ID: {e}")
 
 
 def cleanup_invalid_note_type_ids():
     """
-    Remove IDs de note types que não existem mais no Anki de todos os decks.
+    Removes note type IDs that no longer exist in Anki from all decks.
 
     Returns:
-        int: Número de IDs removidos
+        int: Number of IDs removed
     """
     from .compat import mw
 
@@ -1527,7 +1531,7 @@ def cleanup_invalid_note_type_ids():
         return 0
 
     try:
-        # Obter todos os note types válidos do Anki
+        # Get all valid note types from Anki
         all_models = mw.col.models.all()
         valid_ids = {str(model["id"]) for model in all_models}
 
@@ -1542,28 +1546,28 @@ def cleanup_invalid_note_type_ids():
                     if note_type_id not in valid_ids:
                         invalid_ids.append(note_type_id)
 
-                # Remover IDs inválidos
+                # Remove invalid IDs
                 for invalid_id in invalid_ids:
                     del deck_info["note_types"][invalid_id]
                     removed_count += 1
 
         if removed_count > 0:
             save_meta(meta)
-            print(f"[NOTE_TYPE_IDS] Removidos {removed_count} IDs inválidos")
+            add_debug_msg(f"[NOTE_TYPE_IDS] Removed {removed_count} invalid IDs")
 
         return removed_count
 
     except Exception as e:
-        print(f"[NOTE_TYPE_IDS] Erro na limpeza de IDs inválidos: {e}")
+        add_debug_msg(f"[NOTE_TYPE_IDS] Error during cleanup of invalid IDs: {e}")
         return 0
 
 
 def get_all_deck_note_types():
     """
-    Obtém todos os note types de todos os decks.
+    Gets all note types from all decks.
 
     Returns:
-        dict: Dicionário {spreadsheet_id: {note_type_id: expected_name}}
+        dict: {spreadsheet_id: {note_type_id: expected_name}} dictionary
     """
     try:
         meta = get_meta()
@@ -1575,16 +1579,16 @@ def get_all_deck_note_types():
         return result
 
     except Exception as e:
-        print(f"[NOTE_TYPE_IDS] Erro ao obter todos os note types: {e}")
+        add_debug_msg(f"[NOTE_TYPE_IDS] Error getting all note types: {e}")
         return {}
 
 
 def update_note_type_names_if_needed():
     """
-    Atualiza nomes dos note types no Anki se houver discrepâncias com os nomes esperados.
+    Updates note type names in Anki if there are discrepancies with expected names.
 
     Returns:
-        int: Número de note types renomeados
+        int: Number of renamed note types
     """
     from .compat import mw
 
@@ -1602,7 +1606,7 @@ def update_note_type_names_if_needed():
             for note_type_id, expected_name in note_types.items():
                 try:
                     note_type_id_int = int(note_type_id)
-                    # Buscar o modelo usando método mais robusto
+                    # Find model using more robust method
                     model = None
                     for m in mw.col.models.all():
                         if m["id"] == note_type_id_int:
@@ -1610,37 +1614,37 @@ def update_note_type_names_if_needed():
                             break
 
                     if model and model.get("name") != expected_name:
-                        # Nome diverge - atualizar no Anki
+                        # Name diverges - update in Anki
                         old_name = model["name"]
                         model["name"] = expected_name
                         mw.col.models.update(model)
                         renamed_count += 1
-                        print(
-                            f"[Sheets2Anki] Note type renomeado: '{old_name}' -> '{expected_name}'"
+                        add_debug_msg(
+                            f"[Sheets2Anki] Note type renamed: '{old_name}' -> '{expected_name}'"
                         )
 
                 except (ValueError, TypeError) as e:
-                    print(
-                        f"[WARNING] Erro ao processar note type ID {note_type_id}: {e}"
+                    add_debug_msg(
+                        f"[WARNING] Error processing note type ID {note_type_id}: {e}"
                     )
                     continue
 
         return renamed_count
 
     except Exception as e:
-        print(f"[NOTE_TYPE_IDS] Erro ao atualizar nomes dos note types: {e}")
+        add_debug_msg(f"[NOTE_TYPE_IDS] Error updating note type names: {e}")
         return 0
 
 
 def get_deck_note_types_by_ids(deck_url):
     """
-    Obtém os objetos note type do Anki baseado nos IDs salvos para um deck.
+    Gets Anki note type objects based on saved IDs for a deck.
 
     Args:
-        deck_url (str): URL do deck remoto
+        deck_url (str): Remote deck URL
 
     Returns:
-        list: Lista de dicionários de note types do Anki
+        list: List of Anki note type dictionaries
     """
     from .compat import mw
 
@@ -1654,119 +1658,119 @@ def get_deck_note_types_by_ids(deck_url):
         for note_type_id_str in note_types_dict.keys():
             try:
                 note_type_id_int = int(note_type_id_str)
-                # Buscar usando método mais robusto
+                # Search using more robust method
                 for model in mw.col.models.all():
                     if model["id"] == note_type_id_int:
                         note_types.append(model)
                         break
                 else:
-                    print(
-                        f"[NOTE_TYPE_IDS] Note type com ID {note_type_id_int} não encontrado"
+                    add_debug_msg(
+                        f"[NOTE_TYPE_IDS] Note type with ID {note_type_id_int} not found"
                     )
             except ValueError:
-                print(f"[NOTE_TYPE_IDS] ID inválido: {note_type_id_str}")
+                add_debug_msg(f"[NOTE_TYPE_IDS] Invalid ID: {note_type_id_str}")
                 continue
 
         return note_types
 
     except Exception as e:
-        print(f"[NOTE_TYPE_IDS] Erro ao obter note types por ID: {e}")
+        add_debug_msg(f"[NOTE_TYPE_IDS] Error getting note types by ID: {e}")
         return []
 
 
 def test_note_type_id_capture():
     """
-    Função de teste para capturar manualmente os IDs de note types.
-    Use esta função para testar o sistema independentemente do sync.
+    Test function to manually capture note type IDs.
+    Use this function to test the system independently of sync.
     """
     from .compat import mw
 
     if not mw or not mw.col:
-        print("[TEST] Anki não está disponível")
+        add_debug_msg("[TEST] Anki is not available")
         return
 
-    print("[TEST] === TESTE MANUAL DE CAPTURA DE NOTE TYPE IDS ===")
+    add_debug_msg("[TEST] === MANUAL NOTE TYPE ID CAPTURE TEST ===")
 
-    # Listar todos os note types
+    # List all note types
     all_models = mw.col.models.all()
-    print(f"[TEST] Total de note types no Anki: {len(all_models)}")
+    add_debug_msg(f"[TEST] Total note types in Anki: {len(all_models)}")
 
     sheets2anki_models = []
     for model in all_models:
         model_name = model["name"]
-        print(f"[TEST] Note type encontrado: '{model_name}' (ID: {model['id']})")
+        add_debug_msg(f"[TEST] Note type found: '{model_name}' (ID: {model['id']})")
         if "Sheets2Anki" in model_name:
             sheets2anki_models.append(model)
-            print(
-                f"[TEST] ✅ Note type do Sheets2Anki: '{model_name}' (ID: {model['id']})"
+            add_debug_msg(
+                f"[TEST] ✅ Sheets2Anki note type: '{model_name}' (ID: {model['id']})"
             )
 
     if not sheets2anki_models:
-        print("[TEST] ❌ Nenhum note type do Sheets2Anki encontrado!")
+        add_debug_msg("[TEST] ❌ No Sheets2Anki note types found!")
         return
 
-    # Verificar se temos decks configurados
+    # Check if we have configured decks
     meta = get_meta()
     decks = meta.get("decks", {})
-    print(f"[TEST] Decks configurados: {len(decks)}")
+    add_debug_msg(f"[TEST] Configured decks: {len(decks)}")
 
     if not decks:
-        print("[TEST] ❌ Nenhum deck configurado!")
+        add_debug_msg("[TEST] ❌ No decks configured!")
         return
 
-    # Para cada deck configurado, tentar capturar IDs
+    # For each configured deck, try to capture IDs
     for deck_url, deck_info in decks.items():
-        print(f"[TEST] Processando deck: {deck_info.get('local_deck_name', 'Unknown')}")
-        print(f"[TEST] URL: {deck_url}")
+        add_debug_msg(f"[TEST] Processing deck: {deck_info.get('local_deck_name', 'Unknown')}")
+        add_debug_msg(f"[TEST] URL: {deck_url}")
 
-        # Simular captura
+        # Simulate capture
         from .utils import get_model_suffix_from_url
 
         try:
             url_hash = get_model_suffix_from_url(deck_url)
             hash_pattern = f"Sheets2Anki - {url_hash} - "
-            print(f"[TEST] Hash: {url_hash}")
-            print(f"[TEST] Padrão: {hash_pattern}")
+            add_debug_msg(f"[TEST] Hash: {url_hash}")
+            add_debug_msg(f"[TEST] Pattern: {hash_pattern}")
 
             matching_models = []
             for model in sheets2anki_models:
                 if hash_pattern in model["name"]:
                     matching_models.append(model)
-                    print(f"[TEST] ✅ Match: '{model['name']}'")
+                    add_debug_msg(f"[TEST] ✅ Match: '{model['name']}'")
 
             if matching_models:
-                print(f"[TEST] Adicionando {len(matching_models)} IDs ao deck...")
+                add_debug_msg(f"[TEST] Adding {len(matching_models)} IDs to deck...")
                 for model in matching_models:
                     add_note_type_id_to_deck(deck_url, model["id"], model["name"])
             else:
-                print(
-                    f"[TEST] ❌ Nenhum note type encontrado para o padrão '{hash_pattern}'"
+                add_debug_msg(
+                    f"[TEST] ❌ No note type found for pattern '{hash_pattern}'"
                 )
 
         except Exception as e:
-            print(f"[TEST] Erro ao processar deck: {e}")
+            add_debug_msg(f"[TEST] Error processing deck: {e}")
 
-    print("[TEST] === FIM DO TESTE ===")
+    add_debug_msg("[TEST] === END OF TEST ===")
 
-    # Mostrar resultado final
+    # Show final result
     meta_final = get_meta()
     for deck_url, deck_info in meta_final.get("decks", {}).items():
         note_type_ids = deck_info.get("note_type_ids", [])
-        print(
-            f"[TEST] Deck {deck_info.get('local_deck_name', 'Unknown')}: {len(note_type_ids)} IDs salvos"
+        add_debug_msg(
+            f"[TEST] Deck {deck_info.get('local_deck_name', 'Unknown')}: {len(note_type_ids)} IDs saved"
         )
         if note_type_ids:
-            print(f"[TEST]   IDs: {note_type_ids}")
+            add_debug_msg(f"[TEST]   IDs: {note_type_ids}")
 
 
 def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=None):
     """
-    Atualiza os nomes dos note types no meta.json quando o remote_deck_name muda.
+    Updates note type names in meta.json when remote_deck_name changes.
 
     Args:
-        url (str): URL do deck remoto
-        new_remote_deck_name (str): Novo nome do deck remoto
-        enabled_students (list, optional): Lista de alunos habilitados
+        url (str): Remote deck URL
+        new_remote_deck_name (str): New remote deck name
+        enabled_students (list, optional): List of enabled students
     """
     try:
         from .utils import get_note_type_name
@@ -1783,19 +1787,19 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
         if not note_types:
             return
 
-        print(
-            f"[UPDATE_META] Atualizando nomes de note types para deck: {new_remote_deck_name}"
+        add_debug_msg(
+            f"[UPDATE_META] Updating note type names for deck: {new_remote_deck_name}"
         )
 
-        # Atualizar cada note type ID com o novo nome esperado
+        # Update each note type ID with the new expected name
         for note_type_id, old_name in note_types.items():
-            # Analisar o nome antigo para extrair student e type
+            # Analyze old name to extract student and type
             if old_name.startswith("Sheets2Anki - "):
                 parts = old_name.split(" - ")
 
                 if (
                     len(parts) == 4
-                ):  # Formato: "Sheets2Anki - remote_name - student - type"
+                ):  # Format: "Sheets2Anki - remote_name - student - type"
                     student = parts[2]
                     note_type = parts[3]
                     is_cloze = note_type == "Cloze"
@@ -1804,7 +1808,7 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
                         url, new_remote_deck_name, student=student, is_cloze=is_cloze
                     )
 
-                elif len(parts) == 3:  # Formato: "Sheets2Anki - remote_name - type"
+                elif len(parts) == 3:  # Format: "Sheets2Anki - remote_name - type"
                     note_type = parts[2]
                     is_cloze = note_type == "Cloze"
 
@@ -1813,7 +1817,7 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
                     )
 
                 else:
-                    # Formato não reconhecido, tentar deduzir
+                    # Unrecognized format, try to deduce
                     is_cloze = "Cloze" in old_name
                     student_candidates = enabled_students or []
                     student = None
@@ -1827,33 +1831,33 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
                         url, new_remote_deck_name, student=student, is_cloze=is_cloze
                     )
 
-                # Atualizar se o nome mudou
+                # Update if name changed
                 if new_name != old_name:
                     note_types[note_type_id] = new_name
-                    print(f"[UPDATE_META] ✅ Atualizado: {old_name} -> {new_name}")
+                    add_debug_msg(f"[UPDATE_META] ✅ Updated: {old_name} -> {new_name}")
 
-        # Salvar mudanças
+        # Save changes
         save_meta(meta)
-        print("[UPDATE_META] ✅ Meta.json atualizado com novos nomes de note types")
+        add_debug_msg("[UPDATE_META] ✅ Meta.json updated with new note type names")
 
     except Exception as e:
-        print(f"[UPDATE_META] ❌ Erro ao atualizar nomes no meta.json: {e}")
+        add_debug_msg(f"[UPDATE_META] ❌ Error updating names in meta.json: {e}")
         import traceback
 
         traceback.print_exc()
 
 
 # =============================================================================
-# GERENCIAMENTO DE CONFIGURAÇÕES DE OPÇÕES DE DECK
+# DECK OPTIONS SETTINGS MANAGEMENT
 # =============================================================================
 
 
 def get_deck_options_mode():
     """
-    Obtém o modo atual de configuração de opções de deck.
+    Gets the current deck options configuration mode.
 
     Returns:
-        str: "shared", "individual", ou "manual"
+        str: "shared", "individual", or "manual"
     """
     meta = get_meta()
     config = meta.get("config", {})
@@ -1862,14 +1866,14 @@ def get_deck_options_mode():
 
 def set_deck_options_mode(mode):
     """
-    Define o modo de configuração de opções de deck.
+    Sets the deck options configuration mode.
 
     Args:
-        mode (str): "shared", "individual", ou "manual"
+        mode (str): "shared", "individual", or "manual"
     """
     if mode not in ["shared", "individual", "manual"]:
         raise ValueError(
-            f"Modo inválido: {mode}. Use 'shared', 'individual' ou 'manual'"
+            f"Invalid mode: {mode}. Use 'shared', 'individual' or 'manual'"
         )
 
     meta = get_meta()
@@ -1878,18 +1882,18 @@ def set_deck_options_mode(mode):
 
     meta["config"]["deck_options_mode"] = mode
     save_meta(meta)
-    print(f"[DECK_OPTIONS_MODE] Modo alterado para: {mode}")
+    add_debug_msg(f"[DECK_OPTIONS_MODE] Mode changed to: {mode}")
     
-    # Atualizar configurações de deck existentes para refletir o novo modo
+    # Update existing deck settings to reflect the new mode
     update_deck_configurations_for_mode(mode)
 
 
 def update_deck_configurations_for_mode(mode):
     """
-    Atualiza as configurações de deck existentes quando o modo de opções é alterado.
+    Updates existing deck settings when the options mode is changed.
     
     Args:
-        mode (str): O novo modo ("shared", "individual", ou "manual")
+        mode (str): The new mode ("shared", "individual", or "manual")
     """
     meta = get_meta()
     remote_decks = meta.get("decks", {})
@@ -1907,18 +1911,18 @@ def update_deck_configurations_for_mode(mode):
         deck_info["local_deck_configurations_package_name"] = options_group_name
     
     save_meta(meta)
-    print(f"[DECK_CONFIG_UPDATE] Atualizadas configurações de {len(remote_decks)} decks para modo '{mode}'")
+    add_debug_msg(f"[DECK_CONFIG_UPDATE] Updated {len(remote_decks)} decks' configurations to '{mode}' mode")
 
 
 def get_deck_configurations_package_name(url):
     """
-    Obtém o nome do grupo de opções configurado para um deck específico.
+    Gets the configured options group name for a specific deck.
     
     Args:
-        url (str): URL do deck remoto
+        url (str): Remote deck URL
         
     Returns:
-        str or None: Nome do grupo de opções ou None se modo manual
+        str or None: Options group name or None if manual mode
     """
     remote_decks = get_remote_decks()
     spreadsheet_id = get_deck_id(url)
@@ -1931,11 +1935,11 @@ def get_deck_configurations_package_name(url):
 
 def set_deck_configurations_package_name(url, package_name):
     """
-    Define o nome do grupo de opções para um deck específico.
+    Sets the options group name for a specific deck.
     
     Args:
-        url (str): URL do deck remoto
-        package_name (str or None): Nome do grupo de opções
+        url (str): Remote deck URL
+        package_name (str or None): Options group name
     """
     remote_decks = get_remote_decks()
     spreadsheet_id = get_deck_id(url)
@@ -1944,15 +1948,15 @@ def set_deck_configurations_package_name(url, package_name):
     if deck_info:
         deck_info["local_deck_configurations_package_name"] = package_name
         add_remote_deck(url, deck_info)
-        print(f"[DECK_CONFIG] Grupo de opções '{package_name}' definido para deck {deck_info.get('remote_deck_name', 'Unknown')}")
+        add_debug_msg(f"[DECK_CONFIG] Options group '{package_name}' defined for deck {deck_info.get('remote_deck_name', 'Unknown')}")
     else:
-        print(f"[DECK_CONFIG] Deck não encontrado para URL: {url}")
+        add_debug_msg(f"[DECK_CONFIG] Deck not found for URL: {url}")
 
 
 def ensure_deck_configurations_consistency():
     """
-    Garante que todos os decks tenham a configuração local_deck_configurations_package_name
-    baseada no modo atual e que esteja consistente com o remote_deck_name.
+    Ensures that all decks have local_deck_configurations_package_name setting
+    based on the current mode and that it's consistent with remote_deck_name.
     """
     current_mode = get_deck_options_mode()
     meta = get_meta()
@@ -1965,7 +1969,7 @@ def ensure_deck_configurations_consistency():
         remote_deck_name = deck_info.get("remote_deck_name", "UnknownDeck")
         current_package_name = deck_info.get("local_deck_configurations_package_name")
         
-        # Calcular qual deveria ser o nome correto
+        # Calculate what the correct name should be
         if current_mode == "individual":
             expected_package_name = f"Sheets2Anki - {remote_deck_name}"
         elif current_mode == "shared":
@@ -1973,11 +1977,11 @@ def ensure_deck_configurations_consistency():
         else:  # manual
             expected_package_name = None
         
-        # Se não existe a configuração, adicionar
+        # If configuration doesn't exist, add it
         if "local_deck_configurations_package_name" not in deck_info:
             deck_info["local_deck_configurations_package_name"] = expected_package_name
             added_count += 1
-        # Se existe mas está inconsistente, corrigir
+        # If it exists but is inconsistent, fix it
         elif current_package_name != expected_package_name:
             deck_info["local_deck_configurations_package_name"] = expected_package_name
             fixed_count += 1
@@ -1986,26 +1990,24 @@ def ensure_deck_configurations_consistency():
     if total_changes > 0:
         save_meta(meta)
         if added_count > 0:
-            print(f"[DECK_CONFIG_CONSISTENCY] Adicionada configuração local_deck_configurations_package_name a {added_count} decks")
+            add_debug_msg(f"[DECK_CONFIG_CONSISTENCY] Added local_deck_configurations_package_name configuration to {added_count} decks")
         if fixed_count > 0:
-            print(f"[DECK_CONFIG_CONSISTENCY] Corrigidas inconsistências em {fixed_count} decks")
+            add_debug_msg(f"[DECK_CONFIG_CONSISTENCY] Fixed inconsistencies in {fixed_count} decks")
     
     return total_changes
-    
-    return updated_count
 
 
 # =============================================================================
-# GERENCIAMENTO DE CONFIGURAÇÕES DE SINCRONIZAÇÃO ANKIWEB
+# ANKIWEB SYNCHRONIZATION SETTINGS MANAGEMENT
 # =============================================================================
 
 
 def get_ankiweb_sync_mode():
     """
-    Obtém o modo atual de sincronização automática com AnkiWeb.
+    Gets the current automatic AnkiWeb synchronization mode.
 
     Returns:
-        str: "none" (não sincronizar), "sync" (sincronização normal)
+        str: "none" (do not synchronize), "sync" (normal synchronization)
     """
     meta = get_meta()
     config = meta.get("config", {})
@@ -2014,13 +2016,13 @@ def get_ankiweb_sync_mode():
 
 def set_ankiweb_sync_mode(mode):
     """
-    Define o modo de sincronização automática com AnkiWeb.
+    Sets the automatic AnkiWeb synchronization mode.
 
     Args:
-        mode (str): "none" ou "sync"
+        mode (str): "none" or "sync"
     """
     if mode not in ["none", "sync"]:
-        raise ValueError(f"Modo inválido: {mode}. Use 'none' ou 'sync'")
+        raise ValueError(f"Invalid mode: {mode}. Use 'none' or 'sync'")
 
     meta = get_meta()
     if "config" not in meta:
@@ -2028,15 +2030,15 @@ def set_ankiweb_sync_mode(mode):
 
     meta["config"]["ankiweb_sync_mode"] = mode
     save_meta(meta)
-    print(f"[ANKIWEB_SYNC_MODE] Modo alterado para: {mode}")
+    add_debug_msg(f"[ANKIWEB_SYNC_MODE] Mode changed to: {mode}")
 
 
 def get_ankiweb_sync_timeout():
     """
-    Obtém o timeout configurado para sincronização AnkiWeb.
+    Gets the configured AnkiWeb synchronization timeout.
 
     Returns:
-        int: Timeout em segundos (padrão: 30)
+        int: Timeout in seconds (default: 30)
     """
     meta = get_meta()
     config = meta.get("config", {})
@@ -2045,14 +2047,14 @@ def get_ankiweb_sync_timeout():
 
 def set_ankiweb_sync_timeout(timeout):
     """
-    Define o timeout para sincronização AnkiWeb.
+    Sets the AnkiWeb synchronization timeout.
 
     Args:
-        timeout (int): Timeout em segundos (mínimo 10, máximo 300)
+        timeout (int): Timeout in seconds (minimum 10, maximum 300)
     """
     if not isinstance(timeout, int) or timeout < 10 or timeout > 300:
         raise ValueError(
-            f"Timeout inválido: {timeout}. Use valores entre 10 e 300 segundos"
+            f"Invalid timeout: {timeout}. Use values between 10 and 300 seconds"
         )
 
     meta = get_meta()
@@ -2061,15 +2063,15 @@ def set_ankiweb_sync_timeout(timeout):
 
     meta["config"]["ankiweb_sync_timeout"] = timeout
     save_meta(meta)
-    print(f"[ANKIWEB_SYNC_TIMEOUT] Timeout alterado para: {timeout}s")
+    add_debug_msg(f"[ANKIWEB_SYNC_TIMEOUT] Timeout changed to: {timeout}s")
 
 
 def get_ankiweb_sync_notifications():
     """
-    Verifica se notificações de sync AnkiWeb estão habilitadas.
+    Checks if AnkiWeb sync notifications are enabled.
 
     Returns:
-        bool: True se habilitadas, False caso contrário
+        bool: True if enabled, False otherwise
     """
     meta = get_meta()
     config = meta.get("config", {})
@@ -2078,10 +2080,10 @@ def get_ankiweb_sync_notifications():
 
 def set_ankiweb_sync_notifications(enabled):
     """
-    Habilita ou desabilita notificações de sync AnkiWeb.
+    Enables or disables AnkiWeb sync notifications.
 
     Args:
-        enabled (bool): True para habilitar, False para desabilitar
+        enabled (bool): True to enable, False to disable
     """
     meta = get_meta()
     if "config" not in meta:
@@ -2089,24 +2091,54 @@ def set_ankiweb_sync_notifications(enabled):
 
     meta["config"]["show_ankiweb_sync_notifications"] = bool(enabled)
     save_meta(meta)
-    print(
-        f"[ANKIWEB_SYNC_NOTIFICATIONS] Notificações {'habilitadas' if enabled else 'desabilitadas'}"
+    add_debug_msg(
+        f"[ANKIWEB_SYNC_NOTIFICATIONS] Notifications {'enabled' if enabled else 'disabled'}"
+    )
+
+
+def set_ankiweb_sync_config(mode, timeout, notifications):
+    """
+    Sets all AnkiWeb synchronization configuration at once.
+
+    Args:
+        mode (str): "none" or "sync"
+        timeout (int): Timeout in seconds
+        notifications (bool): Show notifications
+    """
+    # Validation
+    if mode not in ["none", "sync"]:
+        raise ValueError(f"Invalid mode: {mode}")
+
+    if not isinstance(timeout, int) or timeout < 10 or timeout > 300:
+        raise ValueError(f"Invalid timeout: {timeout}")
+
+    meta = get_meta()
+    if "config" not in meta:
+        meta["config"] = {}
+
+    meta["config"]["ankiweb_sync_mode"] = mode
+    meta["config"]["ankiweb_sync_timeout"] = timeout
+    meta["config"]["show_ankiweb_sync_notifications"] = notifications
+
+    save_meta(meta)
+    add_debug_msg(
+        f"[ANKIWEB_CONFIG] Updated: mode={mode}, timeout={timeout}, notif={notifications}"
     )
 
 
 def fix_note_type_names_consistency(url, correct_remote_name):
     """
-    Corrige inconsistências nos nomes dos note_types.
+    Fixes inconsistencies in note_type names.
 
-    Esta função detecta e corrige note_types que têm nomes inconsistentes
-    com o remote_deck_name atual, como duplicações ou sufixos incorretos.
+    This function detects and fixes note_types that have names inconsistent
+    with the current remote_deck_name, such as duplications or incorrect suffixes.
 
     Args:
-        url (str): URL do deck remoto
-        correct_remote_name (str): Nome remoto correto a ser usado
+        url (str): Remote deck URL
+        correct_remote_name (str): Correct remote name to be used
 
     Returns:
-        int: Número de note_types corrigidos
+        int: Number of fixed note_types
     """
     try:
         from .utils import get_note_type_name
@@ -2124,16 +2156,16 @@ def fix_note_type_names_consistency(url, correct_remote_name):
             return 0
 
         def fix_note_type_name(old_name):
-            """Corrige um nome de note_type inconsistente."""
+            """Fixes an inconsistent note_type name."""
             if not old_name.startswith("Sheets2Anki - "):
-                return old_name  # Não é um note_type do sistema
+                return old_name  # Not a system note_type
 
             parts = old_name.split(" - ")
             if len(parts) < 3:
-                return old_name  # Formato não reconhecido
+                return old_name  # Unrecognized format
 
-            # Extrair informações do nome antigo
-            if len(parts) == 4:  # Formato: "Sheets2Anki - remote_name - student - type"
+            # Extract information from old name
+            if len(parts) == 4:  # Format: "Sheets2Anki - remote_name - student - type"
                 student = parts[2]
                 note_type = parts[3]
                 is_cloze = note_type == "Cloze"
@@ -2142,7 +2174,7 @@ def fix_note_type_names_consistency(url, correct_remote_name):
                     url, correct_remote_name, student=student, is_cloze=is_cloze
                 )
 
-            elif len(parts) == 3:  # Formato: "Sheets2Anki - remote_name - type"
+            elif len(parts) == 3:  # Format: "Sheets2Anki - remote_name - type"
                 note_type = parts[2]
                 is_cloze = note_type == "Cloze"
 
@@ -2150,51 +2182,51 @@ def fix_note_type_names_consistency(url, correct_remote_name):
                     url, correct_remote_name, student=None, is_cloze=is_cloze
                 )
 
-            return old_name  # Não conseguiu corrigir
+            return old_name  # Could not fix
 
         fixed_count = 0
 
-        # Verificar e corrigir cada note_type
+        # Check and fix each note_type
         for note_type_id, old_name in note_types.items():
             corrected_name = fix_note_type_name(old_name)
 
             if corrected_name != old_name:
                 note_types[note_type_id] = corrected_name
                 fixed_count += 1
-                print(
-                    f"[NOTE_TYPE_FIX] ✅ Corrigido {note_type_id}: '{old_name}' -> '{corrected_name}'"
+                add_debug_msg(
+                    f"[NOTE_TYPE_FIX] ✅ Fixed {note_type_id}: '{old_name}' -> '{corrected_name}'"
                 )
 
-        # Salvar mudanças se houve correções
+        # Save changes if there were fixes
         if fixed_count > 0:
             save_meta(meta)
-            print(f"[NOTE_TYPE_FIX] {fixed_count} note_types corrigidos e salvos")
+            add_debug_msg(f"[NOTE_TYPE_FIX] {fixed_count} note_types fixed and saved")
 
         return fixed_count
 
     except Exception as e:
-        print(f"[NOTE_TYPE_FIX] Erro na correção de consistência: {e}")
+        add_debug_msg(f"[NOTE_TYPE_FIX] Error in consistency fix: {e}")
         return 0
 
 
 def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
     """
-    Sincronização robusta de note_types: recria nomes, detecta mudanças,
-    renomeia no Anki e migra notas se necessário.
+    Robust note_types synchronization: recreates names, detects changes,
+    renames in Anki and migrates notes if necessary.
 
-    Esta é a implementação completa da lógica desejada:
-    1. A cada sincronização: Recria os nomes dos note_types seguindo o padrão correto
-    2. Detecta mudanças: Compara string anterior vs. recriada
-    3. Renomeia no Anki: Atualiza o nome físico do note type no Anki
-    4. Verifica notas: Garante que as notas estão no note type correto
+    This is the full implementation of the desired logic:
+    1. At each synchronization: Recreates note_type names following the correct pattern
+    2. Detects changes: Compares old vs. recreated string
+    3. Renames in Anki: Updates physical note type name in Anki
+    4. Checks notes: Ensures notes are in the correct note type
 
     Args:
-        url (str): URL do deck remoto
-        correct_remote_name (str): Nome remoto correto atual
-        enabled_students (list): Lista de estudantes habilitados
+        url (str): Remote deck URL
+        correct_remote_name (str): Current correct remote name
+        enabled_students (list): Enabled students list
 
     Returns:
-        dict: Resultado da sincronização com contadores
+        dict: Sync result with counters
     """
     try:
         from aqt import mw
@@ -2202,25 +2234,25 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
         from .utils import get_note_type_name
 
         if not mw or not mw.col:
-            print("[NOTE_TYPE_SYNC] Anki não está disponível")
+            add_debug_msg("[NOTE_TYPE_SYNC] Anki is not available")
             return {"updated_count": 0, "renamed_in_anki": 0, "updated_in_meta": 0}
 
         meta = get_meta()
         spreadsheet_id = get_deck_id(url)
 
         if "decks" not in meta or spreadsheet_id not in meta["decks"]:
-            print(f"[NOTE_TYPE_SYNC] Deck {spreadsheet_id} não encontrado no meta.json")
+            add_debug_msg(f"[NOTE_TYPE_SYNC] Deck {spreadsheet_id} not found in meta.json")
             return {"updated_count": 0, "renamed_in_anki": 0, "updated_in_meta": 0}
 
         deck_info = meta["decks"][spreadsheet_id]
         note_types = deck_info.get("note_types", {})
 
         if not note_types:
-            print("[NOTE_TYPE_SYNC] Nenhum note_type encontrado")
+            add_debug_msg("[NOTE_TYPE_SYNC] No note_type found")
             return {"updated_count": 0, "renamed_in_anki": 0, "updated_in_meta": 0}
 
         def extract_student_and_type_from_name(old_name):
-            """Extrai estudante e tipo do nome antigo."""
+            """Extracts student and type from old name."""
             if not old_name.startswith("Sheets2Anki - "):
                 return None, None, False
 
@@ -2244,23 +2276,23 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
             "notes_migrated": 0,
         }
 
-        print(
-            f"[NOTE_TYPE_SYNC] Iniciando sincronização robusta para {len(note_types)} note_types"
+        add_debug_msg(
+            f"[NOTE_TYPE_SYNC] Starting robust synchronization for {len(note_types)} note_types"
         )
 
-        # Processar cada note_type
+        # Process each note_type
         for note_type_id, old_name in note_types.items():
             try:
                 note_type_id_int = int(note_type_id)
 
-                # 1. RECRIAR: Gerar nome esperado baseado no padrão correto
+                # 1. RECREATE: Generate expected name based on correct pattern
                 student, note_type, is_cloze = extract_student_and_type_from_name(
                     old_name
                 )
 
                 if student is None and note_type is None:
-                    print(
-                        f"[NOTE_TYPE_SYNC] Formato não reconhecido para {note_type_id}: '{old_name}'"
+                    add_debug_msg(
+                        f"[NOTE_TYPE_SYNC] Unrecognized format for {note_type_id}: '{old_name}'"
                     )
                     continue
 
@@ -2268,18 +2300,18 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
                     url, correct_remote_name, student=student, is_cloze=is_cloze
                 )
 
-                # 2. DETECTAR: Comparar nome anterior vs. recriado
+                # 2. DETECT: Compare old vs. recreated name
                 if expected_name == old_name:
-                    print(
-                        f"[NOTE_TYPE_SYNC] ✅ {note_type_id} já está correto: '{old_name}'"
+                    add_debug_msg(
+                        f"[NOTE_TYPE_SYNC] ✅ {note_type_id} is already correct: '{old_name}'"
                     )
                     continue
 
-                print(f"[NOTE_TYPE_SYNC] 🔄 {note_type_id} precisa ser atualizado:")
-                print(f"[NOTE_TYPE_SYNC]    Antigo:   '{old_name}'")
-                print(f"[NOTE_TYPE_SYNC]    Esperado: '{expected_name}'")
+                add_debug_msg(f"[NOTE_TYPE_SYNC] 🔄 {note_type_id} needs to be updated:")
+                add_debug_msg(f"[NOTE_TYPE_SYNC]    Old:      '{old_name}'")
+                add_debug_msg(f"[NOTE_TYPE_SYNC]    Expected: '{expected_name}'")
 
-                # 3. RENOMEAR NO ANKI: Atualizar nome físico do note type
+                # 3. RENAME IN ANKI: Update physical note type name
                 from anki.models import NotetypeId
 
                 note_type_obj = mw.col.models.get(NotetypeId(note_type_id_int))
@@ -2288,59 +2320,59 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
                     note_type_obj["name"] = expected_name
                     mw.col.models.save(note_type_obj)
 
-                    print(
-                        f"[NOTE_TYPE_SYNC] ✅ Renomeado no Anki: '{old_anki_name}' -> '{expected_name}'"
+                    add_debug_msg(
+                        f"[NOTE_TYPE_SYNC] ✅ Renamed in Anki: '{old_anki_name}' -> '{expected_name}'"
                     )
                     result["renamed_in_anki"] += 1
                 else:
-                    print(
-                        f"[NOTE_TYPE_SYNC] ⚠️ Note type {note_type_id} não encontrado no Anki"
+                    add_debug_msg(
+                        f"[NOTE_TYPE_SYNC] ⚠️ Note type {note_type_id} not found in Anki"
                     )
 
-                # 4. ATUALIZAR META.JSON: Atualizar nome na configuração
+                # 4. UPDATE META.JSON: Update name in configuration
                 note_types[note_type_id] = expected_name
                 result["updated_in_meta"] += 1
 
-                # 5. VERIFICAR NOTAS: Garantir que notas estão no note type correto
-                # (Normalmente as notas já seguem o note_type automaticamente no Anki)
+                # 5. CHECK NOTES: Ensure notes are in the correct note type
+                # (Normally notes automatically follow note_type in Anki)
 
                 result["updated_count"] += 1
 
             except Exception as e:
-                print(f"[NOTE_TYPE_SYNC] ❌ Erro processando {note_type_id}: {e}")
+                add_debug_msg(f"[NOTE_TYPE_SYNC] ❌ Error processing {note_type_id}: {e}")
                 continue
 
-        # Salvar mudanças no meta.json se houve atualizações
+        # Save meta.json changes if there were updates
         if result["updated_in_meta"] > 0:
             save_meta(meta)
-            print(
-                f"[NOTE_TYPE_SYNC] ✅ Meta.json salvo com {result['updated_in_meta']} atualizações"
+            add_debug_msg(
+                f"[NOTE_TYPE_SYNC] ✅ Meta.json saved with {result['updated_in_meta']} updates"
             )
 
-        # Salvar mudanças no Anki
+        # Save Anki changes
         if result["renamed_in_anki"] > 0:
             mw.col.save()
-            print(
-                f"[NOTE_TYPE_SYNC] ✅ Anki salvo com {result['renamed_in_anki']} note_types renomeados"
+            add_debug_msg(
+                f"[NOTE_TYPE_SYNC] ✅ Anki saved with {result['renamed_in_anki']} note_types renamed"
             )
 
         return result
 
     except Exception as e:
-        print(f"[NOTE_TYPE_SYNC] ❌ Erro geral na sincronização robusta: {e}")
+        add_debug_msg(f"[NOTE_TYPE_SYNC] ❌ General error in robust synchronization: {e}")
         import traceback
 
-        print(f"[NOTE_TYPE_SYNC] Traceback: {traceback.format_exc()}")
+        add_debug_msg(f"[NOTE_TYPE_SYNC] Traceback: {traceback.format_exc()}")
         return {"updated_count": 0, "renamed_in_anki": 0, "updated_in_meta": 0}
 
 
 def fix_missing_created_at_fields():
     """
-    Corrige decks que não possuem a chave 'created_at' adicionando um timestamp padrão.
-    Esta função é útil para corrigir inconsistências em configurações existentes.
+    Fixes decks that do not have 'created_at' key by adding a default timestamp.
+    This function is useful for fixing inconsistencies in existing configurations.
     
     Returns:
-        dict: Relatório com o número de decks corrigidos
+        dict: Report with the number of fixed decks
     """
     import time
     
@@ -2348,21 +2380,21 @@ def fix_missing_created_at_fields():
         remote_decks = get_remote_decks()
         corrected_count = 0
         
-        # Timestamp padrão para decks que não possuem created_at
-        # Usar um timestamp que indica que é uma correção posterior
+        # Default timestamp for decks that do not have created_at
+        # Use a timestamp that indicates it's a later fix
         default_timestamp = int(time.time())
         
         for deck_hash, deck_info in remote_decks.items():
             if "created_at" not in deck_info:
                 deck_info["created_at"] = default_timestamp
                 corrected_count += 1
-                print(f"[CONFIG_FIX] Adicionado 'created_at' para deck: {deck_info.get('remote_deck_name', 'Nome não definido')}")
+                add_debug_msg(f"[CONFIG_FIX] Added 'created_at' for deck: {deck_info.get('remote_deck_name', 'Name not defined')}")
         
         if corrected_count > 0:
             save_remote_decks(remote_decks)
-            print(f"[CONFIG_FIX] ✅ Corrigidos {corrected_count} decks sem 'created_at'")
+            add_debug_msg(f"[CONFIG_FIX] ✅ Fixed {corrected_count} decks without 'created_at'")
         else:
-            print("[CONFIG_FIX] ✅ Todos os decks já possuem 'created_at'")
+            add_debug_msg("[CONFIG_FIX] ✅ All decks already have 'created_at'")
         
         return {
             "corrected_count": corrected_count,
@@ -2371,7 +2403,7 @@ def fix_missing_created_at_fields():
         }
         
     except Exception as e:
-        print(f"[CONFIG_FIX] ❌ Erro ao corrigir 'created_at': {e}")
+        add_debug_msg(f"[CONFIG_FIX] ❌ Error fixing 'created_at': {e}")
         return {
             "corrected_count": 0,
             "total_decks": 0,
@@ -2381,15 +2413,19 @@ def fix_missing_created_at_fields():
 
 
 # =============================================================================
-# FUNÇÕES DE CONFIGURAÇÃO DE BACKUP AUTOMÁTICO
+# AUTOMATIC BACKUP CONFIGURATION FUNCTIONS
 # =============================================================================
 
 def get_auto_backup_config():
     """
-    Obtém as configurações de backup automático.
+    Gets automatic backup settings.
     
     Returns:
-        dict: Configurações de backup automático
+        dict: Automatic backup settings including:
+            - enabled: Whether auto-backup is enabled
+            - directory: Directory to save backups
+            - max_files: Maximum number of backup files to keep
+            - type: Backup type ('simple' for config only, 'complete' for full backup)
     """
     meta = get_meta()
     config = meta.get("config", {})
@@ -2397,21 +2433,23 @@ def get_auto_backup_config():
     return {
         "enabled": config.get("auto_backup_enabled", True),
         "directory": config.get("auto_backup_directory", ""),
-        "max_files": config.get("auto_backup_max_files", 50)
+        "max_files": config.get("auto_backup_max_files", 50),
+        "type": config.get("auto_backup_type", "simple")  # 'simple' or 'complete'
     }
 
 
-def set_auto_backup_config(enabled=None, directory=None, max_files=None):
+def set_auto_backup_config(enabled=None, directory=None, max_files=None, backup_type=None):
     """
-    Define as configurações de backup automático.
+    Sets automatic backup settings.
     
     Args:
-        enabled (bool, optional): Habilitar backup automático
-        directory (str, optional): Diretório para salvar backups
-        max_files (int, optional): Máximo de arquivos a manter
+        enabled (bool, optional): Enable automatic backup
+        directory (str, optional): Directory to save backups
+        max_files (int, optional): Maximum files to keep
+        backup_type (str, optional): Backup type ('simple' or 'complete')
     
     Returns:
-        bool: True se salvou com sucesso
+        bool: True if successfully saved
     """
     try:
         meta = get_meta()
@@ -2423,25 +2461,30 @@ def set_auto_backup_config(enabled=None, directory=None, max_files=None):
             config["auto_backup_directory"] = directory
         if max_files is not None:
             config["auto_backup_max_files"] = max_files
+        if backup_type is not None:
+            if backup_type not in ["simple", "complete"]:
+                add_debug_msg(f"[AUTO_BACKUP] Invalid backup type: {backup_type}. Using 'simple'.")
+                backup_type = "simple"
+            config["auto_backup_type"] = backup_type
         
         meta["config"] = config
         save_meta(meta)
         
-        print(f"[AUTO_BACKUP] Configurações atualizadas: enabled={enabled}, directory={directory}, max_files={max_files}")
+        add_debug_msg(f"[AUTO_BACKUP] Settings updated: enabled={enabled}, directory={directory}, max_files={max_files}, type={backup_type}")
         return True
         
     except Exception as e:
-        print(f"[AUTO_BACKUP] Erro ao salvar configurações: {e}")
+        add_debug_msg(f"[AUTO_BACKUP] Error saving settings: {e}")  
         return False
 
 
 def get_auto_backup_directory():
     """
-    Obtém o diretório configurado para backup automático.
-    Se não estiver configurado, retorna um diretório padrão.
+    Gets the configured directory for automatic backup.
+    If not configured, returns a default directory.
     
     Returns:
-        str: Caminho do diretório de backup automático
+        str: Automatic backup directory path
     """
     import os
     from pathlib import Path
@@ -2449,19 +2492,19 @@ def get_auto_backup_directory():
     config = get_auto_backup_config()
     directory = config.get("directory", "")
     
-    # Se não estiver configurado, usar diretório padrão
+    # If not configured, use default directory
     if not directory:
-        # Usar diretório do usuário/Documentos/Sheets2Anki/AutoBackups
+        # Use user/Documents/Sheets2Anki/AutoBackups directory
         user_home = Path.home()
         default_dir = user_home / "Documents" / "Sheets2Anki" / "AutoBackups"
         directory = str(default_dir)
     
-    # Criar diretório se não existir
+    # Create directory if it doesn't exist
     try:
         Path(directory).mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        print(f"[AUTO_BACKUP] Erro ao criar diretório {directory}: {e}")
-        # Fallback para diretório temporário
+        add_debug_msg(f"[AUTO_BACKUP] Error creating directory {directory}: {e}")
+        # Fallback to temporary directory
         import tempfile
         directory = tempfile.gettempdir()
     

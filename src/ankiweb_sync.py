@@ -1,16 +1,16 @@
 """
-Módulo de sincronização automática com AnkiWeb para o addon Sheets2Anki.
+Automatic synchronization module with AnkiWeb for the Sheets2Anki addon.
 
-Este módulo implementa funcionalidades para sincronização automática com o AnkiWeb
-após a sincronização de decks remotos, incluindo opções para:
-- Sincronização normal (download/upload conforme necessário)
-- Desabilitar sincronização automática
+This module implements functionalities for automatic synchronization with AnkiWeb
+after remote deck synchronization, including options for:
+- Normal synchronization (download/upload as needed)
+- Disable automatic synchronization
 
-Funcionalidades:
-- Integração com a API de sync do Anki
-- Controle de timeout e notificações
-- Logging detalhado de operações
-- Tratamento de erros e conflitos
+Features:
+- Integration with Anki's sync API
+- Timeout control and notifications
+- Detailed operation logging
+- Error and conflict handling
 """
 
 from .compat import mw
@@ -20,7 +20,7 @@ from .config_manager import get_ankiweb_sync_notifications
 from .config_manager import get_ankiweb_sync_timeout
 
 # =============================================================================
-# UTILITÁRIOS DE DEBUG
+# DEBUG UTILITIES
 # =============================================================================
 
 try:
@@ -32,172 +32,172 @@ except ImportError:
 
 
 # =============================================================================
-# FUNÇÕES PRINCIPAIS DE SINCRONIZAÇÃO
+# MAIN SYNCHRONIZATION FUNCTIONS
 # =============================================================================
 
 
 def can_sync_ankiweb():
     """
-    Verifica se é possível sincronizar com AnkiWeb.
+    Checks if it's possible to synchronize with AnkiWeb.
 
     Returns:
-        bool: True se pode sincronizar, False caso contrário
+        bool: True if it can sync, False otherwise
     """
     if not mw or not mw.col:
-        add_debug_message("❌ Anki não disponível", "ANKIWEB_SYNC")
+        add_debug_message("❌ Anki not available", "ANKIWEB_SYNC")
         return False
 
-    # Verificar se existe profile manager
+    # Check if profile manager exists
     if not hasattr(mw, "pm") or not mw.pm:
-        add_debug_message("❌ Profile manager não disponível", "ANKIWEB_SYNC")
+        add_debug_message("❌ Profile manager not available", "ANKIWEB_SYNC")
         return False
 
-    # Verificar se há credenciais configuradas
+    # Check if credentials are configured
     try:
-        # Método 1: Verificar se existe sync_key (método padrão)
+        # Method 1: Check if sync_key exists (default method)
         if hasattr(mw.pm, "sync_key") and mw.pm.sync_key():
-            add_debug_message("✅ AnkiWeb configurado (sync_key)", "ANKIWEB_SYNC")
+            add_debug_message("✅ AnkiWeb configured (sync_key)", "ANKIWEB_SYNC")
             return True
 
-        # Método 2: Verificar através do profile
+        # Method 2: Check through profile
         if hasattr(mw.pm, "profile") and mw.pm.profile:
             profile = mw.pm.profile
             if isinstance(profile, dict):
                 if profile.get("syncKey") or profile.get("syncUser"):
                     add_debug_message(
-                        "✅ AnkiWeb configurado (profile)", "ANKIWEB_SYNC"
+                        "✅ AnkiWeb configured (profile)", "ANKIWEB_SYNC"
                     )
                     return True
 
-        # Método 3: Verificar se o menu de sync está disponível (indica configuração)
+        # Method 3: Check if sync menu is available (indicates configuration)
         if hasattr(mw, "sync") and mw.sync:
-            add_debug_message("✅ AnkiWeb: sistema de sync disponível", "ANKIWEB_SYNC")
+            add_debug_message("✅ AnkiWeb: sync system available", "ANKIWEB_SYNC")
             return True
 
         add_debug_message(
-            "⚠️ AnkiWeb não está configurado - acesse Ferramentas > Sincronizar no Anki",
+            "⚠️ AnkiWeb is not configured - access Tools > Sync in Anki",
             "ANKIWEB_SYNC",
         )
         return False
 
     except Exception as e:
         add_debug_message(
-            f"❌ Erro ao verificar configuração AnkiWeb: {e}", "ANKIWEB_SYNC"
+            f"❌ Error checking AnkiWeb configuration: {e}", "ANKIWEB_SYNC"
         )
         return False
 
 
 def sync_ankiweb_normal():
     """
-    Executa sincronização normal com AnkiWeb (bidirecionaal).
+    Executes normal synchronization with AnkiWeb (bidirectional).
 
     Returns:
-        dict: Resultado da sincronização com status e detalhes
+        dict: Sync result with status and details
     """
     if not can_sync_ankiweb():
         return {
             "success": False,
-            "error": "Não é possível sincronizar: AnkiWeb não configurado ou Anki não disponível",
+            "error": "Cannot sync: AnkiWeb not configured or Anki not available",
         }
 
     add_debug_message(
-        "🔄 Iniciando sincronização normal com AnkiWeb (bidirecional)...",
+        "🔄 Starting normal sync with AnkiWeb (bidirectional)...",
         "ANKIWEB_SYNC",
     )
 
     try:
-        # Método 1: Usar a API moderna de sincronização
+        # Method 1: Use modern sync API
         if hasattr(mw, "sync") and hasattr(mw.sync, "sync"):
             add_debug_message(
-                "🔄 Usando API moderna de sincronização...", "ANKIWEB_SYNC"
+                "🔄 Using modern sync API...", "ANKIWEB_SYNC"
             )
             mw.sync.sync()
             add_debug_message(
-                "✅ Sincronização AnkiWeb iniciada (API moderna)", "ANKIWEB_SYNC"
+                "✅ AnkiWeb sync started (modern API)", "ANKIWEB_SYNC"
             )
             return {
                 "success": True,
-                "message": "Sincronização AnkiWeb iniciada com sucesso! Acompanhe o progresso na barra de status do Anki.",
+                "message": "AnkiWeb sync started successfully! Monitor progress in the Anki status bar.",
                 "type": "normal",
             }
 
-        # Método 2: Usar onSync (método direto)
+        # Method 2: Use onSync (direct method)
         elif hasattr(mw, "onSync"):
-            add_debug_message("🔄 Usando método onSync direto...", "ANKIWEB_SYNC")
+            add_debug_message("🔄 Using direct onSync method...", "ANKIWEB_SYNC")
             mw.onSync()
             add_debug_message(
-                "✅ Sincronização AnkiWeb iniciada (onSync)", "ANKIWEB_SYNC"
+                "✅ AnkiWeb sync started (onSync)", "ANKIWEB_SYNC"
             )
             return {
                 "success": True,
-                "message": "Sincronização AnkiWeb iniciada com sucesso! O Anki decidirá automaticamente se fará upload ou download dos seus dados.",
+                "message": "AnkiWeb sync started successfully! Anki will automatically decide whether to upload or download your data.",
                 "type": "normal",
             }
 
-        # Método 3: Tentar através de ações do menu
+        # Method 3: Try through menu actions
         elif hasattr(mw, "form") and hasattr(mw.form, "actionSync"):
             add_debug_message(
-                "🔄 Usando ação de menu de sincronização...", "ANKIWEB_SYNC"
+                "🔄 Using sync menu action...", "ANKIWEB_SYNC"
             )
             mw.form.actionSync.trigger()
             add_debug_message(
-                "✅ Sincronização AnkiWeb iniciada (menu action)", "ANKIWEB_SYNC"
+                "✅ AnkiWeb sync started (menu action)", "ANKIWEB_SYNC"
             )
             return {
                 "success": True,
-                "message": "Sincronização AnkiWeb iniciada através do menu!",
+                "message": "AnkiWeb sync started via menu!",
                 "type": "normal",
             }
 
         else:
-            # Adicionar informações de debug para entender o que está disponível
+            # Add debug info to understand what's available
             debug_info = []
-            debug_info.append(f"mw existe: {mw is not None}")
+            debug_info.append(f"mw exists: {mw is not None}")
             if mw:
-                debug_info.append(f"mw.sync existe: {hasattr(mw, 'sync')}")
+                debug_info.append(f"mw.sync exists: {hasattr(mw, 'sync')}")
                 if hasattr(mw, "sync"):
                     debug_info.append(
-                        f"mw.sync.sync existe: {hasattr(mw.sync, 'sync')}"
+                        f"mw.sync.sync exists: {hasattr(mw.sync, 'sync')}"
                     )
-                debug_info.append(f"mw.onSync existe: {hasattr(mw, 'onSync')}")
-                debug_info.append(f"mw.form existe: {hasattr(mw, 'form')}")
+                debug_info.append(f"mw.onSync exists: {hasattr(mw, 'onSync')}")
+                debug_info.append(f"mw.form exists: {hasattr(mw, 'form')}")
                 if hasattr(mw, "form"):
                     debug_info.append(
-                        f"mw.form.actionSync existe: {hasattr(mw.form, 'actionSync')}"
+                        f"mw.form.actionSync exists: {hasattr(mw.form, 'actionSync')}"
                     )
 
             debug_message = " | ".join(debug_info)
-            add_debug_message(f"🔍 Debug API sync: {debug_message}", "ANKIWEB_SYNC")
+            add_debug_message(f"🔍 Sync API debug: {debug_message}", "ANKIWEB_SYNC")
 
             return {
                 "success": False,
-                "error": f"API de sincronização não encontrada. Debug: {debug_message}",
+                "error": f"Sync API not found. Debug: {debug_message}",
             }
 
     except Exception as e:
-        add_debug_message(f"❌ Erro durante sincronização: {e}", "ANKIWEB_SYNC")
-        return {"success": False, "error": f"Erro na sincronização: {str(e)}"}
+        add_debug_message(f"❌ Error during sync: {e}", "ANKIWEB_SYNC")
+        return {"success": False, "error": f"Sync error: {str(e)}"}
 
 
 def execute_ankiweb_sync_if_configured():
     """
-    Executa sincronização AnkiWeb baseada na configuração do usuário.
-    Esta função é chamada automaticamente após sincronização de decks remotos.
+    Executes AnkiWeb sync based on user configuration.
+    This function is automatically called after remote deck synchronization.
 
     Returns:
-        dict: Resultado da operação com status e detalhes, ou None se desabilitado
+        dict: Operation result with status and details, or None if disabled
     """
     sync_mode = get_ankiweb_sync_mode()
 
     if sync_mode == "none":
-        add_debug_message("⏹️ Sincronização AnkiWeb desabilitada", "ANKIWEB_SYNC")
+        add_debug_message("⏹️ AnkiWeb sync disabled", "ANKIWEB_SYNC")
         return None
 
-    add_debug_message(f"🎯 Modo de sync configurado: {sync_mode}", "ANKIWEB_SYNC")
+    add_debug_message(f"🎯 Configured sync mode: {sync_mode}", "ANKIWEB_SYNC")
 
-    # Verificar se pode sincronizar
+    # Check if can sync
     if not can_sync_ankiweb():
-        error_msg = "AnkiWeb não configurado - acesse Ferramentas > Sincronizar no Anki"
+        error_msg = "AnkiWeb not configured - access Tools > Sync in Anki"
         add_debug_message(f"⚠️ {error_msg}", "ANKIWEB_SYNC")
 
         if get_ankiweb_sync_notifications():
@@ -205,7 +205,7 @@ def execute_ankiweb_sync_if_configured():
 
         return {"success": False, "error": error_msg}
 
-    # Executar sincronização baseada no modo
+    # Execute sync based on mode
     result = None
 
     if sync_mode == "sync":
@@ -215,16 +215,16 @@ def execute_ankiweb_sync_if_configured():
 
 
 # =============================================================================
-# FUNÇÕES AUXILIARES
+# AUXILIARY FUNCTIONS
 # =============================================================================
 
 
 def get_sync_status():
     """
-    Obtém informações sobre o status atual de sincronização.
+    Gets information about the current sync status.
 
     Returns:
-        dict: Status de configuração e capacidade de sincronização
+        dict: Configuration status and sync capability
     """
     status = {
         "ankiweb_configured": can_sync_ankiweb(),
@@ -235,7 +235,7 @@ def get_sync_status():
         "debug_info": {},
     }
 
-    # Adicionar informações de debug
+    # Add debug info
     if mw and mw.pm:
         try:
             debug_info = {}
@@ -265,63 +265,63 @@ def get_sync_status():
 
 def test_ankiweb_connection():
     """
-    Testa conectividade básica com AnkiWeb.
-    Esta função testa apenas a conectividade de rede, não a configuração de credenciais.
+    Tests basic connectivity with AnkiWeb.
+    This function tests network connectivity only, not credential configuration.
 
     Returns:
-        dict: Resultado do teste de conexão
+        dict: Connection test result
     """
-    add_debug_message("🔍 Testando conectividade com AnkiWeb...", "ANKIWEB_SYNC")
+    add_debug_message("🔍 Testing connectivity with AnkiWeb...", "ANKIWEB_SYNC")
 
     try:
         from anki.httpclient import HttpClient
 
         client = HttpClient()
-        client.timeout = 10  # Timeout curto para teste
+        client.timeout = 10  # Short timeout for test
 
-        # Tentar uma operação simples
+        # Try a simple operation
         response = client.get("https://ankiweb.net/account/login")
 
         if response.status_code == 200:
-            add_debug_message("✅ Conectividade com AnkiWeb OK", "ANKIWEB_SYNC")
+            add_debug_message("✅ AnkiWeb connectivity OK", "ANKIWEB_SYNC")
 
-            # Verificar também se AnkiWeb está configurado para dar feedback completo
+            # Also check if AnkiWeb is configured to give complete feedback
             is_configured = can_sync_ankiweb()
 
-            # Verificar quais APIs de sync estão disponíveis
+            # Check which sync APIs are available
             sync_methods = []
             if hasattr(mw, "sync") and hasattr(mw.sync, "sync"):
-                sync_methods.append("API moderna")
+                sync_methods.append("modern API")
             if hasattr(mw, "onSync"):
                 sync_methods.append("onSync")
             if hasattr(mw, "form") and hasattr(mw.form, "actionSync"):
                 sync_methods.append("Menu action")
 
             methods_info = (
-                f" (Métodos disponíveis: {', '.join(sync_methods)})"
+                f" (Available methods: {', '.join(sync_methods)})"
                 if sync_methods
-                else " (Nenhum método de sync encontrado)"
+                else " (No sync method found)"
             )
 
             if is_configured:
                 return {
                     "success": True,
-                    "message": f"Conectividade OK e AnkiWeb configurado! ✅{methods_info}",
+                    "message": f"Connectivity OK and AnkiWeb configured! ✅{methods_info}",
                 }
             else:
                 return {
                     "success": True,
-                    "message": f"Conectividade OK, mas AnkiWeb não está configurado. Acesse Ferramentas > Sincronizar no Anki para configurar. ⚠️{methods_info}",
+                    "message": f"Connectivity OK, but AnkiWeb is not configured. Access Tools > Sync in Anki to configure. ⚠️{methods_info}",
                 }
         else:
             add_debug_message(
-                f"❌ Erro de conectividade: {response.status_code}", "ANKIWEB_SYNC"
+                f"❌ Connectivity error: {response.status_code}", "ANKIWEB_SYNC"
             )
             return {
                 "success": False,
-                "error": f"Erro de conectividade: HTTP {response.status_code}",
+                "error": f"Connectivity error: HTTP {response.status_code}",
             }
 
     except Exception as e:
-        add_debug_message(f"❌ Erro ao testar conectividade: {e}", "ANKIWEB_SYNC")
-        return {"success": False, "error": f"Erro de conectividade: {str(e)}"}
+        add_debug_message(f"❌ Error testing connectivity: {e}", "ANKIWEB_SYNC")
+        return {"success": False, "error": f"Connectivity error: {str(e)}"}

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Script Unificado de Build
+Unified Build Script
 
-Este script permite criar pacotes para AnkiWeb e/ou distribuição standalone
+This script allows creating packages for AnkiWeb and/or standalone distribution.
 """
 
 import subprocess
@@ -13,25 +13,25 @@ def main():
     script_dir = Path(__file__).parent
     build_dir = script_dir.parent / "build"
     
-    print("🚀 SHEETS2ANKI - CRIADOR DE PACOTES")
+    print("🚀 SHEETS2ANKI - PACKAGE CREATOR")
     print("="*40)
-    print("Escolha o tipo de pacote:")
-    print("1. AnkiWeb (para upload no AnkiWeb)")
-    print("2. Standalone (para distribuição independente)")
-    print("3. Ambos")
+    print("Choose the package type:")
+    print("1. AnkiWeb (for AnkiWeb upload)")
+    print("2. Standalone (for independent distribution)")
+    print("3. Both")
     
-    choice = input("Digite sua escolha (1/2/3): ").strip()
+    choice = input("Enter your choice (1/2/3): ").strip()
     
     if choice not in ['1', '2', '3']:
-        print("❌ Opção inválida!")
+        print("❌ Invalid option!")
         return
     
     success = True
     
-    # Criar pacote AnkiWeb
+    # Create AnkiWeb package
     if choice in ['1', '3']:
         print("\n" + "="*50)
-        print("📦 CRIANDO PACOTE PARA ANKIWEB")
+        print("📦 CREATING ANKIWEB PACKAGE")
         print("="*50)
         
         try:
@@ -39,15 +39,15 @@ def main():
                 sys.executable, 
                 script_dir / "create_ankiweb_package.py"
             ], check=True)
-            print("✅ Pacote AnkiWeb criado com sucesso!")
+            print("✅ AnkiWeb package created successfully!")
         except subprocess.CalledProcessError as e:
-            print(f"❌ Erro ao criar pacote AnkiWeb: {e}")
+            print(f"❌ Error creating AnkiWeb package: {e}")
             success = False
     
-    # Criar pacote Standalone
+    # Create Standalone package
     if choice in ['2', '3']:
         print("\n" + "="*50)
-        print("📦 CRIANDO PACOTE STANDALONE")
+        print("📦 CREATING STANDALONE PACKAGE")
         print("="*50)
         
         try:
@@ -55,39 +55,39 @@ def main():
                 sys.executable, 
                 script_dir / "create_standalone_package.py"
             ], check=True)
-            print("✅ Pacote Standalone criado com sucesso!")
+            print("✅ Standalone package created successfully!")
         except subprocess.CalledProcessError as e:
-            print(f"❌ Erro ao criar pacote Standalone: {e}")
+            print(f"❌ Error creating Standalone package: {e}")
             success = False
     
     print("\n" + "="*50)
     if success:
-        print("🎉 TODOS OS PACOTES FORAM CRIADOS COM SUCESSO!")
-        print("\n📁 Verifique a pasta 'build/' para os arquivos:")
+        print("🎉 ALL PACKAGES WERE CREATED SUCCESSFULLY!")
+        print("\n📁 Check the 'build/' folder for the files:")
         
         if choice in ['1', '3']:
-            print("   - sheets2anki.ankiaddon (para AnkiWeb)")
+            print("   - sheets2anki.ankiaddon (for AnkiWeb)")
         if choice in ['2', '3']:
-            print("   - sheets2anki-standalone.ankiaddon (para distribuição)")
+            print("   - sheets2anki-standalone.ankiaddon (for distribution)")
         
-        # Executar validação dos pacotes criados
-        print("\n🔍 VALIDANDO PACOTES CRIADOS...")
+        # Run validation of created packages
+        print("\n🔍 VALIDATING CREATED PACKAGES...")
         print("="*50)
         
-        # Lista de arquivos para validar
+        # List of files to validate
         files_to_validate = []
         
-        # Adiciona os arquivos baseado nas opções escolhidas
+        # Add files based on chosen options
         if choice in ['1', '3']:  # AnkiWeb
             files_to_validate.append(build_dir / "sheets2anki.ankiaddon")
         if choice in ['2', '3']:  # Standalone
             files_to_validate.append(build_dir / "sheets2anki-standalone.ankiaddon")
         
-        # Valida cada arquivo
+        # Validate each file
         validation_success = True
         for file_path in files_to_validate:
             if file_path.exists():
-                print(f"📋 Validando: {file_path.name}")
+                print(f"📋 Validating: {file_path.name}")
                 try:
                     result = subprocess.run([
                         sys.executable, 
@@ -97,37 +97,37 @@ def main():
                     
                     if result.stdout:
                         print(result.stdout)
-                    print(f"✅ {file_path.name} validado com sucesso!")
+                    print(f"✅ {file_path.name} validated successfully!")
                     
                 except subprocess.CalledProcessError as e:
-                    print(f"❌ Erro na validação de {file_path.name}: {e}")
+                    print(f"❌ Error validating {file_path.name}: {e}")
                     if e.stdout:
-                        print("Saída:", e.stdout)
+                        print("Output:", e.stdout)
                     if e.stderr:
-                        print("Erro:", e.stderr)
+                        print("Error:", e.stderr)
                     validation_success = False
                 except Exception as e:
-                    print(f"❌ Erro inesperado na validação de {file_path.name}: {e}")
+                    print(f"❌ Unexpected error validating {file_path.name}: {e}")
                     validation_success = False
                 print("-" * 30)
             else:
-                print(f"⚠️  Arquivo não encontrado: {file_path.name}")
+                print(f"⚠️  File not found: {file_path.name}")
                 validation_success = False
         
         if validation_success:
-            print("\n🎯 VALIDAÇÃO CONCLUÍDA COM SUCESSO!")
-            print("\n📚 INSTRUÇÕES:")
+            print("\n🎯 VALIDATION COMPLETED SUCCESSFULLY!")
+            print("\n📚 INSTRUCTIONS:")
             if choice in ['1', '3']:
                 print("   AnkiWeb: https://ankiweb.net/shared/addons/")
             if choice in ['2', '3']:
-                print("   Standalone: Distribua o arquivo .ankiaddon diretamente")
+                print("   Standalone: Distribute the .ankiaddon file directly")
         else:
-            print("\n⚠️  PACOTES CRIADOS MAS COM PROBLEMAS DE VALIDAÇÃO")
-            print("   Verifique as mensagens de validação acima")
+            print("\n⚠️  PACKAGES CREATED BUT WITH VALIDATION ISSUES")
+            print("   Check the validation messages above")
             
     else:
-        print("❌ HOUVE ERROS NA CRIAÇÃO DOS PACOTES")
-        print("   Verifique as mensagens acima para detalhes")
+        print("❌ THERE WERE ERRORS CREATING THE PACKAGES")
+        print("   Check messages above for details")
 
 if __name__ == "__main__":
     main()

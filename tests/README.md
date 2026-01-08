@@ -1,140 +1,140 @@
-# 🧪 Testes do Sheets2Anki
+# 🧪 Sheets2Anki Tests
 
-Este diretório contém a suíte de testes completa para o add-on Sheets2Anki, desenvolvida com pytest.
+This directory contains the complete test suite for the Sheets2Anki add-on, developed with pytest.
 
-## 📋 Estrutura dos Testes
+## 📋 Test Structure
 
-### 📁 Arquivos de Teste
+### 📁 Test Files
 
-| Arquivo | Descrição | Cobertura |
+| File | Description | Coverage |
 |---------|-----------|-----------|
-| `conftest.py` | Configurações e fixtures comuns | Fixtures reutilizáveis |
-| `test_data_processor.py` | Processamento de dados TSV | Parsing, validação, detecção cloze |
-| `test_config_manager.py` | Gerenciamento de configurações | CRUD configurações, persistência |
-| `test_utils.py` | Funções utilitárias | URLs, hashes, validações |
-| `test_student_manager.py` | Gestão de alunos | Alunos globais, filtragem |
-| `test_integration.py` | Testes de integração | Fluxos completos |
-| `test_new_tags.py` | Sistema de tags (legado) | Tags hierárquicas |
-| `run_tests.py` | Script executor | Automação de testes |
+| `conftest.py` | Common configurations and fixtures | Reusable fixtures |
+| `test_data_processor.py` | TSV data processing | Parsing, validation, cloze detection |
+| `test_config_manager.py` | Settings management | Settings CRUD, persistence |
+| `test_utils.py` | Utility functions | URLs, hashes, validations |
+| `test_student_manager.py` | Student management | Global students, filtering |
+| `test_integration.py` | Integration tests | Complete flows |
+| `test_new_tags.py` | Tag system (legacy) | Hierarchical tags |
+| `run_tests.py` | Executor script | Test automation |
 
-### 🏷️ Categorias de Testes
+### 🏷️ Test Categories
 
-#### **🔬 Testes Unitários** (`@pytest.mark.unit`)
-- Testam funções isoladas
-- Execução rápida
-- Mocks para dependências externas
-- Cobertura de casos extremos
+#### **🔬 Unit Tests** (`@pytest.mark.unit`)
+- Test isolated functions
+- Fast execution
+- Mocks for external dependencies
+- Edge case coverage
 
-#### **🔗 Testes de Integração** (`@pytest.mark.integration`) 
-- Testam fluxos completos
-- Interação entre módulos
-- Cenários reais de uso
-- Validação end-to-end
+#### **🔗 Integration Tests** (`@pytest.mark.integration`) 
+- Test complete flows
+- Interaction between modules
+- Real usage scenarios
+- End-to-end validation
 
-#### **🐌 Testes Lentos** (`@pytest.mark.slow`)
-- Testes de performance
-- Datasets grandes
-- Operações demoradas
-- Pulados em execução rápida
+#### **🐌 Slow Tests** (`@pytest.mark.slow`)
+- Performance tests
+- Large datasets
+- Time-consuming operations
+- Skipped in fast execution
 
-## 🚀 Como Executar os Testes
+## 🚀 How to Run Tests
 
-### Pré-requisitos
+### Prerequisites
 
 ```bash
-# Instalar dependências de teste
+# Install test dependencies
 pip install pytest pytest-cov pytest-mock
 ```
 
-### Execução Básica
+### Basic Execution
 
 ```bash
-# Todos os testes
+# All tests
 python tests/run_tests.py
 
-# Ou diretamente com pytest
+# Or directly with pytest
 python -m pytest tests/
 ```
 
-### Opções Avançadas
+### Advanced Options
 
 ```bash
-# 🔬 Apenas testes unitários
+# 🔬 Unit tests only
 python tests/run_tests.py --unit
 
-# 🔗 Apenas testes de integração  
+# 🔗 Integration tests only  
 python tests/run_tests.py --integration
 
-# 📊 Com cobertura de código
+# 📊 With code coverage
 python tests/run_tests.py --coverage
 
-# 🏃 Execução rápida (pula testes lentos)
+# 🏃 Fast execution (skips slow tests)
 python tests/run_tests.py --fast
 
-# 🔍 Saída detalhada
+# 🔍 Detailed output
 python tests/run_tests.py --verbose
 
-# 📁 Arquivo específico
+# 📁 Specific file
 python tests/run_tests.py --file data_processor
 
-# 🎯 Função específica
+# 🎯 Specific function
 python tests/run_tests.py --function test_parse_students
 
-# ℹ️ Informações sobre testes disponíveis
+# ℹ️ Information about available tests
 python tests/run_tests.py --info
 ```
 
-### Combinações Úteis
+### Useful Combinations
 
 ```bash
-# Desenvolvimento: testes unitários com saída detalhada
+# Development: unit tests with detailed output
 python tests/run_tests.py --unit --verbose
 
-# CI/CD: todos os testes com cobertura
+# CI/CD: all tests with coverage
 python tests/run_tests.py --coverage
 
-# Debug: arquivo específico com verbose
+# Debug: specific file with verbose
 python tests/run_tests.py --file utils --verbose
 
-# Performance: apenas testes lentos
+# Performance: only slow tests
 python -m pytest tests/ -m slow -v
 ```
 
-## 🏗️ Fixtures Disponíveis
+## 🏗️ Available Fixtures
 
-### 📊 Dados de Teste
+### 📊 Test Data
 
-- `sample_tsv_data`: Dados TSV estruturados para testes
-- `sample_tsv_content`: Conteúdo TSV em formato string  
-- `sample_students`: Lista de alunos para testes
-- `sample_url`: URL de exemplo do Google Sheets
-- `sample_config`: Configuração padrão para testes
+- `sample_tsv_data`: Structured TSV data for testing
+- `sample_tsv_content`: TSV content in string format  
+- `sample_students`: List of students for testing
+- `sample_url`: Example Google Sheets URL
+- `sample_config`: Default configuration for testing
 
-### 🎭 Mocks do Anki
+### 🎭 Anki Mocks
 
-- `mock_mw`: Mock do main window do Anki
-- `mock_note`: Mock de uma nota do Anki
-- `mock_note_type`: Mock de um note type
-- `setup_test_environment`: Configuração automática de mocks
+- `mock_mw`: Anki main window mock
+- `mock_note`: Anki note mock
+- `mock_note_type`: Note type mock
+- `setup_test_environment`: Automatic mock configuration
 
-### 📁 Arquivos Temporários
+### 📁 Temporary Files
 
-- `temp_config_file`: Arquivo de configuração temporário
-- `clean_sys_path`: Limpeza do sys.path após testes
+- `temp_config_file`: Temporary configuration file
+- `clean_sys_path`: sys.path cleanup after tests
 
-## 📝 Escrevendo Novos Testes
+## 📝 Writing New Tests
 
-### Estrutura Básica
+### Basic Structure
 
 ```python
 import pytest
 
 @pytest.mark.unit
 class TestMyModule:
-    """Testes para o módulo MyModule."""
+    """Tests for the MyModule module."""
     
     def test_basic_functionality(self):
-        """Teste básico de funcionalidade."""
+        """Basic functionality test."""
         # Arrange
         input_data = "test_input"
         expected = "expected_output"
@@ -146,91 +146,91 @@ class TestMyModule:
         assert result == expected
     
     def test_edge_cases(self):
-        """Teste de casos extremos."""
+        """Edge cases test."""
         assert my_function("") == ""
         assert my_function(None) is None
         
     def test_error_handling(self):
-        """Teste de tratamento de erros."""
+        """Error handling test."""
         with pytest.raises(ValueError):
             my_function("invalid_input")
 ```
 
-### Usando Fixtures
+### Using Fixtures
 
 ```python
 def test_with_fixtures(self, sample_tsv_data, mock_mw):
-    """Teste usando fixtures."""
-    # Usar dados de amostra
+    """Test using fixtures."""
+    # Use sample data
     assert len(sample_tsv_data) > 0
     
-    # Usar mock do Anki
+    # Use Anki mock
     mock_mw.col.findNotes.return_value = [123, 456]
     result = my_anki_function(mock_mw)
     assert len(result) == 2
 ```
 
-### Testes de Integração
+### Integration Tests
 
 ```python
 @pytest.mark.integration
 def test_complete_workflow(self, tmp_path):
-    """Teste de fluxo completo."""
-    # Criar ambiente temporário
+    """Complete flow test."""
+    # Create temporary environment
     config_file = tmp_path / "test_config.json"
     
-    # Executar fluxo completo
+    # Execute complete flow
     result = complete_workflow(str(config_file))
     
-    # Verificar resultado
+    # Check result
     assert result['success'] == True
 ```
 
-## 📊 Cobertura de Código
+## 📊 Code Coverage
 
-### Gerar Relatório
+### Generate Report
 
 ```bash
-# Relatório HTML (recomendado)
+# HTML Report (recommended)
 python tests/run_tests.py --coverage
 
-# Abrir no navegador
+# Open in browser
 open htmlcov/index.html
 ```
 
-### Métricas Alvo
+### Target Metrics
 
-- **Cobertura Total**: > 80%
-- **Módulos Críticos**: > 90%
-- **Funções Públicas**: 100%
+- **Total Coverage**: > 80%
+- **Critical Modules**: > 90%
+- **Public Functions**: 100%
 
-### Visualizar Cobertura
+### View Coverage
 
-O relatório HTML mostra:
-- ✅ Linhas cobertas (verde)
-- ❌ Linhas não cobertas (vermelho)  
-- ⚠️ Branches parciais (amarelo)
-- 📊 Percentual por arquivo
+The HTML report shows:
+- ✅ Covered lines (green)
+- ❌ Uncovered lines (red)  
+- ⚠️ Partial branches (yellow)
+- 📊 Percentage per file
 
-## 🐛 Debugging de Testes
+## 🐛 Test Debugging
 
-### Execução com Debug
+### Debug Execution
 
 ```bash
-# Parar no primeiro erro
+# Stop on first error
 python -m pytest tests/ -x
 
-# Mostrar variáveis locais em falhas
+# Show local variables on failure
 python -m pytest tests/ -l
 
-# Modo debug interativo
+# Interactive debug mode
 python -m pytest tests/ --pdb
 
-# Capturar prints
+# Capture prints
 python -m pytest tests/ -s
 ```
 
-### Logs de Debug
+### Debug Logs
 
 ```python
 import logging
@@ -240,12 +240,12 @@ def test_with_logging():
     logger = logging.getLogger(__name__)
     logger.debug("Debug info")
     
-    # Teste continua...
+    # Test continues...
 ```
 
-## 🔧 Configuração Personalizada
+## 🔧 Custom Configuration
 
-### pytest.ini (já configurado)
+### pytest.ini (already configured)
 
 ```ini
 [pytest]
@@ -260,70 +260,70 @@ markers =
 addopts = -v
 ```
 
-### Personalizar Markers
+### Customize Markers
 
 ```bash
-# Executar apenas testes marcados
+# Run only marked tests
 python -m pytest tests/ -m "unit and not slow"
 
-# Executar testes com tag personalizada
+# Run tests with custom tag
 python -m pytest tests/ -m "requires_anki"
 ```
 
-## 🎯 Melhores Práticas
+## 🎯 Best Practices
 
 ### ✅ Do's
 
-- **Use fixtures** para dados comuns
-- **Teste casos extremos** (valores nulos, vazios, inválidos)
-- **Nomes descritivos** para funções de teste
-- **Documentação** clara do que está sendo testado
+- **Use fixtures** for common data
+- **Test edge cases** (null, empty, invalid values)
+- **Descriptive names** for test functions
+- **Clear documentation** of what is being tested
 - **Arrange-Act-Assert** pattern
-- **Mocks** para dependências externas
+- **Mocks** for external dependencies
 
 ### ❌ Don'ts
 
-- **Não teste implementação**, teste comportamento
-- **Não use dados hardcoded** desnecessariamente
-- **Não ignore falhas** intermitentes
-- **Não teste código de terceiros**
-- **Não faça testes muito complexos**
+- **Don't test implementation**, test behavior
+- **Don't use hardcoded data** unnecessarily
+- **Don't ignore intermittent failures**
+- **Don't test third-party code**
+- **Don't make tests too complex**
 
-### 🏗️ Estrutura Recomendada
+### 🏗️ Recommended Structure
 
 ```python
 class TestMyFeature:
-    """Testes agrupados por feature."""
+    """Tests grouped by feature."""
     
     def test_happy_path(self):
-        """Cenário principal de sucesso."""
+        """Main success scenario."""
         pass
     
     def test_edge_cases(self):
-        """Casos extremos."""
+        """Edge cases."""
         pass
     
     def test_error_handling(self):
-        """Tratamento de erros."""
+        """Error handling."""
         pass
 ```
 
-## 📈 Métricas e Relatórios
+## 📈 Metrics and Reports
 
-### Executar Análise Completa
+### Perform Complete Analysis
 
 ```bash
-# Cobertura + relatórios detalhados
+# Coverage + detailed reports
 python tests/run_tests.py --coverage --verbose
 
-# Ver estatísticas
+# View statistics
 python tests/run_tests.py --info
 ```
 
 ### CI/CD Integration
 
 ```bash
-# Para pipelines automatizados
+# For automated pipelines
 python -m pytest tests/ \
   --cov=src \
   --cov-report=xml \
@@ -333,18 +333,18 @@ python -m pytest tests/ \
 
 ## 🆘 Troubleshooting
 
-### Problemas Comuns
+### Common Issues
 
 #### Import Errors
 ```bash
-# Verificar PYTHONPATH
+# Check PYTHONPATH
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 python -m pytest tests/
 ```
 
 #### Mock Issues
 ```python
-# Verificar se mocks estão sendo aplicados corretamente
+# Check if mocks are being applied correctly
 def test_debug_mock(self, mock_mw):
     print(f"Mock type: {type(mock_mw)}")
     print(f"Mock methods: {dir(mock_mw)}")
@@ -352,37 +352,37 @@ def test_debug_mock(self, mock_mw):
 
 #### Fixture Conflicts
 ```python
-# Usar fixtures específicas quando necessário
+# Use specific fixtures when necessary
 def test_specific_fixture(self, sample_tsv_data):
-    # Em vez de fixture genérica, criar dados específicos
+    # Instead of generic fixture, create specific data
     specific_data = [{'ID': 'TEST001', 'PERGUNTA': 'Test?'}]
 ```
 
-### Logs de Debug
+### Debug Logs
 
 ```bash
-# Ver logs detalhados dos testes
+# View detailed test logs
 python -m pytest tests/ --log-cli-level=DEBUG
 ```
 
-## 🚀 Próximos Passos
+## 🚀 Next Steps
 
-### Melhorias Planejadas
+### Planned Improvements
 
-- [ ] Testes de performance automatizados
-- [ ] Cobertura de mutation testing
-- [ ] Testes de carga para datasets grandes
-- [ ] Integração com GitHub Actions
-- [ ] Testes de compatibilidade multi-versão
+- [ ] Automated performance tests
+- [ ] Mutation testing coverage
+- [ ] Load tests for large datasets
+- [ ] GitHub Actions integration
+- [ ] Multi-version compatibility tests
 
-### Como Contribuir
+### How to Contribute
 
-1. **Identifique gaps** na cobertura
-2. **Escreva testes** seguindo os padrões
-3. **Execute a suíte** completa antes do commit
-4. **Documente** casos complexos
-5. **Mantenha fixtures** atualizadas
+1. **Identify gaps** in coverage
+2. **Write tests** following standards
+3. **Run the full suite** before committing
+4. **Document** complex cases
+5. **Keep fixtures** updated
 
 ---
 
-Para mais informações sobre pytest: https://docs.pytest.org/
+For more information on pytest: https://docs.pytest.org/

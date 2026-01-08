@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Script para executar todos os testes do Sheets2Anki
+Script to run all Sheets2Anki tests
 
-Uso:
-    python run_tests.py              # Executar todos os testes
-    python run_tests.py --unit       # Apenas testes unitários
-    python run_tests.py --integration # Apenas testes de integração
-    python run_tests.py --coverage   # Com relatório de cobertura
-    python run_tests.py --verbose    # Saída detalhada
-    python run_tests.py --fast       # Pular testes lentos
+Usage:
+    python run_tests.py              # Run all tests
+    python run_tests.py --unit       # Unit tests only
+    python run_tests.py --integration # Integration tests only
+    python run_tests.py --coverage   # With coverage report
+    python run_tests.py --verbose    # Detailed output
+    python run_tests.py --fast       # Skip slow tests
 """
 
 import argparse
@@ -19,40 +19,40 @@ from pathlib import Path
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Executar testes do Sheets2Anki")
+    parser = argparse.ArgumentParser(description="Run Sheets2Anki tests")
 
     parser.add_argument(
-        "--unit", action="store_true", help="Executar apenas testes unitários"
+        "--unit", action="store_true", help="Run only unit tests"
     )
     parser.add_argument(
         "--integration",
         action="store_true",
-        help="Executar apenas testes de integração",
+        help="Run only integration tests",
     )
     parser.add_argument(
-        "--coverage", action="store_true", help="Gerar relatório de cobertura"
+        "--coverage", action="store_true", help="Generate coverage report"
     )
-    parser.add_argument("--verbose", "-v", action="store_true", help="Saída verbose")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument(
-        "--fast", action="store_true", help="Pular testes marcados como lentos"
-    )
-    parser.add_argument(
-        "--file", "-f", type=str, help="Executar arquivo de teste específico"
+        "--fast", action="store_true", help="Skip tests marked as slow"
     )
     parser.add_argument(
-        "--function", "-k", type=str, help="Executar função de teste específica"
+        "--file", "-f", type=str, help="Run specific test file"
+    )
+    parser.add_argument(
+        "--function", "-k", type=str, help="Run specific test function"
     )
 
     args = parser.parse_args()
 
-    # Garantir que estamos no diretório correto
+    # Ensure we are in the correct directory
     project_root = Path(__file__).parent.parent
     os.chdir(project_root)
 
-    # Construir comando pytest
+    # Build pytest command
     cmd = ["python", "-m", "pytest"]
 
-    # Adicionar flags baseadas nos argumentos
+    # Add flags based on arguments
     if args.verbose:
         cmd.extend(["-v", "-s"])
 
@@ -80,54 +80,54 @@ def main():
     if args.function:
         cmd.extend(["-k", args.function])
 
-    # Configurações padrão do pytest
+    # Default pytest settings
     cmd.extend(
         [
-            "--tb=short",  # Traceback curto
+            "--tb=short",  # Short traceback
             "--strict-markers",  # Strict markers
-            "--disable-warnings",  # Desabilitar warnings verbosos
+            "--disable-warnings",  # Disable verbose warnings
         ]
     )
 
-    print(f"🧪 Executando testes com comando: {' '.join(cmd)}")
+    print(f"🧪 Running tests with command: {' '.join(cmd)}")
     print("=" * 60)
 
     try:
-        # Executar testes
+        # Run tests
         result = subprocess.run(cmd, check=False)
 
-        # Relatório final
+        # Final report
         print("\n" + "=" * 60)
         if result.returncode == 0:
-            print("✅ Todos os testes passaram!")
+            print("✅ All tests passed!")
 
             if args.coverage:
-                print("📊 Relatório de cobertura gerado em htmlcov/index.html")
+                print("📊 Coverage report generated in htmlcov/index.html")
         else:
-            print("❌ Alguns testes falharam!")
+            print("❌ Some tests failed!")
 
         return result.returncode
 
     except KeyboardInterrupt:
-        print("\n🛑 Testes interrompidos pelo usuário")
+        print("\n🛑 Tests interrupted by user")
         return 1
     except FileNotFoundError:
-        print("❌ pytest não encontrado. Instale com: pip install pytest")
+        print("❌ pytest not found. Install with: pip install pytest")
         return 1
 
 
 def show_test_info():
-    """Mostrar informações sobre os testes disponíveis."""
-    print("📋 Testes Disponíveis:")
+    """Show information about available tests."""
+    print("📋 Available Tests:")
     print("-" * 40)
 
     test_files = [
-        ("test_data_processor.py", "Processamento de dados TSV"),
-        ("test_config_manager.py", "Gerenciamento de configurações"),
-        ("test_utils.py", "Funções utilitárias"),
-        ("test_student_manager.py", "Gestão de alunos"),
-        ("test_integration.py", "Testes de integração"),
-        ("test_new_tags.py", "Sistema de tags (existente)"),
+        ("test_data_processor.py", "TSV data processing"),
+        ("test_config_manager.py", "Settings management"),
+        ("test_utils.py", "Utility functions"),
+        ("test_student_manager.py", "Student management"),
+        ("test_integration.py", "Integration tests"),
+        ("test_new_tags.py", "Tag system (existing)"),
     ]
 
     for filename, description in test_files:
@@ -135,13 +135,13 @@ def show_test_info():
         status = "✅" if test_path.exists() else "❌"
         print(f"{status} {filename:25} - {description}")
 
-    print("\n📊 Estatísticas:")
-    print(f"Total de arquivos de teste: {len(test_files)}")
+    print("\n📊 Statistics:")
+    print(f"Total test files: {len(test_files)}")
 
     existing_files = [f for f, _ in test_files if (Path("tests") / f).exists()]
-    print(f"Arquivos existentes: {len(existing_files)}")
+    print(f"Existing files: {len(existing_files)}")
 
-    print("\n🏃 Exemplos de uso:")
+    print("\n🏃 Usage examples:")
     print("  python run_tests.py --unit --verbose")
     print("  python run_tests.py --integration --coverage")
     print("  python run_tests.py --file data_processor --verbose")

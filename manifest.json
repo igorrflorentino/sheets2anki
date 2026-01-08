@@ -3,7 +3,7 @@
     "name": "Sheets2Anki",
     "version": "2.2.0",
     "author": "Igor Florentino",
-    "description": "Sincronize decks do Anki com planilhas do Google Sheets em formato TSV. Ideal para estudos de concursos com estrutura de questões em português.",
+    "description": "Synchronize Anki decks with Google Sheets in TSV format. Ideal for exam preparation with question structures in Portuguese.",
     "homepage": "https://github.com/igorrflorentino/sheets2anki",
     "min_point_version": 231000,
     "max_point_version": 260000,

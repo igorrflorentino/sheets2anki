@@ -1,57 +1,57 @@
 """
-Sheets2Anki Add-on - Módulo Principal de Integração com Anki
+Sheets2Anki Add-on - Main Anki Integration Module
 
-Este módulo serve como ponto de entrada para o add-on Sheets2Anki do Anki,
-integrando funcionalidades de sincronização de decks remotos com Google Sheets.
+This module serves as the entry point for the Sheets2Anki Anki add-on,
+integrating remote deck synchronization features with Google Sheets.
 
-Funcionalidades principais:
-- Configuração do ambiente Python para dependências
-- Integração com interface do usuário do Anki
-- Criação de menus e ações para gerenciamento de decks remotos
-- Tratamento de erros e feedback ao usuário
-- Ponte entre interface do Anki e lógica de sincronização
+Main features:
+- Python environment configuration for dependencies
+- Integration with Anki user interface
+- Menu creation and actions for remote deck management
+- Error handling and user feedback
+- Bridge between Anki interface and synchronization logic
 
-Estrutura do add-on:
-- __init__.py: Módulo principal (este arquivo)
-- src/: Lógica de sincronização e processamento
-- libs/: Bibliotecas e dependências externas
+Add-on structure:
+- __init__.py: Main module (this file)
+- src/: Synchronization and processing logic
+- libs/: External libraries and dependencies
 
-Autor: Igor Florentino
+Author: Igor Florentino
 Email: igorlopesc@gmail.com
 """
 
 # =============================================================================
-# CONFIGURAÇÃO DO AMBIENTE PYTHON
+# PYTHON ENVIRONMENT CONFIGURATION
 # =============================================================================
 
 import sys
 import os
 
-# Configurar caminhos para dependências externas
+# Configure paths for external dependencies
 addon_path = os.path.dirname(__file__)
 libs_path = os.path.join(addon_path, 'libs')
 
-# Adicionar bibliotecas ao path do Python se ainda não estiverem presentes
+# Add libraries to Python path if not already present
 if libs_path not in sys.path:
     sys.path.insert(0, libs_path)
 
 # =============================================================================
-# IMPORTS DO ANKI E MÓDULOS INTERNOS
+# ANKI AND INTERNAL MODULE IMPORTS
 # =============================================================================
 
-# Imports principais do Anki com compatibilidade
+# Main Anki imports with compatibility
 try:
     from .src.compat import mw, showInfo, QAction, QMenu, QKeySequence, safe_qconnect as qconnect
     from aqt.importing import ImportDialog
 except ImportError as e:
-    # Fallback para desenvolvimento
-    print(f"Erro ao importar módulos de compatibilidade: {e}")
+    # Fallback for development
+    print(f"Error importing compatibility modules: {e}")
     from aqt import mw
     from aqt.utils import showInfo
     from aqt.qt import QAction, QMenu, QKeySequence, qconnect
     from aqt.importing import ImportDialog
 
-# Imports dos módulos internos com tratamento de erro robusto
+# Internal module imports with robust error handling
 try:
     from .src.deck_manager import import_test_deck
     from .src.deck_manager import addNewDeck
@@ -62,37 +62,37 @@ try:
     from .libs.org_to_anki.utils import getAnkiPluginConnector as getConnector
     
 except Exception as e:
-    showInfo(f"Erro ao importar módulos do plugin Sheets2Anki:\n{e}")
+    showInfo(f"Error importing Sheets2Anki plugin modules:\n{e}")
     raise
 
 # =============================================================================
-# TEMPLATES E CONFIGURAÇÕES
+# TEMPLATES AND CONFIGURATIONS
 # =============================================================================
 
-# Template de mensagem de erro para o usuário
+# Error message template for the user
 errorTemplate = """
-Olá! Parece que ocorreu um erro durante a execução.
+Hello! It seems an error occurred during execution.
 
-O erro foi: {}.
+The error was: {}.
 
-Se você quiser que eu corrija, por favor relate aqui: https://github.com/igorrflorentino/sheets2anki
+If you'd like me to fix it, please report here: https://github.com/igorrflorentino/sheets2anki
 
-Certifique-se de fornecer o máximo de informações possível, especialmente o arquivo que causou o erro.
+Please provide as much information as possible, especially the file that caused the error.
 """
 
 # =============================================================================
-# FUNÇÕES DE INTERFACE DO USUÁRIO
+# USER INTERFACE FUNCTIONS
 # =============================================================================
 
 def addDeck():
     """
-    Adiciona um novo deck remoto conectado a uma planilha do Google Sheets.
+    Adds a new remote deck connected to a Google Sheets spreadsheet.
     
-    Esta função:
-    1. Inicializa a ponte com o Anki
-    2. Chama a interface para adicionar novo deck
-    3. Trata erros e exibe feedback apropriado
-    4. Garante limpeza de recursos mesmo em caso de erro
+    This function:
+    1. Initializes the Anki bridge
+    2. Calls the interface to add a new deck
+    3. Handles errors and displays appropriate feedback
+    4. Ensures resource cleanup even in case of error
     """
     ankiBridge = None
     try:
@@ -112,12 +112,12 @@ def addDeck():
 
 def backup_decks():
     """
-    Abre o diálogo de backup de decks remotos.
+    Opens the remote decks backup dialog.
     
-    Esta função permite ao usuário:
-    1. Criar backup completo de suas configurações
-    2. Restaurar backups anteriores
-    3. Exportar/importar configurações específicas
+    This function allows the user to:
+    1. Create a complete backup of their configurations
+    2. Restore previous backups
+    3. Export/import specific configurations
     """
     try:
         show_backup_dialog()
@@ -127,11 +127,11 @@ def backup_decks():
 
 def syncDecks():
     """
-    Sincroniza todos os decks remotos configurados.
+    Synchronizes all configured remote decks.
     
-    Esta função inicia o processo de sincronização de todos os decks
-    cadastrados no sistema, baixando dados atualizados das planilhas
-    do Google Sheets.
+    This function starts the synchronization process for all decks
+    registered in the system, downloading updated data from
+    Google Sheets spreadsheets.
     """
     try:
         sDecks()
@@ -141,13 +141,13 @@ def syncDecks():
 
 def removeRemote():
     """
-    Remove a conexão de um deck remoto do sistema.
+    Removes a remote deck connection from the system.
     
-    Esta função:
-    1. Inicializa a ponte com o Anki
-    2. Permite ao usuário desconectar um deck remoto
-    3. Trata erros e exibe feedback apropriado
-    4. Garante limpeza de recursos
+    This function:
+    1. Initializes the Anki bridge
+    2. Allows the user to disconnect a remote deck
+    3. Handles errors and displays appropriate feedback
+    4. Ensures resource cleanup
     """
     ankiBridge = None
     try:
@@ -167,10 +167,10 @@ def removeRemote():
 
 def configure_global_students():
     """
-    Abre o diálogo de configuração global de alunos.
+    Opens the global student configuration dialog.
     
-    Esta função permite ao usuário configurar globalmente quais alunos
-    devem ser sincronizados em todos os decks remotos.
+    This function allows the user to globally configure which students
+    should be synchronized across all remote decks.
     """
     try:
         from .src.global_student_config_dialog import show_global_student_config_dialog
@@ -181,12 +181,12 @@ def configure_global_students():
 
 def configure_deck_options_mode():
     """
-    Abre o diálogo de configuração de modo de opções de deck.
+    Opens the deck options mode configuration dialog.
     
-    Esta função permite ao usuário escolher entre três modos:
-    1. Compartilhado - Todos os decks usam "Sheets2Anki - Default"
-    2. Individual - Cada deck tem seu próprio grupo "Sheets2Anki - [Nome]"
-    3. Manual - Nenhuma aplicação automática de opções
+    This function allows the user to choose between three modes:
+    1. Shared - All decks use "Sheets2Anki - Default"
+    2. Individual - Each deck has its own group "Sheets2Anki - [Name]"
+    3. Manual - No automatic options application
     """
     try:
         from .src.deck_options_config_dialog import show_deck_options_config_dialog
@@ -197,11 +197,11 @@ def configure_deck_options_mode():
 
 def configure_ankiweb_sync():
     """
-    Abre o diálogo de configuração de sincronização automática com AnkiWeb.
+    Opens the AnkiWeb automatic synchronization configuration dialog.
     
-    Esta função permite ao usuário escolher entre dois modos:
-    1. Desabilitado - Não fazer sincronização automática
-    2. Sincronizar - Executar sync após sincronização de decks
+    This function allows the user to choose between two modes:
+    1. Disabled - No automatic synchronization
+    2. Sync - Execute sync after deck synchronization
     """
     try:
         from .src.ankiweb_sync_config_dialog import show_ankiweb_sync_config
@@ -211,74 +211,89 @@ def configure_ankiweb_sync():
         showInfo(error_msg)
 
 # =============================================================================
-# CONFIGURAÇÃO DA INTERFACE DO ANKI
+# ANKI INTERFACE CONFIGURATION
 # =============================================================================
 
-# Verificar se o Anki está disponível antes de configurar a interface
+# Check if Anki is available before configuring the interface
 if mw is not None:
-    # Criar submenu principal para funcionalidades do Sheets2Anki
+    # Create main submenu for Sheets2Anki features
     remoteDecksSubMenu = QMenu(DEFAULT_PARENT_DECK_NAME, mw)
     mw.form.menuTools.addMenu(remoteDecksSubMenu)
 
     # =========================================================================
-    # AÇÕES DO MENU
+    # MENU ACTIONS
     # =========================================================================
 
-    # Ação: Adicionar novo deck remoto
-    remoteDeckAction = QAction("Adicionar Novo Deck Remoto", mw)
+    # Action: Add new remote deck
+    remoteDeckAction = QAction("Add New Remote Deck", mw)
     remoteDeckAction.setShortcut(QKeySequence("Ctrl+Shift+A"))
     qconnect(remoteDeckAction.triggered, addDeck)
     remoteDecksSubMenu.addAction(remoteDeckAction)
 
-    # Ação: Sincronizar decks remotos
-    syncDecksAction = QAction("Sincronizar Decks Remotos", mw)
+    # Action: Synchronize remote decks
+    syncDecksAction = QAction("Synchronize Remote Decks", mw)
     syncDecksAction.setShortcut(QKeySequence("Ctrl+Shift+S"))
     qconnect(syncDecksAction.triggered, syncDecks)
     remoteDecksSubMenu.addAction(syncDecksAction)
 
-    # Ação: Desconectar deck remoto
-    removeRemoteDeck = QAction("Desconectar um Deck Remoto", mw)
+    # Action: Disconnect remote deck
+    removeRemoteDeck = QAction("Disconnect a Remote Deck", mw)
     removeRemoteDeck.setShortcut(QKeySequence("Ctrl+Shift+D"))
     qconnect(removeRemoteDeck.triggered, removeRemote)
     remoteDecksSubMenu.addAction(removeRemoteDeck)
 
-    # Separador
+    # Separator
     remoteDecksSubMenu.addSeparator()
 
-    # Ação: Configuração Global de Alunos
-    studentConfigAction = QAction("Configurar Alunos Globalmente", mw)
+    # Action: Global Student Configuration
+    studentConfigAction = QAction("Configure Students Globally", mw)
     studentConfigAction.setShortcut(QKeySequence("Ctrl+Shift+G"))
     qconnect(studentConfigAction.triggered, configure_global_students)
     remoteDecksSubMenu.addAction(studentConfigAction)
 
-    # Ação: Configurar modo de opções de deck
-    deckOptionsConfigAction = QAction("Configurar Opções de Deck", mw)
+    # Action: Configure deck options mode
+    deckOptionsConfigAction = QAction("Configure Deck Options", mw)
     deckOptionsConfigAction.setShortcut(QKeySequence("Ctrl+Shift+O"))
     qconnect(deckOptionsConfigAction.triggered, configure_deck_options_mode)
     remoteDecksSubMenu.addAction(deckOptionsConfigAction)
 
-    # Ação: Configurar sincronização AnkiWeb
-    ankiWebSyncConfigAction = QAction("Configurar Sincronização AnkiWeb", mw)
+    # Action: Configure AnkiWeb synchronization
+    ankiWebSyncConfigAction = QAction("Configure AnkiWeb Sync", mw)
     ankiWebSyncConfigAction.setShortcut(QKeySequence("Ctrl+Shift+W"))
     qconnect(ankiWebSyncConfigAction.triggered, configure_ankiweb_sync)
     remoteDecksSubMenu.addAction(ankiWebSyncConfigAction)
 
-    # Separador
+    # Separator
     remoteDecksSubMenu.addSeparator()
 
-    # Ação: Backup de decks remotos
-    backupDecksAction = QAction("Backup de Decks Remotos", mw)
+    # Action: Remote decks backup
+    backupDecksAction = QAction("Remote Decks Backup", mw)
     backupDecksAction.setShortcut(QKeySequence("Ctrl+Shift+B"))
     qconnect(backupDecksAction.triggered, backup_decks)
     remoteDecksSubMenu.addAction(backupDecksAction)
 
-    # Ação: Importar deck de teste (apenas para desenvolvimento/debug)
+    # Action: Debug Mode
+    def open_debug_mode():
+        """Opens the debug mode configuration dialog."""
+        try:
+            from .src.debug_dialog import show_debug_mode_dialog
+            show_debug_mode_dialog()
+        except Exception as e:
+            error_msg = errorTemplate.format(str(e))
+            showInfo(error_msg)
+
+    debugModeAction = QAction("Debug Mode", mw)
+    debugModeAction.setShortcut(QKeySequence("Ctrl+Shift+L"))
+    qconnect(debugModeAction.triggered, open_debug_mode)
+    remoteDecksSubMenu.addAction(debugModeAction)
+
+    # Action: Import test deck (development/debug only)
     try:
         from .src.templates_and_definitions import IS_DEVELOPMENT_MODE
         if IS_DEVELOPMENT_MODE:
-            importTestDeckAction = QAction("Importar Deck de Teste", mw)
+            importTestDeckAction = QAction("Import Test Deck", mw)
             importTestDeckAction.setShortcut(QKeySequence("Ctrl+Shift+T"))
             qconnect(importTestDeckAction.triggered, import_test_deck)
             remoteDecksSubMenu.addAction(importTestDeckAction)
     except ImportError:
-        pass  # Se não conseguir importar, não mostra o menu
+        pass  # If import fails, don't show the menu

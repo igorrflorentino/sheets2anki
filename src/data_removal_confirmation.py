@@ -1,45 +1,46 @@
 """
-Módulo centralizado para geração de mensagens de confirmação de remoção de dados.
+Centralized module for generating data removal confirmation messages.
 
-Este módulo fornece uma interface única e consistente para gerar mensagens
-de confirmação quando dados de alunos precisam ser removidos.
+This module provides a single and consistent interface for generating
+confirmation messages when student data needs to be removed.
 """
 
 from typing import List, Optional
-from .compat import MessageBox_No, MessageBox_Yes, QMessageBox, safe_exec_dialog
+from .compat import MessageBox_No, MessageBox_Yes, MessageBox_Cancel, QMessageBox, safe_exec_dialog
+from .templates_and_definitions import DEFAULT_STUDENT
 
 
 def generate_data_removal_confirmation_message(students_to_remove: List[str]) -> str:
     """
-    Gera a mensagem padrão de confirmação para remoção de dados de alunos.
+    Generates the standard confirmation message for student data removal.
     
-    Esta função centraliza a geração da mensagem para garantir consistência
-    em todo o sistema.
+    This function centralizes message generation to ensure consistency
+    throughout the system.
     
     Args:
-        students_to_remove: Lista de nomes de alunos/funcionalidades a serem removidos
+        students_to_remove: List of student/feature names to be removed
         
     Returns:
-        str: Mensagem formatada para exibição
+        str: Formatted message for display
     """
     if not students_to_remove:
         return ""
     
-    # Remover duplicatas e ordenar
+    # Remove duplicates and sort
     unique_students = sorted(list(set(students_to_remove)))
     students_list = "\n".join([f"• {student}" for student in unique_students])
     
     message = (
-        f"⚠️ ATENÇÃO: REMOÇÃO PERMANENTE DE DADOS ⚠️\n\n"
-        f"Os seguintes alunos foram removidos da lista de sincronização:\n\n"
+        f"⚠️ WARNING: PERMANENT DATA REMOVAL ⚠️\n\n"
+        f"The following students have been removed from the sync list:\n\n"
         f"{students_list}\n\n"
-        f"🗑️ DADOS QUE SERÃO DELETADOS PERMANENTEMENTE:\n"
-        f"• Todas as notas dos alunos\n"
-        f"• Todos os cards dos alunos\n"
-        f"• Todos os decks dos alunos\n"
-        f"• Todos os note types dos alunos\n\n"
-        f"❌ ESTA AÇÃO É IRREVERSÍVEL!\n\n"
-        f"Deseja continuar com a remoção dos dados?"
+        f"🗑️ DATA THAT WILL BE PERMANENTLY DELETED:\n"
+        f"• All student notes\n"
+        f"• All student cards\n"
+        f"• All student decks\n"
+        f"• All student note types\n\n"
+        f"❌ THIS ACTION IS IRREVERSIBLE!\n\n"
+        f"Do you want to continue with the data removal?"
     )
     
     return message
@@ -47,56 +48,60 @@ def generate_data_removal_confirmation_message(students_to_remove: List[str]) ->
 
 def show_data_removal_confirmation_dialog(
     students_to_remove: List[str], 
-    window_title: str = "Confirmar Remoção Permanente de Dados",
+    window_title: str = "Confirm Permanent Data Removal",
     parent=None
 ) -> bool:
     """
-    Mostra o diálogo de confirmação para remoção de dados de alunos.
+    Shows the confirmation dialog for student data removal.
     
-    Esta função centraliza toda a lógica de exibição do diálogo para garantir
-    comportamento consistente em todo o sistema.
+    This function centralizes all dialog display logic to ensure
+    consistent behavior throughout the system.
     
     Args:
-        students_to_remove: Lista de nomes de alunos/funcionalidades a serem removidos
-        window_title: Título da janela (opcional)
-        parent: Widget pai (opcional)
+        students_to_remove: List of student/feature names to be removed
+        window_title: Window title (optional)
+        parent: Parent widget (optional)
         
     Returns:
-        bool: True se o usuário confirmou a remoção, False caso contrário
+        int: Dialog result code (MessageBox_Yes, MessageBox_No, MessageBox_Cancel)
     """
     if not students_to_remove:
         return False
     
-    # Gerar mensagem usando a função centralizada
+    # Generate message using centralized function
     message = generate_data_removal_confirmation_message(students_to_remove)
     
-    # Criar MessageBox customizado
+    # Create custom MessageBox
     msg_box = QMessageBox()
     msg_box.setIcon(QMessageBox.Icon.Warning)
     msg_box.setWindowTitle(window_title)
     msg_box.setText(message)
-    msg_box.setStandardButtons(MessageBox_Yes | MessageBox_No)
-    msg_box.setDefaultButton(MessageBox_No)  # Default é NOT remover
+    msg_box.setStandardButtons(MessageBox_Yes | MessageBox_No | MessageBox_Cancel)
+    msg_box.setDefaultButton(MessageBox_No)  # Default is NOT to remove
     
-    # Customizar botões
+    # Customize buttons
     yes_btn = msg_box.button(MessageBox_Yes)
     no_btn = msg_box.button(MessageBox_No)
+    cancel_btn = msg_box.button(MessageBox_Cancel)
     
     if yes_btn:
-        yes_btn.setText("🗑️ SIM, DELETAR DADOS")
+        yes_btn.setText("🗑️ YES, DELETE DATA")
         yes_btn.setStyleSheet(
             "QPushButton { background-color: #d73027; color: white; font-weight: bold; }"
         )
     
     if no_btn:
-        no_btn.setText("🛡️ NÃO, MANTER DADOS")
+        no_btn.setText("🛡️ NO, KEEP DATA")
         no_btn.setStyleSheet(
             "QPushButton { background-color: #4575b4; color: white; font-weight: bold; }"
         )
-    
-    # Executar diálogo
+        
+    if cancel_btn:
+        cancel_btn.setText("🚫 CANCEL SYNC")
+        
+    # Execute dialog
     result = safe_exec_dialog(msg_box)
-    return result == MessageBox_Yes
+    return result
 
 
 def collect_students_for_removal(
@@ -104,54 +109,54 @@ def collect_students_for_removal(
     missing_functionality_disabled: bool = False
 ) -> List[str]:
     """
-    Coleta e organiza a lista de alunos/funcionalidades para remoção.
+    Collects and organizes the list of students/features for removal.
     
-    Esta função centraliza a lógica de coleta para garantir que não haja
-    duplicações ou inconsistências.
+    This function centralizes collection logic to ensure no
+    duplications or inconsistencies.
     
     Args:
-        disabled_students: Lista de alunos desabilitados
-        missing_functionality_disabled: Se True, adiciona [MISSING A.] à lista
+        disabled_students: List of disabled students
+        missing_functionality_disabled: If True, adds DEFAULT_STUDENT to the list
         
     Returns:
-        List[str]: Lista única e ordenada de alunos/funcionalidades para remoção
+        List[str]: Unique and sorted list of students/features for removal
     """
     all_students_to_remove = list(disabled_students) if disabled_students else []
     
-    # Adicionar [MISSING A.] se a funcionalidade foi desabilitada
+    # Add DEFAULT_STUDENT if functionality was disabled
     if missing_functionality_disabled:
-        if "[MISSING A.]" not in all_students_to_remove:
-            all_students_to_remove.append("[MISSING A.]")
+        if DEFAULT_STUDENT not in all_students_to_remove:
+            all_students_to_remove.append(DEFAULT_STUDENT)
     
-    # Remover duplicatas e retornar lista ordenada
+    # Remove duplicates and return sorted list
     return sorted(list(set(all_students_to_remove)))
 
 
-# Função de conveniência para o caso mais comum
+# Convenience function for most common case
 def confirm_students_removal(
     disabled_students: List[str], 
     missing_functionality_disabled: bool = False,
-    window_title: str = "Confirmar Remoção Permanente de Dados",
+    window_title: str = "Confirm Permanent Data Removal",
     parent=None
-) -> bool:
+) -> int:
     """
-    Função de conveniência que combina coleta e confirmação.
+    Convenience function that combines collection and confirmation.
     
     Args:
-        disabled_students: Lista de alunos desabilitados
-        missing_functionality_disabled: Se True, inclui [MISSING A.] na remoção
-        window_title: Título da janela (opcional)
-        parent: Widget pai (opcional)
+        disabled_students: List of disabled students
+        missing_functionality_disabled: If True, includes DEFAULT_STUDENT in removal
+        window_title: Window title (optional)
+        parent: Parent widget (optional)
         
     Returns:
-        bool: True se o usuário confirmou a remoção, False caso contrário
+        int: Dialog result code (MessageBox_Yes, MessageBox_No, MessageBox_Cancel)
     """
     students_to_remove = collect_students_for_removal(
         disabled_students, missing_functionality_disabled
     )
     
     if not students_to_remove:
-        return False
+        return MessageBox_No
     
     return show_data_removal_confirmation_dialog(
         students_to_remove, window_title, parent

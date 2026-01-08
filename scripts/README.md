@@ -1,77 +1,77 @@
-# Scripts de Build e Empacotamento
+# Build and Packaging Scripts
 
-Este diretório contém scripts Python para construir e validar os pacotes do add-on Sheets2Anki.
+This directory contains Python scripts to build and validate Sheets2Anki add-on packages.
 
-## Scripts Disponíveis
+## Available Scripts
 
 ### `build_packages.py`
-**Script principal e mais recomendado para uso geral.**
+**Main script and most recommended for general use.**
 
-Menu interativo unificado que permite:
-- Construir pacote para AnkiWeb (`.ankiaddon`)
-- Construir pacote standalone (`.ankiaddon` com manifest completo)
-- Validar pacotes existentes
-- Limpar arquivos temporários
+Unified interactive menu that allows you to:
+- Build package for AnkiWeb (`.ankiaddon`)
+- Build standalone package (`.ankiaddon` with complete manifest)
+- Validate existing packages
+- Clean up temporary files
 
 ```bash
 python scripts/build_packages.py
 ```
 
-### `create_standalone_package.py`
-Constrói especificamente o pacote para upload no AnkiWeb.
+### `create_ankiweb_package.py`
+Specifically builds the package for AnkiWeb upload.
 
-- Remove campos opcionais do manifest (mantém apenas os obrigatórios)
-- Limpa todos os arquivos de cache (`__pycache__`, `.pyc`, `.pyo`)
-- Gera `build/sheets2anki.ankiaddon` pronto para upload
-- Valida a estrutura do pacote
+- Removes optional fields from the manifest (keeps only mandatory ones)
+- Cleans all cache files (`__pycache__`, `.pyc`, `.pyo`)
+- Generates `build/sheets2anki.ankiaddon` ready for upload
+- Validates the package structure
+
+```bash
+python scripts/create_ankiweb_package.py
+```
+
+### `create_standalone_package.py`
+Builds a standalone package for independent distribution.
+
+- Keeps the complete manifest with all fields
+- Cleans cache files
+- Generates `build/sheets2anki-standalone.ankiaddon`
+- Validates the package structure
 
 ```bash
 python scripts/create_standalone_package.py
 ```
 
-### `create_standalone_package.py`
-Constrói um pacote standalone para distribuição independente.
+### `validate_packages.py`
+Validates existing `.ankiaddon` packages.
 
-- Mantém o manifest completo com todos os campos
-- Limpa arquivos de cache
-- Gera `build/sheets2anki-standalone.ankiaddon`
-- Valida a estrutura do pacote
-
-```bash
-python scripts/create_standalone_package.py
-```
-
-### `validate_ankiaddon.py`
-Valida pacotes `.ankiaddon` existentes.
-
-- Verifica estrutura do ZIP
-- Valida manifest.json
-- Verifica ausência de arquivos de cache
-- Lista todos os arquivos incluídos
+- Verifies ZIP structure
+- Validates manifest.json
+- Verifies absence of cache files
+- Lists all included files
 
 ```bash
-python scripts/validate_ankiaddon.py build/sheets2anki.ankiaddon
+python scripts/validate_packages.py build/sheets2anki.ankiaddon
 ```
 
-## Workflow Recomendado
+## Recommended Workflow
 
-1. **Para desenvolvimento e testes**: Use `build_packages.py` para acesso rápido a todas as funções
-2. **Para upload no AnkiWeb**: Use `create_standalone_package.py` ou a opção correspondente no menu
-3. **Para distribuição independente**: Use `create_standalone_package.py` ou a opção correspondente no menu
-4. **Para validação**: Use `validate_ankiaddon.py` ou a opção correspondente no menu
+1. **For development and testing**: Use `build_packages.py` for quick access to all functions
+2. **For AnkiWeb upload**: Use `create_ankiweb_package.py` or the corresponding menu option
+3. **For independent distribution**: Use `create_standalone_package.py` or the corresponding menu option
+4. **For validation**: Use `validate_packages.py` or the corresponding menu option
 
-## Estrutura do Pacote
+## Package Structure
 
-Os scripts garantem que os pacotes `.ankiaddon` sigam as especificações do AnkiWeb:
+The scripts ensure that `.ankiaddon` packages follow AnkiWeb specifications:
 
-- ✅ Arquivos na raiz do ZIP (sem pasta pai)
-- ✅ `manifest.json` válido e presente
-- ✅ Ausência de arquivos `__pycache__`, `.pyc`, `.pyo`
-- ✅ Estrutura de diretórios preservada (`src/`, `libs/`, etc.)
+- ✅ Files at the root of the ZIP (no parent folder)
+- ✅ Valid and present `manifest.json`
+- ✅ Absence of `__pycache__`, `.pyc`, `.pyo` files
+- ✅ Preserved directory structure (`src/`, `libs/`, etc.)
 
-## Requisitos
+## Requirements
 
 - Python 3.6+
-- Módulos padrão: `json`, `zipfile`, `os`, `shutil`, `tempfile`
+- Standard modules: `json`, `zipfile`, `os`, `shutil`, `tempfile`
 
-Todos os scripts são auto-suficientes e não requerem dependências externas.
+All scripts are self-contained and do not require external dependencies.

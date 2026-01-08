@@ -1,14 +1,15 @@
 """
-Diálogo para sincronização de decks ativos.
+Dialog for synchronizing active decks.
 
-Este módulo fornece uma interface para o usuário
-selecionar e sincronizar decks ativos do sistema.
+This module provides an interface for the user
+to select and synchronize active decks in the system.
 """
 
 from .compat import DialogAccepted
 from .compat import QApplication
 from .compat import QCheckBox
 from .compat import QDialog
+from .compat import QFrame
 from .compat import QGroupBox
 from .compat import QHBoxLayout
 from .compat import QLabel
@@ -16,36 +17,39 @@ from .compat import QPushButton
 from .compat import QScrollArea
 from .compat import QVBoxLayout
 from .compat import QWidget
+from .compat import Qt
+from .compat import Palette_Window
 from .compat import mw
 from .compat import safe_exec
 from .config_manager import get_active_decks
 from .config_manager import get_deck_local_name
 from .config_manager import get_deck_remote_name
+from .utils import add_debug_message
 
 
 def clean_url_for_browser(url):
     """
-    Remove a terminação '&output=tsv' da URL para permitir visualização no navegador.
+    Removes the '&output=tsv' ending from URL to allow browser viewing.
 
     Args:
-        url (str): URL completa com terminação TSV
+        url (str): Complete URL with TSV ending
 
     Returns:
-        str: URL limpa para visualização no navegador
+        str: Clean URL for browser viewing
     """
     if url.endswith("&output=tsv"):
-        return url[:-11]  # Remove '&output=tsv'
+        return url[:-11]  # Removes '&output=tsv'
     elif url.endswith("&single=true&output=tsv"):
-        return url[:-23]  # Remove '&single=true&output=tsv'
+        return url[:-23]  # Removes '&single=true&output=tsv'
     return url
 
 
 def copy_url_to_clipboard(url):
     """
-    Copia a URL limpa para o clipboard do sistema.
+    Copies the clean URL to system clipboard.
 
     Args:
-        url (str): URL para copiar
+        url (str): URL to copy
     """
     try:
         clean_url = clean_url_for_browser(url)
@@ -55,167 +59,304 @@ def copy_url_to_clipboard(url):
             return True
         return False
     except Exception as e:
-        print(f"Erro ao copiar URL: {e}")
+        add_debug_message(f"Error copying URL: {e}", "UI")
         return False
-
-
-def get_copy_button_style():
-    """
-    Retorna estilo do botão Copy URL que se adapta ao tema (claro/escuro) do Anki.
-
-    Usa palette do sistema com ajustes para melhor contraste em dark mode.
-    """
-    return (
-        "QPushButton { "
-        "font-size: 11px; padding: 2px 6px; border-radius: 3px; "
-        "background-color: palette(alternateBase); "  # Mais claro que button
-        "border: 1px solid palette(text); "  # Borda mais contrastante
-        "color: palette(text); "  # Texto bem contrastante
-        "} "
-        "QPushButton:hover { "
-        "background-color: palette(highlight); "  # Destaque no hover
-        "color: palette(highlightedText); "  # Texto do highlight
-        "border: 1px solid palette(highlight); "
-        "} "
-        "QPushButton:pressed { "
-        "background-color: palette(shadow); "  # Cor pressed distinta
-        "color: palette(base); "  # Texto contrastante
-        "border: 1px solid palette(shadow); "
-        "}"
-    )
 
 
 class SyncDialog(QDialog):
     """
-    Diálogo para sincronização de decks ativos com checkboxes.
+    Dialog for synchronizing active decks with checkboxes.
 
-    Permite seleção múltipla através de checkboxes e mantém
-    a seleção persistente entre sessões.
+    Allows multiple selection through checkboxes and maintains
+    persistent selection between sessions.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Sincronizar Decks")
+        self.setWindowTitle("Synchronize Decks")
         self.setModal(True)
-        self.setMinimumWidth(700)
-        self.setMinimumHeight(600)
+        self.setMinimumWidth(750)
+        self.setMinimumHeight(650)
 
         self.active_decks = []
         self.deck_checkboxes = {}  # hash_key -> QCheckBox
-        self.deck_hash_mapping = {}  # URL -> hash_key (para compatibilidade)
+        self.deck_hash_mapping = {}  # URL -> hash_key (for compatibility)
 
+        # Detect dark mode
+        palette = self.palette()
+        bg_color = palette.color(Palette_Window)
+        self.is_dark_mode = bg_color.lightness() < 128
+
+        # Define color scheme
+        self._setup_colors()
         self._setup_ui()
+        self._apply_styles()
         self._load_decks()
         self._load_persistent_selection()
         self._connect_signals()
 
+    def _setup_colors(self):
+        """Sets up color scheme based on theme."""
+        if self.is_dark_mode:
+            self.colors = {
+                'bg': '#1e1e1e',
+                'card_bg': '#2d2d2d',
+                'text': '#ffffff',
+                'text_secondary': '#b0b0b0',
+                'border': '#404040',
+                'accent_success': '#4CAF50',
+                'accent_info': '#2196F3',
+                'accent_warning': '#FF9800',
+                'button_bg': '#3d3d3d',
+                'button_hover': '#4a4a4a',
+                'row_hover': '#363636',
+            }
+        else:
+            self.colors = {
+                'bg': '#f5f5f5',
+                'card_bg': '#ffffff',
+                'text': '#1a1a1a',
+                'text_secondary': '#666666',
+                'border': '#d0d0d0',
+                'accent_success': '#4CAF50',
+                'accent_info': '#1976D2',
+                'accent_warning': '#FF9800',
+                'button_bg': '#e0e0e0',
+                'button_hover': '#d0d0d0',
+                'row_hover': '#f0f0f0',
+            }
+
+    def _apply_styles(self):
+        """Applies styles to the dialog."""
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {self.colors['bg']};
+                color: {self.colors['text']};
+            }}
+            QGroupBox {{
+                font-weight: bold;
+                font-size: 12pt;
+                border: 1px solid {self.colors['border']};
+                border-radius: 8px;
+                margin-top: 16px;
+                padding: 12px;
+                padding-top: 28px;
+                background-color: {self.colors['card_bg']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                top: 4px;
+                padding: 2px 10px;
+                background-color: {self.colors['card_bg']};
+                border-radius: 4px;
+                color: {self.colors['text_secondary']};
+                font-size: 12pt;
+            }}
+            QScrollArea {{
+                border: 1px solid {self.colors['border']};
+                border-radius: 6px;
+                background-color: {self.colors['card_bg']};
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background-color: {self.colors['card_bg']};
+            }}
+    
+        """)
+
     def _setup_ui(self):
-        """Configura a interface do usuário."""
+        """Sets up the user interface."""
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
 
-        # Título
-        title_label = QLabel("Sincronizar Decks")
-        title_label.setStyleSheet(
-            "font-size: 16px; font-weight: bold; margin-bottom: 10px;"
-        )
-        layout.addWidget(title_label)
+        # Header section
+        header_frame = QFrame()
+        header_frame.setObjectName("headerFrame")
+        header_frame.setStyleSheet(f"""
+            QFrame#headerFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {self.colors['accent_success']}, 
+                    stop:1 {self.colors['accent_info']});
+                border-radius: 12px;
+                padding: 5px;
+            }}
+            QFrame#headerFrame QLabel {{
+                background: transparent;
+                color: white;
+                border: none;
+            }}
+        """)
+        header_layout = QVBoxLayout(header_frame)
+        header_layout.setContentsMargins(20, 15, 20, 15)
 
-        # Descrição
+        # Title with icon
+        title_label = QLabel("🔄 Synchronize Decks")
+        title_label.setStyleSheet("font-size: 18pt; font-weight: bold;")
+        header_layout.addWidget(title_label)
+
+        # Description
         desc_label = QLabel(
-            "Selecione quais decks remotos deseja sincronizar. "
-            "Os nomes mostrados são dos arquivos TSV remotos. "
-            "Use o botão 'Copy URL' para visualizar o deck no navegador. "
-            "Sua seleção será lembrada para próximas sincronizações."
+            "Select which remote decks you want to synchronize. "
+            "Your selection will be remembered for future synchronizations."
         )
-        desc_label.setStyleSheet("margin-bottom: 15px; color: #666;")
+        desc_label.setStyleSheet("font-size: 12pt; opacity: 0.9;")
         desc_label.setWordWrap(True)
-        layout.addWidget(desc_label)
+        header_layout.addWidget(desc_label)
 
-        # Seção de decks remotos
-        remote_group = QGroupBox("Decks Remotos Disponíveis")
+        layout.addWidget(header_frame)
+
+        # Remote decks section
+        remote_group = QGroupBox("Available Remote Decks")
         remote_layout = QVBoxLayout()
+        remote_layout.setSpacing(10)
 
-        # Área de scroll para os checkboxes
+        # Scroll area for checkboxes
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMinimumHeight(300)
+        scroll_area.setMinimumHeight(100)  # Reduced minimum height
 
         self.checkboxes_widget = QWidget()
         self.checkboxes_layout = QVBoxLayout()
         self.checkboxes_widget.setLayout(self.checkboxes_layout)
         self.checkboxes_layout.setContentsMargins(10, 10, 10, 10)
+        self.checkboxes_layout.setSpacing(5)
 
         scroll_area.setWidget(self.checkboxes_widget)
-        remote_layout.addWidget(scroll_area)
+        remote_layout.addWidget(scroll_area, 1)  # Give scroll area stretch factor
 
-        # Botões para seleção em massa
+        remote_group.setLayout(remote_layout)
+        layout.addWidget(remote_group, 1)  # Give group box stretch factor
+
+        # Bulk selection buttons - OUTSIDE the group box
         buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(10)
+        buttons_layout.setContentsMargins(0, 5, 0, 5)
 
-        self.select_all_button = QPushButton("Selecionar Todos")
-        self.select_all_button.setToolTip("Seleciona todos os decks para sincronização")
+        btn_style = f"""
+            QPushButton {{
+                background-color: {self.colors['button_bg']};
+                color: {self.colors['text']};
+                border: 1px solid {self.colors['border']};
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 12pt;
+            }}
+            QPushButton:hover {{
+                background-color: {self.colors['button_hover']};
+                border-color: {self.colors['accent_info']};
+            }}
+        """
 
-        self.select_none_button = QPushButton("Desmarcar Todos")
-        self.select_none_button.setToolTip("Desmarca todos os decks")
+        self.select_all_button = QPushButton("✓ Select All")
+        self.select_all_button.setStyleSheet(btn_style)
+        self.select_all_button.setToolTip("Selects all decks for synchronization")
 
-        self.invert_selection_button = QPushButton("Inverter Seleção")
-        self.invert_selection_button.setToolTip("Inverte a seleção atual")
+        self.select_none_button = QPushButton("✗ Deselect All")
+        self.select_none_button.setStyleSheet(btn_style)
+        self.select_none_button.setToolTip("Deselects all decks")
+
+        self.invert_selection_button = QPushButton("⇄ Invert")
+        self.invert_selection_button.setStyleSheet(btn_style)
+        self.invert_selection_button.setToolTip("Inverts current selection")
 
         buttons_layout.addWidget(self.select_all_button)
         buttons_layout.addWidget(self.select_none_button)
         buttons_layout.addWidget(self.invert_selection_button)
         buttons_layout.addStretch()
 
-        remote_layout.addLayout(buttons_layout)
-        remote_group.setLayout(remote_layout)
-        layout.addWidget(remote_group)
+        layout.addLayout(buttons_layout)
 
-        # Informações de seleção
+        # Selection information
         self.selection_info = QLabel("")
-        self.selection_info.setStyleSheet(
-            "margin-top: 10px; padding: 8px; background-color: #e8f4f8; "
-            "border-radius: 4px; font-weight: bold;"
-        )
+        self.selection_info.setObjectName("selectionInfo")
         layout.addWidget(self.selection_info)
 
-        # Botões principais
+        # Main buttons
         main_buttons_layout = QHBoxLayout()
+        main_buttons_layout.setContentsMargins(0, 10, 0, 0)
 
-        self.sync_button = QPushButton("Sincronizar Selecionados")
-        self.sync_button.setStyleSheet(
-            "font-weight: bold; padding: 10px 20px; "
-            "background-color: #4CAF50; color: white; border-radius: 4px;"
-        )
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.colors['button_bg']};
+                color: {self.colors['text']};
+                border: 1px solid {self.colors['border']};
+                border-radius: 8px;
+                padding: 12px 25px;
+                font-size: 12pt;
+            }}
+            QPushButton:hover {{
+                background-color: {self.colors['button_hover']};
+            }}
+        """)
 
-        self.cancel_button = QPushButton("Cancelar")
-        self.cancel_button.setStyleSheet("padding: 10px 20px; border-radius: 4px;")
+        self.sync_button = QPushButton("🔄 Synchronize Selected")
+        self.sync_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.colors['accent_success']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 25px;
+                font-size: 12pt;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #45a049;
+            }}
+            QPushButton:disabled {{
+                background-color: {self.colors['border']};
+                color: {self.colors['text_secondary']};
+            }}
+        """)
 
         main_buttons_layout.addStretch()
-        main_buttons_layout.addWidget(self.sync_button)
         main_buttons_layout.addWidget(self.cancel_button)
+        main_buttons_layout.addWidget(self.sync_button)
 
         layout.addLayout(main_buttons_layout)
         self.setLayout(layout)
 
+    def _get_copy_button_style(self):
+        """Returns the style for copy URL buttons."""
+        return f"""
+            QPushButton {{
+                background-color: {self.colors['button_bg']};
+                color: {self.colors['text']};
+                border: 1px solid {self.colors['border']};
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 12pt;
+            }}
+            QPushButton:hover {{
+                background-color: {self.colors['accent_info']};
+                color: white;
+                border-color: {self.colors['accent_info']};
+            }}
+        """
+
     def _connect_signals(self):
-        """Conecta os sinais da interface."""
-        # Botões de seleção em massa
+        """Connects interface signals."""
+        # Bulk selection buttons
         self.select_all_button.clicked.connect(self._select_all)
         self.select_none_button.clicked.connect(self._select_none)
         self.invert_selection_button.clicked.connect(self._invert_selection)
 
-        # Botões principais
+        # Main buttons
         self.sync_button.clicked.connect(self._sync_selected)
         self.cancel_button.clicked.connect(self.reject)
 
     def _load_decks(self):
-        """Carrega os decks ativos como checkboxes."""
-        # Limpar checkboxes existentes
+        """Loads active decks as checkboxes."""
+        # Clear existing checkboxes
         for checkbox in self.deck_checkboxes.values():
             checkbox.setParent(None)
         self.deck_checkboxes.clear()
         self.active_decks.clear()
 
-        # Carregar decks ativos
+        # Load active decks
         active_decks = get_active_decks()
 
         for hash_key, deck_info in active_decks.items():
@@ -225,12 +366,29 @@ class SyncDialog(QDialog):
             if mw and hasattr(mw, "col") and mw.col and hasattr(mw.col, "decks"):
                 deck = mw.col.decks.get(local_deck_id)
 
-            # Obter nome remoto do deck
-            remote_name = get_deck_remote_name(remote_deck_url) or "Deck Remoto"
+            # Get remote deck name
+            remote_name = get_deck_remote_name(remote_deck_url) or "Remote Deck"
 
-            # Verificar se o deck existe localmente
+            # Create row widget
+            row_widget = QFrame()
+            row_widget.setObjectName(f"row_{hash_key[:8]}")
+            row_widget.setStyleSheet(f"""
+                QFrame#row_{hash_key[:8]} {{
+                    background-color: {self.colors['card_bg']};
+                    border-radius: 6px;
+                    padding: 4px;
+                }}
+                QFrame#row_{hash_key[:8]}:hover {{
+                    background-color: {self.colors['row_hover']};
+                }}
+            """)
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(8, 6, 8, 6)
+            row_layout.setSpacing(10)
+
+            # Check if deck exists locally
             if deck and deck["name"].strip().lower() != "default":
-                # Deck existe localmente
+                # Deck exists locally
                 local_deck_name = deck["name"]
                 card_count = 0
                 if (
@@ -242,141 +400,111 @@ class SyncDialog(QDialog):
                     escaped_deck_name = local_deck_name.replace('"', '\\"')
                     card_count = len(mw.col.find_cards(f'deck:"{escaped_deck_name}"'))
 
-                # Usar nome remoto com contador de cards
-                checkbox_text = f"{remote_name} ({card_count} cards)"
-
-                # Criar layout horizontal para checkbox + botão
-                row_layout = QHBoxLayout()
-
+                checkbox_text = f"{remote_name}"
                 checkbox = QCheckBox(checkbox_text)
                 checkbox.setToolTip(
-                    f"Deck remoto: {remote_name}\nDeck local: {local_deck_name}\nURL: {remote_deck_url}"
+                    f"Remote deck: {remote_name}\nLocal deck: {local_deck_name}\nURL: {remote_deck_url}"
                 )
 
-                # Botão Copy URL
-                copy_button = QPushButton("Copy URL")
-                copy_button.setMaximumWidth(80)
-                copy_button.setMaximumHeight(25)
-                copy_button.setToolTip("Copiar URL para visualizar no navegador")
-                copy_button.setStyleSheet(get_copy_button_style())
-                copy_button.clicked.connect(
-                    lambda checked, u=remote_deck_url: self._copy_url(u)
-                )
+                # Card count label
+                count_label = QLabel(f"📚 {card_count} cards")
+                count_label.setStyleSheet(f"""
+                    color: {self.colors['text_secondary']};
+                    font-size: 12pt;
+                    padding: 2px 8px;
+                    background-color: {self.colors['bg']};
+                    border-radius: 4px;
+                """)
 
                 row_layout.addWidget(checkbox)
-                row_layout.addWidget(copy_button)
-                row_layout.addStretch()
-
-                # Criar widget container para o layout
-                row_widget = QWidget()
-                row_widget.setLayout(row_layout)
-
-                # Adicionar ao layout principal
-                self.checkboxes_layout.addWidget(row_widget)
-
-                # Armazenar referências - usar hash_key como chave principal
-                self.deck_checkboxes[hash_key] = checkbox
-                self.deck_hash_mapping[remote_deck_url] = hash_key
-                self.active_decks.append(
-                    {
-                        "url": remote_deck_url,
-                        "hash_key": hash_key,
-                        "deck_info": deck_info,
-                        "local_deck_name": local_deck_name,
-                        "remote_deck_name": remote_name,
-                        "card_count": card_count,
-                    }
-                )
-
-                # Conectar sinal de mudança - passar hash_key
-                checkbox.toggled.connect(
-                    lambda checked, hk=hash_key: self._on_checkbox_changed(hk, checked)
-                )
+                row_layout.addWidget(count_label)
 
             else:
-                # Deck foi deletado localmente, mas pode ser recriado
+                # Deck was deleted locally, but can be recreated
                 local_deck_name = (
-                    get_deck_local_name(remote_deck_url) or "Deck Local Deletado"
+                    get_deck_local_name(remote_deck_url) or "Deleted Local Deck"
                 )
 
-                # Usar nome remoto com aviso
-                checkbox_text = f"⚠️ {remote_name} (será recriado)"
-
-                # Criar layout horizontal para checkbox + botão
-                row_layout = QHBoxLayout()
-
+                checkbox_text = f"⚠️ {remote_name}"
                 checkbox = QCheckBox(checkbox_text)
                 checkbox.setToolTip(
-                    f"Deck remoto: {remote_name}\nDeck local foi deletado: {local_deck_name}\nSerá recriado durante a sincronização.\nURL: {remote_deck_url}"
-                )
-                checkbox.setStyleSheet(
-                    "color: palette(bright-text); font-weight: bold; background-color: rgba(230, 126, 34, 0.2);"
+                    f"Remote deck: {remote_name}\nLocal deck was deleted: {local_deck_name}\nWill be recreated during synchronization.\nURL: {remote_deck_url}"
                 )
 
-                # Botão Copy URL
-                copy_button = QPushButton("Copy URL")
-                copy_button.setMaximumWidth(80)
-                copy_button.setMaximumHeight(25)
-                copy_button.setToolTip("Copiar URL para visualizar no navegador")
-                copy_button.setStyleSheet(get_copy_button_style())
-                copy_button.clicked.connect(
-                    lambda checked, u=remote_deck_url: self._copy_url(u)
-                )
+                # Warning label
+                warning_label = QLabel("Will be recreated")
+                warning_label.setStyleSheet(f"""
+                    color: {self.colors['accent_warning']};
+                    font-size: 12pt;
+                    padding: 2px 8px;
+                    background-color: rgba(255, 152, 0, 0.1);
+                    border-radius: 4px;
+                """)
 
                 row_layout.addWidget(checkbox)
-                row_layout.addWidget(copy_button)
-                row_layout.addStretch()
+                row_layout.addWidget(warning_label)
+                card_count = 0
 
-                # Criar widget container para o layout
-                row_widget = QWidget()
-                row_widget.setLayout(row_layout)
+            # Copy URL button
+            copy_button = QPushButton("Copy URL")
+            copy_button.setMaximumWidth(80)
+            copy_button.setStyleSheet(self._get_copy_button_style())
+            copy_button.clicked.connect(
+                lambda checked, u=remote_deck_url: self._copy_url(u)
+            )
 
-                # Adicionar ao layout principal
-                self.checkboxes_layout.addWidget(row_widget)
+            row_layout.addStretch()
+            row_layout.addWidget(copy_button)
 
-                # Armazenar referências - usar hash_key como chave principal
-                self.deck_checkboxes[hash_key] = checkbox
-                self.deck_hash_mapping[remote_deck_url] = hash_key
-                self.active_decks.append(
-                    {
-                        "url": remote_deck_url,
-                        "hash_key": hash_key,
-                        "deck_info": deck_info,
-                        "local_deck_name": local_deck_name,
-                        "remote_deck_name": remote_name,
-                        "card_count": 0,
-                    }
-                )
+            # Add to main layout
+            self.checkboxes_layout.addWidget(row_widget)
 
-                # Conectar sinal de mudança - passar hash_key
-                checkbox.toggled.connect(
-                    lambda checked, hk=hash_key: self._on_checkbox_changed(hk, checked)
-                )
+            # Store references
+            self.deck_checkboxes[hash_key] = checkbox
+            self.deck_hash_mapping[remote_deck_url] = hash_key
+            self.active_decks.append(
+                {
+                    "url": remote_deck_url,
+                    "hash_key": hash_key,
+                    "deck_info": deck_info,
+                    "local_deck_name": local_deck_name if deck else get_deck_local_name(remote_deck_url),
+                    "remote_deck_name": remote_name,
+                    "card_count": card_count,
+                }
+            )
 
-        # Atualizar informações
+            # Connect change signal
+            checkbox.toggled.connect(
+                lambda checked, hk=hash_key: self._on_checkbox_changed(hk, checked)
+            )
+
+        # Add stretch at the end
+        self.checkboxes_layout.addStretch()
+
+        # Update information
         self._update_selection_info()
 
     def _load_persistent_selection(self):
-        """Carrega a seleção persistente salva baseada no is_sync do meta.json."""
+        """Loads saved persistent selection based on is_sync from meta.json."""
         from .config_manager import get_meta
 
         meta = get_meta()
         decks = meta.get("decks", {})
 
-        # Aplicar seleção salva aos checkboxes baseado no is_sync de cada deck
+        # Apply saved selection to checkboxes based on each deck's is_sync
         for hash_key, checkbox in self.deck_checkboxes.items():
             deck_info = decks.get(hash_key, {})
-            is_selected = deck_info.get("is_sync", True)  # Padrão: True
+            is_selected = deck_info.get("is_sync", True)  # Default: True
             checkbox.setChecked(is_selected)
 
         self._update_selection_info()
 
     def _on_checkbox_changed(self, hash_key, checked):
-        """Callback para quando um checkbox é alterado."""
+        """Callback for when a checkbox is changed."""
         from .config_manager import get_meta
         from .config_manager import save_meta
 
-        # Atualizar o is_sync no meta.json
+        # Update is_sync in meta.json
         meta = get_meta()
         if "decks" not in meta:
             meta["decks"] = {}
@@ -388,88 +516,92 @@ class SyncDialog(QDialog):
         self._update_selection_info()
 
     def _select_all(self):
-        """Seleciona todos os decks."""
+        """Selects all decks."""
         for hash_key, checkbox in self.deck_checkboxes.items():
             checkbox.setChecked(True)
 
     def _select_none(self):
-        """Desmarca todos os decks."""
+        """Deselects all decks."""
         for hash_key, checkbox in self.deck_checkboxes.items():
             checkbox.setChecked(False)
 
     def _invert_selection(self):
-        """Inverte a seleção atual."""
+        """Inverts current selection."""
         for hash_key, checkbox in self.deck_checkboxes.items():
             checkbox.setChecked(not checkbox.isChecked())
 
     def _update_selection_info(self):
-        """Atualiza as informações de seleção."""
-        # Contar seleções baseado nos checkboxes
+        """Updates selection information."""
+        # Count selections based on checkboxes
         selected_count = sum(
             1 for checkbox in self.deck_checkboxes.values() if checkbox.isChecked()
         )
         total_count = len(self.deck_checkboxes)
 
-        # Atualizar texto informativo
+        # Update informative text
         if selected_count == 0:
-            info_text = "Nenhum deck selecionado"
-            info_color = "#e74c3c"
+            info_text = "⚠️ No deck selected"
+            bg_color = self.colors['border']
         elif selected_count == total_count:
-            info_text = f"Todos os {total_count} deck(s) selecionados"
-            info_color = "#27ae60"
+            info_text = f"✓ All {total_count} deck(s) selected"
+            bg_color = self.colors['accent_success']
         else:
-            info_text = f"{selected_count} de {total_count} deck(s) selecionados"
-            info_color = "#3498db"
+            info_text = f"📋 {selected_count} of {total_count} deck(s) selected"
+            bg_color = self.colors['accent_info']
 
         self.selection_info.setText(info_text)
-        self.selection_info.setStyleSheet(
-            f"margin-top: 10px; padding: 8px; background-color: {info_color}; "
-            f"color: white; border-radius: 4px; font-weight: bold;"
-        )
+        self.selection_info.setStyleSheet(f"""
+            padding: 12px 16px;
+            background-color: {bg_color};
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 12pt;
+        """)
 
-        # Habilitar/desabilitar botão de sincronização
+        # Enable/disable sync button
         self.sync_button.setEnabled(selected_count > 0)
 
     def _copy_url(self, url):
         """
-        Copia a URL limpa para o clipboard.
+        Copies clean URL to clipboard.
 
         Args:
-            url (str): URL do deck remoto
+            url (str): Remote deck URL
         """
         copy_url_to_clipboard(url)
 
     def _sync_selected(self):
-        """Sincroniza os decks selecionados."""
-        # Coletar URLs selecionadas baseado nos checkboxes
+        """Synchronizes selected decks."""
+        # Collect selected URLs based on checkboxes
         selected_urls = []
         for hash_key, checkbox in self.deck_checkboxes.items():
             if checkbox.isChecked():
-                # Encontrar a URL correspondente ao hash_key
+                # Find corresponding URL for hash_key
                 for deck_info in self.active_decks:
                     if deck_info["hash_key"] == hash_key:
                         selected_urls.append(deck_info["url"])
                         break
 
-        # Armazenar URLs selecionadas para uso posterior
+        # Store selected URLs for later use
         self.selected_urls = selected_urls
 
         self.accept()
 
     def get_selected_urls(self):
-        """Retorna as URLs selecionadas para sincronização."""
+        """Returns selected URLs for synchronization."""
         return getattr(self, "selected_urls", [])
 
 
 def show_sync_dialog(parent=None):
     """
-    Mostra o diálogo de sincronização.
+    Shows the synchronization dialog.
 
     Args:
-        parent: Widget pai para o diálogo
+        parent: Parent widget for the dialog
 
     Returns:
-        tuple: (success, selected_urls) onde success é bool e selected_urls é list
+        tuple: (success, selected_urls) where success is bool and selected_urls is list
     """
     dialog = SyncDialog(parent)
 

@@ -1,79 +1,109 @@
 """
-Funções utilitárias para o addon Sheets2Anki.
+Utility functions for the Sheets2Anki addon.
 
-Este módulo contém funções auxiliares utilizadas em
-diferentes partes do projeto.
+This module contains auxiliary functions used in
+different parts of the project.
 """
 
 import hashlib
 import re
+from datetime import datetime
+from typing import List
 
 try:
     from .compat import mw
     from .templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 except ImportError:
-    # Para testes independentes
+    # For independent tests
     from compat import mw
     from templates_and_definitions import DEFAULT_PARENT_DECK_NAME
 
 
 def safe_find_cards(search_query):
     """
-    Realiza uma busca segura de cards, escapando caracteres problemáticos.
+    Performs a safe card search, escaping problematic characters.
     
     Args:
-        search_query (str): Query de busca
+        search_query (str): Search query
         
     Returns:
-        list: Lista de IDs de cards encontrados
+        list: List of IDs of found cards
     """
     try:
         if not mw or not mw.col:
             return []
         
-        # Verificar se a query está vazia
+        # Check if query is empty
         if not search_query or not search_query.strip():
             return []
         
         return mw.col.find_cards(search_query)
-    except Exception as e:
-        print(f"[SEARCH_ERROR] Erro na busca de cards: {e}")
+    except Exception:
         return []
 
 
 def safe_find_cards_by_deck(deck_name):
     """
-    Busca cards por nome de deck de forma segura.
+    Searches for cards by deck name safely.
     
     Args:
-        deck_name (str): Nome do deck
+        deck_name (str): Deck name
         
     Returns:
-        list: Lista de IDs de cards encontrados
+        list: List of IDs of found cards
     """
     try:
         if not deck_name or not deck_name.strip():
             return []
         
-        # Escapar aspas duplas no nome do deck
+        # Escape double quotes in deck name
         escaped_deck_name = deck_name.replace('"', '\\"')
         search_query = f'deck:"{escaped_deck_name}"'
         
         return safe_find_cards(search_query)
     except Exception as e:
-        print(f"[SEARCH_ERROR] Erro na busca por deck '{deck_name}': {e}")
+        add_debug_message(f"Error searching by deck '{deck_name}': {e}", "SEARCH_ERROR")
         return []
+
+
+def extract_publication_key_from_url(url):
+    """
+    Extracts a publication key or spreadsheet ID from a Google Sheets URL.
+    Handles both published and edit URLs.
+
+    Args:
+        url (str): Google Sheets URL
+
+    Returns:
+        str: Extraction result or None
+    """
+    if not url:
+        return None
+
+    # Pattern for published URLs
+    pub_pattern = r"/spreadsheets/d/e/([^/]+)/"
+    pub_match = re.search(pub_pattern, url)
+    if pub_match:
+        return pub_match.group(1)
+
+    # Pattern for edit URLs
+    edit_pattern = r"/spreadsheets/d/([a-zA-Z0-9-_]+)"
+    edit_match = re.search(edit_pattern, url)
+    if edit_match:
+        return edit_match.group(1)
+
+    return None
 
 
 def extract_spreadsheet_id_from_url(url):
     """
-    Extrai o ID da planilha de uma URL de edição do Google Sheets.
+    Extracts the spreadsheet ID from a Google Sheets edit URL.
 
     Args:
-        url (str): URL de edição do Google Sheets
+        url (str): Google Sheets edit URL
 
     Returns:
-        str: ID da planilha ou None se não encontrado
+        str: Spreadsheet ID or None if not found
 
     Examples:
         >>> extract_spreadsheet_id_from_url("https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaP/edit?usp=sharing")
@@ -82,7 +112,7 @@ def extract_spreadsheet_id_from_url(url):
     if not url:
         return None
 
-    # Extrair ID da planilha de URLs de edição (ID entre /d/ e /edit)
+    # Extract spreadsheet ID from edit URLs (ID between /d/ and /edit)
     edit_pattern = r"/spreadsheets/d/([a-zA-Z0-9-_]+)/edit"
     match = re.search(edit_pattern, url)
     
@@ -92,25 +122,44 @@ def extract_spreadsheet_id_from_url(url):
     return None
 
 
-def get_spreadsheet_id_from_url(url):
+def get_publication_key_hash(url):
     """
-    Extrai o ID da planilha de uma URL de edição do Google Sheets.
-    Esta função substitui get_publication_key_hash para trabalhar apenas com IDs reais.
+    Generates a hash for a publication key or spreadsheet ID.
+    Used for compatibility in tests and some metadata.
 
     Args:
-        url (str): URL de edição do Google Sheets
+        url (str): Google Sheets URL
 
     Returns:
-        str: ID da planilha (usado diretamente como identificador)
+        str: 8-character hash
+    """
+    if not url:
+        return ""
+    
+    # Try to extract ID, otherwise use full URL
+    identifier = extract_spreadsheet_id_from_url(url) or url
+    return hashlib.md5(identifier.encode()).hexdigest()[:8]
+
+
+def get_spreadsheet_id_from_url(url):
+    """
+    Extracts the spreadsheet ID from a Google Sheets edit URL.
+    This function replaces get_publication_key_hash to work only with actual IDs.
+
+    Args:
+        url (str): Google Sheets edit URL
+
+    Returns:
+        str: Spreadsheet ID (used directly as identifier)
 
     Raises:
-        ValueError: Se a URL não for uma URL de edição válida do Google Sheets
+        ValueError: If URL is not a valid Google Sheets edit URL
     """
     spreadsheet_id = extract_spreadsheet_id_from_url(url)
     
     if not spreadsheet_id:
         raise ValueError(
-            "URL deve ser uma URL de edição válida do Google Sheets no formato:\n"
+            "URL must be a valid Google Sheets edit URL in the format:\n"
             "https://docs.google.com/spreadsheets/d/{ID}/edit?usp=sharing"
         )
     
@@ -121,17 +170,17 @@ def update_note_type_names_for_deck_rename(
     url, old_remote_name, new_remote_name, debug_messages=None
 ):
     """
-    Atualiza apenas os nomes das strings dos note types no meta.json quando o remote_deck_name muda.
-    A sincronização com o Anki será feita posteriormente pela função sync_note_type_names_with_config.
+    Updates only the note type name strings in meta.json when the remote_deck_name changes.
+    Synchronization with Anki will be done later by the sync_note_type_names_with_config function.
 
     Args:
-        url (str): URL do deck remoto
-        old_remote_name (str): Nome remoto antigo
-        new_remote_name (str): Nome remoto novo
-        debug_messages (list, optional): Lista para debug
+        url (str): Remote deck URL
+        old_remote_name (str): Old remote name
+        new_remote_name (str): New remote name
+        debug_messages (list, optional): List for debug messages
 
     Returns:
-        int: Número de note types atualizados
+        int: Number of updated note types
     """
     from .config_manager import get_deck_id
     from .config_manager import get_deck_note_type_ids
@@ -145,27 +194,26 @@ def update_note_type_names_for_deck_rename(
         formatted_msg = f"[{timestamp}] [{category}] {message}"
         if debug_messages is not None:
             debug_messages.append(formatted_msg)
-        print(formatted_msg)
 
     try:
         add_debug_msg(
-            f"Atualizando strings dos note types: '{old_remote_name}' → '{new_remote_name}'"
+            f"Updating note type strings: '{old_remote_name}' → '{new_remote_name}'"
         )
 
-        # Obter note types atuais
+        # Get current note types
         note_types_config = get_deck_note_type_ids(url)
         updated_count = 0
 
         if not note_types_config:
-            add_debug_msg("Nenhum note type para atualizar")
+            add_debug_msg("No note types to update")
             return 0
 
-        # Atualizar apenas as strings dos nomes
+        # Update only name strings
         updated_note_types = {}
 
         for note_type_id_str, current_name in note_types_config.items():
             if old_remote_name and old_remote_name in current_name:
-                # Substituir nome remoto antigo pelo novo na string
+                # Replace old remote name with new one in string
                 new_name = current_name.replace(old_remote_name, new_remote_name)
                 updated_note_types[note_type_id_str] = new_name
                 add_debug_msg(
@@ -173,10 +221,10 @@ def update_note_type_names_for_deck_rename(
                 )
                 updated_count += 1
             else:
-                # Manter nome atual
+                # Keep current name
                 updated_note_types[note_type_id_str] = current_name
 
-        # Salvar no meta.json apenas se houve mudanças
+        # Save to meta.json only if changes occurred
         if updated_count > 0:
             try:
                 meta = get_meta()
@@ -186,46 +234,45 @@ def update_note_type_names_for_deck_rename(
                     meta["decks"][spreadsheet_id]["note_types"] = updated_note_types
                     save_meta(meta)
                     add_debug_msg(
-                        f"✅ Meta.json atualizado: {updated_count} strings de note types atualizadas"
+                        f"✅ Meta.json updated: {updated_count} note type strings updated"
                     )
 
             except Exception as meta_error:
-                add_debug_msg(f"❌ Erro ao atualizar meta.json: {meta_error}")
+                add_debug_msg(f"❌ Error updating meta.json: {meta_error}")
 
         add_debug_msg(
-            f"✅ {updated_count} strings de note types atualizadas no meta.json"
+            f"✅ {updated_count} note type strings updated in meta.json"
         )
         return updated_count
 
     except Exception as e:
-        add_debug_msg(f"❌ ERRO ao atualizar strings dos note types: {e}")
+        add_debug_msg(f"❌ ERROR updating note type strings: {e}")
         return 0
 
 
 def sync_note_type_names_with_config(col, deck_url, debug_messages=None):
     """
-    Sincroniza os nomes dos note types no Anki com as configurações no meta.json.
-    Esta função usa note_types como source of truth para os nomes.
+    Synchronizes Anki note type names with meta.json configurations.
+    This function uses note_types as the source of truth for names.
 
     Args:
-        col: Collection do Anki
-        deck_url (str): URL do deck remoto
-        debug_messages (list, optional): Lista para debug
+        col: Anki Collection
+        deck_url (str): Remote deck URL
+        debug_messages (list, optional): List for debug messages
 
     Returns:
-        dict: Estatísticas da sincronização
+        dict: Synchronization statistics
     """
     from .config_manager import get_deck_note_type_ids
 
     def add_debug_msg(message, category="NOTE_TYPE_SYNC"):
-        """Helper para adicionar mensagens de debug com timestamp."""
+        """Helper to add debug messages with timestamp."""
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         formatted_msg = f"[{timestamp}] [{category}] {message}"
         if debug_messages is not None:
             debug_messages.append(formatted_msg)
-        print(formatted_msg)
 
     stats = {
         "total_note_types": 0,
@@ -236,78 +283,78 @@ def sync_note_type_names_with_config(col, deck_url, debug_messages=None):
     }
 
     try:
-        add_debug_msg("🔄 INICIANDO sincronização de note types...")
+        add_debug_msg("🔄 STARTING note type synchronization...")
 
-        # Obter note types configurados
+        # Get configured note types
         note_types_config = get_deck_note_type_ids(deck_url)
         stats["total_note_types"] = len(note_types_config)
 
         if not note_types_config:
-            add_debug_msg("⚠️ Nenhum note type configurado para sincronizar")
+            add_debug_msg("⚠️ No note types configured to synchronize")
             return stats
 
         add_debug_msg(
-            f"📋 Sincronizando {stats['total_note_types']} note types configurados"
+            f"📋 Synchronizing {stats['total_note_types']} configured note types"
         )
 
-        # Listar todos os note types configurados primeiro
+        # List all configured note types first
         for note_type_id_str, expected_name in note_types_config.items():
             add_debug_msg(f"  - ID {note_type_id_str}: '{expected_name}'")
 
-        # Agora processar cada um
+        # Now process each one
         for note_type_id_str, expected_name in note_types_config.items():
             try:
                 note_type_id = int(note_type_id_str)
 
-                add_debug_msg(f"🔍 Processando note type ID {note_type_id}...")
+                add_debug_msg(f"🔍 Processing note type ID {note_type_id}...")
 
-                # Buscar o note type no Anki
+                # Find note type in Anki
                 from anki.models import NotetypeId
                 note_type = col.models.get(NotetypeId(note_type_id))
                 if not note_type:
-                    add_debug_msg(f"❌ Note type ID {note_type_id} não existe no Anki")
+                    add_debug_msg(f"❌ Note type ID {note_type_id} does not exist in Anki")
                     stats["error_note_types"] += 1
                     continue
 
                 current_name = note_type.get("name", "")
                 add_debug_msg(f"📝 Note type ID {note_type_id}:")
-                add_debug_msg(f"    Nome atual no Anki: '{current_name}'")
-                add_debug_msg(f"    Nome esperado (config): '{expected_name}'")
+                add_debug_msg(f"    Current name in Anki: '{current_name}'")
+                add_debug_msg(f"    Expected name (config): '{expected_name}'")
 
-                # SEMPRE tentar atualizar para garantir sincronização
+                # ALWAYS try to update to ensure synchronization
                 if current_name != expected_name:
-                    add_debug_msg(
-                        f"� ATUALIZANDO note type de '{current_name}' para '{expected_name}'"
+                    add_debug_message(
+                        f"🔄 UPDATING note type from '{current_name}' to '{expected_name}'"
                     )
 
-                    # Atualizar o nome do note type no Anki
+                    # Update note type name in Anki
                     note_type["name"] = expected_name
                     col.models.save(note_type)
 
-                    # Forçar save da collection para garantir persistência imediata
+                    # Force collection save to ensure immediate persistence
                     col.save()
-                    add_debug_msg("💾 Collection salva para garantir persistência")
+                    add_debug_msg("💾 Collection saved to ensure persistence")
 
-                    # Verificar se realmente foi atualizado
+                    # Verify if it was actually updated
                     updated_note_type = col.models.get(NotetypeId(note_type_id))
                     if (
                         updated_note_type
                         and updated_note_type.get("name") == expected_name
                     ):
                         stats["synced_note_types"] += 1
-                        add_debug_msg("✅ Note type atualizado com SUCESSO")
+                        add_debug_msg("✅ Note type updated SUCCESSFULLY")
                     else:
                         add_debug_msg(
-                            "❌ FALHA ao atualizar note type - verificação pós-save falhou"
+                            "❌ FAILED to update note type - post-save verification failed"
                         )
                         stats["error_note_types"] += 1
                 else:
                     stats["unchanged_note_types"] += 1
-                    add_debug_msg("✅ Note type já está sincronizado")
+                    add_debug_msg("✅ Note type is already synchronized")
 
             except Exception as note_type_error:
                 stats["error_note_types"] += 1
-                error_msg = f"Erro ao sincronizar note type {note_type_id_str}: {note_type_error}"
+                error_msg = f"Error synchronizing note type {note_type_id_str}: {note_type_error}"
                 stats["errors"].append(error_msg)
                 add_debug_msg(f"❌ {error_msg}")
                 import traceback
@@ -315,41 +362,41 @@ def sync_note_type_names_with_config(col, deck_url, debug_messages=None):
                 add_debug_msg(f"Traceback: {traceback.format_exc()}")
 
         add_debug_msg(
-            f"📊 RESULTADO: {stats['synced_note_types']} sincronizados, {stats['unchanged_note_types']} inalterados, {stats['error_note_types']} erros"
+            f"📊 RESULT: {stats['synced_note_types']} synchronized, {stats['unchanged_note_types']} unchanged, {stats['error_note_types']} errors"
         )
 
-        # Limpeza de note types órfãos na configuração
+        # Cleanup orphaned note types in configuration
         try:
             orphaned_count = cleanup_orphaned_note_types()
             if orphaned_count > 0:
                 add_debug_msg(
-                    f"🧹 Limpeza: {orphaned_count} note types órfãos removidos da configuração"
+                    f"🧹 Cleanup: {orphaned_count} orphaned note types removed from configuration"
                 )
         except Exception as cleanup_error:
-            add_debug_msg(f"⚠️ Erro na limpeza de órfãos: {cleanup_error}")
+            add_debug_msg(f"⚠️ Error cleaning up orphaned types: {cleanup_error}")
 
         return stats
 
     except Exception as e:
-        add_debug_msg(f"❌ ERRO geral na sincronização: {e}")
-        stats["errors"].append(f"Erro geral: {e}")
+        add_debug_msg(f"❌ General synchronization ERROR: {e}")
+        stats["errors"].append(f"General error: {e}")
         return stats
 
 
 def get_or_create_deck(col, deckName, remote_deck_name=None):
     """
-    Cria ou obtém um deck existente no Anki e aplica as opções baseadas no modo configurado.
+    Creates or gets an existing deck in Anki and applies options based on configured mode.
 
     Args:
-        col: Collection do Anki
-        deckName: Nome do deck
-        remote_deck_name (str, optional): Nome do deck remoto para modo individual
+        col: Anki Collection
+        deckName: Deck name
+        remote_deck_name (str, optional): Remote deck name for individual mode
 
     Returns:
-        tuple: (deck_id, actual_name) onde deck_id é o ID do deck e actual_name é o nome real usado
+        tuple: (deck_id, actual_name) where deck_id is the deck ID and actual_name is the real name used
 
     Raises:
-        ValueError: Se o nome do deck for inválido
+        ValueError: If deck name is invalid
     """
     if (
         not deckName
@@ -358,7 +405,7 @@ def get_or_create_deck(col, deckName, remote_deck_name=None):
         or deckName.strip().lower() == "default"
     ):
         raise ValueError(
-            "Nome de deck inválido ou proibido para sincronização: '%s'" % deckName
+            "Invalid deck name or forbidden for synchronization: '%s'" % deckName
         )
 
     deck = col.decks.by_name(deckName)
@@ -368,22 +415,23 @@ def get_or_create_deck(col, deckName, remote_deck_name=None):
         try:
             deck_id = col.decks.id(deckName)
             deck_was_created = True
-            # Obter o deck recém-criado para verificar o nome real usado
+            # Get newly created deck to verify real name used
             new_deck = col.decks.get(deck_id)
             actual_name = new_deck["name"] if new_deck else deckName
         except Exception as e:
-            raise ValueError(f"Não foi possível criar o deck '{deckName}': {str(e)}")
+            raise ValueError(f"Could not create deck '{deckName}': {str(e)}")
     else:
         deck_id = deck["id"]
         actual_name = deck["name"]
 
-    # Aplicar opções baseadas no modo (novo ou existente que seja do Sheets2Anki)
+    # Apply options based on mode (new or existing that is Sheets2Anki)
     if deckName.startswith("Sheets2Anki::") or deck_was_created:
         try:
             apply_sheets2anki_options_to_deck(deck_id, remote_deck_name)
         except Exception as e:
-            print(
-                f"[DECK_OPTIONS] Aviso: Falha ao aplicar opções ao deck '{actual_name}': {e}"
+            add_debug_message(
+                f"Warning: Failed to apply options to deck '{actual_name}': {e}",
+                "DECK_OPTIONS"
             )
 
     return deck_id, actual_name
@@ -391,40 +439,40 @@ def get_or_create_deck(col, deckName, remote_deck_name=None):
 
 def get_model_suffix_from_url(url):
     """
-    Gera um sufixo único e curto baseado na URL.
+    Generates a unique and short suffix based on the URL.
 
     Args:
-        url: URL do deck remoto
+        url: Remote deck URL
 
     Returns:
-        str: Sufixo de 8 caracteres baseado no hash SHA1 da URL
+        str: 8-character suffix based on URL SHA1 hash
     """
     return hashlib.sha1(url.encode()).hexdigest()[:8]
 
 
 def get_note_type_name(url, remote_deck_name, student=None, is_cloze=False):
     """
-    Gera o nome padronizado para note types do Sheets2Anki.
+    Generates standardized name for Sheets2Anki note types.
 
-    Formato: "Sheets2Anki - {remote_deck_name} - {nome_aluno} - Basic/Cloze"
-    O remote_deck_name já vem com resolução de conflitos aplicada pelo config_manager.
+    Format: "Sheets2Anki - {remote_deck_name} - {student_name} - Basic/Cloze"
+    The remote_deck_name already has conflict resolution applied by config_manager.
 
     Args:
-        url (str): URL do deck remoto
-        remote_deck_name (str): Nome do deck remoto extraído da planilha (já com sufixo se necessário)
-        student (str, optional): Nome do aluno para criar note type específico
-        is_cloze (bool): Se é um note type do tipo Cloze
+        url (str): Remote deck URL
+        remote_deck_name (str): Remote deck name from spreadsheet (with suffix if necessary)
+        student (str, optional): Student name for specific note type
+        is_cloze (bool): If it's a Cloze note type
 
     Returns:
-        str: Nome padronizado do note type
+        str: Standardized note type name
     """
 
     note_type = "Cloze" if is_cloze else "Basic"
 
-    # Usar o nome remoto diretamente (já vem com sufixo de conflito do config_manager)
+    # Use remote name directly (already comes with conflict suffix from config_manager)
     clean_remote_name = remote_deck_name.strip() if remote_deck_name else "RemoteDeck"
 
-    # Usar nome do estudante como fornecido (case-sensitive)
+    # Use student name as provided (case-sensitive)
     if student:
         clean_student_name = student.strip()
         if clean_student_name:
@@ -435,83 +483,81 @@ def get_note_type_name(url, remote_deck_name, student=None, is_cloze=False):
 
 def register_note_type_for_deck(url, note_type_id, note_type_name, debug_messages=None):
     """
-    Registra um note type ID no momento da criação/uso (abordagem inteligente).
-    Armazena o nome completo do note type como source of truth.
+    Registers a note type ID at creation/use time (intelligent approach).
+    Stores full note type name as source of truth.
 
     Args:
-        url (str): URL do deck remoto
-        note_type_id (int): ID do note type
-        note_type_name (str): Nome completo do note type no formato padrão
-        debug_messages (list, optional): Lista para acumular mensagens de debug
+        url (str): Remote deck URL
+        note_type_id (int): Note type ID
+        note_type_name (str): Full note type name in standard format
+        debug_messages (list, optional): List for debug messages
     """
     from .config_manager import add_note_type_id_to_deck
 
     def add_debug_msg(message, category="NOTE_TYPE_REG"):
-        """Helper para adicionar mensagens de debug com timestamp."""
+        """Helper to add debug messages with timestamp."""
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         formatted_msg = f"[{timestamp}] [{category}] {message}"
         if debug_messages is not None:
             debug_messages.append(formatted_msg)
-        print(formatted_msg)
 
     try:
         add_debug_msg(
-            f"Registrando note type: ID={note_type_id}, Nome='{note_type_name}'"
+            f"Registering note type: ID={note_type_id}, Name='{note_type_name}'"
         )
 
-        # Usar o nome completo como está (já no formato padrão)
-        # O nome completo será a source of truth
+        # Use full name as is (already in standard format)
+        # Full name will be the source of truth
         add_note_type_id_to_deck(url, note_type_id, note_type_name, debug_messages)
-        add_debug_msg(f"✅ Note type registrado com sucesso: '{note_type_name}'")
+        add_debug_msg(f"✅ Note type successfully registered: '{note_type_name}'")
 
     except Exception as e:
-        add_debug_msg(f"❌ ERRO ao registrar note type: {e}")
+        add_debug_msg(f"❌ ERROR registering note type: {e}")
 
 
 def capture_deck_note_type_ids_from_cards(url, local_deck_id, debug_messages=None):
     """
-    Captura note type IDs analisando os cards existentes no deck local (abordagem mais inteligente).
-    Em vez de buscar por nome, analisa cards reais que pertencem ao deck.
+    Captures note type IDs by analyzing existing cards in the local deck (more intelligent approach).
+    Instead of searching by name, analyzes actual cards belonging to the deck.
 
     Args:
-        url (str): URL do deck remoto
-        local_deck_id (int): ID do deck local no Anki
-        debug_messages (list, optional): Lista para acumular mensagens de debug
+        url (str): Remote deck URL
+        local_deck_id (int): Local deck ID in Anki
+        debug_messages (list, optional): List for debug messages
     """
     from .compat import mw
     from .config_manager import add_note_type_id_to_deck
 
     def add_debug_msg(message, category="NOTE_TYPE_IDS"):
-        """Helper para adicionar mensagens de debug com timestamp."""
+        """Helper to add debug messages with timestamp."""
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         formatted_msg = f"[{timestamp}] [{category}] {message}"
         if debug_messages is not None:
             debug_messages.append(formatted_msg)
-        print(formatted_msg)
 
-    add_debug_msg(f"CAPTURA INTELIGENTE: Analisando cards do deck ID {local_deck_id}")
+    add_debug_msg(f"INTELLIGENT CAPTURE: Analyzing cards from deck ID {local_deck_id}")
 
     if not mw or not mw.col:
-        add_debug_msg("ERRO: Anki não disponível")
+        add_debug_msg("ERROR: Anki not available")
         return
 
     try:
-        # Buscar todos os cards do deck específico
-        # Usar busca por ID de deck que é segura
+        # Search for all cards in specific deck
+        # Use safe deck ID search
         card_ids = mw.col.find_cards(f"did:{local_deck_id}")
-        add_debug_msg(f"Encontrados {len(card_ids)} cards no deck")
+        add_debug_msg(f"Found {len(card_ids)} cards in deck")
 
         if not card_ids:
             add_debug_msg(
-                "⚠️ Nenhum card encontrado no deck - note types serão capturados durante a sincronização"
+                "⚠️ No cards found in deck - note types will be captured during synchronization"
             )
             return
 
-        # Coletar note type IDs únicos dos cards existentes
+        # Collect unique note type IDs from existing cards
         note_type_ids = set()
         note_type_info = {}  # {note_type_id: {'name': str, 'count': int}}
 
@@ -523,7 +569,7 @@ def capture_deck_note_type_ids_from_cards(url, local_deck_id, debug_messages=Non
 
                 if not note_type:
                     add_debug_msg(
-                        f"Ignorando card {card_id} - note type não encontrado"
+                        f"Ignoring card {card_id} - note type not found"
                     )
                     continue
 
@@ -537,46 +583,46 @@ def capture_deck_note_type_ids_from_cards(url, local_deck_id, debug_messages=Non
                 note_type_info[note_type_id]["count"] += 1
 
             except Exception as card_error:
-                add_debug_msg(f"Erro ao processar card {card_id}: {card_error}")
+                add_debug_msg(f"Error processing card {card_id}: {card_error}")
                 continue
 
-        add_debug_msg(f"Note types únicos encontrados: {len(note_type_ids)}")
+        add_debug_msg(f"Unique note types found: {len(note_type_ids)}")
 
-        # Registrar cada note type encontrado
+        # Register each found note type
         for note_type_id in note_type_ids:
             info = note_type_info[note_type_id]
-            full_name = info["name"]  # Nome completo do note type
+            full_name = info["name"]  # Full note type name
             count = info["count"]
 
             add_debug_msg(
-                f"Registrando: ID {note_type_id}, Nome completo '{full_name}', Cards: {count}"
+                f"Registering: ID {note_type_id}, Full Name '{full_name}', Cards: {count}"
             )
 
-            # Usar o nome completo como source of truth (não extrair partes)
+            # Use full name as source of truth (don't extract parts)
             add_note_type_id_to_deck(url, note_type_id, full_name, debug_messages)
 
         add_debug_msg(
-            f"✅ SUCESSO: Capturados {len(note_type_ids)} note types de cards existentes"
+            f"✅ SUCCESS: Captured {len(note_type_ids)} note types from existing cards"
         )
 
     except Exception as e:
-        add_debug_msg(f"❌ ERRO na captura inteligente: {e}")
+        add_debug_msg(f"❌ ERROR in intelligent capture: {e}")
         import traceback
 
-        add_debug_msg(f"Detalhes: {traceback.format_exc()}")
+        add_debug_msg(f"Details: {traceback.format_exc()}")
 
 
 def capture_deck_note_type_ids(
     url, remote_deck_name, enabled_students=None, debug_messages=None
 ):
     """
-    Função de compatibilidade que usa a abordagem inteligente baseada em cards.
+    Compatibility function using card-based intelligent approach.
 
     Args:
-        url (str): URL do deck remoto
-        remote_deck_name (str): Nome do deck remoto
-        enabled_students (list, optional): Lista de alunos habilitados
-        debug_messages (list, optional): Lista para acumular mensagens de debug
+        url (str): Remote deck URL
+        remote_deck_name (str): Remote deck name
+        enabled_students (list, optional): List of enabled students
+        debug_messages (list, optional): List for debug messages
     """
     from .config_manager import get_deck_local_id
 
@@ -587,43 +633,42 @@ def capture_deck_note_type_ids(
         formatted_msg = f"[{timestamp}] [{category}] {message}"
         if debug_messages is not None:
             debug_messages.append(formatted_msg)
-        print(formatted_msg)
 
     try:
-        # Obter ID do deck local
+        # Get local deck ID
         local_deck_id = get_deck_local_id(url)
 
         if local_deck_id:
             add_debug_msg(
-                f"Usando captura inteligente para deck local ID: {local_deck_id}"
+                f"Using intelligent capture for local deck ID: {local_deck_id}"
             )
             capture_deck_note_type_ids_from_cards(url, local_deck_id, debug_messages)
         else:
             add_debug_msg(
-                "⚠️ Deck local não encontrado - note types serão registrados durante criação"
+                "⚠️ Local deck not found - note types will be registered during creation"
             )
 
     except Exception as e:
-        add_debug_msg(f"❌ ERRO: {e}")
+        add_debug_msg(f"❌ ERROR: {e}")
         import traceback
 
-        add_debug_msg(f"Detalhes: {traceback.format_exc()}")
+        add_debug_msg(f"Details: {traceback.format_exc()}")
         import traceback
 
         error_details = traceback.format_exc()
-        add_debug_msg(f"Detalhes do erro: {error_details}")
+        add_debug_msg(f"Error details: {error_details}")
 
 
 def delete_deck_note_types_by_ids(url):
     """
-    Deleta note types usando os IDs armazenados na configuração do deck.
-    Esta é uma alternativa mais robusta à busca por padrões de nome.
+    Deletes note types using stored IDs from deck configuration.
+    This is a more robust alternative to searching for name patterns.
 
     Args:
-        url (str): URL do deck remoto
+        url (str): Remote deck URL
 
     Returns:
-        int: Número de note types deletados
+        int: Number of deleted note types
     """
     from .compat import mw
     from .config_manager import cleanup_invalid_note_type_ids
@@ -631,71 +676,76 @@ def delete_deck_note_types_by_ids(url):
     from .config_manager import remove_note_type_id_from_deck
 
     if not mw or not mw.col:
-        print("[DELETE_BY_IDS] Anki não disponível")
+        add_debug_message("Anki not available", "DELETE_BY_IDS")
         return 0
 
     try:
-        # Primeiro limpar IDs inválidos
+        # First cleanup invalid IDs
         cleanup_invalid_note_type_ids()
 
-        # Obter IDs válidos
+        # Get valid IDs
         note_type_ids = get_deck_note_type_ids(url)
 
         if not note_type_ids:
-            print("[DELETE_BY_IDS] Nenhum note type ID encontrado para o deck")
+            add_debug_message("No note type IDs found for deck", "DELETE_BY_IDS")
             return 0
 
         deleted_count = 0
 
         for (
             note_type_id
-        ) in note_type_ids.copy():  # Usar cópia para modificar durante iteração
+        ) in note_type_ids.copy():  # Use copy to modify during iteration
             from anki.models import NotetypeId
             model = mw.col.models.get(NotetypeId(note_type_id))
             if model:
                 model_name = model["name"]
 
                 try:
-                    # Verificar se há notas usando este note type
+                    # Check if there are notes using this note type
                     note_ids = mw.col.models.nids(note_type_id)
                     if note_ids:
-                        print(
-                            f"[DELETE_BY_IDS] Note type '{model_name}' tem {len(note_ids)} notas, deletando-as primeiro..."
+                        add_debug_message(
+                            f"Note type '{model_name}' has {len(note_ids)} notes, deleting them first...",
+                            "DELETE_BY_IDS"
                         )
                         mw.col.remove_notes(note_ids)
 
-                    # Deletar o note type
+                    # Delete note type
                     mw.col.models.rem(model)
                     deleted_count += 1
 
-                    # Remover ID da configuração
+                    # Remove ID from configuration
                     remove_note_type_id_from_deck(url, note_type_id)
 
-                    print(
-                        f"[DELETE_BY_IDS] Note type '{model_name}' (ID: {note_type_id}) deletado com sucesso"
+                    add_debug_message(
+                        f"Note type '{model_name}' (ID: {note_type_id}) successfully deleted",
+                        "DELETE_BY_IDS"
                     )
 
                 except Exception as e:
-                    print(
-                        f"[DELETE_BY_IDS] Erro ao deletar note type '{model_name}' (ID: {note_type_id}): {e}"
+                    add_debug_message(
+                        f"Error deleting note type '{model_name}' (ID: {note_type_id}): {e}",
+                        "DELETE_BY_IDS"
                     )
             else:
-                # ID não existe mais, remover da configuração
+                # ID no longer exists, remove from configuration
                 remove_note_type_id_from_deck(url, note_type_id)
-                print(
-                    f"[DELETE_BY_IDS] Note type ID {note_type_id} não encontrado, removido da configuração"
+                add_debug_message(
+                    f"Note type ID {note_type_id} not found, removed from configuration",
+                    "DELETE_BY_IDS"
                 )
 
         if deleted_count > 0:
             mw.col.save()
-            print(
-                f"[DELETE_BY_IDS] Operação concluída: {deleted_count} note types deletados"
+            add_debug_message(
+                f"Operation completed: {deleted_count} note types deleted",
+                "DELETE_BY_IDS"
             )
 
         return deleted_count
 
     except Exception as e:
-        print(f"[DELETE_BY_IDS] Erro na deleção por IDs: {e}")
+        add_debug_message(f"Error in deletion by IDs: {e}", "DELETE_BY_IDS")
         import traceback
 
         traceback.print_exc()
@@ -704,53 +754,55 @@ def delete_deck_note_types_by_ids(url):
 
 def rename_note_type_in_anki(note_type_id, new_name):
     """
-    Renomeia um note type existente no Anki sem criar um novo.
+    Renames an existing note type in Anki without creating a new one.
 
     Args:
-        note_type_id (int): ID do note type a ser renomeado
-        new_name (str): Novo nome para o note type
+        note_type_id (int): ID of note type to be renamed
+        new_name (str): New name for the note type
 
     Returns:
-        bool: True se renomeado com sucesso, False caso contrário
+        bool: True if renamed successfully, False otherwise
     """
     try:
         from aqt import mw
 
         if not mw or not mw.col:
-            print("[RENAME_NOTE_TYPE] Anki não está disponível")
+            add_debug_message("Anki is not available", "RENAME_NOTE_TYPE")
             return False
 
-        # Obter o model existente
+        # Get existing model
         from anki.models import NotetypeId
         model = mw.col.models.get(NotetypeId(note_type_id))  # type: ignore
         if not model:
-            print(f"[RENAME_NOTE_TYPE] Note type ID {note_type_id} não encontrado")
+            add_debug_message(f"Note type ID {note_type_id} not found", "RENAME_NOTE_TYPE")
             return False
 
         old_name = model["name"]
 
-        # Só renomear se o nome for diferente
+        # Only rename if name is different
         if old_name == new_name:
-            print(
-                f"[RENAME_NOTE_TYPE] Note type {note_type_id} já tem o nome correto: '{new_name}'"
+            add_debug_message(
+                f"Note type {note_type_id} already has correct name: '{new_name}'",
+                "RENAME_NOTE_TYPE"
             )
             return True
 
-        print(
-            f"[RENAME_NOTE_TYPE] Renomeando note type {note_type_id} de '{old_name}' para '{new_name}'"
+        add_debug_message(
+            f"Renaming note type {note_type_id} from '{old_name}' to '{new_name}'",
+            "RENAME_NOTE_TYPE"
         )
 
-        # Alterar apenas o nome do model existente
+        # Change only the name of existing model
         model["name"] = new_name
 
-        # Salvar as alterações
+        # Save changes
         mw.col.models.save(model)
 
-        print("[RENAME_NOTE_TYPE] ✅ Note type renomeado com sucesso!")
+        add_debug_message("✅ Note type successfully renamed!", "RENAME_NOTE_TYPE")
         return True
 
     except Exception as e:
-        print(f"[RENAME_NOTE_TYPE] ❌ Erro ao renomear note type {note_type_id}: {e}")
+        add_debug_message(f"❌ Error renaming note type {note_type_id}: {e}", "RENAME_NOTE_TYPE")
         import traceback
 
         traceback.print_exc()
@@ -759,13 +811,13 @@ def rename_note_type_in_anki(note_type_id, new_name):
 
 def get_note_key(note):
     """
-    Obtém a chave do campo de uma nota baseado no seu tipo.
+    Gets the key field of a note based on its type.
 
     Args:
-        note: Nota do Anki
+        note: Anki note
 
     Returns:
-        str: Valor da chave ou None se não encontrada
+        str: Key value or None if not found
     """
     if "Text" in note:
         return note["Text"]
@@ -776,19 +828,19 @@ def get_note_key(note):
 
 def cleanup_orphaned_note_types():
     """
-    Remove da configuração note types que não existem mais no Anki.
-    Útil para limpar referências de note types que foram deletados.
+    Removes note types that no longer exist in Anki from the configuration.
+    Useful for cleaning up references to deleted note types.
 
     Returns:
-        int: Número de note types órfãos removidos da configuração
+        int: Number of orphaned note types removed from configuration
     """
     try:
         from aqt import mw
 
-        print("[CLEANUP_ORPHANED] Iniciando limpeza de note types órfãos...")
+        add_debug_message("Starting orphaned note type cleanup...", "CLEANUP_ORPHANED")
 
         if not mw or not mw.col:
-            print("[CLEANUP_ORPHANED] Anki não está disponível")
+            add_debug_message("Anki is not available", "CLEANUP_ORPHANED")
             return 0
 
         from .config_manager import get_meta
@@ -796,7 +848,7 @@ def cleanup_orphaned_note_types():
 
         meta = get_meta()
         if not meta or "decks" not in meta:
-            print("[CLEANUP_ORPHANED] Nenhuma configuração de decks encontrada")
+            add_debug_message("No deck configuration found", "CLEANUP_ORPHANED")
             return 0
 
         cleaned_count = 0
@@ -807,45 +859,48 @@ def cleanup_orphaned_note_types():
 
             orphaned_ids = []
 
-            # Verificar quais note types da configuração não existem mais no Anki
+            # Check which note types from the configuration no longer exist in Anki
             for note_type_id_str, note_type_name in deck_info["note_types"].items():
                 try:
                     note_type_id = int(note_type_id_str)
-                    # Usar o mesmo padrão do resto do código
+                    # Use the same pattern as the rest of the code
                     from anki.models import NotetypeId
                     model = mw.col.models.get(NotetypeId(note_type_id))  # type: ignore
 
                     if not model:
                         orphaned_ids.append(note_type_id_str)
-                        print(
-                            f"[CLEANUP_ORPHANED] Órfão encontrado: ID {note_type_id_str} - '{note_type_name}'"
+                        add_debug_message(
+                            f"Orphan found: ID {note_type_id_str} - '{note_type_name}'",
+                            "CLEANUP_ORPHANED"
                         )
 
                 except (ValueError, TypeError):
-                    # ID inválido, remover também
+                    # Invalid ID, also remove
                     orphaned_ids.append(note_type_id_str)
-                    print(
-                        f"[CLEANUP_ORPHANED] ID inválido encontrado: '{note_type_id_str}'"
+                    add_debug_message(
+                        f"Invalid ID found: '{note_type_id_str}'",
+                        "CLEANUP_ORPHANED"
                     )
 
-            # Remover órfãos da configuração
+            # Remove orphans from configuration
             for orphaned_id in orphaned_ids:
                 del deck_info["note_types"][orphaned_id]
                 cleaned_count += 1
-                print(f"[CLEANUP_ORPHANED] Removido órfão: ID {orphaned_id}")
+                add_debug_message(f"Orphan removed: ID {orphaned_id}", "CLEANUP_ORPHANED")
 
         if cleaned_count > 0:
             save_meta(meta)
-            print(
-                f"[CLEANUP_ORPHANED] Limpeza concluída: {cleaned_count} note types órfãos removidos"
+            add_debug_message(
+                f"Cleanup completed: {cleaned_count} orphaned note types removed",
+                "CLEANUP_ORPHANED"
             )
         else:
-            print("[CLEANUP_ORPHANED] Nenhum note type órfão encontrado")
+            add_debug_message("No orphaned note types found", "CLEANUP_ORPHANED")
 
         return cleaned_count
 
     except Exception as e:
-        print(f"[CLEANUP_ORPHANED] Erro na limpeza: {e}")
+        add_debug_message(f"Error in cleanup: {e}", "CLEANUP_ORPHANED")
         import traceback
 
         traceback.print_exc()
@@ -853,24 +908,24 @@ def cleanup_orphaned_note_types():
 
 
 # =============================================================================
-# GERENCIAMENTO DE OPÇÕES DE DECK COMPARTILHADAS
+# SHARED DECK OPTIONS MANAGEMENT
 # =============================================================================
 
 
 def _is_default_config(config, config_type="default"):
     """
-    Verifica se a configuração ainda está com valores padrão do Sheets2Anki.
+    Checks if the configuration still has Sheets2Anki default values.
 
     Args:
-        config (dict): Configuração do deck
-        config_type (str): Tipo da configuração ("root" ou "default")
+        config (dict): Deck configuration
+        config_type (str): Configuration type ("root" or "default")
 
     Returns:
-        bool: True se ainda estiver com valores padrão do addon
+        bool: True if it still has addon default values
     """
     try:
         if config_type == "root":
-            # Valores padrão para o deck raiz
+            # Default values for root deck
             expected_values = {
                 "new_perDay": 20,
                 "rev_perDay": 200,
@@ -880,7 +935,7 @@ def _is_default_config(config, config_type="default"):
                 "lapse_mult": 0.0,
             }
         else:
-            # Valores padrão para decks remotos
+            # Default values for remote decks
             expected_values = {
                 "new_perDay": 20,
                 "rev_perDay": 200,
@@ -890,7 +945,7 @@ def _is_default_config(config, config_type="default"):
                 "lapse_mult": 0.0,
             }
 
-        # Verificar cada valor esperado
+        # Check each expected value
         checks = [
             config["new"]["perDay"] == expected_values["new_perDay"],
             config["rev"]["perDay"] == expected_values["rev_perDay"],
@@ -902,188 +957,188 @@ def _is_default_config(config, config_type="default"):
 
         return all(checks)
     except (KeyError, TypeError):
-        # Se houver erro ao acessar algum campo, considerar como personalizada
+        # If there's an error accessing any field, consider it customized
         return False
 
 
 def _should_update_config_version(config):
     """
-    Verifica se a configuração precisa ser atualizada para uma nova versão do addon.
-    Esta função pode ser usada no futuro para aplicar atualizações de configuração
-    sem sobrescrever personalizações do usuário.
+    Checks if the configuration needs to be updated for a new version of the addon.
+    This function can be used in the future to apply configuration updates
+    without overwriting user customizations.
 
     Args:
-        config (dict): Configuração do deck
+        config (dict): Deck configuration
 
     Returns:
-        bool: True se precisa atualizar para nova versão
+        bool: True if it needs to update to a new version
     """
-    # Para versões futuras, podemos adicionar lógica aqui para detectar
-    # configurações antigas que precisam ser atualizadas
+    # For future versions, we can add logic here to detect
+    # old configurations that need to be updated
     config_version = config.get("sheets2anki_version", "1.0.0")
-    addon_version = "1.0.0"  # Esta seria obtida do manifest.json
+    addon_version = "1.0.0"  # This would be obtained from manifest.json
 
-    # Por enquanto, sempre retorna False para não forçar atualizações
+    # For now, always returns False to not force updates
     return False
 
 
 def get_or_create_sheets2anki_options_group(deck_name=None, deck_url=None):
     """
-    Obtém ou cria o grupo de opções baseado no modo configurado e configuração específica do deck.
+    Gets or creates the options group based on the configured mode and deck-specific configuration.
 
     Args:
-        deck_name (str, optional): Nome do deck remoto para modo individual
-        deck_url (str, optional): URL do deck para obter configuração específica
+        deck_name (str, optional): Remote deck name for individual mode
+        deck_url (str, optional): Deck URL to get specific configuration
 
     Returns:
-        int: ID do grupo de opções ou None se modo manual
+        int: Options group ID or None if in manual mode
     """
     from .config_manager import get_deck_options_mode, get_deck_configurations_package_name
 
     if not mw or not mw.col:
-        add_debug_message("❌ Anki não disponível", "DECK_OPTIONS")
+        add_debug_message("❌ Anki not available", "DECK_OPTIONS")
         return None
 
-    # Primeiro, verificar se há uma configuração específica armazenada para este deck
+    # First, check if there's a specific configuration stored for this deck
     if deck_url:
         stored_package_name = get_deck_configurations_package_name(deck_url)
         if stored_package_name:
             options_group_name = stored_package_name
             add_debug_message(
-                f"Usando configuração específica do deck: '{options_group_name}'",
+                f"Using deck-specific configuration: '{options_group_name}'",
                 "DECK_OPTIONS",
             )
         else:
-            # Fallback para o modo global se não há configuração específica
+            # Fallback to global mode if no specific configuration
             mode = get_deck_options_mode()
             if mode == "manual":
                 add_debug_message(
-                    "Modo manual ativo - não aplicando opções automáticas", "DECK_OPTIONS"
+                    "Manual mode active - not applying automatic options", "DECK_OPTIONS"
                 )
                 return None
             elif mode == "individual" and deck_name:
                 options_group_name = f"Sheets2Anki - {deck_name}"
                 add_debug_message(
-                    f"Modo individual: criando/obtendo grupo '{options_group_name}'",
+                    f"Individual mode: creating/getting group '{options_group_name}'",
                     "DECK_OPTIONS",
                 )
-            else:  # mode == "shared" ou fallback
+            else:  # mode == "shared" or fallback
                 options_group_name = "Sheets2Anki - Default Options"
                 add_debug_message(
-                    f"Modo shared: criando/obtendo grupo '{options_group_name}'", "DECK_OPTIONS"
+                    f"Shared mode: creating/getting group '{options_group_name}'", "DECK_OPTIONS"
                 )
     else:
-        # Verificar modo configurado (fallback quando não há URL)
+        # Check configured mode (fallback when no URL)
         mode = get_deck_options_mode()
 
         if mode == "manual":
             add_debug_message(
-                "Modo manual ativo - não aplicando opções automáticas", "DECK_OPTIONS"
+                "Manual mode active - not applying automatic options", "DECK_OPTIONS"
             )
             return None
         elif mode == "individual" and deck_name:
             options_group_name = f"Sheets2Anki - {deck_name}"
             add_debug_message(
-                f"Modo individual: criando/obtendo grupo '{options_group_name}'",
+                f"Individual mode: creating/getting group '{options_group_name}'",
                 "DECK_OPTIONS",
             )
-        else:  # mode == "shared" ou fallback
+        else:  # mode == "shared" or fallback
             options_group_name = "Sheets2Anki - Default Options"
             add_debug_message(
-                f"Modo shared: criando/obtendo grupo '{options_group_name}'", "DECK_OPTIONS"
+                f"Shared mode: creating/getting group '{options_group_name}'", "DECK_OPTIONS"
             )
 
     try:
-        # Procurar por grupo de opções existente
+        # Search for existing options group
         all_option_groups = mw.col.decks.all_config()
 
         add_debug_message(
-            f"Buscando grupo '{options_group_name}' entre {len(all_option_groups)} grupos existentes",
+            f"Searching for group '{options_group_name}' among {len(all_option_groups)} existing groups",
             "DECK_OPTIONS",
         )
 
         for group in all_option_groups:
             if group["name"] == options_group_name:
                 add_debug_message(
-                    f"✅ Grupo '{options_group_name}' já existe (ID: {group['id']})",
+                    f"✅ Group '{options_group_name}' already exists (ID: {group['id']})",
                     "DECK_OPTIONS",
                 )
 
-                # Verificar se as configurações foram personalizadas pelo usuário
+                # Check if configurations were customized by the user
                 try:
                     existing_config = mw.col.decks.get_config(group["id"])
                     if existing_config and not _is_default_config(
                         existing_config, "default" if mode == "shared" else "default"
                     ):
                         add_debug_message(
-                            f"🔒 Grupo '{options_group_name}' tem configurações personalizadas - preservando",
+                            f"🔒 Group '{options_group_name}' has customized settings - preserving",
                             "DECK_OPTIONS",
                         )
                     else:
                         add_debug_message(
-                            f"📋 Grupo '{options_group_name}' ainda tem configurações padrão",
+                            f"📋 Group '{options_group_name}' still has default settings",
                             "DECK_OPTIONS",
                         )
                 except Exception as check_error:
                     add_debug_message(
-                        f"⚠️ Erro ao verificar configurações do grupo existente: {check_error}",
+                        f"⚠️ Error checking existing group settings: {check_error}",
                         "DECK_OPTIONS",
                     )
 
                 return group["id"]
 
-        # Se não existe, criar novo grupo
+        # If it doesn't exist, create a new group
         add_debug_message(
-            f"Grupo não existe, criando novo: '{options_group_name}'", "DECK_OPTIONS"
+            f"Group does not exist, creating new one: '{options_group_name}'", "DECK_OPTIONS"
         )
         new_group = mw.col.decks.add_config_returning_id(options_group_name)
         add_debug_message(
-            f"✅ Criado novo grupo '{options_group_name}' (ID: {new_group})",
+            f"✅ New group '{options_group_name}' created (ID: {new_group})",
             "DECK_OPTIONS",
         )
 
-        # IMPORTANTE: Só aplicamos configurações padrão em grupos NOVOS
-        # Grupos existentes podem ter sido personalizados pelo usuário
+        # IMPORTANT: We only apply default settings in NEW groups
+        # Existing groups may have been customized by the user
         add_debug_message(
-            f"🔧 Aplicando configurações padrão ao grupo novo '{options_group_name}'",
+            f"🔧 Applying default settings to new group '{options_group_name}'",
             "DECK_OPTIONS",
         )
 
-        # Configurar opções padrão otimizadas para flashcards de planilhas
+        # Configure optimized default options for spreadsheet flashcards
         try:
             config = mw.col.decks.get_config(new_group)
             if not config:
                 add_debug_message(
-                    f"❌ Não foi possível obter config do grupo {new_group}",
+                    f"❌ Could not get config for group {new_group}",
                     "DECK_OPTIONS",
                 )
                 return None
 
-            # Configurações otimizadas para estudo de planilhas
-            config["new"]["perDay"] = 20  # 20 novos cards por dia (bom para planilhas)
-            config["rev"]["perDay"] = 200  # 200 revisões por dia
-            config["new"]["delays"] = [1, 10]  # Intervalos curtos iniciais
-            config["lapse"]["delays"] = [10]  # Intervalo para cards esquecidos
-            config["lapse"]["minInt"] = 1  # Intervalo mínimo após lapse
-            config["lapse"]["mult"] = 0.0  # Redução do intervalo após lapse
+            # Optimized settings for spreadsheet study
+            config["new"]["perDay"] = 20  # 20 new cards per day (good for spreadsheets)
+            config["rev"]["perDay"] = 200  # 200 reviews per day
+            config["new"]["delays"] = [1, 10]  # Short initial intervals
+            config["lapse"]["delays"] = [10]  # Interval for forgotten cards
+            config["lapse"]["minInt"] = 1  # Minimum interval after lapse
+            config["lapse"]["mult"] = 0.0  # Interval reduction after lapse
 
             mw.col.decks.update_config(config)
             add_debug_message(
-                f"✅ Configurações padrão aplicadas ao grupo novo '{options_group_name}'",
+                f"✅ Default settings applied to new group '{options_group_name}'",
                 "DECK_OPTIONS",
             )
             add_debug_message(
-                f"📊 Valores aplicados: new/day={config['new']['perDay']}, rev/day={config['rev']['perDay']}",
+                f"📊 Applied values: new/day={config['new']['perDay']}, rev/day={config['rev']['perDay']}",
                 "DECK_OPTIONS",
             )
         except Exception as config_error:
             add_debug_message(
-                f"⚠️ Erro ao configurar grupo {new_group}: {config_error}",
+                f"⚠️ Error configuring group {new_group}: {config_error}",
                 "DECK_OPTIONS",
             )
-            # Ainda retornamos o ID do grupo mesmo se a configuração falhou
+            # We still return the group ID even if configuration failed
             add_debug_message(
-                f"Retornando grupo {new_group} mesmo com erro de configuração",
+                f"Returning group {new_group} even with configuration error",
                 "DECK_OPTIONS",
             )
 
@@ -1091,7 +1146,7 @@ def get_or_create_sheets2anki_options_group(deck_name=None, deck_url=None):
 
     except Exception as e:
         add_debug_message(
-            f"❌ Erro ao criar/obter grupo de opções: {e}", "DECK_OPTIONS"
+            f"❌ Error creating/getting options group: {e}", "DECK_OPTIONS"
         )
         import traceback
 
@@ -1101,69 +1156,69 @@ def get_or_create_sheets2anki_options_group(deck_name=None, deck_url=None):
 
 def apply_sheets2anki_options_to_deck(deck_id, deck_name=None):
     """
-    Aplica o grupo de opções baseado no modo configurado a um deck específico.
+    Applies the options group based on the configured mode to a specific deck.
 
     Args:
-        deck_id (int): ID do deck no Anki
-        deck_name (str, optional): Nome do deck remoto para modo individual
+        deck_id (int): Anki deck ID
+        deck_name (str, optional): Remote deck name for individual mode
 
     Returns:
-        bool: True se aplicado com sucesso, False caso contrário
+        bool: True if successfully applied, False otherwise
     """
     from .config_manager import get_deck_options_mode
 
     if not mw or not mw.col or not deck_id:
-        add_debug_message("❌ Anki ou deck_id inválido", "DECK_OPTIONS")
+        add_debug_message("❌ Anki or invalid deck_id", "DECK_OPTIONS")
         return False
 
-    # Verificar se modo manual está ativo
+    # Check if manual mode is active
     mode = get_deck_options_mode()
     if mode == "manual":
         add_debug_message(
-            f"Modo manual ativo - não aplicando opções ao deck {deck_id}",
+            f"Manual mode active - not applying options to deck {deck_id}",
             "DECK_OPTIONS",
         )
         return False
 
     try:
         add_debug_message(
-            f"Aplicando opções ao deck {deck_id} (nome para opções: {deck_name})",
+            f"Applying options to deck {deck_id} (name for options: {deck_name})",
             "DECK_OPTIONS",
         )
 
-        # Obter ou criar grupo de opções baseado no modo
+        # Get or create options group based on mode
         options_group_id = get_or_create_sheets2anki_options_group(deck_name)
 
         if not options_group_id:
-            add_debug_message("❌ Falha ao obter grupo de opções", "DECK_OPTIONS")
+            add_debug_message("❌ Failed to get options group", "DECK_OPTIONS")
             return False
 
-        # Obter informações do deck
+        # Get deck information
         deck = mw.col.decks.get(deck_id)
         if not deck:
-            add_debug_message(f"❌ Deck não encontrado: {deck_id}", "DECK_OPTIONS")
+            add_debug_message(f"❌ Deck not found: {deck_id}", "DECK_OPTIONS")
             return False
 
         deck_full_name = deck["name"]
 
         add_debug_message(
-            f"Grupo de opções obtido: {options_group_id} para deck '{deck_full_name}'",
+            f"Options group obtained: {options_group_id} for deck '{deck_full_name}'",
             "DECK_OPTIONS",
         )
 
-        # Aplicar o grupo de opções ao deck
+        # Apply options group to the deck
         deck["conf"] = options_group_id
         mw.col.decks.save(deck)
 
         add_debug_message(
-            f"✅ Grupo aplicado ao deck '{deck_full_name}' (ID: {deck_id})",
+            f"✅ Group applied to deck '{deck_full_name}' (ID: {deck_id})",
             "DECK_OPTIONS",
         )
         return True
 
     except Exception as e:
         add_debug_message(
-            f"❌ Erro ao aplicar opções ao deck {deck_id}: {e}", "DECK_OPTIONS"
+            f"❌ Error applying options to deck {deck_id}: {e}", "DECK_OPTIONS"
         )
         import traceback
 
@@ -1173,23 +1228,23 @@ def apply_sheets2anki_options_to_deck(deck_id, deck_name=None):
 
 def apply_sheets2anki_options_to_all_remote_decks():
     """
-    Aplica o grupo de opções baseado no modo configurado a todos os decks remotos.
+    Applies the options group based on the configured mode to all remote decks.
 
     Returns:
-        dict: Estatísticas da operação
+        dict: Operation statistics
     """
     from .config_manager import get_deck_options_mode
     from .config_manager import get_remote_decks
 
     if not mw or not mw.col:
-        add_debug_message("❌ Anki não disponível", "DECK_OPTIONS")
-        return {"success": False, "error": "Anki não disponível"}
+        add_debug_message("❌ Anki not available", "DECK_OPTIONS")
+        return {"success": False, "error": "Anki not available"}
 
-    # Verificar se modo manual está ativo
+    # Check if manual mode is active
     mode = get_deck_options_mode()
     if mode == "manual":
         add_debug_message(
-            "Modo manual ativo - não aplicando opções automaticamente", "DECK_OPTIONS"
+            "Manual mode active - not applying options automatically", "DECK_OPTIONS"
         )
         return {
             "success": True,
@@ -1197,7 +1252,7 @@ def apply_sheets2anki_options_to_all_remote_decks():
             "updated_decks": 0,
             "failed_decks": 0,
             "errors": [
-                "Modo manual ativo - configurações não aplicadas automaticamente"
+                "Manual mode active - settings not applied automatically"
             ],
         }
 
@@ -1210,35 +1265,35 @@ def apply_sheets2anki_options_to_all_remote_decks():
     }
 
     try:
-        # Obter todos os decks remotos
+        # Get all remote decks
         remote_decks = get_remote_decks()
         stats["total_decks"] = len(remote_decks)
 
         add_debug_message(
-            f"Decks remotos encontrados: {len(remote_decks)}", "DECK_OPTIONS"
+            f"Remote decks found: {len(remote_decks)}", "DECK_OPTIONS"
         )
 
         if not remote_decks:
-            add_debug_message("Nenhum deck remoto encontrado", "DECK_OPTIONS")
+            add_debug_message("No remote decks found", "DECK_OPTIONS")
             return stats
 
         mode_desc = {
-            "shared": "opções compartilhadas (Default)",
-            "individual": "opções individuais por deck",
+            "shared": "shared options (Default)",
+            "individual": "individual options per deck",
         }
 
         add_debug_message(
-            f"Aplicando {mode_desc.get(mode, 'opções')} a {len(remote_decks)} decks remotos...",
+            f"Applying {mode_desc.get(mode, 'options')} to {len(remote_decks)} remote decks...",
             "DECK_OPTIONS",
         )
 
-        # Log detalhado dos decks encontrados
+        # Detailed log of found decks
         for spreadsheet_id, deck_info in remote_decks.items():
             add_debug_message(
                 f"Deck ID: {spreadsheet_id}, Info: {deck_info}", "DECK_OPTIONS"
             )
 
-        # Aplicar opções a cada deck remoto
+        # Apply options to each remote deck
         for spreadsheet_id, deck_info in remote_decks.items():
             try:
                 local_deck_id = deck_info.get("local_deck_id")
@@ -1246,38 +1301,38 @@ def apply_sheets2anki_options_to_all_remote_decks():
                 remote_deck_name = deck_info.get("remote_deck_name", "Unknown")
 
                 add_debug_message(
-                    f"Processando deck: {local_deck_name} (ID: {local_deck_id}, Remote: {remote_deck_name})",
+                    f"Processing deck: {local_deck_name} (ID: {local_deck_id}, Remote: {remote_deck_name})",
                     "DECK_OPTIONS",
                 )
 
                 if not local_deck_id:
-                    error_msg = f"Deck '{local_deck_name}' não tem local_deck_id"
+                    error_msg = f"Deck '{local_deck_name}' has no local_deck_id"
                     stats["errors"].append(error_msg)
                     stats["failed_decks"] += 1
                     add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS")
                     continue
 
-                # Para modo individual, usar o nome do deck remoto
+                # For individual mode, use remote deck name
                 deck_name_for_options = (
                     remote_deck_name if mode == "individual" else None
                 )
 
                 add_debug_message(
-                    f"Nome para opções: {deck_name_for_options} (modo: {mode})",
+                    f"Name for options: {deck_name_for_options} (mode: {mode})",
                     "DECK_OPTIONS",
                 )
 
-                # Aplicar opções ao deck principal
+                # Apply options to the main deck
                 if apply_sheets2anki_options_to_deck(
                     local_deck_id, deck_name_for_options
                 ):
                     stats["updated_decks"] += 1
                     add_debug_message(
-                        f"✅ Deck {local_deck_name} configurado com sucesso",
+                        f"✅ Deck {local_deck_name} successfully configured",
                         "DECK_OPTIONS",
                     )
 
-                    # Aplicar também aos subdecks (se existirem)
+                    # Also apply to subdecks (if they exist)
                     apply_options_to_subdecks(
                         local_deck_name,
                         remote_deck_name if mode == "individual" else None,
@@ -1285,23 +1340,23 @@ def apply_sheets2anki_options_to_all_remote_decks():
                 else:
                     stats["failed_decks"] += 1
                     add_debug_message(
-                        f"❌ Falha ao configurar deck {local_deck_name}", "DECK_OPTIONS"
+                        f"❌ Failed to configure deck {local_deck_name}", "DECK_OPTIONS"
                     )
 
             except Exception as e:
-                error_msg = f"Erro no deck {spreadsheet_id}: {e}"
+                error_msg = f"Error in deck {spreadsheet_id}: {e}"
                 stats["errors"].append(error_msg)
                 stats["failed_decks"] += 1
                 add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS")
 
         add_debug_message(
-            f"Operação concluída: {stats['updated_decks']}/{stats['total_decks']} decks atualizados",
+            f"Operation completed: {stats['updated_decks']}/{stats['total_decks']} decks updated",
             "DECK_OPTIONS",
         )
 
         if stats["errors"]:
             add_debug_message(
-                f"{len(stats['errors'])} erros encontrados:", "DECK_OPTIONS"
+                f"{len(stats['errors'])} errors found:", "DECK_OPTIONS"
             )
             for error in stats["errors"]:
                 add_debug_message(f"  - {error}", "DECK_OPTIONS")
@@ -1309,70 +1364,70 @@ def apply_sheets2anki_options_to_all_remote_decks():
         return stats
 
     except Exception as e:
-        error_msg = f"Erro geral na aplicação de opções: {e}"
+        error_msg = f"General error in applying options: {e}"
         stats["success"] = False
         stats["errors"].append(error_msg)
-        print(f"[DECK_OPTIONS] {error_msg}")
+        add_debug_message(error_msg, "DECK_OPTIONS")
         return stats
 
 
 def apply_options_to_subdecks(parent_deck_name, remote_deck_name=None):
     """
-    Aplica as opções baseadas no modo a todos os subdecks de um deck pai.
+    Applies mode-based options to all subdecks of a parent deck.
 
     Args:
-        parent_deck_name (str): Nome do deck pai
-        remote_deck_name (str, optional): Nome do deck remoto para modo individual
+        parent_deck_name (str): Parent deck name
+        remote_deck_name (str, optional): Remote deck name for individual mode
     """
     from .config_manager import get_deck_options_mode
 
     if not mw or not mw.col or not parent_deck_name:
-        add_debug_message("❌ Parâmetros inválidos para subdecks", "DECK_OPTIONS")
+        add_debug_message("❌ Invalid parameters for subdecks", "DECK_OPTIONS")
         return
 
-    # Verificar se modo manual está ativo
+    # Check if manual mode is active
     mode = get_deck_options_mode()
     if mode == "manual":
         add_debug_message(
-            "Modo manual ativo - não aplicando opções aos subdecks", "DECK_OPTIONS"
+            "Manual mode active - not applying options to subdecks", "DECK_OPTIONS"
         )
         return
 
     try:
-        add_debug_message(f"Buscando subdecks de: {parent_deck_name}", "DECK_OPTIONS")
+        add_debug_message(f"Searching for subdecks of: {parent_deck_name}", "DECK_OPTIONS")
 
-        # Buscar todos os decks que começam com o nome do deck pai
+        # Search for all decks that start with parent deck name
         all_decks = mw.col.decks.all()
         subdeck_count = 0
 
         for deck in all_decks:
             deck_name = deck["name"]
 
-            # Verificar se é subdeck (contém :: após o nome pai)
+            # Check if it's a subdeck (contains :: after parent name)
             if deck_name.startswith(parent_deck_name + "::"):
-                add_debug_message(f"Encontrado subdeck: {deck_name}", "DECK_OPTIONS")
+                add_debug_message(f"Subdeck found: {deck_name}", "DECK_OPTIONS")
                 deck_name_for_options = (
                     remote_deck_name if mode == "individual" else None
                 )
 
                 if apply_sheets2anki_options_to_deck(deck["id"], deck_name_for_options):
                     add_debug_message(
-                        f"✅ Opções aplicadas ao subdeck: {deck_name}", "DECK_OPTIONS"
+                        f"✅ Options applied to subdeck: {deck_name}", "DECK_OPTIONS"
                     )
                     subdeck_count += 1
                 else:
                     add_debug_message(
-                        f"❌ Falha ao aplicar opções ao subdeck: {deck_name}",
+                        f"❌ Failed to apply options to subdeck: {deck_name}",
                         "DECK_OPTIONS",
                     )
 
         add_debug_message(
-            f"Total de subdecks processados: {subdeck_count}", "DECK_OPTIONS"
+            f"Total subdecks processed: {subdeck_count}", "DECK_OPTIONS"
         )
 
     except Exception as e:
         add_debug_message(
-            f"❌ Erro ao aplicar opções aos subdecks de '{parent_deck_name}': {e}",
+            f"❌ Error applying options to subdecks of '{parent_deck_name}': {e}",
             "DECK_OPTIONS",
         )
         import traceback
@@ -1382,33 +1437,33 @@ def apply_options_to_subdecks(parent_deck_name, remote_deck_name=None):
 
 def cleanup_orphaned_deck_option_groups():
     """
-    Remove grupos de opções de deck órfãos que começam com "Sheets2Anki" e não estão
-    atrelados a nenhum deck (total de zero decks atrelados).
+    Removes orphaned deck options groups that start with "Sheets2Anki" and are not
+    attached to any deck (total of zero attached decks).
 
     Returns:
-        int: Número de grupos de opções órfãos removidos
+        int: Number of removed orphaned options groups
     """
     if not mw or not mw.col:
-        print("[DECK_OPTIONS_CLEANUP] Anki não está disponível")
+        add_debug_message("Anki is not available", "DECK_OPTIONS_CLEANUP")
         return 0
 
     try:
-        print("[DECK_OPTIONS_CLEANUP] Iniciando limpeza de grupos de opções órfãos...")
+        add_debug_message("Starting orphaned options group cleanup...", "DECK_OPTIONS_CLEANUP")
 
-        # Obter todos os grupos de opções
+        # Get all options groups
         all_option_groups = mw.col.decks.all_config()
         sheets2anki_groups = []
 
-        # Filtrar apenas grupos que começam com "Sheets2Anki"
+        # Filter only groups that start with "Sheets2Anki"
         for group in all_option_groups:
             if group["name"].startswith("Sheets2Anki"):
                 sheets2anki_groups.append(group)
 
         if not sheets2anki_groups:
-            print("[DECK_OPTIONS_CLEANUP] Nenhum grupo Sheets2Anki encontrado")
+            add_debug_message("No Sheets2Anki groups found", "DECK_OPTIONS_CLEANUP")
             return 0
 
-        # Obter todos os decks para verificar quais grupos estão em uso
+        # Get all decks to check which groups are in use
         all_decks = mw.col.decks.all()
         groups_in_use = set()
 
@@ -1417,78 +1472,82 @@ def cleanup_orphaned_deck_option_groups():
             if conf_id:
                 groups_in_use.add(conf_id)
 
-        # Identificar grupos órfãos (não utilizados por nenhum deck)
+        # Identify orphaned groups (not used by any deck)
         orphaned_groups = []
         for group in sheets2anki_groups:
             group_id = group["id"]
             if group_id not in groups_in_use:
                 orphaned_groups.append(group)
-                print(
-                    f"[DECK_OPTIONS_CLEANUP] Grupo órfão encontrado: '{group['name']}' (ID: {group_id})"
+                add_debug_message(
+                    f"Orphaned group found: '{group['name']}' (ID: {group_id})",
+                    "DECK_OPTIONS_CLEANUP"
                 )
 
-        # Remover grupos órfãos
+        # Remove orphaned groups
         removed_count = 0
         for group in orphaned_groups:
             try:
                 mw.col.decks.remove_config(group["id"])
-                print(
-                    f"[DECK_OPTIONS_CLEANUP] Removido: '{group['name']}' (ID: {group['id']})"
+                add_debug_message(
+                    f"Removed: '{group['name']}' (ID: {group['id']})",
+                    "DECK_OPTIONS_CLEANUP"
                 )
                 removed_count += 1
             except Exception as e:
-                print(
-                    f"[DECK_OPTIONS_CLEANUP] Erro ao remover grupo '{group['name']}': {e}"
+                add_debug_message(
+                    f"Error removing group '{group['name']}': {e}",
+                    "DECK_OPTIONS_CLEANUP"
                 )
 
         if removed_count > 0:
-            print(
-                f"[DECK_OPTIONS_CLEANUP] Limpeza concluída: {removed_count} grupos órfãos removidos"
+            add_debug_message(
+                f"Cleanup completed: {removed_count} orphaned groups removed",
+                "DECK_OPTIONS_CLEANUP"
             )
         else:
-            print("[DECK_OPTIONS_CLEANUP] Nenhum grupo órfão encontrado")
+            add_debug_message("No orphaned groups found", "DECK_OPTIONS_CLEANUP")
 
         return removed_count
 
     except Exception as e:
-        print(f"[DECK_OPTIONS_CLEANUP] Erro na limpeza de grupos órfãos: {e}")
+        add_debug_message(f"Error in orphaned group cleanup: {e}", "DECK_OPTIONS_CLEANUP")
         return 0
 
 
 def apply_automatic_deck_options_system():
     """
-    Aplica o sistema automático completo de configuração de opções de deck.
-    Esta função deve ser chamada ao final da sincronização e quando o usuário
-    clicar no botão "Aplicar" nas configurações de deck.
+    Applies the complete automatic deck options system.
+    This function should be called at the end of synchronization and when the user
+    clicks the "Apply" button in the deck settings.
 
-    Executa as seguintes ações (quando modo automático estiver ativo):
-    1. Aplica opções ao deck raiz "Sheets2Anki"
-    2. Aplica opções a todos os decks remotos e subdecks
-    3. Remove grupos de opções órfãos (limpeza)
+    Performs the following actions (when automatic mode is active):
+    1. Applies options to root deck "Sheets2Anki"
+    2. Applies options to all remote decks and subdecks
+    3. Removes orphaned options groups (cleanup)
 
     Returns:
-        dict: Estatísticas da operação
+        dict: Operation statistics
     """
     add_debug_message(
-        "🚀 INICIANDO sistema automático de opções de deck...", "DECK_OPTIONS_SYSTEM"
+        "🚀 STARTING automatic deck options system...", "DECK_OPTIONS_SYSTEM"
     )
 
     from .config_manager import get_deck_options_mode
 
     if not mw or not mw.col:
-        add_debug_message("❌ Anki não disponível", "DECK_OPTIONS_SYSTEM")
-        return {"success": False, "error": "Anki não disponível"}
+        add_debug_message("❌ Anki not available", "DECK_OPTIONS_SYSTEM")
+        return {"success": False, "error": "Anki not available"}
 
     try:
         mode = get_deck_options_mode()
-        add_debug_message(f"📋 Modo atual: '{mode}'", "DECK_OPTIONS_SYSTEM")
+        add_debug_message(f"📋 Current mode: '{mode}'", "DECK_OPTIONS_SYSTEM")
     except Exception as e:
-        add_debug_message(f"❌ Erro ao obter modo: {e}", "DECK_OPTIONS_SYSTEM")
-        return {"success": False, "error": f"Erro ao obter modo: {e}"}
+        add_debug_message(f"❌ Error getting mode: {e}", "DECK_OPTIONS_SYSTEM")
+        return {"success": False, "error": f"Error getting mode: {e}"}
 
     if mode == "manual":
         add_debug_message(
-            "⏹️ Modo manual ativo - sistema automático desativado", "DECK_OPTIONS_SYSTEM"
+            "⏹️ Manual mode active - automatic system disabled", "DECK_OPTIONS_SYSTEM"
         )
         return {
             "success": True,
@@ -1496,11 +1555,11 @@ def apply_automatic_deck_options_system():
             "root_deck_updated": False,
             "remote_decks_updated": 0,
             "cleaned_groups": 0,
-            "message": "Modo manual ativo - sistema automático desativado",
+            "message": "Manual mode active - automatic system disabled",
         }
 
     add_debug_message(
-        f"⚙️ Aplicando sistema automático no modo: {mode}", "DECK_OPTIONS_SYSTEM"
+        f"⚙️ Applying automatic system in mode: {mode}", "DECK_OPTIONS_SYSTEM"
     )
 
     try:
@@ -1514,22 +1573,22 @@ def apply_automatic_deck_options_system():
         }
 
         add_debug_message(
-            "🎯 ETAPA 1: Configurando deck raiz...", "DECK_OPTIONS_SYSTEM"
+            "🎯 STEP 1: Configuring root deck...", "DECK_OPTIONS_SYSTEM"
         )
-        # 1. Aplicar opções ao deck raiz
+        # 1. Apply options to root deck
         try:
             root_result = ensure_root_deck_has_root_options()
             stats["root_deck_updated"] = root_result
             if root_result:
                 add_debug_message(
-                    "✅ Deck raiz configurado com sucesso", "DECK_OPTIONS_SYSTEM"
+                    "✅ Root deck successfully configured", "DECK_OPTIONS_SYSTEM"
                 )
             else:
                 add_debug_message(
-                    "⚠️ Deck raiz não foi configurado", "DECK_OPTIONS_SYSTEM"
+                    "⚠️ Root deck was not configured", "DECK_OPTIONS_SYSTEM"
                 )
         except Exception as e:
-            error_msg = f"Erro ao configurar deck raiz: {e}"
+            error_msg = f"Error configuring root deck: {e}"
             stats["errors"].append(error_msg)
             add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS_SYSTEM")
             import traceback
@@ -1537,31 +1596,31 @@ def apply_automatic_deck_options_system():
             traceback.print_exc()
 
         add_debug_message(
-            "🎯 ETAPA 2: Configurando decks remotos...", "DECK_OPTIONS_SYSTEM"
+            "🎯 STEP 2: Configuring remote decks...", "DECK_OPTIONS_SYSTEM"
         )
-        # 2. Aplicar opções a todos os decks remotos
+        # 2. Apply options to all remote decks
         try:
             remote_result = apply_sheets2anki_options_to_all_remote_decks()
             if remote_result and remote_result.get("success", False):
                 stats["remote_decks_updated"] = remote_result.get("updated_decks", 0)
                 add_debug_message(
-                    f"✅ {remote_result.get('updated_decks', 0)} decks remotos configurados",
+                    f"✅ {remote_result.get('updated_decks', 0)} remote decks configured",
                     "DECK_OPTIONS_SYSTEM",
                 )
                 if remote_result.get("errors"):
                     stats["errors"].extend(remote_result["errors"])
             else:
                 error_detail = (
-                    remote_result.get("error", "Erro desconhecido nos decks remotos")
+                    remote_result.get("error", "Unknown error in remote decks")
                     if remote_result
-                    else "Resultado vazio"
+                    else "Empty result"
                 )
                 stats["errors"].append(error_detail)
                 add_debug_message(
-                    f"❌ Falha nos decks remotos: {error_detail}", "DECK_OPTIONS_SYSTEM"
+                    f"❌ Remote decks failure: {error_detail}", "DECK_OPTIONS_SYSTEM"
                 )
         except Exception as e:
-            error_msg = f"Erro ao configurar decks remotos: {e}"
+            error_msg = f"Error configuring remote decks: {e}"
             stats["errors"].append(error_msg)
             add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS_SYSTEM")
             import traceback
@@ -1569,57 +1628,57 @@ def apply_automatic_deck_options_system():
             traceback.print_exc()
 
         add_debug_message(
-            "🎯 ETAPA 3: Limpeza de grupos órfãos...", "DECK_OPTIONS_SYSTEM"
+            "🎯 STEP 3: Cleaning up orphaned groups...", "DECK_OPTIONS_SYSTEM"
         )
-        # 3. Limpeza de grupos órfãos (só quando sistema automático ativo)
+        # 3. Cleanup of orphaned groups (only when automatic system is active)
         try:
             cleaned_count = cleanup_orphaned_deck_option_groups()
             stats["cleaned_groups"] = cleaned_count
             if cleaned_count > 0:
                 add_debug_message(
-                    f"✅ {cleaned_count} grupos órfãos removidos", "DECK_OPTIONS_SYSTEM"
+                    f"✅ {cleaned_count} orphaned groups removed", "DECK_OPTIONS_SYSTEM"
                 )
             else:
                 add_debug_message(
-                    "ℹ️ Nenhum grupo órfão encontrado", "DECK_OPTIONS_SYSTEM"
+                    "ℹ️ No orphaned groups found", "DECK_OPTIONS_SYSTEM"
                 )
         except Exception as e:
-            error_msg = f"Erro na limpeza de grupos órfãos: {e}"
+            error_msg = f"Error cleaning up orphaned groups: {e}"
             stats["errors"].append(error_msg)
             add_debug_message(f"❌ {error_msg}", "DECK_OPTIONS_SYSTEM")
             import traceback
 
             traceback.print_exc()
 
-        add_debug_message("📊 Gerando resumo final...", "DECK_OPTIONS_SYSTEM")
-        # Gerar mensagem de resumo
+        add_debug_message("📊 Generating final summary...", "DECK_OPTIONS_SYSTEM")
+        # Generate summary message
         messages = []
         if stats["root_deck_updated"]:
-            messages.append("Deck raiz configurado")
+            messages.append("Root deck configured")
         if stats["remote_decks_updated"] > 0:
             messages.append(
-                f"{stats['remote_decks_updated']} decks remotos configurados"
+                f"{stats['remote_decks_updated']} remote decks configured"
             )
         if stats["cleaned_groups"] > 0:
-            messages.append(f"{stats['cleaned_groups']} grupos órfãos removidos")
+            messages.append(f"{stats['cleaned_groups']} orphaned groups removed")
 
         if messages:
-            stats["message"] = f"Sistema automático aplicado: {', '.join(messages)}"
+            stats["message"] = f"Automatic system applied: {', '.join(messages)}"
         else:
-            stats["message"] = "Sistema automático executado sem alterações"
+            stats["message"] = "Automatic system executed without changes"
 
         if stats["errors"]:
-            stats["message"] += f" ({len(stats['errors'])} erros)"
+            stats["message"] += f" ({len(stats['errors'])} errors)"
             add_debug_message(
-                f"⚠️ Erros encontrados: {stats['errors']}", "DECK_OPTIONS_SYSTEM"
+                f"⚠️ Errors found: {stats['errors']}", "DECK_OPTIONS_SYSTEM"
             )
 
-        add_debug_message(f"🎉 CONCLUÍDO: {stats['message']}", "DECK_OPTIONS_SYSTEM")
+        add_debug_message(f"🎉 COMPLETED: {stats['message']}", "DECK_OPTIONS_SYSTEM")
         return stats
 
     except Exception as e:
-        error_msg = f"Erro geral no sistema automático: {e}"
-        add_debug_message(f"❌ FALHA GERAL: {error_msg}", "DECK_OPTIONS_SYSTEM")
+        error_msg = f"General error in automatic system: {e}"
+        add_debug_message(f"❌ GENERAL FAILURE: {error_msg}", "DECK_OPTIONS_SYSTEM")
         import traceback
 
         traceback.print_exc()
@@ -1635,68 +1694,68 @@ def apply_automatic_deck_options_system():
 
 def ensure_root_deck_has_root_options():
     """
-    Garante que o deck raiz 'Sheets2Anki' use o grupo de opções específico
+    Ensures that the root deck 'Sheets2Anki' uses the specific options group
     "Sheets2Anki - Root Options".
 
     Returns:
-        bool: True se aplicado com sucesso, False caso contrário
+        bool: True if successfully applied, False otherwise
     """
     from .config_manager import get_deck_options_mode
 
     if not mw or not mw.col:
-        add_debug_message("Anki não está disponível", "DECK_OPTIONS")
+        add_debug_message("Anki is not available", "DECK_OPTIONS")
         return False
 
-    # Verificar se modo manual está ativo
+    # Check if manual mode is active
     mode = get_deck_options_mode()
     if mode == "manual":
         add_debug_message(
-            "Modo manual ativo - não aplicando opções ao deck raiz", "DECK_OPTIONS"
+            "Manual mode active - not applying options to root deck", "DECK_OPTIONS"
         )
         return False
 
     try:
         add_debug_message(
-            f"Verificando deck raiz: '{DEFAULT_PARENT_DECK_NAME}'", "DECK_OPTIONS"
+            f"Checking root deck: '{DEFAULT_PARENT_DECK_NAME}'", "DECK_OPTIONS"
         )
 
-        # Obter ou criar o deck raiz
+        # Get or create the root deck
         parent_deck = mw.col.decks.by_name(DEFAULT_PARENT_DECK_NAME)
 
         if not parent_deck:
             add_debug_message(
-                f"Deck raiz '{DEFAULT_PARENT_DECK_NAME}' não existe, criando...",
+                f"Root deck '{DEFAULT_PARENT_DECK_NAME}' does not exist, creating...",
                 "DECK_OPTIONS",
             )
-            # Criar o deck raiz se não existir
+            # Create root deck if it doesn't exist
             parent_deck_id = mw.col.decks.id(DEFAULT_PARENT_DECK_NAME)
             if parent_deck_id is not None:
                 parent_deck = mw.col.decks.get(parent_deck_id)
                 add_debug_message(
-                    f"Deck raiz criado com ID: {parent_deck_id}", "DECK_OPTIONS"
+                    f"Root deck created with ID: {parent_deck_id}", "DECK_OPTIONS"
                 )
             else:
-                add_debug_message("❌ Falha ao criar deck raiz", "DECK_OPTIONS")
+                add_debug_message("❌ Failed to create root deck", "DECK_OPTIONS")
                 return False
         else:
             add_debug_message(
-                f"Deck raiz encontrado: ID {parent_deck['id']}", "DECK_OPTIONS"
+                f"Root deck found: ID {parent_deck['id']}", "DECK_OPTIONS"
             )
 
         if parent_deck:
-            # Obter o grupo de opções raiz atual do deck
-            current_conf_id = parent_deck.get("conf", 1)  # 1 é o padrão do Anki
+            # Get current root options group of the deck
+            current_conf_id = parent_deck.get("conf", 1)  # 1 is Anki default
             add_debug_message(
-                f"Configuração atual do deck raiz: {current_conf_id}", "DECK_OPTIONS"
+                f"Current root deck configuration: {current_conf_id}", "DECK_OPTIONS"
             )
 
-            # Aplicar grupo específico do deck raiz
+            # Apply specific root deck group
             add_debug_message(
-                "Chamando get_or_create_root_options_group()...", "DECK_OPTIONS"
+                "Calling get_or_create_root_options_group()...", "DECK_OPTIONS"
             )
             root_options_group_id = get_or_create_root_options_group()
             add_debug_message(
-                f"get_or_create_root_options_group() retornou: {root_options_group_id}",
+                f"get_or_create_root_options_group() returned: {root_options_group_id}",
                 "DECK_OPTIONS",
             )
 
@@ -1705,27 +1764,27 @@ def ensure_root_deck_has_root_options():
                     parent_deck["conf"] = root_options_group_id
                     mw.col.decks.save(parent_deck)
                     add_debug_message(
-                        f"✅ Opções raiz aplicadas ao deck '{DEFAULT_PARENT_DECK_NAME}' (ID: {root_options_group_id})",
+                        f"✅ Root options applied to deck '{DEFAULT_PARENT_DECK_NAME}' (ID: {root_options_group_id})",
                         "DECK_OPTIONS",
                     )
                 else:
                     add_debug_message(
-                        f"✅ Deck raiz já usa as opções corretas (ID: {root_options_group_id})",
+                        f"✅ Root deck already uses the correct options (ID: {root_options_group_id})",
                         "DECK_OPTIONS",
                     )
                 return True
             else:
                 add_debug_message(
-                    "❌ Falha ao obter/criar grupo de opções raiz", "DECK_OPTIONS"
+                    "❌ Failed to get/create root options group", "DECK_OPTIONS"
                 )
                 return False
         else:
-            add_debug_message("❌ Falha ao obter/criar deck raiz", "DECK_OPTIONS")
+            add_debug_message("❌ Failed to get/create root deck", "DECK_OPTIONS")
             return False
 
     except Exception as e:
         add_debug_message(
-            f"❌ Erro ao aplicar opções raiz ao deck pai: {e}", "DECK_OPTIONS"
+            f"❌ Error applying root options to parent deck: {e}", "DECK_OPTIONS"
         )
         import traceback
 
@@ -1735,137 +1794,137 @@ def ensure_root_deck_has_root_options():
 
 def get_or_create_root_options_group():
     """
-    Obtém ou cria o grupo de opções específico para o deck raiz "Sheets2Anki - Root Options".
+    Gets or creates the specific options group for the root deck "Sheets2Anki - Root Options".
 
     Returns:
-        int: ID do grupo de opções ou None se erro
+        int: Options group ID or None if error
     """
     if not mw or not mw.col:
         add_debug_message(
-            "Anki não disponível para criar grupo de opções raiz", "DECK_OPTIONS"
+            "Anki not available to create root options group", "DECK_OPTIONS"
         )
         return None
 
     options_group_name = "Sheets2Anki - Root Options"
     add_debug_message(
-        f"Buscando/criando grupo de opções: '{options_group_name}'", "DECK_OPTIONS"
+        f"Searching/creating options group: '{options_group_name}'", "DECK_OPTIONS"
     )
 
     try:
-        # Procurar por grupo de opções existente
+        # Search for existing options group
         all_option_groups = mw.col.decks.all_config()
         add_debug_message(
-            f"Total de grupos de opções encontrados: {len(all_option_groups)}",
+            f"Total options groups found: {len(all_option_groups)}",
             "DECK_OPTIONS",
         )
 
         for group in all_option_groups:
             if group["name"] == options_group_name:
                 add_debug_message(
-                    f"✅ Grupo raiz '{options_group_name}' já existe (ID: {group['id']})",
+                    f"✅ Root group '{options_group_name}' already exists (ID: {group['id']})",
                     "DECK_OPTIONS",
                 )
 
-                # Verificar se as configurações foram personalizadas pelo usuário
+                # Check if configurations were customized by the user
                 try:
                     existing_config = mw.col.decks.get_config(group["id"])
                     if existing_config and not _is_default_config(
                         existing_config, "root"
                     ):
                         add_debug_message(
-                            f"🔒 Grupo raiz '{options_group_name}' tem configurações personalizadas - preservando",
+                            f"🔒 Root group '{options_group_name}' has customized settings - preserving",
                             "DECK_OPTIONS",
                         )
                     else:
                         add_debug_message(
-                            f"📋 Grupo raiz '{options_group_name}' ainda tem configurações padrão",
+                            f"📋 Root group '{options_group_name}' still has default settings",
                             "DECK_OPTIONS",
                         )
                 except Exception as check_error:
                     add_debug_message(
-                        f"⚠️ Erro ao verificar configurações do grupo raiz existente: {check_error}",
+                        f"⚠️ Error checking existing root group settings: {check_error}",
                         "DECK_OPTIONS",
                     )
 
                 return group["id"]
 
         add_debug_message(
-            f"Grupo '{options_group_name}' não existe, criando novo...", "DECK_OPTIONS"
+            f"Group '{options_group_name}' does not exist, creating new one...", "DECK_OPTIONS"
         )
-        # Se não existe, criar novo grupo
+        # If it doesn't exist, create new group
         new_group = mw.col.decks.add_config_returning_id(options_group_name)
         add_debug_message(
-            f"✅ Criado novo grupo raiz '{options_group_name}' (ID: {new_group})",
+            f"✅ New root group '{options_group_name}' created (ID: {new_group})",
             "DECK_OPTIONS",
         )
 
-        # IMPORTANTE: Só aplicamos configurações padrão em grupos NOVOS
-        # Grupos existentes podem ter sido personalizados pelo usuário
+        # IMPORTANT: We only apply default settings in NEW groups
+        # Existing groups may have been customized by the user
         add_debug_message(
-            f"🔧 Aplicando configurações padrão ao grupo raiz novo '{options_group_name}'",
+            f"🔧 Applying default settings to new root group '{options_group_name}'",
             "DECK_OPTIONS",
         )
 
-        # Configurar opções padrão otimizadas para o deck raiz
+        # Configure optimized default options for the root deck
         add_debug_message(
-            f"📋 Configurando opções para o grupo raiz '{options_group_name}' (ID: {new_group})...",
+            f"📋 Configuring options for root group '{options_group_name}' (ID: {new_group})...",
             "DECK_OPTIONS",
         )
 
-        # Usar a API correta para configurar o grupo de opções
-        # Em versões recentes do Anki, usamos mw.col.decks.get_config() e mw.col.decks.update_config()
+        # Use the correct API to configure the options group
+        # In recent Anki versions, we use mw.col.decks.get_config() and mw.col.decks.update_config()
         try:
-            # Obter a configuração atual do grupo
+            # Get current group configuration
             config = mw.col.decks.get_config(new_group)
             if config is None:
                 add_debug_message(
-                    f"❌ Não foi possível obter configuração para grupo ID {new_group}",
+                    f"❌ Could not get configuration for group ID {new_group}",
                     "DECK_OPTIONS",
                 )
-                return new_group  # Retorna o grupo mesmo sem configurar
+                return new_group  # Returns group even without configuring
 
             add_debug_message(
-                f"📋 Configuração obtida para grupo ID {new_group}", "DECK_OPTIONS"
+                f"📋 Configuration obtained for group ID {new_group}", "DECK_OPTIONS"
             )
 
-            # Configurações específicas para o deck raiz - mais conservadoras
+            # Specific settings for root deck - more conservative
             config["new"][
                 "perDay"
-            ] = 30  # 30 novos cards por dia (conservador para deck raiz)
-            config["rev"]["perDay"] = 150  # 150 revisões por dia
-            config["new"]["delays"] = [1, 10]  # Intervalos curtos iniciais
-            config["lapse"]["delays"] = [10]  # Intervalo para cards esquecidos
-            config["lapse"]["minInt"] = 1  # Intervalo mínimo após lapse
-            config["lapse"]["mult"] = 0.0  # Redução do intervalo após lapse
+            ] = 30  # 30 new cards per day (conservative for root deck)
+            config["rev"]["perDay"] = 150  # 150 reviews per day
+            config["new"]["delays"] = [1, 10]  # Short initial intervals
+            config["lapse"]["delays"] = [10]  # Interval for forgotten cards
+            config["lapse"]["minInt"] = 1  # Minimum interval after lapse
+            config["lapse"]["mult"] = 0.0  # Interval reduction after lapse
 
-            # Salvar as configurações
+            # Save configurations
             mw.col.decks.update_config(config)
             add_debug_message(
-                f"💾 Configurações salvas para grupo ID {new_group}", "DECK_OPTIONS"
+                f"💾 Configurations saved for group ID {new_group}", "DECK_OPTIONS"
             )
             add_debug_message(
-                f"📊 Valores aplicados ao grupo raiz: new/day={config['new']['perDay']}, rev/day={config['rev']['perDay']}",
+                f"📊 Values applied to root group: new/day={config['new']['perDay']}, rev/day={config['rev']['perDay']}",
                 "DECK_OPTIONS",
             )
 
         except (AttributeError, TypeError) as api_error:
             add_debug_message(
-                f"⚠️ API get_config/update_config não disponível: {api_error}",
+                f"⚠️ API get_config/update_config not available: {api_error}",
                 "DECK_OPTIONS",
             )
-            # Fallback para método mais antigo se disponível
+            # Fallback to older method if available
             try:
-                # Método alternativo para versões mais antigas
+                # Alternative method for older versions
                 config = mw.col.decks.confForDid(new_group)
                 if config is None:
                     add_debug_message(
-                        f"❌ confForDid retornou None para grupo ID {new_group}",
+                        f"❌ confForDid returned None for group ID {new_group}",
                         "DECK_OPTIONS",
                     )
                     return new_group
 
                 add_debug_message(
-                    f"📋 Usando confForDid como fallback para grupo ID {new_group}",
+                    f"📋 Using confForDid as fallback for group ID {new_group}",
                     "DECK_OPTIONS",
                 )
 
@@ -1878,21 +1937,21 @@ def get_or_create_root_options_group():
 
                 mw.col.decks.save(config)
                 add_debug_message(
-                    f"💾 Configurações salvas via fallback para grupo ID {new_group}",
+                    f"💾 Configurations saved via fallback for group ID {new_group}",
                     "DECK_OPTIONS",
                 )
 
             except Exception as fallback_error:
                 add_debug_message(
-                    f"❌ Falha no fallback: {fallback_error}", "DECK_OPTIONS"
+                    f"❌ Fallback failed: {fallback_error}", "DECK_OPTIONS"
                 )
-                # Se nenhum método funcionar, pelo menos o grupo foi criado
+                # If no method works, at least the group was created
                 add_debug_message(
-                    "⚠️ Grupo criado mas configurações não aplicadas devido a incompatibilidade da API",
+                    "⚠️ Group created but configurations not applied due to API incompatibility",
                     "DECK_OPTIONS",
                 )
         add_debug_message(
-            f"✅ Configurações padrão aplicadas ao grupo raiz '{options_group_name}'",
+            f"✅ Default settings applied to root group '{options_group_name}'",
             "DECK_OPTIONS",
         )
 
@@ -1900,21 +1959,18 @@ def get_or_create_root_options_group():
 
     except Exception as e:
         add_debug_message(
-            f"❌ Erro ao criar/obter grupo de opções raiz: {str(e)}", "DECK_OPTIONS"
+            f"❌ Error creating/getting root options group: {str(e)}", "DECK_OPTIONS"
         )
         return None
 
 
 # =============================================================================
-# SISTEMA DE DEBUG E LOGGING (consolidado de debug_manager.py)
+# DEBUG AND LOGGING SYSTEM (consolidated from debug_manager.py)
 # =============================================================================
-
-from datetime import datetime
-from typing import List
 
 
 class DebugManager:
-    """Gerenciador centralizado de debug para o Sheets2Anki."""
+    """Centralized debug manager for Sheets2Anki."""
 
     def __init__(self):
         self.messages: List[str] = []
@@ -1922,70 +1978,74 @@ class DebugManager:
         self._update_debug_status()
 
     def _update_debug_status(self):
-        """Atualiza o status de debug baseado na configuração."""
+        """Updates debug status based on configuration."""
         try:
             from .config_manager import get_meta
 
             meta = get_meta()
-            # Debug está na seção config do meta.json
+            # Debug is in the config section of meta.json
             self.is_debug_enabled = meta.get("config", {}).get("debug", False)
         except Exception:
             self.is_debug_enabled = False
 
     def add_message(self, message: str, category: str = "DEBUG") -> None:
         """
-        Adiciona uma mensagem de debug.
+        Adds a debug message.
 
         Args:
-            message: Mensagem de debug
-            category: Categoria da mensagem (SYNC, DECK, ERROR, etc.)
+            message: Debug message
+            category: Message category (SYNC, DECK, ERROR, etc.)
         """
+        # Ensure we have the latest debug status
+        self._update_debug_status()
+
         if not self.is_debug_enabled:
             return
 
-        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # Com milissegundos
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # With milliseconds
         formatted_msg = f"[{timestamp}] [{category}] {message}"
         self.messages.append(formatted_msg)
 
-        # Print no console do Anki
+        # Print to Anki console
         print(formatted_msg)
 
-        # Salvar em arquivo para fácil acesso
+        # Save to file for easy access
         self._save_to_file(formatted_msg)
 
     def _save_to_file(self, message: str) -> None:
         """
-        Salva mensagem de debug em arquivo.
+        Saves debug message to file.
 
         Args:
-            message: Mensagem formatada para salvar
+            message: Formatted message to save
         """
         try:
             import os
 
-            # Determinar o caminho do arquivo de log
+            # Determine log file path
             addon_path = os.path.dirname(os.path.dirname(__file__))
             log_path = os.path.join(addon_path, "debug_sheets2anki.log")
 
-            # Salvar no arquivo
+            # Save to file
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(message + "\n")
-                f.flush()  # Forçar escrita imediata
+                f.flush()  # Force immediate write
 
         except Exception as e:
-            print(f"[DEBUG_FILE] Erro ao salvar log: {e}")
+            # We don't use add_debug_message here to avoid potential infinite recursion
+            print(f"[DEBUG_FILE] Error saving log: {e}")
 
     def get_messages(self) -> List[str]:
-        """Retorna todas as mensagens de debug."""
+        """Returns all debug messages."""
         return self.messages.copy()
 
     def clear_messages(self) -> None:
-        """Limpa todas as mensagens de debug."""
+        """Clears all debug messages."""
         self.messages.clear()
 
     def initialize_log_file(self) -> None:
         """
-        Inicializa o arquivo de log com header.
+        Initializes the log file with a header.
         """
         try:
             import os
@@ -1993,8 +2053,8 @@ class DebugManager:
             addon_path = os.path.dirname(os.path.dirname(__file__))
             log_path = os.path.join(addon_path, "debug_sheets2anki.log")
 
-            # Criar arquivo se não existir ou adicionar separador de sessão
-            separator = f"\n{'='*60}\n=== NOVA SESSÃO DEBUG - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n{'='*60}\n"
+            # Create file if it doesn't exist or add session separator
+            separator = f"\n{'='*60}\n=== NEW DEBUG SESSION - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n{'='*60}\n"
 
             mode = "w" if not os.path.exists(log_path) else "a"
             with open(log_path, mode, encoding="utf-8") as f:
@@ -2006,17 +2066,19 @@ class DebugManager:
                     f.write(separator)
                 f.flush()
 
-            print(f"[DEBUG_FILE] Log inicializado: {log_path}")
+            # print(f"[DEBUG_FILE] Log initialized: {log_path}")
+            pass
 
         except Exception as e:
-            print(f"[DEBUG_FILE] Erro ao inicializar log: {e}")
+            # We don't use add_debug_message here to avoid potential infinite recursion
+            print(f"[DEBUG_FILE] Error initializing log: {e}")
 
     def get_log_path(self) -> str:
         """
-        Retorna o caminho do arquivo de log.
+        Returns the log file path.
 
         Returns:
-            str: Caminho completo do arquivo de log
+            str: Full path to the log file
         """
         import os
 
@@ -2025,58 +2087,58 @@ class DebugManager:
 
     def get_recent_messages(self, count: int = 10) -> List[str]:
         """
-        Retorna as mensagens mais recentes.
+        Returns the most recent messages.
 
         Args:
-            count: Número de mensagens recentes a retornar
+            count: Number of recent messages to return
         """
         return self.messages[-count:] if self.messages else []
 
 
-# Instância global do gerenciador de debug
+# Global instance of the debug manager
 debug_manager = DebugManager()
 
 
 def add_debug_message(message: str, category: str = "DEBUG") -> None:
     """
-    Função de conveniência para adicionar mensagens de debug.
+    Convenience function to add debug messages.
 
     Args:
-        message: Mensagem de debug
-        category: Categoria da mensagem
+        message: Debug message
+        category: Message category
     """
     debug_manager.add_message(message, category)
 
 
 def is_debug_enabled() -> bool:
-    """Verifica se o debug está habilitado."""
+    """Checks if debug is enabled."""
     debug_manager._update_debug_status()
     return debug_manager.is_debug_enabled
 
 
 def get_debug_messages() -> List[str]:
-    """Retorna todas as mensagens de debug."""
+    """Returns all debug messages."""
     return debug_manager.get_messages()
 
 
 def clear_debug_messages() -> None:
-    """Limpa todas as mensagens de debug."""
+    """Clears all debug messages."""
     debug_manager.clear_messages()
 
 
 def initialize_debug_log() -> None:
-    """Inicializa o arquivo de debug log."""
+    """Initializes the debug log file."""
     debug_manager.initialize_log_file()
 
 
 def get_debug_log_path() -> str:
-    """Retorna o caminho do arquivo de debug log."""
+    """Returns the debug log file path."""
     return debug_manager.get_log_path()
 
 
 def clear_debug_log():
     """
-    Limpa o arquivo de log de debug e inicia um novo.
+    Clears the debug log file and starts a new one.
     """
     try:
         from datetime import datetime
@@ -2088,206 +2150,162 @@ def clear_debug_log():
                 f"=== SHEETS2ANKI DEBUG LOG - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n"
             )
 
-        print(f"[DEBUG] Log limpo: {log_path}")
+        # add_debug_message(f"Log cleared: {log_path}", "DEBUG")
+        pass
 
     except Exception as e:
-        print(f"[DEBUG] Erro ao limpar log: {e}")
+        # We don't use add_debug_message here to avoid potential infinite recursion
+        print(f"[DEBUG] Error clearing log: {e}")
 
 
 # =============================================================================
-# GERENCIAMENTO DE OPÇÕES DE DECK COMPARTILHADAS
+# SHARED DECK OPTIONS MANAGEMENT
 # =============================================================================
 
 
-def debug_log(module, message, *args):
-    """
-    Sistema de debug que exibe logs no console do Anki e salva em arquivo.
-
-    Args:
-        module (str): Nome do módulo (ex: "SYNC", "CONFIG", "DECK_RECREATION")
-        message (str): Mensagem principal
-        *args: Argumentos adicionais para logar
-    """
-    from .config_manager import get_meta
-
-    try:
-        meta = get_meta()
-        # Debug está na seção config do meta.json
-        if not meta.get("config", {}).get("debug", False):
-            return
-
-        import os
-        from datetime import datetime
-
-        # Formatar timestamp
-        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-
-        # Construir mensagem completa
-        full_message = f"[{timestamp}] [{module}] {message}"
-
-        # Adicionar argumentos extras
-        if args:
-            extra_info = " | ".join(str(arg) for arg in args)
-            full_message += f" | {extra_info}"
-
-        # Exibir no console do Anki
-        print(full_message)
-
-        # Salvar em arquivo para fácil acesso no macOS
-        try:
-            addon_path = os.path.dirname(os.path.dirname(__file__))
-            log_path = os.path.join(addon_path, "debug_sheets2anki.log")
-
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(full_message + "\n")
-                f.flush()
-        except Exception as log_error:
-            print(f"[DEBUG] Erro ao salvar log: {log_error}")
-
-    except Exception as e:
-        print(f"[DEBUG] Erro no sistema de debug: {e}")
+# Removed obsolete debug_log function as it is redundant with DebugManager
 
 
 # ========================================================================================
-# FUNÇÕES DE VALIDAÇÃO (consolidado de validation.py)
+# VALIDATION FUNCTIONS (consolidated from validation.py)
 # ========================================================================================
 
 
 def convert_edit_url_to_tsv(url):
     """
-    Converte URLs de edição do Google Sheets para formato TSV de download.
+    Converts Google Sheets edit URLs to TSV download format.
     
     Args:
-        url (str): URL de edição do Google Sheets
+        url (str): Google Sheets edit URL
         
     Returns:
-        str: URL no formato TSV para download
+        str: URL in TSV format for download
         
     Raises:
-        ValueError: Se a URL não for uma URL de edição válida
+        ValueError: If the URL is not a valid edit URL
     """
     import re
     
     if not url or not isinstance(url, str):
-        raise ValueError("URL deve ser uma string não vazia")
+        raise ValueError("URL must be a non-empty string")
     
-    # Verificar se é uma URL do Google Sheets
+    # Check if it's a Google Sheets URL
     if "docs.google.com/spreadsheets" not in url:
-        raise ValueError("URL deve ser do Google Sheets")
+        raise ValueError("URL must be from Google Sheets")
     
-    # Extrair ID da planilha para URLs de edição
+    # Extract spreadsheet ID for edit URLs
     edit_pattern = r"https://docs\.google\.com/spreadsheets/d/([a-zA-Z0-9-_]+)/edit"
     match = re.search(edit_pattern, url)
     
     if match:
         spreadsheet_id = match.group(1)
-        # Converter para formato de export TSV (sem gid para baixar a primeira aba automaticamente)
+        # Convert to TSV export format (without gid to automatically download the first tab)
         return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=tsv"
     
-    # Se chegou aqui, não é uma URL de edição válida
+    # If it reached here, it's not a valid edit URL
     raise ValueError(
-        "URL deve ser uma URL de edição do Google Sheets no formato:\n"
+        "URL must be a Google Sheets edit URL in the format:\n"
         "https://docs.google.com/spreadsheets/d/{ID}/edit?usp=sharing"
     )
 
 
 def validate_url(url):
     """
-    Valida se a URL é uma URL de edição válida do Google Sheets.
+    Validates if the URL is a valid Google Sheets edit URL.
 
     Args:
-        url (str): A URL a ser validada
+        url (str): The URL to be validated
 
     Returns:
-        str: URL no formato TSV válido para download
+        str: URL in valid TSV format for download
 
     Raises:
-        ValueError: Se a URL for inválida ou inacessível
-        URLError: Se houver problemas de conectividade de rede
-        HTTPError: Se o servidor retornar um erro de status
+        ValueError: If the URL is invalid or inaccessible
+        URLError: If there are network connectivity issues
+        HTTPError: If the server returns a status error
     """
     import socket
     import urllib.error
     import urllib.request
 
-    # Verificar se a URL não está vazia
+    # Check if URL is not empty
     if not url or not isinstance(url, str):
-        raise ValueError("URL deve ser uma string não vazia")
+        raise ValueError("URL must be a non-empty string")
 
-    # Validar formato da URL
+    # Validate URL format
     if not url.startswith(("http://", "https://")):
-        raise ValueError("URL inválida: Deve começar com http:// ou https://")
+        raise ValueError("Invalid URL: Must start with http:// or https://")
 
-    # Se a URL já está no formato TSV, retornar diretamente
+    # If URL is already in TSV format, return it directly
     if "/export?format=tsv" in url:
         return url
 
-    # Converter para formato TSV
+    # Convert to TSV format
     try:
         tsv_url = convert_edit_url_to_tsv(url)
     except ValueError as e:
-        raise ValueError(f"URL inválida: {str(e)}")
+        raise ValueError(f"Invalid URL: {str(e)}")
 
-    # Testar acessibilidade da URL TSV com timeout e tratamento de erros adequado
+    # Test TSV URL accessibility with timeout and proper error handling
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Sheets2Anki) AnkiAddon"  # User agent mais específico
+            "User-Agent": "Mozilla/5.0 (Sheets2Anki) AnkiAddon"  # More specific user agent
         }
         request = urllib.request.Request(tsv_url, headers=headers)
 
-        # USAR TIMEOUT LOCAL ao invés de global para evitar conflitos
-        response = urllib.request.urlopen(request, timeout=30)  # ✅ TIMEOUT LOCAL
+        # USE LOCAL TIMEOUT instead of global it to avoid conflicts
+        response = urllib.request.urlopen(request, timeout=30)  # ✅ LOCAL TIMEOUT
 
         if response.getcode() != 200:
             raise ValueError(
-                f"URL retornou código de status inesperado: {response.getcode()}"
+                f"URL returned unexpected status code: {response.getcode()}"
             )
 
-        # Validar tipo de conteúdo
+        # Validate content type
         content_type = response.headers.get("Content-Type", "").lower()
         if not any(
             valid_type in content_type
             for valid_type in ["text/tab-separated-values", "text/plain", "text/csv"]
         ):
-            raise ValueError(f"URL não retorna conteúdo TSV (recebido {content_type})")
+            raise ValueError(f"URL does not return TSV content (received {content_type})")
 
-        # Retornar a URL TSV válida
+        # Return valid TSV URL
         return tsv_url
 
     except socket.timeout:
         raise ValueError(
-            "Timeout de conexão ao acessar a URL (30s). Verifique sua conexão ou tente novamente."
+            "Connection timeout when accessing the URL (30s). Check your connection or try again."
         )
     except urllib.error.HTTPError as e:
         if e.code == 400:
             raise ValueError(
-                f"Erro HTTP 400: A planilha não está acessível publicamente.\n\n"
-                f"Para corrigir:\n"
-                f"1. Abra a planilha no Google Sheets\n"
-                f"2. Clique em 'Compartilhar'\n"
-                f"3. Mude o acesso para 'Qualquer pessoa com o link'\n"
-                f"4. Defina a permissão como 'Visualizador'\n\n"
-                f"Alternativamente: Arquivo → Compartilhar → Publicar na web"
+                f"HTTP Error 400: The spreadsheet is not publicly accessible.\n\n"
+                f"To fix:\n"
+                f"1. Open the spreadsheet in Google Sheets\n"
+                f"2. Click 'Share'\n"
+                f"3. Change access to 'Anyone with the link'\n"
+                f"4. Set permission to 'Viewer'\n\n"
+                f"Alternatively: File → Share → Publish to the web"
             )
         else:
-            raise ValueError(f"Erro HTTP {e.code}: {e.reason}")
+            raise ValueError(f"HTTP Error {e.code}: {e.reason}")
     except urllib.error.URLError as e:
         if isinstance(e.reason, socket.timeout):
             raise ValueError(
-                "Timeout de conexão ao acessar a URL. Verifique sua conexão ou tente novamente."
+                "Connection timeout when accessing the URL. Check your connection or try again."
             )
         elif isinstance(e.reason, socket.gaierror):
-            raise ValueError("Erro de DNS. Verifique sua conexão com a internet.")
+            raise ValueError("DNS Error. Check your internet connection.")
         else:
             raise ValueError(
-                f"Erro ao acessar URL - Problema de rede ou servidor: {str(e.reason)}"
+                f"Error accessing URL - Network or server problem: {str(e.reason)}"
             )
     except Exception as e:
-        raise ValueError(f"Erro inesperado ao acessar URL: {str(e)}")
+        raise ValueError(f"Unexpected error accessing URL: {str(e)}")
 
 
 # ========================================================================================
-# EXCEÇÕES CUSTOMIZADAS (consolidado de exceptions.py)
+# CUSTOM EXCEPTIONS (consolidated from exceptions.py)
 # ========================================================================================
 
 
@@ -2316,91 +2334,91 @@ class ConfigurationError(Exception):
 
 
 # =============================================================================
-# FUNÇÕES DE SUBDECK (movidas para evitar import circular)
+# SUBDECK FUNCTIONS (moved to avoid circular import)
 # =============================================================================
 
 
 def get_subdeck_name(main_deck_name, fields, student=None):
     """
-    Gera o nome do subdeck baseado no deck principal e nos campos IMPORTANCIA, TOPICO, SUBTOPICO e CONCEITO.
+    Generates subdeck name based on main deck and IMPORTANCE, TOPIC, SUBTOPIC and CONCEPT fields.
 
     Args:
-        main_deck_name (str): Nome do deck principal
-        fields (dict): Campos da nota com IMPORTANCIA, TOPICO, SUBTOPICO e CONCEITO
-        student (str, optional): Nome do aluno para incluir na hierarquia
+        main_deck_name (str): Main deck name
+        fields (dict): Note fields with IMPORTANCE, TOPIC, SUBTOPIC and CONCEPT
+        student (str, optional): Student name to include in hierarchy
 
     Returns:
-        str: Nome completo do subdeck no formato "DeckPrincipal::[Aluno::]Importancia::Topico::Subtopico::Conceito"
+        str: Full subdeck name in the format "MainDeck::[Student::]Importance::Topic::Subtopic::Concept"
     """
     from . import templates_and_definitions as cols
 
-    # Obter valores dos campos, usando valores padrão se estiverem vazios
-    importancia = fields.get(cols.hierarquia_1, "").strip() or cols.DEFAULT_IMPORTANCE
-    topico = fields.get(cols.hierarquia_2, "").strip() or cols.DEFAULT_TOPIC
-    subtopico = fields.get(cols.hierarquia_3, "").strip() or cols.DEFAULT_SUBTOPIC
-    conceito = fields.get(cols.hierarquia_4, "").strip() or cols.DEFAULT_CONCEPT
+    # Get field values, using default values if empty
+    importancia = fields.get(cols.hierarchy_1, "").strip() or cols.DEFAULT_IMPORTANCE
+    topico = fields.get(cols.hierarchy_2, "").strip() or cols.DEFAULT_TOPIC
+    subtopico = fields.get(cols.hierarchy_3, "").strip() or cols.DEFAULT_SUBTOPIC
+    conceito = fields.get(cols.hierarchy_4, "").strip() or cols.DEFAULT_CONCEPT
 
-    # Criar hierarquia completa de subdecks
+    # Create full subdeck hierarchy
     if student:
-        # Com aluno: Deck::Aluno::Importancia::Topico::Subtopico::Conceito
+        # With student: Deck::Student::Importance::Topic::Subtopic::Concept
         return f"{main_deck_name}::{student}::{importancia}::{topico}::{subtopico}::{conceito}"
     else:
-        # Sem aluno: Deck::Importancia::Topico::Subtopico::Conceito (compatibilidade)
+        # Without student: Deck::Importance::Topic::Subtopic::Concept (compatibility)
         return f"{main_deck_name}::{importancia}::{topico}::{subtopico}::{conceito}"
 
 
 def ensure_subdeck_exists(deck_name):
     """
-    Garante que um subdeck existe, criando-o se necessário.
+    Ensures that a subdeck exists, creating it if necessary.
 
-    Esta função suporta nomes hierárquicos como "Deck::Subdeck::Subsubdeck".
+    This function supports hierarchical names like "Deck::Subdeck::Subsubdeck".
 
     Args:
-        deck_name (str): Nome completo do deck/subdeck
+        deck_name (str): Full deck/subdeck name
 
     Returns:
-        int: ID do deck/subdeck
+        int: Deck/subdeck ID
 
     Raises:
-        RuntimeError: Se mw não estiver disponível
+        RuntimeError: If mw is not available
     """
     if not mw or not hasattr(mw, "col") or not mw.col:
-        raise RuntimeError("Anki main window (mw) não está disponível")
+        raise RuntimeError("Anki main window (mw) is not available")
 
-    # Verificar se o deck já existe
+    # Check if deck already exists
     did = mw.col.decks.id_for_name(deck_name)
     if did is not None:
         return did
 
-    # Se não existe, criar o deck e todos os decks pai necessários
+    # If it doesn't exist, create deck and all necessary parent decks
     return mw.col.decks.id(deck_name)
 
 
 def move_note_to_subdeck(note_id, subdeck_id):
     """
-    Move uma nota para um subdeck específico.
+    Moves a note to a specific subdeck.
 
     Args:
-        note_id (int): ID da nota a ser movida
-        subdeck_id (int): ID do subdeck de destino
+        note_id (int): ID of the note to move
+        subdeck_id (int): Destination subdeck ID
 
     Returns:
-        bool: True se a operação foi bem-sucedida, False caso contrário
+        bool: True if operation was successful, False otherwise
 
     Raises:
-        RuntimeError: Se mw não estiver disponível
+        RuntimeError: If mw is not available
     """
     if not mw or not hasattr(mw, "col") or not mw.col:
-        raise RuntimeError("Anki main window (mw) não está disponível")
+        raise RuntimeError("Anki main window (mw) is not available")
 
     try:
-        # Obter a nota
+        # Get note
         note = mw.col.get_note(note_id)
 
-        # Obter todos os cards da nota usando busca por ID de nota
+        # Get all cards of the note using note ID search
         card_ids = mw.col.find_cards(f"nid:{note_id}")
 
-        # Mover cada card para o subdeck
+        # Move each card to subdeck
         for card_id in card_ids:
             card = mw.col.get_card(card_id)
             card.did = subdeck_id
@@ -2408,22 +2426,22 @@ def move_note_to_subdeck(note_id, subdeck_id):
 
         return True
     except Exception as e:
-        print(f"Erro ao mover nota para subdeck: {e}")
+        add_debug_message(f"Error moving note to subdeck: {e}", "SUBDECK")
         return False
 
 
 def remove_empty_subdecks(remote_decks):
     """
-    Remove subdecks vazios após a sincronização.
+    Removes empty subdecks after synchronization.
 
-    Esta função verifica todos os subdecks dos decks remotos e remove aqueles
-    que não contêm nenhuma nota ou card.
+    This function checks all subdecks of remote decks and removes those
+    that contain no notes or cards.
 
     Args:
-        remote_decks (dict): Dicionário de decks remotos
+        remote_decks (dict): Remote decks dictionary
 
     Returns:
-        int: Número de subdecks vazios removidos
+        int: Number of removed empty subdecks
     """
     if not mw or not hasattr(mw, "col") or not mw.col:
         return 0
@@ -2431,7 +2449,7 @@ def remove_empty_subdecks(remote_decks):
     removed_count = 0
     processed_decks = set()
 
-    # Coletar todos os decks principais para verificar seus subdecks
+    # Collect all main decks to check their subdecks
     main_deck_ids = []
     for deck_info in remote_decks.values():
         local_deck_id = deck_info.get("local_deck_id")
@@ -2439,7 +2457,7 @@ def remove_empty_subdecks(remote_decks):
             main_deck_ids.append(local_deck_id)
             processed_decks.add(local_deck_id)
 
-    # Para cada deck principal, verificar seus subdecks
+    # For each main deck, check its subdecks
     for local_deck_id in main_deck_ids:
         deck = mw.col.decks.get(local_deck_id)
         if not deck:
@@ -2447,29 +2465,29 @@ def remove_empty_subdecks(remote_decks):
 
         main_deck_name = deck["name"]
 
-        # Encontrar todos os subdecks deste deck principal
+        # Find all subdecks of this main deck
         all_decks = mw.col.decks.all_names_and_ids()
         subdecks = [d for d in all_decks if d.name.startswith(main_deck_name + "::")]
 
-        # Ordenar subdecks do mais profundo para o menos profundo para evitar problemas de dependência
+        # Sort subdecks from deepest to shallowest to avoid dependency problems
         subdecks.sort(key=lambda d: d.name.count("::"), reverse=True)
 
-        # Verificar cada subdeck
+        # Check each subdeck
         for subdeck in subdecks:
-            # Contar cards no subdeck
+            # Count cards in subdeck
             escaped_subdeck_name = subdeck.name.replace('"', '\\"')
             card_count = len(mw.col.find_cards(f'deck:"{escaped_subdeck_name}"'))
 
-            # Se o subdeck estiver vazio, removê-lo
+            # If subdeck is empty, remove it
             if card_count == 0:
                 try:
-                    # Converter o ID para o tipo esperado pelo Anki
+                    # Convert ID to type expected by Anki
                     subdeck_id = mw.col.decks.id(subdeck.name)
                     if subdeck_id is not None:
                         mw.col.decks.remove([subdeck_id])
                         removed_count += 1
                 except Exception as e:
-                    # Ignorar erros na remoção de subdecks
-                    print(f"Erro ao remover subdeck: {e}")
+                    # Ignore subdeck removal errors
+                    add_debug_message(f"Error removing subdeck: {e}", "SUBDECK")
 
     return removed_count

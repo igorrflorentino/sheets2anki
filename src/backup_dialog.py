@@ -1,954 +1,861 @@
 """
-Interface de diálogo simplificada para funcionalidades de backup
+Modern Backup & Restore Dialog for Sheets2Anki.
+
+This module provides a comprehensive dialog for managing backups with:
+- Simple backup (configuration only)
+- Complete backup (configuration + deck data)
+- Restore functionality
+- Auto-backup configuration
 """
 
+import os
 from datetime import datetime
 from pathlib import Path
 
-from aqt.utils import showInfo, showWarning, showCritical
-
-try:
-    from .compat import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, QTextEdit, QGroupBox, QProgressDialog, QCheckBox, QSpinBox, QLineEdit, WINDOW_MODAL, mw
-    from .backup_system import SimplifiedBackupManager
-    from .config_manager import get_auto_backup_config, set_auto_backup_config, get_auto_backup_directory
-except ImportError:
-    # Para testes independentes
-    from compat import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, QTextEdit, QGroupBox, QProgressDialog, QCheckBox, QSpinBox, QLineEdit, WINDOW_MODAL, mw
-    from backup_system import SimplifiedBackupManager
-    from config_manager import get_auto_backup_config, set_auto_backup_config, get_auto_backup_directory
+from .compat import (
+    mw,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFileDialog,
+    QFrame,
+    QMessageBox,
+    QCheckBox,
+    QSpinBox,
+    QLineEdit,
+    QScrollArea,
+    QWidget,
+    QButtonGroup,
+    QRadioButton,
+    safe_exec_dialog,
+    Palette_Window,
+    AlignCenter,
+    showInfo,
+    showWarning,
+    ScrollBarAlwaysOff,
+)
+from .backup_system import BackupManager
+from .config_manager import (
+    get_auto_backup_config,
+    set_auto_backup_config,
+    get_auto_backup_directory,
+)
 
 
 class BackupDialog(QDialog):
-    """Diálogo simplificado para backup e restauração com suporte a dark mode"""
+    """
+    Modern dialog for managing backups (create, restore, and auto-backup configuration).
+    """
 
-    def __init__(self):
-        super().__init__()
-        self.backup_manager = SimplifiedBackupManager()
-        self.setWindowTitle("Backup Sheets2Anki")
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Backup & Restore - Sheets2Anki")
+        self.setMinimumSize(700, 750)
+        self.resize(750, 800)
         
-        # Detectar tema
-        self.is_dark_mode = self._detect_dark_mode()
-        self.setup_ui()
-        self._apply_theme()
+        self.backup_manager = BackupManager()
         
-        # Calcular e aplicar tamanho ideal automaticamente
-        self._auto_resize_to_content()
-
-    def _auto_resize_to_content(self):
-        """Calcula e aplica automaticamente o tamanho ideal da janela baseado no conteúdo"""
-        try:
-            # Método 1: Usar sizeHint do Qt (tamanho sugerido pelo layout)
-            layout = self.layout()
-            if layout:
-                layout.activate()
-            self.adjustSize()
-            suggested_size = self.sizeHint()
-            
-            # Método 2: Calcular baseado em métricas de fonte e conteúdo
-            optimal_width, optimal_height = self._calculate_optimal_size()
-            
-            # Combinar os dois métodos (usar o maior)
-            base_width = max(suggested_size.width(), optimal_width)
-            base_height = max(suggested_size.height(), optimal_height)
-            
-            # Adicionar margens de segurança
-            safety_margin_width = 30
-            safety_margin_height = 50
-            
-            ideal_width = base_width + safety_margin_width
-            ideal_height = base_height + safety_margin_height
-            
-            # Ajustar para DPI scaling
-            ideal_width, ideal_height = self._adjust_for_dpi_scaling(ideal_width, ideal_height)
-            
-            # Verificar limites da tela
-            screen_geometry = self._get_screen_geometry()
-            max_width = int(screen_geometry.width() * 0.7)  # 70% da largura da tela
-            max_height = int(screen_geometry.height() * 0.8)  # 80% da altura da tela
-            
-            # Aplicar limites (mínimo e máximo) - ajustado para layout de 3 colunas
-            final_width = max(1000, min(ideal_width, max_width))  # largura mínima maior para 3 colunas
-            final_height = max(550, min(ideal_height, max_height))  # altura mínima reduzida (seções lado a lado)
-            
-            # Definir tamanho e redimensionar
-            self.setMinimumSize(final_width, final_height)
-            self.resize(final_width, final_height)
-            
-            print(f"[DEBUG] Auto-resize: {final_width}x{final_height}")
-            print(f"[DEBUG] Baseado em: sizeHint={suggested_size.width()}x{suggested_size.height()}, optimal={optimal_width}x{optimal_height}")
-            
-        except Exception as e:
-            # Fallback robusto em caso de erro - ajustado para layout de 3 colunas
-            print(f"[DEBUG] Erro no auto-resize, usando tamanho padrão: {e}")
-            self.setMinimumSize(1000, 600)
-            self.resize(1000, 600)
-
-    def _get_screen_geometry(self):
-        """Obtém a geometria da tela onde a janela será exibida"""
-        try:
-            from aqt.qt import QApplication
-            screen = QApplication.primaryScreen()
-            if screen:
-                return screen.availableGeometry()
-        except:
-            pass
+        # Detect dark mode
+        palette = self.palette()
+        bg_color = palette.color(Palette_Window)
+        self.is_dark_mode = bg_color.lightness() < 128
         
-        # Fallback para tamanho padrão
-        from aqt.qt import QRect
-        return QRect(0, 0, 1920, 1080)
+        self._setup_colors()
+        self._setup_ui()
+        self._apply_styles()
+        self._load_current_settings()
 
-    def _calculate_optimal_size(self):
-        """Calcula o tamanho ótimo baseado em múltiplos fatores"""
-        try:
-            # Obter métricas de fonte atual
-            font_metrics = self.fontMetrics()
-            font_height = font_metrics.height()
-            char_width = font_metrics.averageCharWidth()
-            
-            # Calcular baseado no layout lado a lado com 3 colunas
-            # Largura: três seções lado a lado + margens
-            section_width = 320  # largura de cada seção (reduzida para 3 colunas)
-            estimated_width = max(
-                section_width * 3 + 90,  # três seções + espaçamento + margens
-                len("Sistema simplificado que preserva TODOS os seus dados:") * char_width,
-                1000  # largura mínima para layout de 3 colunas
-            )
-            
-            # Calcular altura baseada no número de elementos (layout vertical)
-            title_height = font_height * 2  # título + margem
-            description_height = font_height * 4  # 3 linhas + margem
-            # Com layout de 3 colunas lado a lado, a altura é a da seção mais alta
-            max_section_height = font_height * 9  # seções lado a lado (altura da maior - 3 colunas)
-            log_section_height = 120  # área de log fixa
-            buttons_height = font_height * 3  # botão fechar + margens
-            
-            estimated_height = (title_height + description_height + 
-                              max_section_height + 
-                              log_section_height + buttons_height + 80)  # margem para 3 colunas
-            
-            return estimated_width, estimated_height
-            
-        except Exception as e:
-            print(f"[DEBUG] Erro no cálculo ótimo: {e}")
-            return 550, 500  # fallback
-
-    def _adjust_for_dpi_scaling(self, width, height):
-        """Ajusta o tamanho para diferentes escalas de DPI"""
-        try:
-            from aqt.qt import QApplication
-            screen = QApplication.primaryScreen()
-            if screen:
-                dpi_ratio = screen.devicePixelRatio()
-                if dpi_ratio > 1.0:
-                    # Para telas de alta resolução, ajustar proporcionalmente
-                    width = int(width * min(dpi_ratio, 1.5))  # limitar o ajuste
-                    height = int(height * min(dpi_ratio, 1.5))
-            
-            return width, height
-        except:
-            return width, height
-
-    def _detect_dark_mode(self) -> bool:
-        """Detecta se o Anki está usando tema escuro"""
-        try:
-            if mw and hasattr(mw, 'pm') and hasattr(mw.pm, 'night_mode'):
-                return mw.pm.night_mode()
-            # Fallback: verificar cor de fundo da janela principal
-            if mw:
-                palette = mw.palette()
-                bg_color = palette.color(palette.Window)
-                # Se a cor de fundo for escura, assumir dark mode
-                return bg_color.lightness() < 128
-        except:
-            pass
-        return False
-    
-    def _get_theme_colors(self) -> dict:
-        """Retorna cores baseadas no tema atual"""
+    def _setup_colors(self):
+        """Sets up color scheme based on theme."""
         if self.is_dark_mode:
-            return {
-                'bg_primary': '#2b2b2b',
-                'bg_secondary': '#3c3c3c', 
-                'bg_accent': '#404040',
-                'text_primary': '#ffffff',
-                'text_secondary': '#cccccc',
-                'text_muted': '#999999',
-                'primary': '#4CAF50',
-                'primary_hover': '#45a049',
-                'success': '#4CAF50',
-                'success_hover': '#45a049',
-                'info': '#2196F3',
-                'info_hover': '#1976D2',
-                'danger': '#f44336', 
-                'danger_hover': '#da190b',
-                'border': '#555555',
-                'log_bg': '#1e1e1e',
-                'warning': '#ff9800'
+            self.colors = {
+                'bg': '#1e1e1e',
+                'card_bg': '#2d2d2d',
+                'text': '#ffffff',
+                'text_secondary': '#b0b0b0',
+                'text_muted': '#808080',
+                'border': '#404040',
+                'accent_primary': '#2196F3',
+                'accent_success': '#4CAF50',
+                'accent_warning': '#FF9800',
+                'accent_danger': '#e53935',
+                'accent_purple': '#9C27B0',
+                'button_bg': '#3d3d3d',
+                'button_hover': '#4a4a4a',
+                'input_bg': '#383838',
             }
         else:
-            return {
-                'bg_primary': '#ffffff',
-                'bg_secondary': '#f5f5f5',
-                'bg_accent': '#f0f0f0', 
-                'text_primary': '#000000',
-                'text_secondary': '#333333',
-                'text_muted': '#666666',
-                'primary': '#4CAF50',
-                'primary_hover': '#45a049',
-                'success': '#4CAF50',
-                'success_hover': '#45a049',
-                'info': '#2196F3',
-                'info_hover': '#1976D2',
-                'danger': '#f44336',
-                'danger_hover': '#da190b', 
-                'border': '#dddddd',
-                'log_bg': '#fafafa',
-                'warning': '#ff5722'
+            self.colors = {
+                'bg': '#f5f5f5',
+                'card_bg': '#ffffff',
+                'text': '#1a1a1a',
+                'text_secondary': '#666666',
+                'text_muted': '#999999',
+                'border': '#d0d0d0',
+                'accent_primary': '#1976D2',
+                'accent_success': '#4CAF50',
+                'accent_warning': '#FF9800',
+                'accent_danger': '#d32f2f',
+                'accent_purple': '#7B1FA2',
+                'button_bg': '#e0e0e0',
+                'button_hover': '#d0d0d0',
+                'input_bg': '#fafafa',
             }
 
-    def setup_ui(self):
-        """Configura a interface simplificada"""
-        layout = QVBoxLayout()
-        colors = self._get_theme_colors()
-
-        # Título
-        title = QLabel("🔄 Sistema de Backup Sheets2Anki")
-        title.setStyleSheet(f"""
-            font-size: 18px; 
-            font-weight: bold; 
-            margin: 10px; 
-            text-align: center;
-            color: {colors['text_primary']};
-        """)
-        layout.addWidget(title)
-
-        # Descrição
-        desc = QLabel(
-            "Sistema simplificado que preserva TODOS os seus dados:\n\n"
-            "✅ Decks e notas (incluindo histórico de estudo)\n"
-            "✅ Configurações e preferências do addon\n"
-            "✅ Ligações entre decks remotos e locais\n"
-            "✅ Note types e templates customizados"
-        )
-        desc.setWordWrap(True)
-        desc.setStyleSheet(f"""
-            margin: 10px; 
-            padding: 12px; 
-            background-color: {colors['bg_accent']}; 
-            border-radius: 8px;
-            color: {colors['text_secondary']};
-            border: 1px solid {colors['border']};
-        """)
-        layout.addWidget(desc)
-
-        
-        # Seção de Gerar Backup
-        backup_group = QGroupBox("� Gerar Backup")
-        backup_group.setStyleSheet(f"""
-            QGroupBox {{ 
-                font-weight: bold; 
-                margin-top: 10px;
-                color: {colors['text_primary']};
-                border: 2px solid {colors['border']};
-                border-radius: 8px;
-                padding-top: 10px;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }}
-        """)
-        backup_layout = QVBoxLayout()
-
-        backup_desc = QLabel(
-            "Escolha o tipo de backup que deseja criar:"
-        )
-        backup_desc.setWordWrap(True)
-        backup_desc.setStyleSheet(f"margin: 10px; color: {colors['text_secondary']};")
-        backup_layout.addWidget(backup_desc)
-
-        # Backup completo
-        full_backup_desc = QLabel(
-            "🔄 Backup Completo:\n"
-            "• Inclui todas as notas e cards do deck\n"
-            "• Inclui todas as configurações do addon\n"
-            "• Para restauração completa em caso de perda de dados"
-        )
-        full_backup_desc.setWordWrap(True)
-        full_backup_desc.setStyleSheet(f"""
-            margin: 5px; 
-            color: {colors['text_secondary']}; 
-            padding: 10px;
-            background-color: {colors['bg_accent']};
-            border-radius: 5px;
-            border: 1px solid {colors['border']};
-        """)
-        backup_layout.addWidget(full_backup_desc)
-
-        backup_btn = QPushButton("🔄 Gerar Backup Completo")
-        backup_btn.clicked.connect(self.create_backup)
-        backup_btn.setStyleSheet(f"""
-            QPushButton {{ 
-                padding: 12px; 
-                font-size: 14px; 
-                font-weight: bold; 
-                background-color: {colors['success']}; 
-                color: white; 
-                border-radius: 8px; 
-                border: none;
-                margin-bottom: 10px;
-            }} 
-            QPushButton:hover {{ 
-                background-color: {colors['success_hover']}; 
-            }}
-            QPushButton:pressed {{
-                background-color: #3d8b40;
-            }}
-        """)
-        backup_layout.addWidget(backup_btn)
-
-        # Backup só de configurações
-        config_backup_desc = QLabel(
-            "⚙️ Backup de Configurações:\n"
-            "• Inclui apenas as configurações do addon\n"
-            "• Não inclui notas nem cards\n"
-            "• Para recuperar configurações após reinstalar o addon"
-        )
-        config_backup_desc.setWordWrap(True)
-        config_backup_desc.setStyleSheet(f"""
-            margin: 5px; 
-            color: {colors['text_secondary']}; 
-            padding: 10px;
-            background-color: {colors['bg_accent']};
-            border-radius: 5px;
-            border: 1px solid {colors['border']};
-        """)
-        backup_layout.addWidget(config_backup_desc)
-
-        config_backup_btn = QPushButton("⚙️ Gerar Backup de Configurações")
-        config_backup_btn.clicked.connect(self.create_config_backup)
-        config_backup_btn.setStyleSheet(f"""
-            QPushButton {{ 
-                padding: 12px; 
-                font-size: 14px; 
-                font-weight: bold; 
-                background-color: {colors['info']}; 
-                color: white; 
-                border-radius: 8px; 
-                border: none;
-            }} 
-            QPushButton:hover {{ 
-                background-color: {colors['info_hover']}; 
-            }}
-            QPushButton:pressed {{
-                background-color: #1976d2;
-            }}
-        """)
-        backup_layout.addWidget(config_backup_btn)
-
-        backup_group.setLayout(backup_layout)
-
-        # Seção de Restaurar Backup
-        restore_group = QGroupBox("📥 Recuperar Backup")
-        restore_group.setStyleSheet(f"""
-            QGroupBox {{ 
-                font-weight: bold; 
-                margin-top: 10px;
-                color: {colors['text_primary']};
-                border: 2px solid {colors['border']};
-                border-radius: 8px;
-                padding-top: 10px;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }}
-        """)
-        restore_layout = QVBoxLayout()
-
-        restore_main_desc = QLabel(
-            "Escolha o tipo de recuperação:"
-        )
-        restore_main_desc.setWordWrap(True)
-        restore_main_desc.setStyleSheet(f"margin: 10px; color: {colors['text_secondary']};")
-        restore_layout.addWidget(restore_main_desc)
-
-        # Restauração completa
-        restore_desc = QLabel(
-            "⚠️ RECUPERAÇÃO COMPLETA (DESTRUTIVA):\n"
-            "• Remove completamente o deck atual 'Sheets2Anki'\n"
-            "• Restaura o estado exato do backup\n"
-            "• Inclui todas as configurações e dados"
-        )
-        restore_desc.setWordWrap(True)
-        restore_desc.setStyleSheet(f"""
-            margin: 5px; 
-            color: {colors['warning']}; 
-            font-weight: bold;
-            padding: 10px;
-            background-color: {colors['bg_accent']};
-            border-radius: 5px;
-            border: 1px solid {colors['warning']};
-        """)
-        restore_layout.addWidget(restore_desc)
-
-        restore_btn = QPushButton("📥 Recuperação Completa")
-        restore_btn.clicked.connect(self.restore_backup)
-        restore_btn.setStyleSheet(f"""
-            QPushButton {{ 
-                padding: 12px; 
-                font-size: 14px; 
-                font-weight: bold; 
-                background-color: {colors['danger']}; 
-                color: white; 
-                border-radius: 8px; 
-                border: none;
-                margin-bottom: 10px;
-            }} 
-            QPushButton:hover {{ 
-                background-color: {colors['danger_hover']}; 
-            }}
-            QPushButton:pressed {{
-                background-color: #c62828;
-            }}
-        """)
-        restore_layout.addWidget(restore_btn)
-
-        # Restauração só de configurações
-        config_restore_desc = QLabel(
-            "🔧 RECUPERAÇÃO DE CONFIGURAÇÕES (SEGURA):\n"
-            "• Restaura apenas as configurações do addon\n"
-            "• NÃO altera nenhum dado do Anki\n"
-            "• Ideal após reinstalar o addon"
-        )
-        config_restore_desc.setWordWrap(True)
-        config_restore_desc.setStyleSheet(f"""
-            margin: 5px; 
-            color: {colors['info']}; 
-            font-weight: bold;
-            padding: 10px;
-            background-color: {colors['bg_accent']};
-            border-radius: 5px;
-            border: 1px solid {colors['info']};
-        """)
-        restore_layout.addWidget(config_restore_desc)
-
-        config_restore_btn = QPushButton("🔧 Recuperar Apenas Configurações")
-        config_restore_btn.clicked.connect(self.restore_config_only)
-        config_restore_btn.setStyleSheet(f"""
-            QPushButton {{ 
-                padding: 12px; 
-                font-size: 14px; 
-                font-weight: bold; 
-                background-color: {colors['info']}; 
-                color: white; 
-                border-radius: 8px; 
-                border: none;
-            }} 
-            QPushButton:hover {{ 
-                background-color: {colors['info_hover']}; 
-            }}
-            QPushButton:pressed {{
-                background-color: #1976d2;
-            }}
-        """)
-        restore_layout.addWidget(config_restore_btn)
-
-        restore_group.setLayout(restore_layout)
-
-        # Seção de Configurações de Backup Automático
-        auto_backup_group = QGroupBox("⚙️ Backup Automático")
-        auto_backup_group.setStyleSheet(f"""
-            QGroupBox {{ 
-                font-weight: bold; 
-                margin-top: 10px;
-                color: {colors['text_primary']};
-                border: 2px solid {colors['border']};
-                border-radius: 8px;
-                padding-top: 10px;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }}
-        """)
-        auto_backup_layout = QVBoxLayout()
-
-        # Descrição
-        auto_backup_desc = QLabel(
-            "🔄 Backup automático a cada sincronização.\n"
-            "Configure onde salvar e quantos manter:"
-        )
-        auto_backup_desc.setWordWrap(True)
-        auto_backup_desc.setStyleSheet(f"margin: 5px; color: {colors['text_secondary']};")
-        auto_backup_layout.addWidget(auto_backup_desc)
-
-        # Layout para configurações
-        config_layout = QVBoxLayout()
-
-        # Habilitar/Desabilitar backup automático
-        self.auto_backup_enabled = QCheckBox("Habilitar backup automático")
-        self.auto_backup_enabled.setStyleSheet(f"""
-            QCheckBox {{
-                color: {colors['text_primary']};
-                font-weight: bold;
-            }}
-        """)
-        config_layout.addWidget(self.auto_backup_enabled)
-
-        # Diretório
-        dir_layout = QHBoxLayout()
-        dir_label = QLabel("Diretório:")
-        dir_label.setStyleSheet(f"color: {colors['text_primary']};")
-        dir_layout.addWidget(dir_label)
-
-        self.auto_backup_dir = QLineEdit()
-        self.auto_backup_dir.setPlaceholderText("Diretório padrão se vazio")
-        self.auto_backup_dir.setStyleSheet(f"""
-            QLineEdit {{
-                padding: 8px;
-                border: 1px solid {colors['border']};
-                border-radius: 4px;
-                background-color: {colors['bg_secondary']};
-                color: {colors['text_primary']};
-            }}
-        """)
-        dir_layout.addWidget(self.auto_backup_dir)
-
-        dir_browse_btn = QPushButton("📁 Procurar")
-        dir_browse_btn.clicked.connect(self.browse_auto_backup_directory)
-        dir_browse_btn.setStyleSheet(f"""
-            QPushButton {{
-                padding: 8px 12px;
-                background-color: {colors['info']};
-                color: white;
-                border-radius: 4px;
-                border: none;
-            }}
-            QPushButton:hover {{
-                background-color: {colors['info_hover']};
-            }}
-        """)
-        dir_layout.addWidget(dir_browse_btn)
-        config_layout.addLayout(dir_layout)
-
-        # Máximo de arquivos
-        max_files_layout = QHBoxLayout()
-        max_files_label = QLabel("Máximo de arquivos:")
-        max_files_label.setStyleSheet(f"color: {colors['text_primary']};")
-        max_files_layout.addWidget(max_files_label)
-
-        self.auto_backup_max_files = QSpinBox()
-        self.auto_backup_max_files.setMinimum(1)
-        self.auto_backup_max_files.setMaximum(200)
-        self.auto_backup_max_files.setValue(50)
-        self.auto_backup_max_files.setStyleSheet(f"""
-            QSpinBox {{
-                padding: 8px;
-                border: 1px solid {colors['border']};
-                border-radius: 4px;
-                background-color: {colors['bg_secondary']};
-                color: {colors['text_primary']};
-                min-width: 80px;
-            }}
-        """)
-        max_files_layout.addWidget(self.auto_backup_max_files)
-        max_files_layout.addStretch()
-        config_layout.addLayout(max_files_layout)
-
-        # Botões
-        buttons_layout = QHBoxLayout()
-        
-        save_config_btn = QPushButton("💾 Salvar")
-        save_config_btn.clicked.connect(self.save_auto_backup_config)
-        save_config_btn.setStyleSheet(f"""
-            QPushButton {{
-                padding: 8px 16px;
-                font-weight: bold;
-                background-color: {colors['primary']};
-                color: white;
-                border-radius: 4px;
-                border: none;
-            }}
-            QPushButton:hover {{
-                background-color: {colors['primary_hover']};
-            }}
-        """)
-        buttons_layout.addWidget(save_config_btn)
-
-        show_backups_btn = QPushButton("📁 Ver")
-        show_backups_btn.clicked.connect(self.show_auto_backups)
-        show_backups_btn.setStyleSheet(f"""
-            QPushButton {{
-                padding: 8px 16px;
-                background-color: {colors['info']};
-                color: white;
-                border-radius: 4px;
-                border: none;
-            }}
-            QPushButton:hover {{
-                background-color: {colors['info_hover']};
-            }}
-        """)
-        buttons_layout.addWidget(show_backups_btn)
-        buttons_layout.addStretch()
-
-        config_layout.addLayout(buttons_layout)
-        auto_backup_layout.addLayout(config_layout)
-        auto_backup_group.setLayout(auto_backup_layout)
-
-        # Layout horizontal para colocar as três seções lado a lado
-        sections_layout = QHBoxLayout()
-        sections_layout.setSpacing(15)  # espaçamento entre as seções (reduzido para 3 colunas)
-        sections_layout.addWidget(backup_group)
-        sections_layout.addWidget(restore_group)
-        sections_layout.addWidget(auto_backup_group)
-        
-        # Garantir que as três seções tenham largura igual no layout horizontal
-        sections_layout.setStretch(0, 1)  # backup_group
-        sections_layout.setStretch(1, 1)  # restore_group
-        sections_layout.setStretch(2, 1)  # auto_backup_group
-        
-        layout.addLayout(sections_layout)
-
-        # Carregar configurações atuais
-        self._load_auto_backup_config()
-
-        # Log area
-        log_group = QGroupBox("📋 Log de Operações")
-        log_group.setStyleSheet(f"""
-            QGroupBox {{ 
-                font-weight: bold; 
-                margin-top: 10px;
-                color: {colors['text_primary']};
-                border: 2px solid {colors['border']};
-                border-radius: 8px;
-                padding-top: 10px;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }}
-        """)
-        log_layout = QVBoxLayout()
-        self.log_text = QTextEdit()
-        self.log_text.setMaximumHeight(90)  # Reduzido de 120 para 90
-        self.log_text.setReadOnly(True)
-        self.log_text.setStyleSheet(f"""
-            background-color: {colors['log_bg']}; 
-            border: 1px solid {colors['border']};
-            color: {colors['text_secondary']};
-            border-radius: 5px;
-            padding: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-        """)
-        log_layout.addWidget(self.log_text)
-        log_group.setLayout(log_layout)
-        layout.addWidget(log_group)
-
-        # Botão fechar
-        close_btn = QPushButton("Fechar")
-        close_btn.clicked.connect(self.accept)
-        close_btn.setStyleSheet(f"""
-            QPushButton {{
-                padding: 10px; 
-                margin-top: 10px;
-                font-size: 13px;
-                background-color: {colors['bg_secondary']};
-                color: {colors['text_primary']};
-                border: 1px solid {colors['border']};
-                border-radius: 6px;
-            }}
-            QPushButton:hover {{
-                background-color: {colors['bg_accent']};
-            }}
-            QPushButton:pressed {{
-                background-color: {colors['border']};
-            }}
-        """)
-        layout.addWidget(close_btn)
-
-        self.setLayout(layout)
-    
-    def _apply_theme(self):
-        """Aplica o tema geral ao diálogo"""
-        colors = self._get_theme_colors()
+    def _apply_styles(self):
+        """Applies the main stylesheet."""
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: {colors['bg_primary']};
-                color: {colors['text_primary']};
+                background-color: {self.colors['bg']};
+                color: {self.colors['text']};
+            }}
+            QScrollArea {{
+                border: none;
+                background-color: transparent;
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background-color: transparent;
             }}
         """)
 
-    def log(self, message: str):
-        """Adiciona mensagem ao log e reajusta tamanho se necessário"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.append(f"[{timestamp}] {message}")
+    def _setup_ui(self):
+        """Sets up the dialog interface."""
+        main_layout = QVBoxLayout()
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Scrollable content area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(ScrollBarAlwaysOff)
         
-        # Verificar se o log está ficando muito cheio e reajustar
-        try:
-            text_content = self.log_text.toPlainText()
-            if text_content.count('\n') > 3:
-                self._maybe_readjust_size()
-        except:
-            pass  # Ignorar erro de verificação do log
+        scroll_widget = QWidget()
+        layout = QVBoxLayout(scroll_widget)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
 
-    def _maybe_readjust_size(self):
-        """Reajusta o tamanho da janela se o conteúdo aumentou significativamente"""
-        try:
-            current_height = self.height()
-            suggested_height = self.sizeHint().height()
-            
-            # Se o conteúdo sugerido é muito maior que o atual, reajustar
-            if suggested_height > current_height + 50:
-                new_height = min(suggested_height + 30, int(self._get_screen_geometry().height() * 0.8))
-                self.resize(self.width(), new_height)
-                print(f"[DEBUG] Reajustado altura para: {new_height}")
-        except Exception as e:
-            print(f"[DEBUG] Erro no reajuste dinâmico: {e}")
+        # Header section
+        layout.addWidget(self._create_header())
 
-    def create_backup(self):
-        """Cria um backup completo"""
-        # Escolher local para salvar
-        backup_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Salvar Backup Completo",
-            f"sheets2anki_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
-            "Arquivos ZIP (*.zip)"
+        # Manual Backup Section
+        layout.addWidget(self._create_manual_backup_section())
+
+        # Restore Section
+        layout.addWidget(self._create_restore_section())
+
+        # Auto-Backup Configuration Section
+        layout.addWidget(self._create_auto_backup_section())
+
+        # Backup Info Section
+        layout.addWidget(self._create_backup_info_section())
+
+        layout.addStretch()
+
+        scroll_area.setWidget(scroll_widget)
+        main_layout.addWidget(scroll_area)
+
+        # Bottom buttons
+        main_layout.addWidget(self._create_bottom_buttons())
+
+        self.setLayout(main_layout)
+
+    def _create_header(self):
+        """Creates the header section with gradient background."""
+        header_frame = QFrame()
+        header_frame.setObjectName("headerFrame")
+        header_frame.setStyleSheet(f"""
+            QFrame#headerFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {self.colors['accent_purple']}, 
+                    stop:1 {self.colors['accent_primary']});
+                border-radius: 12px;
+                padding: 5px;
+            }}
+            QFrame#headerFrame QLabel {{
+                background: transparent;
+                color: white;
+                border: none;
+            }}
+        """)
+        header_layout = QVBoxLayout(header_frame)
+        header_layout.setContentsMargins(20, 15, 20, 15)
+
+        title_label = QLabel("💾 Backup & Restore")
+        title_label.setStyleSheet("font-size: 20pt; font-weight: bold;")
+        header_layout.addWidget(title_label)
+
+        desc_label = QLabel(
+            "Protect your data by creating backups of your Sheets2Anki configuration and decks. "
+            "Enable automatic backups to run after each synchronization."
         )
+        desc_label.setStyleSheet("font-size: 12pt; opacity: 0.9;")
+        desc_label.setWordWrap(True)
+        header_layout.addWidget(desc_label)
 
-        if backup_path:
-            self.log("🔄 Iniciando criação de backup completo...")
-            
-            # Mostrar progresso
-            progress = QProgressDialog("Criando backup completo...", "Cancelar", 0, 0, self)
-            progress.setWindowModality(WINDOW_MODAL)
-            progress.show()
+        return header_frame
 
-            success = self.backup_manager.create_backup(backup_path)
-            progress.close()
+    def _create_manual_backup_section(self):
+        """Creates the manual backup section."""
+        section = self._create_section_frame("📦 Manual Backup", "Create a backup of your data now")
+        layout = section.layout()
 
-            if success:
-                self.log("✅ Backup criado com sucesso!")
-                showInfo(
-                    f"✅ Backup completo criado com sucesso!\n\n"
-                    f"📁 Local: {backup_path}\n\n"
-                    f"O arquivo contém:\n"
-                    f"• Deck .apkg com todas as notas e histórico\n"
-                    f"• Configurações completas do Sheets2Anki\n"
-                    f"• Metadados para restauração perfeita"
-                )
-            else:
-                self.log("❌ Erro ao criar backup")
+        # Backup type cards
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(15)
 
-    def create_config_backup(self):
-        """Cria um backup apenas das configurações"""
-        # Escolher local para salvar
-        backup_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Salvar Backup de Configurações",
-            f"sheets2anki_config_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
-            "Arquivos ZIP (*.zip)"
+        # Simple backup card
+        simple_card = self._create_action_card(
+            "⚙️ Simple Backup",
+            "Configuration files only",
+            "Backs up your addon settings, remote deck links, and student configurations. "
+            "Perfect for restoring after reinstalling the addon.",
+            self.colors['accent_primary'],
+            self._create_simple_backup
         )
+        cards_layout.addWidget(simple_card)
 
-        if backup_path:
-            self.log("⚙️ Iniciando criação de backup de configurações...")
-            
-            # Mostrar progresso
-            progress = QProgressDialog("Criando backup de configurações...", "Cancelar", 0, 0, self)
-            progress.setWindowModality(WINDOW_MODAL)
-            progress.show()
-
-            success = self.backup_manager.create_config_backup(backup_path)
-            progress.close()
-
-            if success:
-                self.log("✅ Backup de configurações criado com sucesso!")
-                showInfo(
-                    f"✅ Backup de configurações criado com sucesso!\n\n"
-                    f"📁 Local: {backup_path}\n\n"
-                    f"O arquivo contém:\n"
-                    f"• Configurações completas do Sheets2Anki\n"
-                    f"• Informações de decks remotos\n"
-                    f"• Metadados para religação automática\n\n"
-                    f"💡 Use este backup para restaurar apenas as\n"
-                    f"configurações após reinstalar o addon."
-                )
-            else:
-                self.log("❌ Erro ao criar backup de configurações")
-
-    def restore_backup(self):
-        """Restaura um backup"""
-        # Escolher arquivo de backup
-        backup_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Selecionar Arquivo de Backup",
-            "",
-            "Arquivos ZIP (*.zip)"
+        # Complete backup card
+        complete_card = self._create_action_card(
+            "📚 Complete Backup",
+            "Configuration + Deck Data",
+            "Backs up everything including your Sheets2Anki deck with all cards, "
+            "scheduling data, and media files.",
+            self.colors['accent_success'],
+            self._create_complete_backup
         )
+        cards_layout.addWidget(complete_card)
 
-        if backup_path:
-            self.log("🔄 Iniciando restauração de backup...")
-            
-            # Mostrar progresso
-            progress = QProgressDialog("Restaurando backup...", "Cancelar", 0, 0, self)
-            progress.setWindowModality(WINDOW_MODAL)
-            progress.show()
+        layout.addLayout(cards_layout)
+        return section
 
-            success = self.backup_manager.restore_backup(backup_path)
-            progress.close()
+    def _create_restore_section(self):
+        """Creates the restore section."""
+        section = self._create_section_frame("🔄 Restore Backup", "Recover from a previous backup")
+        layout = section.layout()
 
-            if success:
-                self.log("✅ Backup restaurado com sucesso!")
-                self.log("ℹ️ Reinicie o Anki para finalizar a restauração")
-            else:
-                self.log("❌ Erro ao restaurar backup")
+        # Restore type cards
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(15)
 
-    def restore_config_only(self):
-        """Restaura apenas as configurações de um backup"""
-        # Escolher arquivo de backup
-        backup_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Selecionar Arquivo de Backup para Recuperar Configurações",
-            "",
-            "Arquivos ZIP (*.zip)"
+        # Restore config only
+        config_card = self._create_action_card(
+            "🔧 Restore Settings",
+            "Configuration only",
+            "Restores addon settings and remote deck links without modifying "
+            "your Anki data. Creates a safety backup first.",
+            self.colors['accent_warning'],
+            self._restore_config_backup
         )
+        cards_layout.addWidget(config_card)
 
-        if backup_path:
-            self.log("🔧 Iniciando recuperação de configurações...")
-            
-            # Mostrar progresso
-            progress = QProgressDialog("Recuperando configurações...", "Cancelar", 0, 0, self)
-            progress.setWindowModality(WINDOW_MODAL)
-            progress.show()
+        # Full restore
+        full_card = self._create_action_card(
+            "📥 Full Restore",
+            "Complete data restore",
+            "Restores everything including deck data. This will replace "
+            "your current Sheets2Anki deck. Creates a safety backup first.",
+            self.colors['accent_danger'],
+            self._restore_full_backup
+        )
+        cards_layout.addWidget(full_card)
 
-            success = self.backup_manager.restore_config_only(backup_path)
-            progress.close()
+        layout.addLayout(cards_layout)
 
-            if success:
-                self.log("✅ Configurações recuperadas com sucesso!")
-                self.log("ℹ️ Reinicie o Anki para finalizar a aplicação das configurações")
-            else:
-                self.log("❌ Erro ao recuperar configurações")
+        # Warning message
+        warning_frame = QFrame()
+        warning_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.colors['accent_warning']}15;
+                border-left: 3px solid {self.colors['accent_warning']};
+                border-radius: 4px;
+                padding: 10px;
+            }}
+        """)
+        warning_layout = QHBoxLayout(warning_frame)
+        warning_label = QLabel(
+            "⚠️ <b>Important:</b> Before any restore operation, a safety backup of your current "
+            "state will be automatically created to prevent data loss."
+        )
+        warning_label.setStyleSheet(f"color: {self.colors['text']}; font-size: 12pt;")
+        warning_label.setWordWrap(True)
+        warning_layout.addWidget(warning_label)
+        layout.addWidget(warning_frame)
 
-    def _load_auto_backup_config(self):
-        """Carrega as configurações atuais de backup automático"""
-        try:
-            config = get_auto_backup_config()
-            
-            self.auto_backup_enabled.setChecked(config.get("enabled", True))
-            self.auto_backup_dir.setText(config.get("directory", ""))
-            self.auto_backup_max_files.setValue(config.get("max_files", 50))
-            
-        except Exception as e:
-            self.log(f"⚠️ Erro ao carregar configurações de backup automático: {e}")
+        return section
 
-    def browse_auto_backup_directory(self):
-        """Abre diálogo para escolher diretório de backup automático"""
+    def _create_auto_backup_section(self):
+        """Creates the auto-backup configuration section."""
+        section = self._create_section_frame(
+            "⏰ Automatic Backup", 
+            "Configure automatic backups after each sync"
+        )
+        layout = section.layout()
+
+        # Enable/disable toggle
+        enable_frame = QFrame()
+        enable_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.colors['input_bg']};
+                border-radius: 8px;
+                padding: 5px;
+            }}
+        """)
+        enable_layout = QHBoxLayout(enable_frame)
+        enable_layout.setContentsMargins(15, 10, 15, 10)
+
+        self.auto_backup_check = QCheckBox("Enable automatic backup after each sync")
+        self.auto_backup_check.setStyleSheet(f"""
+            QCheckBox {{
+                font-size: 12pt;
+                font-weight: bold;
+                color: {self.colors['text']};
+                spacing: 8px;
+            }}
+        """)
+        self.auto_backup_check.toggled.connect(self._on_auto_backup_toggled)
+        enable_layout.addWidget(self.auto_backup_check)
+        enable_layout.addStretch()
+        layout.addWidget(enable_frame)
+
+        # Auto backup type selection
+        type_frame = QFrame()
+        type_frame.setObjectName("autoTypeFrame")
+        type_frame.setStyleSheet(f"""
+            QFrame#autoTypeFrame {{
+                background-color: {self.colors['input_bg']};
+                border-radius: 8px;
+                padding: 10px;
+            }}
+        """)
+        type_layout = QVBoxLayout(type_frame)
+        type_layout.setSpacing(8)
+
+        type_label = QLabel("Backup type:")
+        type_label.setStyleSheet(f"font-size: 12pt; color: {self.colors['text_secondary']};")
+        type_layout.addWidget(type_label)
+
+        self.auto_type_group = QButtonGroup(self)
+        
+        type_buttons_layout = QHBoxLayout()
+        type_buttons_layout.setSpacing(20)
+
+        self.radio_simple = QRadioButton("⚙️ Simple (config only)")
+        self.radio_simple.setStyleSheet(f"""
+            QRadioButton {{
+                font-size: 12pt;
+                color: {self.colors['text']};
+            }}
+            QRadioButton::indicator {{
+                width: 18px;
+                height: 18px;
+            }}
+        """)
+        self.auto_type_group.addButton(self.radio_simple, 0)
+        type_buttons_layout.addWidget(self.radio_simple)
+
+        self.radio_complete = QRadioButton("📚 Complete (config + deck)")
+        self.radio_complete.setStyleSheet(f"""
+            QRadioButton {{
+                font-size: 12pt;
+                color: {self.colors['text']};
+            }}
+            QRadioButton::indicator {{
+                width: 18px;
+                height: 18px;
+            }}
+        """)
+        self.auto_type_group.addButton(self.radio_complete, 1)
+        type_buttons_layout.addWidget(self.radio_complete)
+
+        type_buttons_layout.addStretch()
+        type_layout.addLayout(type_buttons_layout)
+
+        self.auto_type_frame = type_frame
+        layout.addWidget(type_frame)
+
+        # Directory selection
+        dir_frame = QFrame()
+        dir_frame.setObjectName("dirFrame")
+        dir_frame.setStyleSheet(f"""
+            QFrame#dirFrame {{
+                background-color: {self.colors['input_bg']};
+                border-radius: 8px;
+                padding: 10px;
+            }}
+        """)
+        dir_layout = QVBoxLayout(dir_frame)
+        dir_layout.setSpacing(8)
+
+        dir_label = QLabel("📁 Backup directory:")
+        dir_label.setStyleSheet(f"font-size: 12pt; color: {self.colors['text_secondary']};")
+        dir_layout.addWidget(dir_label)
+
+        dir_input_layout = QHBoxLayout()
+        dir_input_layout.setSpacing(10)
+
+        self.dir_input = QLineEdit()
+        self.dir_input.setPlaceholderText("Default: Documents/Sheets2Anki/AutoBackups")
+        self.dir_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {self.colors['card_bg']};
+                border: none;
+                border-bottom: 2px solid {self.colors['border']};
+                border-radius: 0px;
+                padding: 10px 12px;
+                font-size: 12pt;
+                color: {self.colors['text']};
+            }}
+            QLineEdit:focus {{
+                border-bottom: 2px solid {self.colors['accent_primary']};
+            }}
+        """)
+        dir_input_layout.addWidget(self.dir_input)
+
+        browse_btn = QPushButton("Browse...")
+        browse_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.colors['button_bg']};
+                color: {self.colors['text']};
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-size: 12pt;
+            }}
+            QPushButton:hover {{
+                background-color: {self.colors['button_hover']};
+            }}
+        """)
+        browse_btn.clicked.connect(self._browse_directory)
+        dir_input_layout.addWidget(browse_btn)
+
+        dir_layout.addLayout(dir_input_layout)
+
+        self.dir_frame = dir_frame
+        layout.addWidget(dir_frame)
+
+        # Max files setting
+        max_frame = QFrame()
+        max_frame.setObjectName("maxFrame")
+        max_frame.setStyleSheet(f"""
+            QFrame#maxFrame {{
+                background-color: {self.colors['input_bg']};
+                border-radius: 8px;
+                padding: 10px;
+            }}
+        """)
+        max_layout = QHBoxLayout(max_frame)
+        max_layout.setContentsMargins(15, 10, 15, 10)
+
+        max_label = QLabel("🗂️ Keep maximum backup files:")
+        max_label.setStyleSheet(f"font-size: 12pt; color: {self.colors['text']};")
+        max_layout.addWidget(max_label)
+
+        self.max_files_spin = QSpinBox()
+        self.max_files_spin.setRange(5, 200)
+        self.max_files_spin.setValue(50)
+        self.max_files_spin.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {self.colors['card_bg']};
+                border: none;
+                border-bottom: 2px solid {self.colors['border']};
+                border-radius: 0px;
+                padding: 8px 12px;
+                font-size: 12pt;
+                color: {self.colors['text']};
+                min-width: 80px;
+            }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                width: 20px;
+                border: none;
+            }}
+        """)
+        max_layout.addWidget(self.max_files_spin)
+
+        max_layout.addStretch()
+
+        self.max_frame = max_frame
+        layout.addWidget(max_frame)
+
+        return section
+
+    def _create_backup_info_section(self):
+        """Creates the backup information section."""
+        section = self._create_section_frame("📊 Backup Status", "Current backup information")
+        layout = section.layout()
+
+        info_frame = QFrame()
+        info_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.colors['input_bg']};
+                border-radius: 8px;
+                padding: 15px;
+            }}
+        """)
+        info_layout = QVBoxLayout(info_frame)
+        info_layout.setSpacing(8)
+
+        self.backup_status_label = QLabel("Loading backup information...")
+        self.backup_status_label.setStyleSheet(f"""
+            font-size: 12pt;
+            color: {self.colors['text']};
+            line-height: 1.5;
+        """)
+        self.backup_status_label.setWordWrap(True)
+        info_layout.addWidget(self.backup_status_label)
+
+        # Refresh button
+        refresh_btn = QPushButton("🔄 Refresh Status")
+        refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.colors['accent_primary']};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 12pt;
+            }}
+            QPushButton:hover {{
+                background-color: #1565C0;
+            }}
+        """)
+        refresh_btn.clicked.connect(self._refresh_backup_status)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(refresh_btn)
+        info_layout.addLayout(btn_layout)
+
+        layout.addWidget(info_frame)
+
+        # Load initial status
+        self._refresh_backup_status()
+
+        return section
+
+    def _create_bottom_buttons(self):
+        """Creates the bottom button bar."""
+        button_frame = QFrame()
+        button_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.colors['card_bg']};
+                border-top: 1px solid {self.colors['border']};
+                padding: 15px 20px;
+            }}
+        """)
+        button_layout = QHBoxLayout(button_frame)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Save settings button
+        save_btn = QPushButton("✓ Save Settings")
+        save_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.colors['accent_success']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 25px;
+                font-size: 12pt;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #45a049;
+            }}
+        """)
+        save_btn.clicked.connect(self._save_settings)
+        button_layout.addWidget(save_btn)
+
+        button_layout.addStretch()
+
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.colors['button_bg']};
+                color: {self.colors['text']};
+                border: none;
+                border-radius: 8px;
+                padding: 12px 25px;
+                font-size: 12pt;
+            }}
+            QPushButton:hover {{
+                background-color: {self.colors['button_hover']};
+            }}
+        """)
+        close_btn.clicked.connect(self.accept)
+        button_layout.addWidget(close_btn)
+
+        return button_frame
+
+    def _create_section_frame(self, title, subtitle):
+        """Creates a styled section frame."""
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.colors['card_bg']};
+                border: none;
+                border-radius: 12px;
+            }}
+        """)
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(20, 15, 20, 20)
+        layout.setSpacing(10)
+
+        # Section title
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: 14pt;
+            font-weight: bold;
+            color: {self.colors['text']};
+        """)
+        layout.addWidget(title_label)
+
+        # Section subtitle
+        subtitle_label = QLabel(subtitle)
+        subtitle_label.setStyleSheet(f"""
+            font-size: 12pt;
+            color: {self.colors['text_secondary']};
+            margin-bottom: 5px;
+        """)
+        layout.addWidget(subtitle_label)
+
+        return frame
+
+    def _create_action_card(self, title, subtitle, description, accent_color, callback):
+        """Creates a styled action card with button."""
+        card = QFrame()
+        card.setObjectName(f"actionCard_{title.replace(' ', '_')}")
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.colors['input_bg']};
+                border: none;
+                border-radius: 10px;
+            }}
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(15, 15, 15, 15)
+        card_layout.setSpacing(8)
+
+        # Title with icon
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: 12pt;
+            font-weight: bold;
+            color: {self.colors['text']};
+        """)
+        card_layout.addWidget(title_label)
+
+        # Subtitle
+        subtitle_label = QLabel(subtitle)
+        subtitle_label.setStyleSheet(f"""
+            font-size: 12pt;
+            font-weight: bold;
+            color: {accent_color};
+        """)
+        card_layout.addWidget(subtitle_label)
+
+        # Description
+        desc_label = QLabel(description)
+        desc_label.setStyleSheet(f"""
+            font-size: 12pt;
+            color: {self.colors['text_muted']};
+        """)
+        desc_label.setWordWrap(True)
+        card_layout.addWidget(desc_label)
+
+        card_layout.addStretch()
+
+        # Action button
+        action_btn = QPushButton("Execute")
+        action_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {accent_color};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-size: 12pt;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {self._darken_color(accent_color)};
+            }}
+        """)
+        action_btn.clicked.connect(callback)
+        card_layout.addWidget(action_btn)
+
+        return card
+
+    def _darken_color(self, hex_color):
+        """Darkens a hex color by 15%."""
+        hex_color = hex_color.lstrip('#')
+        rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        darkened = tuple(max(0, int(c * 0.85)) for c in rgb)
+        return f"#{darkened[0]:02x}{darkened[1]:02x}{darkened[2]:02x}"
+
+    def _load_current_settings(self):
+        """Loads current auto-backup settings."""
+        config = get_auto_backup_config()
+        
+        self.auto_backup_check.setChecked(config.get("enabled", True))
+        self.dir_input.setText(config.get("directory", ""))
+        self.max_files_spin.setValue(config.get("max_files", 50))
+        
+        # Load backup type (default to simple)
+        backup_type = config.get("type", "simple")
+        if backup_type == "complete":
+            self.radio_complete.setChecked(True)
+        else:
+            self.radio_simple.setChecked(True)
+        
+        # Update UI state
+        self._on_auto_backup_toggled(config.get("enabled", True))
+
+    def _on_auto_backup_toggled(self, enabled):
+        """Handles auto-backup checkbox toggle."""
+        self.auto_type_frame.setEnabled(enabled)
+        self.dir_frame.setEnabled(enabled)
+        self.max_frame.setEnabled(enabled)
+        
+        opacity = "1.0" if enabled else "0.5"
+        for frame in [self.auto_type_frame, self.dir_frame, self.max_frame]:
+            frame.setStyleSheet(frame.styleSheet() + f"opacity: {opacity};")
+
+    def _browse_directory(self):
+        """Opens directory browser dialog."""
+        current_dir = self.dir_input.text() or get_auto_backup_directory()
+        
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Escolher Diretório para Backups Automáticos",
-            self.auto_backup_dir.text() or str(Path.home() / "Documents")
+            "Select Backup Directory",
+            current_dir,
         )
         
         if directory:
-            self.auto_backup_dir.setText(directory)
+            self.dir_input.setText(directory)
 
-    def save_auto_backup_config(self):
-        """Salva as configurações de backup automático"""
+    def _get_save_filename(self, default_name):
+        """Opens a file dialog to save a backup."""
+        last_dir = os.path.expanduser("~/Desktop")
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Backup",
+            os.path.join(last_dir, default_name),
+            "Zip Files (*.zip)"
+        )
+        return filename
+
+    def _get_open_filename(self):
+        """Opens a file dialog to select a backup file."""
+        last_dir = os.path.expanduser("~/Desktop")
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Backup File",
+            last_dir,
+            "Zip Files (*.zip)"
+        )
+        return filename
+
+    def _create_simple_backup(self):
+        """Creates a simple (config only) backup."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"sheets2anki_config_backup_{timestamp}.zip"
+        
+        path = self._get_save_filename(default_name)
+        if path:
+            if self.backup_manager.create_config_backup(path):
+                showInfo(f"✅ Simple backup created successfully!\n\n📁 Location:\n{path}")
+                self._refresh_backup_status()
+
+    def _create_complete_backup(self):
+        """Creates a complete (full) backup."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"sheets2anki_full_backup_{timestamp}.zip"
+        
+        path = self._get_save_filename(default_name)
+        if path:
+            if self.backup_manager.create_backup(path):
+                showInfo(f"✅ Complete backup created successfully!\n\n📁 Location:\n{path}")
+                self._refresh_backup_status()
+
+    def _restore_config_backup(self):
+        """Restores settings only from a backup."""
+        path = self._get_open_filename()
+        if path:
+            if self.backup_manager.restore_config_only(path):
+                self._refresh_backup_status()
+
+    def _restore_full_backup(self):
+        """Restores a full backup."""
+        path = self._get_open_filename()
+        if path:
+            if self.backup_manager.restore_backup(path):
+                self._refresh_backup_status()
+
+    def _refresh_backup_status(self):
+        """Refreshes the backup status display."""
         try:
-            enabled = self.auto_backup_enabled.isChecked()
-            directory = self.auto_backup_dir.text().strip()
-            max_files = self.auto_backup_max_files.value()
+            summary = self.backup_manager.get_backup_summary()
             
+            status_text = []
+            
+            # Total backups
+            total = summary.get("total_count", 0)
+            if total > 0:
+                status_text.append(f"📊 <b>Total backups found:</b> {total}")
+                status_text.append(f"💾 <b>Total size:</b> {summary.get('total_size_human', '0 B')}")
+                
+                # By type
+                status_text.append("")
+                status_text.append(f"• Safety backups: {summary.get('safety_count', 0)}")
+                status_text.append(f"• Auto backups: {summary.get('auto_count', 0)}")
+                status_text.append(f"• Manual backups: {summary.get('manual_count', 0)}")
+                status_text.append(f"• Full backups (with deck): {summary.get('full_count', 0)}")
+                
+                # Latest backup
+                latest = summary.get("latest_backup")
+                if latest:
+                    status_text.append("")
+                    status_text.append(f"🕐 <b>Latest backup:</b>")
+                    status_text.append(f"   {latest.get('filename', 'Unknown')}")
+                    status_text.append(f"   Created: {latest.get('created_at', 'Unknown')[:19].replace('T', ' ')}")
+            else:
+                status_text.append("📭 No backups found in the backup directory.")
+                status_text.append("")
+                status_text.append("Create your first backup using the options above!")
+            
+            self.backup_status_label.setText("<br>".join(status_text))
+            
+        except Exception as e:
+            self.backup_status_label.setText(f"❌ Error loading backup status: {str(e)}")
+
+    def _save_settings(self):
+        """Saves auto-backup settings."""
+        try:
+            # Get backup type
+            backup_type = "complete" if self.radio_complete.isChecked() else "simple"
+            
+            # Save all settings using the updated config function
             success = set_auto_backup_config(
-                enabled=enabled,
-                directory=directory,
-                max_files=max_files
+                enabled=self.auto_backup_check.isChecked(),
+                directory=self.dir_input.text() or None,
+                max_files=self.max_files_spin.value(),
+                backup_type=backup_type,
             )
             
             if success:
-                self.log("✅ Configurações de backup automático salvas!")
-                showInfo(
-                    f"✅ Configurações salvas com sucesso!\n\n"
-                    f"• Backup automático: {'Habilitado' if enabled else 'Desabilitado'}\n"
-                    f"• Diretório: {directory or 'Padrão (Documentos/Sheets2Anki/AutoBackups)'}\n"
-                    f"• Máximo de arquivos: {max_files}\n\n"
-                    f"Os backups automáticos serão criados a cada sincronização."
-                )
+                showInfo("✅ Auto-backup settings saved successfully!")
             else:
-                self.log("❌ Erro ao salvar configurações")
-                showWarning("Erro ao salvar configurações de backup automático.")
+                showWarning("⚠️ There was an issue saving the settings.")
                 
         except Exception as e:
-            self.log(f"❌ Erro ao salvar configurações: {e}")
-            showWarning(f"Erro ao salvar configurações: {e}")
-
-    def show_auto_backups(self):
-        """Mostra informações sobre os backups automáticos"""
-        try:
-            # Obter informações dos backups
-            backup_info = self.backup_manager.get_auto_backup_info()
-            
-            if backup_info.get("error"):
-                showWarning(f"Erro ao obter informações de backup: {backup_info['error']}")
-                return
-            
-            # Construir mensagem informativa
-            message = f"📁 INFORMAÇÕES DOS BACKUPS AUTOMÁTICOS\n\n"
-            message += f"• Status: {'Habilitado' if backup_info['enabled'] else 'Desabilitado'}\n"
-            message += f"• Diretório: {backup_info['directory']}\n"
-            message += f"• Máximo de arquivos: {backup_info['max_files']}\n"
-            message += f"• Total de backups: {backup_info['total_files']}\n\n"
-            
-            if backup_info['latest_backup']:
-                latest = backup_info['latest_backup']
-                message += f"🕒 BACKUP MAIS RECENTE:\n"
-                message += f"• Arquivo: {latest['filename']}\n"
-                message += f"• Tamanho: {latest['size']} bytes\n"
-                message += f"• Criado em: {latest['created']}\n\n"
-            
-            if backup_info['all_backups']:
-                message += f"📋 ÚLTIMOS BACKUPS:\n"
-                for backup in backup_info['all_backups'][:5]:  # Mostrar apenas os 5 mais recentes
-                    message += f"• {backup['filename']} ({backup['size']} bytes)\n"
-                
-                if len(backup_info['all_backups']) > 5:
-                    message += f"... e mais {len(backup_info['all_backups']) - 5} arquivo(s)\n"
-            else:
-                message += "Nenhum backup automático encontrado.\n"
-            
-            # Opção para abrir diretório
-            from aqt.utils import askUser
-            if askUser(
-                message + "\nDeseja abrir o diretório de backups?",
-                title="Backups Automáticos"
-            ):
-                import subprocess
-                import platform
-                
-                # Abrir diretório no explorador de arquivos
-                if platform.system() == "Windows":
-                    subprocess.Popen(f'explorer "{backup_info["directory"]}"')
-                elif platform.system() == "Darwin":  # macOS
-                    subprocess.Popen(["open", backup_info["directory"]])
-                else:  # Linux
-                    subprocess.Popen(["xdg-open", backup_info["directory"]])
-            
-            self.log(f"📁 Informações de backup exibidas: {backup_info['total_files']} arquivo(s)")
-            
-        except Exception as e:
-            self.log(f"❌ Erro ao mostrar informações de backup: {e}")
-            showWarning(f"Erro ao obter informações de backup: {e}")
+            showWarning(f"❌ Error saving settings: {str(e)}")
 
 
-# Função para manter compatibilidade
 def show_backup_dialog():
-    """Mostra o diálogo de backup simplificado"""
-    dialog = BackupDialog()
-    dialog.exec()
+    """
+    Shows the backup management dialog.
+    """
+    dialog = BackupDialog(mw)
+    safe_exec_dialog(dialog)

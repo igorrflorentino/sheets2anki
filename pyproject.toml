@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "sheets2anki"
 version = "2.2.0"
-description = "Add-on profissional para sincronizar decks do Anki com planilhas do Google Sheets - Agora com sistema de consistência automático e interface aprimorada"
+description = "Professional add-on to synchronize Anki decks with Google Sheets - Now with automatic consistency system and enhanced interface"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [

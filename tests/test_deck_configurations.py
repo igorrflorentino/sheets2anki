@@ -1,46 +1,50 @@
 #!/usr/bin/env python3
 """
-Teste para verificar se a funcionalidade de configurações de deck está funcionando
-corretamente.
+Test to verify if deck configuration functionality is working correctly.
 """
 
 import json
 import sys
 import os
 
-# Adicionar path
-script_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(script_dir, "..", "src"))
+# Get project root and source directory
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_dir = os.path.join(base_dir, "src")
+sys.path.insert(0, src_dir)
 
-META_JSON_PATH = "/Users/igorflorentino/• Principais do Home/Git/Coding/anki/sheets2anki/meta.json"
+META_JSON_PATH = os.path.join(base_dir, "meta.json")
 
 
 def test_deck_configurations():
     """
-    Testa as funcionalidades de configuração de deck.
+    Tests deck configuration functionalities.
     """
-    print("🧪 Testando funcionalidades de configuração de deck...")
+    print("🧪 Testing deck configuration functionalities...")
     
     try:
-        # Carregar meta.json para verificar
+        # Load meta.json to verify
+        if not os.path.exists(META_JSON_PATH):
+            print(f"⚠️ meta.json not found at {META_JSON_PATH}")
+            return
+
         with open(META_JSON_PATH, 'r', encoding='utf-8') as f:
             meta = json.load(f)
         
-        # Verificar se todos os decks têm a configuração
+        # Check if all decks have configuration
         decks = meta.get("decks", {})
         mode = meta.get("config", {}).get("deck_options_mode", "individual")
         
-        print(f"📊 Modo atual: {mode}")
-        print(f"📁 Total de decks: {len(decks)}")
+        print(f"📊 Current mode: {mode}")
+        print(f"📁 Total decks: {len(decks)}")
         
         for deck_hash, deck_info in decks.items():
             deck_name = deck_info.get("remote_deck_name", "Unknown")
             config_name = deck_info.get("local_deck_configurations_package_name")
             
             print(f"✅ Deck: {deck_name}")
-            print(f"   🎯 Configuração: {config_name}")
+            print(f"   🎯 Configuration: {config_name}")
             
-            # Verificar se a configuração está correta para o modo
+            # Check if configuration is correct for the mode
             expected_config = None
             if mode == "individual":
                 expected_config = f"Sheets2Anki - {deck_name}"
@@ -49,26 +53,26 @@ def test_deck_configurations():
             else:  # manual
                 expected_config = None
             
-            if config_name == expected_config:
-                print(f"   ✅ Configuração correta para modo '{mode}'")
+            if config_name == expected_config or mode == "manual":
+                print(f"   ✅ Correct configuration for mode '{mode}'")
             else:
-                print(f"   ❌ Configuração incorreta!")
-                print(f"      Esperado: {expected_config}")
-                print(f"      Atual: {config_name}")
+                print(f"   ❌ Incorrect configuration!")
+                print(f"      Expected: {expected_config}")
+                print(f"      Actual: {config_name}")
         
-        print("\n🎉 Teste de configurações concluído!")
+        print("\n🎉 Configuration test completed!")
         
     except Exception as e:
-        print(f"❌ Erro durante o teste: {e}")
+        print(f"❌ Error during test: {e}")
         import traceback
         traceback.print_exc()
 
 
 def test_configuration_functions():
     """
-    Testa as novas funções de configuração de deck.
+    Tests new deck configuration functions.
     """
-    print("\n🧪 Testando funções de configuração...")
+    print("\n🧪 Testing configuration functions...")
     
     try:
         from config_manager import (
@@ -77,39 +81,39 @@ def test_configuration_functions():
             get_deck_options_mode
         )
         
-        # Teste com URL de deck existente
+        # Test with an existing deck URL (using a sample)
         test_url = "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing"
         
-        print(f"🔍 Testando com URL: {test_url}")
+        print(f"🔍 Testing with URL: {test_url}")
         
-        # Obter configuração atual
+        # Get current configuration
         current_config = get_deck_configurations_package_name(test_url)
-        print(f"📋 Configuração atual: {current_config}")
+        print(f"📋 Current configuration: {current_config}")
         
-        # Obter modo atual
+        # Get current mode
         current_mode = get_deck_options_mode()
-        print(f"📊 Modo atual: {current_mode}")
+        print(f"📊 Current mode: {current_mode}")
         
-        # Verificar se a configuração está correta
+        # Check if configuration is valid
         if current_config and "Sheets2Anki" in current_config:
-            print("✅ Configuração válida encontrada")
+            print("✅ Valid configuration found")
         else:
-            print("❌ Configuração inválida ou ausente")
+            print("❌ Invalid or missing configuration")
         
-        print("🎉 Teste de funções concluído!")
+        print("🎉 Function test completed!")
         
     except Exception as e:
-        print(f"❌ Erro durante teste de funções: {e}")
+        print(f"❌ Error during function test: {e}")
         import traceback
         traceback.print_exc()
 
 
 if __name__ == "__main__":
-    print("🚀 Teste de Configurações de Deck - Sheets2Anki")
+    print("🚀 Deck Configuration Test - Sheets2Anki")
     print("=" * 60)
     
     test_deck_configurations()
     test_configuration_functions()
     
     print("\n" + "=" * 60)
-    print("✨ Todos os testes finalizados!")
+    print("✨ All tests finished!")

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Configurações e fixtures para os testes do Sheets2Anki.
+Configurations and fixtures for Sheets2Anki tests.
 
-Este arquivo contém fixtures reutilizáveis e configurações
-comuns para todos os testes do projeto.
+This file contains reusable fixtures and common
+configurations for all project tests.
 """
 
 import os
@@ -16,64 +16,64 @@ from unittest.mock import Mock
 
 import pytest
 
-# Adicionar src ao path para importações
+# Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # =============================================================================
-# FIXTURES DE DADOS DE TESTE
+# TEST DATA FIXTURES
 # =============================================================================
 
 
 @pytest.fixture
 def sample_tsv_data():
-    """Dados TSV de exemplo para testes."""
+    """Sample TSV data for tests."""
     return [
         {
             "ID": "Q001",
-            "PERGUNTA": "Qual é a capital do Brasil?",
+            "PERGUNTA": "What is the capital of Brazil?",
             "LEVAR PARA PROVA": "Brasília",
-            "SYNC?": "true",
-            "ALUNOS": "João, Maria, Pedro",
-            "INFO COMPLEMENTAR": "Fundada em 1960",
-            "INFO DETALHADA": "Capital planejada do Brasil",
+            "SYNC": "true",
+            "ALUNOS": "John, Mary, Peter",
+            "INFO COMPLEMENTAR": "Founded in 1960",
+            "INFO DETALHADA": "Planned capital of Brazil",
             "IMAGEM HTML": '<img src="https://example.com/brasilia.jpg" width="200">',
             "VÍDEO HTML": "",
-            "EXEMPLO 1": "Localizada no Distrito Federal",
-            "EXEMPLO 2": "Projetada por Oscar Niemeyer",
-            "EXEMPLO 3": "Inaugurada em 21 de abril de 1960",
-            "TOPICO": "Geografia",
-            "SUBTOPICO": "Capitais",
-            "CONCEITO": "Brasil",
+            "EXEMPLO 1": "Located in the Federal District",
+            "EXEMPLO 2": "Designed by Oscar Niemeyer",
+            "EXEMPLO 3": "Inaugurated on April 21, 1960",
+            "TOPICO": "Geography",
+            "SUBTOPICO": "Capitals",
+            "CONCEITO": "Brazil",
             "BANCAS": "CESPE, FCC",
             "ULTIMO ANO EM PROVA": "2024",
-            "CARREIRA": "Concursos Públicos",
-            "IMPORTANCIA": "Alta",
-            "TAGS ADICIONAIS": "fundamental, básico",
+            "CARREIRA": "Public Exams",
+            "IMPORTANCIA": "High",
+            "TAGS ADICIONAIS": "fundamental, basic",
             "EXTRA 1": "",
             "EXTRA 2": "",
             "EXTRA 3": "",
         },
         {
             "ID": "Q002",
-            "PERGUNTA": "A capital do {{c1::Brasil}} é {{c2::Brasília}}",
-            "LEVAR PARA PROVA": "Card cloze sobre geografia",
-            "SYNC?": "true",
-            "ALUNOS": "Maria, Ana",
-            "INFO COMPLEMENTAR": "Exemplo de card cloze",
-            "INFO DETALHADA": "Teste de detecção automática",
+            "PERGUNTA": "The capital of {{c1::Brazil}} is {{c2::Brasília}}",
+            "LEVAR PARA PROVA": "Cloze card about geography",
+            "SYNC": "true",
+            "ALUNOS": "Mary, Ann",
+            "INFO COMPLEMENTAR": "Cloze card example",
+            "INFO DETALHADA": "Automatic detection test",
             "IMAGEM HTML": "",
             "VÍDEO HTML": "",
             "EXEMPLO 1": "",
             "EXEMPLO 2": "",
             "EXEMPLO 3": "",
-            "TOPICO": "Geografia",
+            "TOPICO": "Geography",
             "SUBTOPICO": "Cloze",
             "CONCEITO": "Cards",
             "BANCAS": "VUNESP",
             "ULTIMO ANO EM PROVA": "2023",
-            "CARREIRA": "Ensino Médio",
-            "IMPORTANCIA": "Média",
-            "TAGS ADICIONAIS": "cloze, exemplo",
+            "CARREIRA": "High School",
+            "IMPORTANCIA": "Medium",
+            "TAGS ADICIONAIS": "cloze, example",
             "EXTRA 1": "",
             "EXTRA 2": "",
             "EXTRA 3": "",
@@ -83,13 +83,13 @@ def sample_tsv_data():
 
 @pytest.fixture
 def sample_students():
-    """Lista de alunos de exemplo."""
-    return ["João", "Maria", "Pedro", "Ana", "Carlos"]
+    """Sample student list."""
+    return ["John", "Mary", "Peter", "Ann", "Charles"]
 
 
 @pytest.fixture
 def sample_url():
-    """URL de exemplo para testes."""
+    """Sample URL for tests."""
     return (
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vSample-Key123/pub?output=tsv"
     )
@@ -97,23 +97,23 @@ def sample_url():
 
 @pytest.fixture
 def sample_tsv_content():
-    """Conteúdo TSV de exemplo em formato string."""
-    return """ID	PERGUNTA	LEVAR PARA PROVA	SYNC?	ALUNOS	INFO COMPLEMENTAR	INFO DETALHADA	IMAGEM HTML	VÍDEO HTML	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	CARREIRA	IMPORTANCIA	TAGS ADICIONAIS	EXTRA 1	EXTRA 2	EXTRA 3
-Q001	Qual é a capital do Brasil?	Brasília	true	João, Maria	Fundada em 1960	Capital planejada	<img src="https://example.com/brasilia.jpg" width="200">		DF	Oscar Niemeyer	21 abril 1960	Geografia	Capitais	Brasil	CESPE	2024	Concursos	Alta	fundamental			
-Q002	{{c1::Python}} é uma linguagem de {{c2::programação}}	Card sobre programação	true	Maria, Pedro	Linguagem popular	Fácil de aprender		<iframe src="https://youtube.com/embed/test"></iframe>	Sintaxe simples	Muitas bibliotecas	Open source	Programação	Linguagens	Python	FCC	2023	TI	Média	python			"""
+    """Sample TSV content in string format."""
+    return """ID	PERGUNTA	LEVAR PARA PROVA	SYNC	ALUNOS	INFO COMPLEMENTAR	INFO DETALHADA	IMAGEM HTML	VÍDEO HTML	EXEMPLO 1	EXEMPLO 2	EXEMPLO 3	TOPICO	SUBTOPICO	CONCEITO	BANCAS	ULTIMO ANO EM PROVA	CARREIRA	IMPORTANCIA	TAGS ADICIONAIS	EXTRA 1	EXTRA 2	EXTRA 3
+Q001	What is the capital of Brazil?	Brasília	true	John, Mary	Founded in 1960	Planned capital	<img src="https://example.com/brasilia.jpg" width="200">		DF	Oscar Niemeyer	April 21, 1960	Geography	Capitais	Brazil	CESPE	2024	Exams	High	fundamental			
+Q002	{{c1::Python}} is a {{c2::programming}} language	Card about programming	true	Mary, Peter	Popular language	Easy to learn		<iframe src="https://youtube.com/embed/test"></iframe>	Simple syntax	Many libraries	Open source	Programming	Languages	Python	FCC	2023	IT	Medium	python			"""
 
 
 # =============================================================================
-# FIXTURES DE MOCK PARA ANKI
+# ANKI MOCK FIXTURES
 # =============================================================================
 
 
 @pytest.fixture
 def mock_mw():
-    """Mock do objeto main window do Anki."""
+    """Anki main window object mock."""
     mw = Mock()
 
-    # Mock da collection
+    # Collection mock
     mw.col = Mock()
     mw.col.decks = Mock()
     mw.col.models = Mock()
@@ -123,13 +123,13 @@ def mock_mw():
     mw.col.findNotes = Mock(return_value=[])
     mw.col.getNote = Mock()
 
-    # Mock de decks
+    # Decks mock
     mw.col.decks.id = Mock(return_value=1)
     mw.col.decks.get = Mock(return_value={"name": "Test Deck"})
     mw.col.decks.new = Mock(return_value={"name": "New Deck", "id": 1})
     mw.col.decks.save = Mock()
 
-    # Mock de models (note types)
+    # Models mock (note types)
     mw.col.models.new = Mock(return_value={"name": "Test Model"})
     mw.col.models.save = Mock()
     mw.col.models.byName = Mock(return_value=None)
@@ -139,7 +139,7 @@ def mock_mw():
 
 @pytest.fixture
 def mock_note():
-    """Mock de uma nota do Anki."""
+    """Anki note mock."""
     note = Mock()
     note.fields = ["Front", "Back"]
     note.tags = []
@@ -151,18 +151,18 @@ def mock_note():
 
 @pytest.fixture
 def mock_note_type():
-    """Mock de um note type do Anki."""
+    """Anki note type mock."""
     note_type = {
-        "name": "Sheets2Anki - TestDeck - João - Basic",
+        "name": "Sheets2Anki - TestDeck - John - Basic",
         "id": 1,
         "flds": [
-            {"name": "Pergunta", "ord": 0},
-            {"name": "Resposta", "ord": 1},
-            {"name": "Info_Complementar", "ord": 2},
-            {"name": "Info_Detalhada", "ord": 3},
-            {"name": "Exemplo_1", "ord": 4},
-            {"name": "Exemplo_2", "ord": 5},
-            {"name": "Exemplo_3", "ord": 6},
+            {"name": "Question", "ord": 0},
+            {"name": "Answer", "ord": 1},
+            {"name": "Complementary_Info", "ord": 2},
+            {"name": "Detailed_Info", "ord": 3},
+            {"name": "Example_1", "ord": 4},
+            {"name": "Example_2", "ord": 5},
+            {"name": "Example_3", "ord": 6},
         ],
         "tmpls": [{"name": "Card 1", "ord": 0}],
     }
@@ -170,18 +170,18 @@ def mock_note_type():
 
 
 # =============================================================================
-# FIXTURES DE CONFIGURAÇÃO
+# CONFIGURATION FIXTURES
 # =============================================================================
 
 
 @pytest.fixture
 def sample_config():
-    """Configuração de exemplo."""
+    """Sample configuration."""
     return {
         "remote_decks": {
             "Test Deck": "https://docs.google.com/spreadsheets/d/e/sample/pub?output=tsv"
         },
-        "global_students": ["João", "Maria", "Pedro"],
+        "global_students": ["John", "Mary", "Peter"],
         "ankiweb_sync": {"enabled": False, "auto_sync": False},
         "backup_before_sync": True,
     }
@@ -189,7 +189,7 @@ def sample_config():
 
 @pytest.fixture
 def temp_config_file(tmp_path):
-    """Arquivo de configuração temporário para testes."""
+    """Temporary configuration file for tests."""
     config_file = tmp_path / "test_config.json"
     config_data = {
         "remote_decks": {},
@@ -204,14 +204,14 @@ def temp_config_file(tmp_path):
 
 
 # =============================================================================
-# FIXTURES DE AMBIENTE
+# ENVIRONMENT FIXTURES
 # =============================================================================
 
 
 @pytest.fixture(autouse=True)
 def setup_test_environment(monkeypatch):
-    """Configuração automática do ambiente de teste."""
-    # Mock do Anki para evitar import errors
+    """Automatic test environment setup."""
+    # Mock Anki to avoid import errors
     mock_anki_modules = {
         "aqt": Mock(),
         "aqt.main": Mock(),
@@ -230,19 +230,19 @@ def setup_test_environment(monkeypatch):
 
 @pytest.fixture
 def clean_sys_path():
-    """Limpa e restaura sys.path após cada teste."""
+    """Cleans and restores sys.path after each test."""
     original_path = sys.path.copy()
     yield
     sys.path[:] = original_path
 
 
 # =============================================================================
-# HELPERS PARA TESTES
+# TEST HELPERS
 # =============================================================================
 
 
 def create_mock_response(content: str, status_code: int = 200):
-    """Cria uma resposta HTTP mock."""
+    """Creates a mock HTTP response."""
     response = Mock()
     response.content = content.encode("utf-8")
     response.status_code = status_code
@@ -251,7 +251,7 @@ def create_mock_response(content: str, status_code: int = 200):
 
 
 def assert_tags_contain(tags: List[str], expected_patterns: List[str]):
-    """Verifica se as tags contêm os padrões esperados."""
+    """Checks if tags contain expected patterns."""
     for pattern in expected_patterns:
         assert any(
             pattern.lower() in tag.lower() for tag in tags
@@ -259,30 +259,30 @@ def assert_tags_contain(tags: List[str], expected_patterns: List[str]):
 
 
 # =============================================================================
-# MARKERS PERSONALIZADOS
+# CUSTOM MARKERS
 # =============================================================================
 
 
 def pytest_configure(config):
-    """Configuração personalizada do pytest."""
-    config.addinivalue_line("markers", "unit: marca teste como teste unitário")
+    """Custom pytest configuration."""
+    config.addinivalue_line("markers", "unit: marks a test as a unit test")
     config.addinivalue_line(
-        "markers", "integration: marca teste como teste de integração"
+        "markers", "integration: marks a test as an integration test"
     )
     config.addinivalue_line(
-        "markers", "slow: marca teste como lento (pulado em modo rápido)"
+        "markers", "slow: marks a test as slow (skipped in quick mode)"
     )
     config.addinivalue_line(
-        "markers", "requires_anki: marca teste que requer ambiente Anki"
+        "markers", "requires_anki: marks a test that requires an Anki environment"
     )
 
-    # Configurar ambiente do Anki se disponível
+    # Configure Anki environment if available
     try:
-        # Tentar importar módulos do Anki para verificar se estão disponíveis
+        # Try to import Anki modules to check if available
         import anki
         import aqt
 
-        print("✅ Ambiente Anki detectado e configurado para testes")
+        print("✅ Anki environment detected and configured for tests")
     except ImportError as e:
-        print(f"⚠️  Anki não disponível para testes: {e}")
-        print("   Alguns testes podem usar mocks ao invés do ambiente real")
+        print(f"⚠️  Anki not available for tests: {e}")
+        print("   Some tests may use mocks instead of the real environment")

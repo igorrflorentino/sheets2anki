@@ -1,194 +1,197 @@
 """
-Templates e definições de colunas para o addon Sheets2Anki.
+Templates and column definitions for the Sheets2Anki addon.
 
-Este módulo centraliza:
-- Definições padronizadas de nomes de colunas das planilhas
-- Templates HTML para cards do Anki
-- Funções para criação de modelos de notas
-- Validação de estrutura de dados
+This module centralizes:
+- Standardized spreadsheet column name definitions
+- HTML templates for Anki cards
+- Functions for creating note models
+- Data structure validation
 
-Consolidado de:
-- card_templates.py: Templates e modelos de cards
-- column_definitions.py: Definições de colunas da planilha
+Consolidated from:
+- card_templates.py: Card templates and models
+- column_definitions.py: Spreadsheet column definitions
 """
 
 # =============================================================================
-# CAMPOS DE CONTROLE
+# CONTROL FIELDS
 # =============================================================================
 
-# Campos básicos do sistema
-identificador = "ID"  # Identificador único da questão (obrigatório)
-alunos = "ALUNOS"  # Indica quais alunos têm interesse em estudar esta nota
-is_sync = "SYNC"  # Campo de controle de sincronização (true/false/1/0)
+# Basic system fields
+identifier = "ID"  # Unique question identifier (required)
+students = "ALUNOS"  # Indicates which students are interested in studying this note
+is_sync = "SYNC"  # Synchronization control field (true/false/1/0)
 
 # =============================================================================
-# CAMPOS PRINCIPAIS
+# MAIN FIELDS
 # =============================================================================
 
-# Campos principais da questão
-pergunta = "PERGUNTA"  # Texto principal da questão/frente do cartão
-resposta = "LEVAR PARA PROVA"  # Resposta sucinta e atômica da pergunta
+# Main question fields
+question = "PERGUNTA"  # Main question text / front of card
+answer = "LEVAR PARA PROVA"  # Succinct and atomic answer to the question
 
 # =============================================================================
-# CAMPOS DE DETALHES
+# DETAIL FIELDS
 # =============================================================================
 
-# Informações adicionais sobre a questão
-info_1 = "INFO COMPLEMENTAR"  # Informação complementar básica
-info_2 = "INFO DETALHADA"  # Informação detalhada adicional
+# Additional information about the question
+info_1 = "INFO COMPLEMENTAR"  # Basic complementary information
+info_2 = "INFO DETALHADA"  # Additional detailed information
 
 # =============================================================================
-# CAMPOS DE EXEMPLOS
+# EXAMPLE FIELDS
 # =============================================================================
 
-# Exemplos relacionados à questão (até 3 exemplos)
-exemplo_1 = "EXEMPLO 1"  # Primeiro exemplo
-exemplo_2 = "EXEMPLO 2"  # Segundo exemplo
-exemplo_3 = "EXEMPLO 3"  # Terceiro exemplo
+# Examples related to the question (up to 3 examples)
+example_1 = "EXEMPLO 1"  # First example
+example_2 = "EXEMPLO 2"  # Second example
+example_3 = "EXEMPLO 3"  # Third example
 
 # =============================================================================
-# CAMPOS DE MULTIMIDIA
+# MULTIMEDIA FIELDS
 # =============================================================================
 
-# Ajuda a tornar a informação visualmente mais atraente
-multimidia_1 = "IMAGEM HTML"  # Código HTML para imagens e ilustrações renderizáveis
-multimidia_2 = "VÍDEO HTML"  # Código HTML para vídeos embedded (YouTube, Vimeo, etc.)
+# Helps make information visually more attractive
+multimedia_1 = "IMAGEM HTML"  # HTML code for renderable images and illustrations
+multimedia_2 = "VIDEO HTML"  # HTML code for embedded videos (YouTube, Vimeo, etc.)
 
 # =============================================================================
-# CAMPOS DE CATEGORIZAÇÃO
+# CATEGORIZATION FIELDS
 # =============================================================================
 
-# Categorização hierárquica do conteúdo
-hierarquia_1 = "IMPORTANCIA"  # Nível de importância da questão
-hierarquia_2 = "TOPICO"  # Tópico principal da questão
-hierarquia_3 = "SUBTOPICO"  # Subtópico específico
-hierarquia_4 = "CONCEITO"  # Conceito atômico sendo perguntado (mais refinado que subtópico)
+# Hierarchical content categorization
+hierarchy_1 = "IMPORTANCIA"  # Question importance level
+hierarchy_2 = "TOPICO"  # Main question topic
+hierarchy_3 = "SUBTOPICO"  # Specific subtopic
+hierarchy_4 = "CONCEITO"  # Atomic concept being asked (more refined than subtopic)
 
 # =============================================================================
-# CAMPOS DE METADADOS
+# METADATA FIELDS
 # =============================================================================
 
-# Informações de contexto e fonte
-tags_1 = "BANCAS"  # Bancas organizadoras relacionadas
-tags_2 = "ULTIMO ANO EM PROVA"  # Último ano em que apareceu em prova
-tags_3 = "CARREIRAS"  # Carreiras ou áreas profissionais relacionadas
-tags_4 = "TAGS ADICIONAIS"  # Tags adicionais para organização
+# Context and source information
+tags_1 = "BANCAS"  # Related exam boards
+tags_2 = "ULTIMO ANO EM PROVA"  # Last year appeared in exam
+tags_3 = "CARREIRAS"  # Related careers or professional areas
+tags_4 = "TAGS ADICIONAIS"  # Additional tags for organization
 
 # =============================================================================
-# CAMPOS EXTRAS PERSONALIZÁVEIS
+# CUSTOMIZABLE EXTRA FIELDS
 # =============================================================================
 
-# Campos extras para uso personalizado do usuário
-extra_field_1 = "EXTRA 1"  # Campo extra 1 - uso livre
-extra_field_2 = "EXTRA 2"  # Campo extra 2 - uso livre
-extra_field_3 = "EXTRA 3"  # Campo extra 3 - uso livre
+# Extra fields for user customization
+extra_field_1 = "CAMPO EXTRA 1"  # Extra field 1 - free use
+extra_field_2 = "CAMPO EXTRA 2"  # Extra field 2 - free use
+extra_field_3 = "CAMPO EXTRA 3"  # Extra field 3 - free use
 
 # =============================================================================
-# CONFIGURAÇÕES DE VALIDAÇÃO
+# VALIDATION CONFIGURATIONS
 # =============================================================================
 
-# Lista completa de todas as colunas disponíveis na planilha
+# Complete list of all available spreadsheet columns
 ALL_AVAILABLE_COLUMNS = [
-    identificador,  # Identificador único
-    alunos,  # Controle de alunos interessados
-    is_sync,  # Controle de sincronização
+    identifier,  # Unique identifier
+    students,  # Interested students control
+    is_sync,  # Synchronization control
 
-    hierarquia_1,  # Nível de importância
-    hierarquia_2,  # Tópico principal
-    hierarquia_3,  # Subtópico
-    hierarquia_4,  # Conceito atômico
+    hierarchy_1,  # Importance level
+    hierarchy_2,  # Main topic
+    hierarchy_3,  # Subtopic
+    hierarchy_4,  # Atomic concept
 
-    pergunta,  # Texto principal da questão/frente do cartão
-    resposta,  # Resposta sucinta (núcleo da resposta)
+    question,  # Main question text / front of card
+    answer,  # Succinct answer (core of response)
 
-    info_1,  # Info complementar
-    info_2,  # Info detalhada
+    info_1,  # Complementary info
+    info_2,  # Detailed info
 
-    exemplo_1,  # Primeiro exemplo
-    exemplo_2,  # Segundo exemplo
-    exemplo_3,  # Terceiro exemplo
+    example_1,  # First example
+    example_2,  # Second example
+    example_3,  # Third example
 
-    multimidia_1,  # Código HTML para imagens e ilustrações
-    multimidia_2,  # Código HTML para vídeos embedded
+    multimedia_1,  # HTML code for images and illustrations
+    multimedia_2,  # HTML code for embedded videos
 
-    tags_1,  # Bancas relacionadas
-    tags_2,  # Ano da prova
-    tags_3,  # Carreiras ou áreas profissionais
-    tags_4,  # Tags adicionais
+    tags_1,  # Related exam boards
+    tags_2,  # Exam year
+    tags_3,  # Careers or professional areas
+    tags_4,  # Additional tags
 
-    extra_field_1,  # Campo extra 1
-    extra_field_2,  # Campo extra 2
-    extra_field_3,  # Campo extra 3
+    extra_field_1,  # Extra field 1
+    extra_field_2,  # Extra field 2
+    extra_field_3,  # Extra field 3
 ]
 
-# Campos que são considerados obrigatórios para criação de notas
-ESSENTIAL_FIELDS = [identificador]
+# Fields considered mandatory for note creation
+# Fields considered mandatory for note creation
+ESSENTIAL_FIELDS = [identifier]
 
-# Campos que são obrigatórios nos headers da planilha (para parsing funcionar)
-REQUIRED_HEADERS = [identificador, pergunta, resposta]
+# Fields required in spreadsheet headers (for parsing to work)
+# Fields required in spreadsheet headers (for parsing to work)
+REQUIRED_HEADERS = [identifier, question, answer]
 
-# Campos que podem ser usados para filtragem/seleção
-FILTER_FIELDS = [hierarquia_1, hierarquia_2, hierarquia_3, hierarquia_4,
+# Fields that can be used for filtering/selection
+# Fields that can be used for filtering/selection
+FILTER_FIELDS = [hierarchy_1, hierarchy_2, hierarchy_3, hierarchy_4,
                  tags_1, tags_2, tags_3, tags_4]
 
-# Campos que contêm informações textuais extensas
+# Fields containing extensive text information
 TEXT_FIELDS = [
-    pergunta,
-    resposta,
+    question,
+    answer,
     info_1,
     info_2,
-    exemplo_1,
-    exemplo_2,
-    exemplo_3,
+    example_1,
+    example_2,
+    example_3,
     extra_field_1,
     extra_field_2,
     extra_field_3,
 ]
 
-# Campos que contêm mídias (imagens, vídeos, etc.)
+# Fields containing media (images, videos, etc.)
 MEDIA_FIELDS = [
-    multimidia_1,
-    multimidia_2,
+    multimedia_1,
+    multimedia_2,
 ]
 
-# Campos que devem ser incluídos nas notas do Anki
+# Fields that should be included in Anki notes
 NOTE_FIELDS = [
-    identificador,  # Identificador único
+    identifier,  # Unique identifier
     
-    hierarquia_1,  # Nível de importância
-    hierarquia_2,  # Tópico principal
-    hierarquia_3,  # Subtópico
-    hierarquia_4,  # Conceito atômico
+    hierarchy_1,  # Importance level
+    hierarchy_2,  # Main topic
+    hierarchy_3,  # Subtopic
+    hierarchy_4,  # Atomic concept
     
-    pergunta,  # Texto da questão
-    resposta,  # Resposta sucinta (núcleo da resposta)
+    question,  # Question text
+    answer,  # Succinct answer (core of response)
     
-    info_1,  # Info complementar
-    info_2,  # Info detalhada
+    info_1,  # Complementary info
+    info_2,  # Detailed info
     
-    exemplo_1,  # Primeiro exemplo
-    exemplo_2,  # Segundo exemplo
-    exemplo_3,  # Terceiro exemplo
+    example_1,  # First example
+    example_2,  # Second example
+    example_3,  # Third example
     
-    multimidia_1,  # Código HTML para imagens e ilustrações
-    multimidia_2,  # Código HTML para vídeos embedded
+    multimedia_1,  # HTML code for images and illustrations
+    multimedia_2,  # HTML code for embedded videos
 
-    extra_field_1,  # Campo extra 1
-    extra_field_2,  # Campo extra 2
-    extra_field_3,  # Campo extra 3
+    extra_field_1,  # Extra field 1
+    extra_field_2,  # Extra field 2
+    extra_field_3,  # Extra field 3
     
-    tags_1,  # Bancas relacionadas
-    tags_2,  # Ano da prova
-    tags_3,  # Carreiras ou áreas profissionais
-    tags_4,  # Tags adicionais
+    tags_1,  # Related exam boards
+    tags_2,  # Exam year
+    tags_3,  # Careers or professional areas
+    tags_4,  # Additional tags
 ]
 
-# Campos que contêm metadados
+# Fields containing metadata
 METADATA_FIELDS = [
-    hierarquia_1,
-    hierarquia_2,
-    hierarquia_3,
-    hierarquia_4,
+    hierarchy_1,
+    hierarchy_2,
+    hierarchy_3,
+    hierarchy_4,
     tags_1,
     tags_2,
     tags_3,
@@ -196,14 +199,14 @@ METADATA_FIELDS = [
 ]
 
 # =============================================================================
-# CONSTANTES E TEMPLATES
+# CONSTANTS AND TEMPLATES
 # =============================================================================
 
-# Constante para identificar se estamos em modo de desenvolvimento
-# Esta constante será alterada para False durante o processo de build
+# Constant to identify if we are in development mode
+# This constant will be changed to False during the build process
 IS_DEVELOPMENT_MODE = True
 
-# URLs hardcoded para testes e simulações
+# Hardcoded URLs for testing and simulations
 TEST_SHEETS_URLS = [
     (
         "Sheets2Anki Template (Edit Link)",
@@ -211,7 +214,7 @@ TEST_SHEETS_URLS = [
     )
 ]
 
-# Template constants para geração de cards
+# Template constants for card generation
 CARD_SHOW_ALLWAYS_TEMPLATE = """
 <b>➡️ {field_name}</b><br>
 {{{{{field_value}}}}}<br><br>
@@ -224,48 +227,49 @@ CARD_SHOW_HIDE_TEMPLATE = """
 {{{{/{field_value}}}}}
 """
 
-MARCADORES_TEMPLATE = """
-<h2 style="color: orange; text-align: center; margin-bottom: 0;">{texto}</h2>
-<div style="text-align: center; font-size: 0.8em; color: gray;">{observacao}</div>
+MARKERS_TEMPLATE = """
+<h2 style="color: orange; text-align: center; margin-bottom: 0;">{text}</h2>
+<div style="text-align: center; font-size: 0.8em; color: gray;">{observation}</div>
 <hr>
 """
 
-# Valores padrão para campos vazios
-DEFAULT_IMPORTANCE = "[MISSING I.]"
-DEFAULT_TOPIC = "[MISSING T.]"
-DEFAULT_SUBTOPIC = "[MISSING S.]"
-DEFAULT_CONCEPT = "[MISSING C.]"
+# Default values for empty fields
+DEFAULT_IMPORTANCE = "[MISSING IMPORTANCE]"
+DEFAULT_TOPIC = "[MISSING TOPIC]"
+DEFAULT_SUBTOPIC = "[MISSING SUBTOPIC]"
+DEFAULT_CONCEPT = "[MISSING CONCEPT]"
+DEFAULT_STUDENT = "[MISSING STUDENT]"
 
-# Nome do deck raiz - constante não modificável pelo usuário
+# Root deck name - non-modifiable constant by user
 DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
 
-# Prefixos para tags
+# Tag prefixes
 TAG_ROOT = "Sheets2Anki"
-TAG_TOPICS = "topicos"
-TAG_SUBTOPICS = "subtopicos"
-TAG_CONCEPTS = "conceitos"
-TAG_BANCAS = "bancas"
-TAG_ANOS = "anos"
-TAG_CARREIRAS = "carreiras"
-TAG_IMPORTANCIA = "importancia"
-TAG_ADICIONAIS = "adicionais"
+TAG_TOPICS = "topics"
+TAG_SUBTOPICS = "subtopics"
+TAG_CONCEPTS = "concepts"
+TAG_EXAM_BOARDS = "exam_boards"
+TAG_YEARS = "years"
+TAG_CAREERS = "careers"
+TAG_IMPORTANCE = "importance"
+TAG_ADDITIONAL = "additional"
 
 # =============================================================================
-# FUNÇÕES DE VALIDAÇÃO DE COLUNAS
+# COLUMN VALIDATION FUNCTIONS
 # =============================================================================
 
 
 def validate_required_columns(columns):
     """
-    Valida se todas as colunas obrigatórias estão presentes na planilha.
+    Validates if all required columns are present in the spreadsheet.
 
     Args:
-        columns (list): Lista de nomes de colunas da planilha
+        columns (list): List of spreadsheet column names
 
     Returns:
-        tuple: (is_valid, missing_columns) onde:
-            - is_valid: bool indicando se todas as colunas estão presentes
-            - missing_columns: lista de colunas ausentes
+        tuple: (is_valid, missing_columns) where:
+            - is_valid: bool indicating if all columns are present
+            - missing_columns: list of missing columns
     """
     missing_columns = [col for col in ALL_AVAILABLE_COLUMNS if col not in columns]
     return len(missing_columns) == 0, missing_columns
@@ -273,39 +277,39 @@ def validate_required_columns(columns):
 
 def is_essential_field(field_name):
     """
-    Verifica se um campo é considerado essencial para criação de notas.
+    Checks if a field is considered essential for note creation.
 
     Args:
-        field_name (str): Nome do campo a verificar
+        field_name (str): Field name to check
 
     Returns:
-        bool: True se o campo é essencial, False caso contrário
+        bool: True if field is essential, False otherwise
     """
     return field_name in ESSENTIAL_FIELDS
 
 
 def is_filter_field(field_name):
     """
-    Verifica se um campo pode ser usado para filtragem/seleção.
+    Checks if a field can be used for filtering/selection.
 
     Args:
-        field_name (str): Nome do campo a verificar
+        field_name (str): Field name to check
 
     Returns:
-        bool: True se o campo pode ser usado para filtro, False caso contrário
+        bool: True if field can be used for filtering, False otherwise
     """
     return field_name in FILTER_FIELDS
 
 
 def get_field_category(field_name):
     """
-    Retorna a categoria de um campo específico.
+    Returns the category of a specific field.
 
     Args:
-        field_name (str): Nome do campo
+        field_name (str): Field name
 
     Returns:
-        str: Categoria do campo ('essential', 'text', 'metadata', 'filter', 'unknown')
+        str: Field category ('essential', 'text', 'metadata', 'filter', 'unknown')
     """
     if field_name in ESSENTIAL_FIELDS:
         return "essential"
@@ -321,33 +325,34 @@ def get_field_category(field_name):
 
 def should_sync_question(fields):
     """
-    Verifica se uma questão deve ser sincronizada com base no campo SYNC.
+    Checks if a question should be synchronized based on the SYNC field.
 
     Args:
-        fields (dict): Dicionário com campos da questão
+        fields (dict): Dictionary with question fields
 
     Returns:
-        bool: True se deve sincronizar, False caso contrário
+        bool: True if should synchronize, False otherwise
     """
     sync_value = fields.get(is_sync, "").strip().lower()
 
-    # Considerar valores positivos: true, 1, sim, yes, verdadeiro
-    positive_values = ["true", "1", "sim", "yes", "verdadeiro", "v"]
+    # Consider positive values: true, 1, sim, yes, verdadeiro
+    # Consider positive values: true, 1, yes
+    positive_values = ["true", "1", "yes", "sim", "v"]
 
     if sync_value in positive_values:
         return True
     else:
-        # Se o valor não for reconhecido ou estiver vazio, NÃO sincronizar
-        # A sincronização deve ser explicitamente marcada
+        # If value is not recognized or empty, do NOT synchronize
+        # Synchronization must be explicitly marked
         return False
 
 
 def get_all_column_info():
     """
-    Retorna informações completas sobre todas as colunas definidas.
+    Returns complete information about all defined columns.
 
     Returns:
-        dict: Dicionário com informações detalhadas de cada coluna
+        dict: Dictionary with detailed information for each column
     """
     column_info = {}
 
@@ -365,49 +370,49 @@ def get_all_column_info():
 
 
 # =============================================================================
-# TEMPLATES DE CARDS
+# CARD TEMPLATES
 # =============================================================================
 
 
 def create_card_template(is_cloze=False):
     """
-    Cria o template HTML para um card (padrão ou cloze).
+    Creates the HTML template for a card (standard or cloze).
 
     Args:
-        is_cloze (bool): Se deve criar um template de cloze
+        is_cloze (bool): Whether to create a cloze template
 
     Returns:
-        dict: Dicionário com strings de template 'qfmt' e 'afmt'
+        dict: Dictionary with 'qfmt' and 'afmt' template strings
     """
 
-    # Campos de cabeçalho comuns
+    # Common header fields
     header_fields = [
-        (hierarquia_1, hierarquia_1),
-        (hierarquia_2, hierarquia_2),
-        (hierarquia_3, hierarquia_3),
-        (hierarquia_4, hierarquia_4),
+        (hierarchy_1, hierarchy_1),
+        (hierarchy_2, hierarchy_2),
+        (hierarchy_3, hierarchy_3),
+        (hierarchy_4, hierarchy_4),
     ]
 
-    # Construir seção de cabeçalho
+    # Build header section
     header = ""
     for field_name, field_value in header_fields:
         header += CARD_SHOW_ALLWAYS_TEMPLATE.format(
             field_name=field_name.capitalize(), field_value=field_value
         )
 
-    # Formato da pergunta
-    question = (
-        f"<b>❓ {pergunta.capitalize()}</b><br>"
-        f"{{{{{'cloze:' if is_cloze else ''}{pergunta}}}}}<br><br>"
+    # Question format
+    question_html = (
+        f"<b>❓ {question.capitalize()}</b><br>"
+        f"{{{{{'cloze:' if is_cloze else ''}{question}}}}}<br><br>"
     )
 
-    # Formato da resposta
-    answer = (
-        f"<b>❗️ {resposta.capitalize()}</b><br>"
-        f"{{{{{'cloze:' if is_cloze else ''}{resposta}}}}}<br><br>"
+    # Answer format
+    answer_html = (
+        f"<b>❗️ {answer.capitalize()}</b><br>"
+        f"{{{{{'cloze:' if is_cloze else ''}{answer}}}}}<br><br>"
     )
 
-    # Campos de informações
+    # Information fields
     info_fields = [info_1, info_2]
 
     extra_infos = ""
@@ -416,18 +421,18 @@ def create_card_template(is_cloze=False):
             field_name=info_field.capitalize(), field_value=info_field
         )
 
-    # Campo de multimídia imagem
+    # Image multimedia field
     image_html = CARD_SHOW_HIDE_TEMPLATE.format(
-        field_name=multimidia_1.capitalize(), field_value=multimidia_1
+        field_name=multimedia_1.capitalize(), field_value=multimedia_1
     )
 
-    # Campo de multimídia vídeo
+    # Video multimedia field
     video_html = CARD_SHOW_HIDE_TEMPLATE.format(
-        field_name=multimidia_2.capitalize(), field_value=multimidia_2
+        field_name=multimedia_2.capitalize(), field_value=multimedia_2
     )
 
-    # Campos de exemplo
-    example_fields = [exemplo_1, exemplo_2, exemplo_3]
+    # Example fields
+    example_fields = [example_1, example_2, example_3]
 
     examples = ""
     for field in example_fields:
@@ -435,7 +440,7 @@ def create_card_template(is_cloze=False):
             field_name=field.capitalize(), field_value=field
         )
 
-    # Campos extras personalizáveis
+    # Customizable extra fields
     extra_fields = [extra_field_1, extra_field_2, extra_field_3]
 
     extras = ""
@@ -444,7 +449,7 @@ def create_card_template(is_cloze=False):
             field_name=field.capitalize(), field_value=field
         )
 
-    # Campos de rodapé
+    # Footer fields
     footer_fields = [
         (tags_1, tags_1),
         (tags_2, tags_2),
@@ -452,44 +457,44 @@ def create_card_template(is_cloze=False):
         (tags_4, tags_4),
     ]
 
-    # Construir seção de rodapé
+    # Build footer section
     footer = ""
     for field_name, field_value in footer_fields:
         footer += CARD_SHOW_HIDE_TEMPLATE.format(
             field_name=field_name.capitalize(), field_value=field_value
         )
 
-    # Construir templates completos
+    # Build complete templates
     qfmt = (
-        MARCADORES_TEMPLATE.format(texto="CONTEXTO", observacao="") +
+        MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
         header +        
-        MARCADORES_TEMPLATE.format(texto="CARD", observacao="") +
-        question  # Frente: apenas cabeçalho e pergunta
+        MARKERS_TEMPLATE.format(text="CARD", observation="") +
+        question_html  # Front: only header and question
     )
     afmt = (
-        MARCADORES_TEMPLATE.format(texto="CONTEXTO", observacao="") +
+        MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
         (header + 
-        MARCADORES_TEMPLATE.format(texto="CARD", observacao="") +
-         question +
-        MARCADORES_TEMPLATE.format(texto="INFORMAÇÕES", observacao="Pode vir vazio") +
+        MARKERS_TEMPLATE.format(text="CARD", observation="") +
+         question_html +
+        MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
          extra_infos + 
          examples + 
          image_html + 
          video_html + 
          extras + 
-         MARCADORES_TEMPLATE.format(texto="TAGS", observacao="Pode vir vazio") + 
+         MARKERS_TEMPLATE.format(text="TAGS", observation="May be empty") + 
          footer)
         if is_cloze
         else (
             "{{FrontSide}}" + 
-            answer +
-            MARCADORES_TEMPLATE.format(texto="INFORMAÇÕES", observacao="Pode vir vazio") +
+            answer_html +
+            MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
             extra_infos + 
             examples + 
             image_html + 
             video_html + 
             extras + 
-            MARCADORES_TEMPLATE.format(texto="TAGS", observacao="Pode vir vazio") +
+            MARKERS_TEMPLATE.format(text="TAGS", observation="May be empty") +
             footer)
     )
 
@@ -498,30 +503,30 @@ def create_card_template(is_cloze=False):
 
 def create_model(col, model_name, is_cloze=False, url=None, debug_messages=None):
     """
-    Cria um novo modelo de nota do Anki.
+    Creates a new Anki note model.
 
     Args:
-        col: Objeto de coleção do Anki
-        model_name (str): Nome para o novo modelo
-        is_cloze (bool): Se deve criar um modelo de cloze
-        url (str, optional): URL do deck remoto para registro automático
-        debug_messages (list, optional): Lista para debug
+        col: Anki collection object
+        model_name (str): Name for the new model
+        is_cloze (bool): Whether to create a cloze model
+        url (str, optional): Remote deck URL for automatic registration
+        debug_messages (list, optional): List for debug
 
     Returns:
-        object: O modelo do Anki criado
+        object: The created Anki model
     """
     from .utils import register_note_type_for_deck
 
     model = col.models.new(model_name)
     if is_cloze:
-        model["type"] = 1  # Definir como tipo cloze
+        model["type"] = 1  # Set as cloze type
 
-    # Adicionar campos (excluindo campos de controle interno como SYNC)
+    # Add fields (excluding internal control fields like SYNC)
     for field in NOTE_FIELDS:
         template = col.models.new_field(field)
         col.models.add_field(model, template)
 
-    # Adicionar template de card
+    # Add card template
     template = col.models.new_template("Cloze" if is_cloze else "Card 1")
     card_template = create_card_template(is_cloze)
     template["qfmt"] = card_template["qfmt"]
@@ -530,31 +535,31 @@ def create_model(col, model_name, is_cloze=False, url=None, debug_messages=None)
     col.models.add_template(model, template)
     col.models.save(model)
 
-    # Registrar automaticamente o note type se URL foi fornecida
+    # Automatically register note type if URL was provided
     if url and model.get("id"):
         try:
             register_note_type_for_deck(url, model["id"], model_name, debug_messages)
         except Exception as e:
             if debug_messages:
-                debug_messages.append(f"Erro ao registrar note type {model['id']}: {e}")
+                debug_messages.append(f"Error registering note type {model['id']}: {e}")
 
     return model
 
 
 def ensure_custom_models(col, url, student=None, debug_messages=None):
     """
-    Garante que ambos os modelos (padrão e cloze) existam no Anki.
-    Usa os IDs armazenados no meta.json para encontrar note types existentes,
-    ao invés de buscar apenas por nome.
+    Ensures both models (standard and cloze) exist in Anki.
+    Uses IDs stored in meta.json to find existing note types,
+    instead of searching only by name.
 
     Args:
-        col: Objeto de coleção do Anki
-        url (str): URL do deck remoto
-        student (str, optional): Nome do aluno para criar modelos específicos
-        debug_messages (list, optional): Lista para debug
+        col: Anki collection object
+        url (str): Remote deck URL
+        student (str, optional): Student name for creating specific models
+        debug_messages (list, optional): List for debug
 
     Returns:
-        dict: Dicionário contendo os modelos 'standard' e 'cloze'
+        dict: Dictionary containing 'standard' and 'cloze' models
     """
     from .config_manager import get_deck_note_type_ids
     from .config_manager import get_deck_remote_name
@@ -564,27 +569,26 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
     def add_debug_msg(message):
         if debug_messages:
             debug_messages.append(f"[ENSURE_MODELS] {message}")
-        print(f"[ENSURE_MODELS] {message}")
 
     models = {}
 
-    # Obter nome do deck remoto e note types existentes
+    # Get remote deck name and existing note types
     remote_deck_name = get_deck_remote_name(url) or "RemoteDeck"
     existing_note_types = get_deck_note_type_ids(url) or {}
 
     add_debug_msg(
-        f"Procurando note types para student='{student}', remote_deck_name='{remote_deck_name}'"
+        f"Searching note types for student='{student}', remote_deck_name='{remote_deck_name}'"
     )
-    add_debug_msg(f"Note types existentes: {len(existing_note_types)} encontrados")
+    add_debug_msg(f"Existing note types: {len(existing_note_types)} found")
 
-    # Função helper para encontrar note type por padrão
+    # Helper function to find note type by pattern
     def find_existing_note_type(is_cloze):
         target_type = "Cloze" if is_cloze else "Basic"
         target_pattern = (
             f" - {student} - {target_type}" if student else f" - {target_type}"
         )
 
-        # Procurar nos note types existentes
+        # Search in existing note types
         for note_type_id_str, note_type_name in existing_note_types.items():
             if note_type_name.endswith(target_pattern):
                 try:
@@ -593,21 +597,21 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
                     model = col.models.get(NotetypeId(note_type_id))
                     if model:
                         add_debug_msg(
-                            f"Encontrado note type existente: ID {note_type_id} - '{note_type_name}'"
+                            f"Found existing note type: ID {note_type_id} - '{note_type_name}'"
                         )
                         return model, note_type_name
                 except (ValueError, TypeError):
                     continue
         return None, None
 
-    # Modelo padrão (Basic)
+    # Standard model (Basic)
     expected_name = get_note_type_name(
         url, remote_deck_name, student=student, is_cloze=False
     )
     existing_model, existing_name = find_existing_note_type(is_cloze=False)
 
     if existing_model:
-        # Use o modelo existente e NÃO force um nome novo se já está registrado
+        # Use existing model and do NOT force new name if already registered
         current_registered_name = None
         for note_type_id_str, note_type_name in existing_note_types.items():
             try:
@@ -618,36 +622,36 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
                 continue
 
         if current_registered_name:
-            # Já está registrado, usar nome atual da configuração
+            # Already registered, use current config name
             add_debug_msg(
-                f"Usando modelo existente (Basic) JÁ REGISTRADO: '{existing_name}' com nome config: '{current_registered_name}'"
+                f"Using existing (Basic) model ALREADY REGISTERED: '{existing_name}' with config name: '{current_registered_name}'"
             )
             models["standard"] = existing_model
         else:
-            # Não está registrado, registrar com nome esperado
+            # Not registered, register with expected name
             register_note_type_for_deck(
                 url, existing_model["id"], expected_name, debug_messages
             )
             models["standard"] = existing_model
             add_debug_msg(
-                f"Modelo existente (Basic) registrado: '{existing_name}' → esperado: '{expected_name}'"
+                f"Existing (Basic) model registered: '{existing_name}' → expected: '{expected_name}'"
             )
     else:
-        # Criar novo modelo apenas se realmente não existir
-        add_debug_msg(f"Criando novo modelo (Basic): '{expected_name}'")
+        # Create new model only if it really doesn't exist
+        add_debug_msg(f"Creating new (Basic) model: '{expected_name}'")
         model = create_model(
             col, expected_name, is_cloze=False, url=url, debug_messages=debug_messages
         )
         models["standard"] = model
 
-    # Modelo cloze
+    # Cloze model
     expected_cloze_name = get_note_type_name(
         url, remote_deck_name, student=student, is_cloze=True
     )
     existing_cloze_model, existing_cloze_name = find_existing_note_type(is_cloze=True)
 
     if existing_cloze_model:
-        # Use o modelo existente e NÃO force um nome novo se já está registrado
+        # Use existing model and do NOT force new name if already registered
         current_registered_cloze_name = None
         for note_type_id_str, note_type_name in existing_note_types.items():
             try:
@@ -658,23 +662,23 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
                 continue
 
         if current_registered_cloze_name:
-            # Já está registrado, usar nome atual da configuração
+            # Already registered, use current config name
             add_debug_msg(
-                f"Usando modelo existente (Cloze) JÁ REGISTRADO: '{existing_cloze_name}' com nome config: '{current_registered_cloze_name}'"
+                f"Using existing (Cloze) model ALREADY REGISTERED: '{existing_cloze_name}' with config name: '{current_registered_cloze_name}'"
             )
             models["cloze"] = existing_cloze_model
         else:
-            # Não está registrado, registrar com nome esperado
+            # Not registered, register with expected name
             register_note_type_for_deck(
                 url, existing_cloze_model["id"], expected_cloze_name, debug_messages
             )
             models["cloze"] = existing_cloze_model
             add_debug_msg(
-                f"Modelo existente (Cloze) registrado: '{existing_cloze_name}' → esperado: '{expected_cloze_name}'"
+                f"Existing (Cloze) model registered: '{existing_cloze_name}' → expected: '{expected_cloze_name}'"
             )
     else:
-        # Criar novo modelo apenas se realmente não existir
-        add_debug_msg(f"Criando novo modelo (Cloze): '{expected_cloze_name}'")
+        # Create new model only if it really doesn't exist
+        add_debug_msg(f"Creating new (Cloze) model: '{expected_cloze_name}'")
         cloze_model = create_model(
             col,
             expected_cloze_name,
@@ -688,66 +692,66 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
 
 def update_existing_note_type_templates(col, debug_messages=None):
     """
-    Atualiza os templates de todos os note types existentes do Sheets2Anki
-    para incluir a nova coluna ILUSTRAÇÃO HTML.
+    Updates templates of all existing Sheets2Anki note types
+    to include the new IMAGE HTML column.
     
     Args:
-        col: Objeto de coleção do Anki
-        debug_messages (list, optional): Lista para debug
+        col: Anki collection object
+        debug_messages (list, optional): List for debug
     
     Returns:
-        int: Número de note types atualizados
+        int: Number of updated note types
     """
     if debug_messages is None:
         debug_messages = []
     
     updated_count = 0
     
-    # Buscar todos os note types que começam com "Sheets2Anki"
+    # Search all note types that start with "Sheets2Anki"
     all_models = col.models.all()
     sheets2anki_models = [
         model for model in all_models 
         if model.get("name", "").startswith("Sheets2Anki")
     ]
     
-    debug_messages.append(f"[UPDATE_TEMPLATES] Encontrados {len(sheets2anki_models)} note types do Sheets2Anki")
+    debug_messages.append(f"[UPDATE_TEMPLATES] Found {len(sheets2anki_models)} Sheets2Anki note types")
     
     for model in sheets2anki_models:
         try:
             model_name = model.get("name", "")
             is_cloze = model.get("type") == 1
             
-            debug_messages.append(f"[UPDATE_TEMPLATES] Processando: {model_name} (cloze: {is_cloze})")
+            debug_messages.append(f"[UPDATE_TEMPLATES] Processing: {model_name} (cloze: {is_cloze})")
             
-            # Verificar se o campo ILUSTRAÇÃO HTML já existe
+            # Check if IMAGE HTML field already exists
             existing_fields = []
             for field in model.get("flds", []):
-                # Lidar com diferentes formatos de campo (dict ou objeto)
+                # Handle different field formats (dict or object)
                 if hasattr(field, 'get'):
                     field_name = field.get("name", "")
                 elif isinstance(field, dict):
                     field_name = field.get("name", "")
                 else:
-                    # Assumir que é um objeto com atributo name
+                    # Assume it's an object with name attribute
                     field_name = getattr(field, 'name', "")
                 existing_fields.append(field_name)
             
-            if multimidia_1 not in existing_fields:
-                debug_messages.append(f"[UPDATE_TEMPLATES] Adicionando campo {multimidia_1}")
-                # Adicionar o campo ILUSTRAÇÃO HTML
-                field_template = col.models.new_field(multimidia_1)
+            if multimedia_1 not in existing_fields:
+                debug_messages.append(f"[UPDATE_TEMPLATES] Adding field {multimedia_1}")
+                # Add IMAGE HTML field
+                field_template = col.models.new_field(multimedia_1)
                 col.models.add_field(model, field_template)
             else:
-                debug_messages.append(f"[UPDATE_TEMPLATES] Campo {multimidia_1} já existe")
+                debug_messages.append(f"[UPDATE_TEMPLATES] Field {multimedia_1} already exists")
             
-            # Atualizar templates de cards
+            # Update card templates
             templates = model.get("tmpls", [])
             if templates:
                 new_card_template = create_card_template(is_cloze)
                 template_updated = False
                 
                 for i, template in enumerate(templates):
-                    # Lidar com diferentes formatos de template
+                    # Handle different template formats
                     if hasattr(template, 'get'):
                         old_qfmt = template.get("qfmt", "")
                         old_afmt = template.get("afmt", "")
@@ -758,11 +762,11 @@ def update_existing_note_type_templates(col, debug_messages=None):
                         old_qfmt = getattr(template, 'qfmt', "")
                         old_afmt = getattr(template, 'afmt', "")
                     
-                    # Verificar se precisa atualizar (se não tem ILUSTRAÇÃO HTML no template)
-                    needs_update = multimidia_1 not in old_afmt
+                    # Check if needs update (if doesn't have IMAGE HTML in template)
+                    needs_update = multimedia_1 not in old_afmt
                     
                     if needs_update:
-                        # Atualizar template
+                        # Update template
                         if hasattr(template, '__setitem__'):
                             template["qfmt"] = new_card_template["qfmt"]
                             template["afmt"] = new_card_template["afmt"]
@@ -774,20 +778,20 @@ def update_existing_note_type_templates(col, debug_messages=None):
                             setattr(template, 'afmt', new_card_template["afmt"])
                         
                         template_updated = True
-                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} atualizado para {model_name}")
+                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} updated for {model_name}")
                     else:
-                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} já contém {multimidia_1}")
+                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} already contains {multimedia_1}")
                 
                 if not template_updated:
-                    debug_messages.append(f"[UPDATE_TEMPLATES] Nenhum template precisou ser atualizado para {model_name}")
+                    debug_messages.append(f"[UPDATE_TEMPLATES] No template needed update for {model_name}")
             
-            # Salvar o modelo atualizado
+            # Save updated model
             col.models.save(model)
             updated_count += 1
-            debug_messages.append(f"[UPDATE_TEMPLATES] ✅ {model_name} processado com sucesso")
+            debug_messages.append(f"[UPDATE_TEMPLATES] ✅ {model_name} processed successfully")
             
         except Exception as e:
-            debug_messages.append(f"[UPDATE_TEMPLATES] ❌ Erro ao atualizar {model.get('name', 'unknown')}: {e}")
+            debug_messages.append(f"[UPDATE_TEMPLATES] ❌ Error updating {model.get('name', 'unknown')}: {e}")
     
-    debug_messages.append(f"[UPDATE_TEMPLATES] 🎯 Total de note types processados: {updated_count}")
+    debug_messages.append(f"[UPDATE_TEMPLATES] 🎯 Total note types processed: {updated_count}")
     return updated_count

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Testes de integração geral para o Sheets2Anki
+General integration tests for Sheets2Anki
 
-Testa o fluxo completo de:
-- Carregamento de configuração
-- Busca de planilhas remotas
-- Processamento de dados
-- Criação de notes no Anki
-- Sincronização com AnkiWeb
+Tests the complete flow of:
+- Configuration loading
+- Remote spreadsheet fetching
+- Data processing
+- Anki note creation
+- AnkiWeb synchronization
 """
 
 import json
@@ -20,18 +20,18 @@ from unittest.mock import patch
 import pytest
 
 # =============================================================================
-# TESTES DE INTEGRAÇÃO COMPLETA
+# FULL INTEGRATION TESTS
 # =============================================================================
 
 
 @pytest.mark.integration
 class TestFullIntegration:
-    """Testes de integração do sistema completo."""
+    """Full system integration tests."""
 
     def test_complete_sync_workflow(
         self, sample_tsv_content, sample_students, mock_mw, tmp_path
     ):
-        """Teste do fluxo completo de sincronização."""
+        """Complete synchronization workflow test."""
 
         # === SETUP ===
         config_file = tmp_path / "integration_config.json"
@@ -39,7 +39,7 @@ class TestFullIntegration:
             "remote_decks": {
                 "Test Deck": "https://docs.google.com/spreadsheets/test/pub?output=tsv"
             },
-            "global_students": sample_students[:3],  # João, Maria, Pedro
+            "global_students": sample_students[:3],  # John, Mary, Peter
             "ankiweb_sync": {"enabled": False},
         }
 
@@ -54,7 +54,7 @@ class TestFullIntegration:
                 return json.load(f)
 
         def fetch_remote_deck(url):
-            """Simula o download de uma planilha remota."""
+            """Simulates remote spreadsheet download."""
             return sample_tsv_content
 
         def parse_tsv_data(content):
@@ -70,11 +70,12 @@ class TestFullIntegration:
         def filter_by_students(data, global_students):
             filtered = []
             for row in data:
-                alunos = row.get("ALUNOS", "")
-                if alunos:
+                # Support both Students (English) and ALUNOS (Portuguese)
+                students_field = row.get("Students", row.get("ALUNOS", ""))
+                if students_field:
                     import re
 
-                    row_students = [s.strip() for s in re.split(r"[,;|]", alunos)]
+                    row_students = [s.strip() for s in re.split(r"[,;|]", students_field)]
                     matching = [s for s in row_students if s in global_students]
                     if matching:
                         filtered.append({**row, "_target_students": matching})
@@ -85,14 +86,17 @@ class TestFullIntegration:
 
             for row in filtered_data:
                 for student in row["_target_students"]:
-                    # Simular criação de nota
+                    # Simulate note creation
                     note = Mock()
                     note.id = len(created_notes) + 1
-                    note.fields = [row["PERGUNTA"], row["LEVAR PARA PROVA"]]
-                    # Tags de alunos removidas - agora só tags de tópicos/outros campos
-                    note.tags = [f"Sheets2Anki::Topicos::Geografia"]
+                    # Support both English and Portuguese headers
+                    question = row.get("Question", row.get("PERGUNTA", ""))
+                    answer = row.get("Answer", row.get("LEVAR PARA PROVA", ""))
+                    note.fields = [question, answer]
+                    # Student tags removed - now only topics/other fields tags
+                    note.tags = [f"Sheets2Anki::Topics::Geography"]
 
-                    # Mock das operações do Anki
+                    # Mock Anki operations
                     mw.col.newNote.return_value = note
                     mw.col.addNote.return_value = note.id
 
@@ -100,15 +104,15 @@ class TestFullIntegration:
 
             return created_notes
 
-        # === EXECUÇÃO DO FLUXO COMPLETO ===
+        # === COMPLETE FLOW EXECUTION ===
 
-        # 1. Carregar configuração
+        # 1. Load configuration
         loaded_config = load_config(config_file)
         assert "remote_decks" in loaded_config
 
-        # 2. Para cada deck configurado
+        # 2. For each configured deck
         for deck_name, url in loaded_config["remote_decks"].items():
-            # 3. Buscar dados remotos
+            # 3. Fetch remote data
             with patch("urllib.request.urlopen") as mock_urlopen:
                 mock_response = Mock()
                 mock_response.read.return_value = sample_tsv_content.encode("utf-8")
@@ -117,57 +121,57 @@ class TestFullIntegration:
                 raw_content = fetch_remote_deck(url)
                 assert "Q001" in raw_content
 
-                # 4. Processar dados TSV
+                # 4. Process TSV data
                 parsed_data = parse_tsv_data(raw_content)
                 assert len(parsed_data) == 2
 
-                # 5. Filtrar por alunos globais
+                # 5. Filter by global students
                 filtered_data = filter_by_students(
                     parsed_data, loaded_config["global_students"]
                 )
                 assert len(filtered_data) > 0
 
-                # 6. Criar notas no Anki
+                # 6. Create Anki notes
                 created_notes = create_anki_notes(filtered_data, deck_name, mock_mw)
                 assert len(created_notes) > 0
 
-                # 7. Verificar se as notas foram criadas corretamente
+                # 7. Verify notes were created correctly
                 for note in created_notes:
                     assert hasattr(note, "id")
                     assert hasattr(note, "fields")
                     assert hasattr(note, "tags")
-                    # Verificar por tags de tópicos ao invés de alunos
-                    assert any("Sheets2Anki::Topicos::" in tag for tag in note.tags)
+                    # Check for topic tags instead of student tags
+                    assert any("Sheets2Anki::Topics::" in tag for tag in note.tags)
 
     def test_error_handling_integration(self, mock_mw):
-        """Teste de tratamento de erros em integração."""
+        """Integration error handling test."""
 
         def sync_with_error_handling(deck_name, url, global_students, mw):
             errors = []
             success_count = 0
 
             try:
-                # 1. Validar URL
+                # 1. Validate URL
                 if not url or "docs.google.com" not in url:
-                    raise ValueError(f"URL inválida: {url}")
+                    raise ValueError(f"Invalid URL: {url}")
 
-                # 2. Simular erro de rede
+                # 2. Simulate network error
                 if "error" in url:
-                    raise ConnectionError("Erro de conexão com a planilha")
+                    raise ConnectionError("Spreadsheet connection error")
 
-                # 3. Validar alunos
+                # 3. Validate students
                 if not global_students:
-                    raise ValueError("Nenhum aluno configurado")
+                    raise ValueError("No students configured")
 
-                # 4. Simular processamento bem-sucedido
+                # 4. Simulate successful processing
                 success_count = len(global_students)
 
             except ValueError as e:
-                errors.append(f"Erro de validação: {str(e)}")
+                errors.append(f"Validation error: {str(e)}")
             except ConnectionError as e:
-                errors.append(f"Erro de conexão: {str(e)}")
+                errors.append(f"Connection error: {str(e)}")
             except Exception as e:
-                errors.append(f"Erro inesperado: {str(e)}")
+                errors.append(f"Unexpected error: {str(e)}")
 
             return {
                 "success": len(errors) == 0,
@@ -175,67 +179,67 @@ class TestFullIntegration:
                 "success_count": success_count if len(errors) == 0 else 0,
             }
 
-        # Caso de sucesso
+        # Success case
         result = sync_with_error_handling(
             "Test Deck",
             "https://docs.google.com/spreadsheets/valid/pub?output=tsv",
-            ["João", "Maria"],
+            ["John", "Mary"],
             mock_mw,
         )
         assert result["success"] == True
         assert result["success_count"] == 2
 
-        # Caso com erro de URL
-        result = sync_with_error_handling("Test Deck", "invalid_url", ["João"], mock_mw)
+        # URL error case
+        result = sync_with_error_handling("Test Deck", "invalid_url", ["John"], mock_mw)
         assert result["success"] == False
         assert len(result["errors"]) > 0
-        assert "URL inválida" in result["errors"][0]
+        assert "Invalid URL" in result["errors"][0]
 
-        # Caso com erro de conexão
+        # Connection error case
         result = sync_with_error_handling(
             "Test Deck",
             "https://docs.google.com/spreadsheets/error/pub?output=tsv",
-            ["João"],
+            ["John"],
             mock_mw,
         )
         assert result["success"] == False
-        assert "Erro de conexão" in result["errors"][0]
+        assert "Connection error" in result["errors"][0]
 
 
 # =============================================================================
-# TESTES DE PERFORMANCE
+# PERFORMANCE TESTS
 # =============================================================================
 
 
 @pytest.mark.slow
 @pytest.mark.integration
 class TestPerformanceIntegration:
-    """Testes de performance em cenários de integração."""
+    """Performance tests in integration scenarios."""
 
     def test_large_dataset_processing(self):
-        """Teste com dataset grande."""
+        """Test with large dataset."""
         import time
 
-        # Gerar dataset grande
+        # Generate large dataset
         def generate_large_dataset(size):
             headers = [
                 "ID",
-                "PERGUNTA",
-                "LEVAR PARA PROVA",
-                "SYNC?",
-                "ALUNOS",
-                "TOPICO",
+                "Question",
+                "Answer",
+                "SYNC",
+                "Students",
+                "Topic",
             ]
             data = []
 
             for i in range(size):
                 row = {
                     "ID": f"Q{i:04d}",
-                    "PERGUNTA": f"Pergunta {i}",
-                    "LEVAR PARA PROVA": f"Resposta {i}",
-                    "SYNC?": "true",
-                    "ALUNOS": f"Aluno{i % 10}",  # 10 alunos diferentes
-                    "TOPICO": f"Topico{i % 5}",  # 5 tópicos diferentes
+                    "Question": f"Question {i}",
+                    "Answer": f"Answer {i}",
+                    "SYNC": "true",
+                    "Students": f"Student{i % 10}",  # 10 different students
+                    "Topic": f"Topic{i % 5}",  # 5 different topics
                 }
                 data.append(row)
 
@@ -244,11 +248,11 @@ class TestPerformanceIntegration:
         def process_large_dataset(data, global_students):
             start_time = time.time()
 
-            # Simular processamento
+            # Simulate processing
             filtered_data = []
             for row in data:
-                if row["ALUNOS"] in global_students:
-                    # Simular algum processamento
+                if row["Students"] in global_students:
+                    # Simulate some processing
                     processed_row = {**row}
                     processed_row["_processed"] = True
                     filtered_data.append(processed_row)
@@ -256,32 +260,32 @@ class TestPerformanceIntegration:
             processing_time = time.time() - start_time
             return filtered_data, processing_time
 
-        # Teste com 1000 registros
+        # Test with 1000 records
         large_data = generate_large_dataset(1000)
-        global_students = [f"Aluno{i}" for i in range(5)]  # 5 alunos
+        global_students = [f"Student{i}" for i in range(5)]  # 5 students
 
         result, processing_time = process_large_dataset(large_data, global_students)
 
-        # Verificações
-        assert len(result) == 500  # Metade dos registros (5 de 10 alunos)
-        assert processing_time < 1.0  # Deve processar em menos de 1 segundo
+        # Checks
+        assert len(result) == 500  # Half of records (5 of 10 students)
+        assert processing_time < 1.0  # Should process in less than 1 second
         assert all(row["_processed"] for row in result)
 
 
 # =============================================================================
-# TESTES DE COMPATIBILIDADE
+# COMPATIBILITY TESTS
 # =============================================================================
 
 
 @pytest.mark.integration
 class TestCompatibilityIntegration:
-    """Testes de compatibilidade com diferentes versões."""
+    """Compatibility tests with different versions."""
 
     def test_anki_version_compatibility(self, mock_mw):
-        """Teste de compatibilidade com diferentes versões do Anki."""
+        """Compatibility test with different Anki versions."""
 
         def get_anki_version_mock():
-            return "2.1.54"  # Versão moderna
+            return "2.1.54"  # Modern version
 
         def sync_with_version_check(mw, version_getter=get_anki_version_mock):
             version = version_getter()
@@ -293,24 +297,24 @@ class TestCompatibilityIntegration:
                 "supports_hierarchical_decks": True,
             }
 
-            # Usar APIs apropriadas baseado na versão
+            # Use appropriate APIs based on version
             if compatibility["modern_api"]:
-                # API moderna
+                # Modern API
                 mw.col.decks.id_for_name = Mock(return_value=123)
                 result = {"api": "modern", "deck_id": mw.col.decks.id_for_name("test")}
             else:
-                # API legada
+                # Legacy API
                 mw.col.decks.id = Mock(return_value=456)
                 result = {"api": "legacy", "deck_id": mw.col.decks.id("test")}
 
             return result
 
-        # Teste com versão moderna
+        # Test with modern version
         result = sync_with_version_check(mock_mw)
         assert result["api"] == "modern"
         assert result["deck_id"] == 123
 
-        # Teste com versão antiga
+        # Test with old version
         def old_version_getter():
             return "2.1.40"
 
@@ -320,48 +324,48 @@ class TestCompatibilityIntegration:
 
 
 # =============================================================================
-# TESTES DE CENÁRIOS REAIS
+# REAL WORLD SCENARIOS TESTS
 # =============================================================================
 
 
 @pytest.mark.integration
 class TestRealWorldScenarios:
-    """Testes baseados em cenários reais de uso."""
+    """Tests based on real-world use scenarios."""
 
     def test_professor_multi_class_scenario(self, tmp_path):
-        """Cenário: Professor com múltiplas turmas."""
+        """Scenario: Professor with multiple classes."""
 
-        # Configuração do professor
+        # Professor configuration
         config = {
             "global_students": [
-                "João_Turma_A",
-                "Maria_Turma_A",
-                "Pedro_Turma_A",
-                "Ana_Turma_B",
-                "Carlos_Turma_B",
-                "Lucia_Turma_B",
+                "John_Class_A",
+                "Mary_Class_A",
+                "Peter_Class_A",
+                "Ann_Class_B",
+                "Charles_Class_B",
+                "Lucy_Class_B",
             ],
             "remote_decks": {
-                "Geografia_Geral": "https://docs.google.com/spreadsheets/geo/pub?output=tsv",
-                "Historia_Brasil": "https://docs.google.com/spreadsheets/hist/pub?output=tsv",
+                "General_Geography": "https://docs.google.com/spreadsheets/geo/pub?output=tsv",
+                "Brazil_History": "https://docs.google.com/spreadsheets/hist/pub?output=tsv",
             },
         }
 
-        # Dados da planilha simulando conteúdo diferente por turma
+        # Sheet data simulating different content per class
         geo_data = [
             {
                 "ID": "GEO001",
-                "PERGUNTA": "Capital do Brasil?",
-                "ALUNOS": "João_Turma_A, Maria_Turma_A",
-                "TOPICO": "Capitais",
-                "IMPORTANCIA": "Alta",
+                "Question": "Capital of Brazil?",
+                "Students": "John_Class_A, Mary_Class_A",
+                "Topic": "Capitais",
+                "Importance": "High",
             },
             {
                 "ID": "GEO002",
-                "PERGUNTA": "Maior rio do mundo?",
-                "ALUNOS": "Ana_Turma_B, Carlos_Turma_B",
-                "TOPICO": "Hidrografia",
-                "IMPORTANCIA": "Média",
+                "Question": "Largest river in the world?",
+                "Students": "Ann_Class_B, Charles_Class_B",
+                "Topic": "Hidrografia",
+                "Importance": "Medium",
             },
         ]
 
@@ -371,65 +375,65 @@ class TestRealWorldScenarios:
             for deck_name in config["remote_decks"]:
                 deck_data = data_by_deck.get(deck_name, [])
 
-                # Filtrar por alunos globais
+                # Filter by global students
                 filtered_data = []
                 for row in deck_data:
-                    alunos = row.get("ALUNOS", "")
-                    if alunos:
+                    students = row.get("Students", row.get("ALUNOS", ""))
+                    if students:
                         import re
 
-                        row_students = [s.strip() for s in re.split(r"[,;|]", alunos)]
+                        row_students = [s.strip() for s in re.split(r"[,;|]", students)]
                         matching = [
                             s for s in row_students if s in config["global_students"]
                         ]
                         if matching:
                             filtered_data.append({**row, "_target_students": matching})
 
-                # Agrupar por turma
-                turma_a_count = 0
-                turma_b_count = 0
+                # Group by class
+                class_a_count = 0
+                class_b_count = 0
 
                 for row in filtered_data:
                     for student in row["_target_students"]:
-                        if "Turma_A" in student:
-                            turma_a_count += 1
-                        elif "Turma_B" in student:
-                            turma_b_count += 1
+                        if "Class_A" in student:
+                            class_a_count += 1
+                        elif "Class_B" in student:
+                            class_b_count += 1
 
                 results[deck_name] = {
                     "total_notes": len(filtered_data),
-                    "turma_a_notes": turma_a_count,
-                    "turma_b_notes": turma_b_count,
+                    "class_a_notes": class_a_count,
+                    "class_b_notes": class_b_count,
                 }
 
             return results
 
-        data_by_deck = {"Geografia_Geral": geo_data}
+        data_by_deck = {"General_Geography": geo_data}
         results = process_multi_class_scenario(config, data_by_deck)
 
-        assert "Geografia_Geral" in results
-        assert results["Geografia_Geral"]["turma_a_notes"] > 0
-        assert results["Geografia_Geral"]["turma_b_notes"] > 0
+        assert "General_Geography" in results
+        assert results["General_Geography"]["class_a_notes"] > 0
+        assert results["General_Geography"]["class_b_notes"] > 0
 
     def test_student_group_collaborative_scenario(self):
-        """Cenário: Grupo de estudos colaborativo."""
+        """Scenario: Collaborative study group."""
 
-        # Simulação de grupo de estudos
+        # Study group simulation
         group_config = {
-            "global_students": ["João", "Maria", "Pedro", "Ana"],
+            "global_students": ["John", "Mary", "Peter", "Ann"],
             "study_areas": {
-                "João": ["Matemática", "Física"],
-                "Maria": ["Química", "Biologia"],
-                "Pedro": ["História", "Geografia"],
-                "Ana": ["Literatura", "Filosofia"],
+                "John": ["Math", "Physics"],
+                "Mary": ["Chemistry", "Biology"],
+                "Peter": ["History", "Geography"],
+                "Ann": ["Literature", "Philosophy"],
             },
         }
 
         collaborative_data = [
-            {"ID": "MAT001", "TOPICO": "Matemática", "ALUNOS": "João, Maria"},
-            {"ID": "QUI001", "TOPICO": "Química", "ALUNOS": "Maria, Pedro"},
-            {"ID": "HIS001", "TOPICO": "História", "ALUNOS": "Pedro, Ana"},
-            {"ID": "LIT001", "TOPICO": "Literatura", "ALUNOS": "Ana, João"},
+            {"ID": "MAT001", "Topic": "Math", "Students": "John, Mary"},
+            {"ID": "QUI001", "Topic": "Chemistry", "Students": "Mary, Peter"},
+            {"ID": "HIS001", "Topic": "History", "Students": "Peter, Ann"},
+            {"ID": "LIT001", "Topic": "Literature", "Students": "Ann, John"},
         ]
 
         def analyze_collaboration_patterns(config, data):
@@ -437,18 +441,18 @@ class TestRealWorldScenarios:
             topic_coverage = {}
 
             for row in data:
-                topic = row.get("TOPICO", "Geral")
-                alunos = row.get("ALUNOS", "")
+                topic = row.get("Topic", row.get("TOPICO", "General"))
+                students_str = row.get("Students", row.get("ALUNOS", ""))
 
-                if alunos:
-                    students = [s.strip() for s in alunos.split(",")]
+                if students_str:
+                    students = [s.strip() for s in students_str.split(",")]
 
-                    # Registrar cobertura por tópico
+                    # Register coverage per topic
                     if topic not in topic_coverage:
                         topic_coverage[topic] = set()
                     topic_coverage[topic].update(students)
 
-                    # Matriz de colaboração
+                    # Collaboration matrix
                     for i, student1 in enumerate(students):
                         for student2 in students[i + 1 :]:
                             pair = tuple(sorted([student1, student2]))

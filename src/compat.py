@@ -1,14 +1,14 @@
 """
-Módulo de Compatibilidade Qt/Anki
+Qt/Anki Compatibility Module
 
-Este módulo fornece uma camada de compatibilidade entre diferentes versões
-do Qt e Anki, garantindo que o add-on funcione nas versões 23.x, 24.x e 25.x.
+This module provides a compatibility layer between different Qt
+and Anki versions, ensuring the add-on works with versions 23.x, 24.x and 25.x.
 
-Funcionalidades:
-- Importação segura de módulos Qt
-- Constantes de compatibilidade
-- Fallbacks para versões antigas
-- Detecção automática de versão
+Features:
+- Safe Qt module imports
+- Compatibility constants
+- Fallbacks for older versions
+- Automatic version detection
 """
 
 import sys
@@ -16,26 +16,26 @@ from typing import Any
 from typing import Optional
 
 # =============================================================================
-# DETECÇÃO DE VERSÃO DO ANKI
+# ANKI VERSION DETECTION
 # =============================================================================
 
 
 def get_anki_version() -> tuple[int, int, int]:
     """
-    Detecta a versão do Anki em execução.
+    Detects the running Anki version.
 
     Returns:
-        Tuple com (major, minor, patch) da versão do Anki
+        Tuple with (major, minor, patch) of the Anki version
     """
     try:
         import anki
 
         version_str = anki.version
-        # Formato: "25.02.7" ou "2.1.66"
+        # Format: "25.02.7" or "2.1.66"
         parts = version_str.split(".")
         return (int(parts[0]), int(parts[1]), int(parts[2]) if len(parts) > 2 else 0)
     except:
-        # Fallback para versão antiga
+        # Fallback for old version
         return (2, 1, 0)
 
 
@@ -46,7 +46,7 @@ IS_ANKI_24_PLUS = ANKI_VERSION[0] >= 24 or (
 )
 
 # =============================================================================
-# IMPORTS DO ANKI
+# ANKI IMPORTS
 # =============================================================================
 
 try:
@@ -60,13 +60,13 @@ try:
     from aqt.utils import showWarning
     from aqt.utils import tooltip
 except ImportError as e:
-    raise ImportError(f"Não foi possível importar módulos do Anki: {e}")
+    raise ImportError(f"Could not import Anki modules: {e}")
 
-# Exportar qconnect para uso direto
+# Export qconnect for direct use
 safe_qconnect = qconnect
 
 # =============================================================================
-# IMPORTS DO QT COM COMPATIBILIDADE
+# QT IMPORTS WITH COMPATIBILITY
 # =============================================================================
 
 try:
@@ -110,17 +110,17 @@ try:
     from aqt.qt import QVBoxLayout
     from aqt.qt import QWidget
 
-    # Verificar se temos Qt6 ou Qt5
+    # Check if we have Qt6 or Qt5
     QT_VERSION = 6 if hasattr(Qt, "AlignmentFlag") else 5
 
 except ImportError as e:
-    raise ImportError(f"Não foi possível importar componentes Qt: {e}")
+    raise ImportError(f"Could not import Qt components: {e}")
 
 # =============================================================================
-# CONSTANTES DE COMPATIBILIDADE
+# COMPATIBILITY CONSTANTS
 # =============================================================================
 
-# Constantes de alinhamento
+# Alignment constants
 if QT_VERSION >= 6:
     # Qt6 style
     AlignTop = Qt.AlignmentFlag.AlignTop
@@ -140,7 +140,7 @@ else:
     AlignVCenter = Qt.AlignVCenter
     AlignHCenter = Qt.AlignHCenter
 
-# Constantes de teclas
+# Key constants
 if QT_VERSION >= 6:
     Key_Return = Qt.Key.Key_Return
     Key_Enter = Qt.Key.Key_Enter
@@ -150,7 +150,7 @@ else:
     Key_Enter = Qt.Key_Enter
     Key_Escape = Qt.Key_Escape
 
-# Constantes de formato de texto
+# Text format constants
 if QT_VERSION >= 6:
     TextFormat_RichText = Qt.TextFormat.RichText
     TextFormat_PlainText = Qt.TextFormat.PlainText
@@ -158,7 +158,7 @@ else:
     TextFormat_RichText = Qt.RichText
     TextFormat_PlainText = Qt.PlainText
 
-# Constantes de orientação
+# Orientation constants
 if QT_VERSION >= 6:
     Horizontal = Qt.Orientation.Horizontal
     Vertical = Qt.Orientation.Vertical
@@ -166,7 +166,7 @@ else:
     Horizontal = Qt.Horizontal
     Vertical = Qt.Vertical
 
-# Constantes de Context Menu Policy
+# Context Menu Policy constants
 if QT_VERSION >= 6:
     CustomContextMenu = Qt.ContextMenuPolicy.CustomContextMenu
     NoContextMenu = Qt.ContextMenuPolicy.NoContextMenu
@@ -176,7 +176,7 @@ else:
     NoContextMenu = Qt.NoContextMenu
     DefaultContextMenu = Qt.DefaultContextMenu
 
-# Constantes de diálogo
+# Dialog constants
 if hasattr(QDialog, "Accepted"):
     DialogAccepted = QDialog.Accepted
     DialogRejected = QDialog.Rejected
@@ -184,7 +184,7 @@ else:
     DialogAccepted = 1
     DialogRejected = 0
 
-# Constantes de modalidade de janela
+# Window modality constants
 if QT_VERSION >= 6:
     WINDOW_MODAL = Qt.WindowModality.WindowModal
     APPLICATION_MODAL = Qt.WindowModality.ApplicationModal
@@ -194,7 +194,7 @@ else:
     APPLICATION_MODAL = Qt.ApplicationModal
     NON_MODAL = Qt.NonModal
 
-# Constantes de QDialogButtonBox
+# QDialogButtonBox constants
 if QT_VERSION >= 6:
     ButtonBox_Ok = QDialogButtonBox.StandardButton.Ok
     ButtonBox_Cancel = QDialogButtonBox.StandardButton.Cancel
@@ -210,7 +210,7 @@ else:
     ButtonBox_Apply = QDialogButtonBox.Apply
     ButtonBox_Close = QDialogButtonBox.Close
 
-# Constantes de QMessageBox
+# QMessageBox constants
 if QT_VERSION >= 6:
     MessageBox_Yes = QMessageBox.StandardButton.Yes
     MessageBox_No = QMessageBox.StandardButton.No
@@ -230,7 +230,7 @@ else:
     MessageBox_Critical = QMessageBox.Critical
     MessageBox_Question = QMessageBox.Question
 
-# Constantes de echo mode para QLineEdit
+# Echo mode constants for QLineEdit
 if hasattr(QLineEdit, "EchoMode"):
     EchoModeNormal = QLineEdit.EchoMode.Normal
     EchoModePassword = QLineEdit.EchoMode.Password
@@ -238,7 +238,7 @@ else:
     EchoModeNormal = QLineEdit.Normal
     EchoModePassword = QLineEdit.Password
 
-# Constantes de QPalette para dark mode detection
+# QPalette constants for dark mode detection
 if QT_VERSION >= 6:
     try:
         Palette_Window = QPalette.ColorRole.Window
@@ -246,7 +246,7 @@ if QT_VERSION >= 6:
         Palette_Base = QPalette.ColorRole.Base
         Palette_Text = QPalette.ColorRole.Text
     except AttributeError:
-        # Fallback para Qt6 sem ColorRole
+        # Fallback for Qt6 without ColorRole
         Palette_Window = QPalette.Window
         Palette_WindowText = QPalette.WindowText
         Palette_Base = QPalette.Base
@@ -257,7 +257,7 @@ else:
     Palette_Base = QPalette.Base
     Palette_Text = QPalette.Text
 
-# Constantes de QAbstractItemView
+# QAbstractItemView constants
 if QT_VERSION >= 6:
     MultiSelection = QAbstractItemView.SelectionMode.MultiSelection
     SingleSelection = QAbstractItemView.SelectionMode.SingleSelection
@@ -271,7 +271,7 @@ else:
     ExtendedSelection = QAbstractItemView.ExtendedSelection
     ContiguousSelection = QAbstractItemView.ContiguousSelection
 
-# Constantes de QFrame
+# QFrame constants
 if QT_VERSION >= 6:
     Frame_HLine = QFrame.Shape.HLine
     Frame_VLine = QFrame.Shape.VLine
@@ -287,7 +287,7 @@ else:
     Frame_Raised = QFrame.Raised
     Frame_Plain = QFrame.Plain
 
-# Constantes de QFont
+# QFont constants
 if QT_VERSION >= 6:
     try:
         Font_Bold = QFont.Weight.Bold
@@ -302,18 +302,33 @@ else:
     Font_Normal = QFont.Normal
     Font_Light = QFont.Light
 
+# ScrollBar Policy constants
+if QT_VERSION >= 6:
+    try:
+        ScrollBarAlwaysOff = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        ScrollBarAlwaysOn = Qt.ScrollBarPolicy.ScrollBarAlwaysOn
+        ScrollBarAsNeeded = Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    except AttributeError:
+        ScrollBarAlwaysOff = Qt.ScrollBarAlwaysOff
+        ScrollBarAlwaysOn = Qt.ScrollBarAlwaysOn
+        ScrollBarAsNeeded = Qt.ScrollBarAsNeeded
+else:
+    ScrollBarAlwaysOff = Qt.ScrollBarAlwaysOff
+    ScrollBarAlwaysOn = Qt.ScrollBarAlwaysOn
+    ScrollBarAsNeeded = Qt.ScrollBarAsNeeded
+
 # =============================================================================
-# FUNÇÕES DE UTILIDADE
+# UTILITY FUNCTIONS
 # =============================================================================
 
 
 def safe_connect(signal, slot) -> None:
     """
-    Conecta signal/slot de forma segura entre versões do Qt.
+    Connects signal/slot safely across Qt versions.
 
     Args:
-        signal: Signal Qt para conectar
-        slot: Slot/função para conectar ao signal
+        signal: Qt signal to connect
+        slot: Slot/function to connect to the signal
     """
     try:
         if hasattr(signal, "connect"):
@@ -321,22 +336,27 @@ def safe_connect(signal, slot) -> None:
         else:
             qconnect(signal, slot)
     except Exception as e:
-        print(f"Erro ao conectar signal/slot: {e}")
+        # Avoid circular imports if utils uses compat
+        try:
+            from .utils import add_debug_message
+            add_debug_message(f"Error connecting signal/slot: {e}", "COMPAT")
+        except ImportError:
+            print(f"Error connecting signal/slot: {e}")
 
 
 def create_button(
     text: str, callback=None, tooltip_text: Optional[str] = None
 ) -> QPushButton:
     """
-    Cria um botão com callback e tooltip de forma compatível.
+    Creates a button with callback and tooltip in a compatible way.
 
     Args:
-        text: Texto do botão
-        callback: Função a ser chamada quando botão é clicado
-        tooltip_text: Texto do tooltip (opcional)
+        text: Button text
+        callback: Function to be called when button is clicked
+        tooltip_text: Tooltip text (optional)
 
     Returns:
-        QPushButton configurado
+        Configured QPushButton
     """
     button = QPushButton(text)
 
@@ -351,12 +371,12 @@ def create_button(
 
 def show_message(title: str, message: str, message_type: str = "info") -> None:
     """
-    Mostra mensagem ao usuário de forma compatível entre versões.
+    Shows message to user in a compatible way across versions.
 
     Args:
-        title: Título da mensagem
-        message: Conteúdo da mensagem
-        message_type: Tipo da mensagem ("info", "warning", "error")
+        title: Message title
+        message: Message content
+        message_type: Message type ("info", "warning", "error")
     """
     full_message = f"{title}\n\n{message}" if title else message
 
@@ -370,13 +390,13 @@ def show_message(title: str, message: str, message_type: str = "info") -> None:
 
 def safe_exec_dialog(dialog) -> int:
     """
-    Executa um diálogo de forma compatível entre versões do Qt.
+    Executes a dialog in a compatible way across Qt versions.
 
     Args:
-        dialog: Diálogo Qt a ser executado
+        dialog: Qt dialog to execute
 
     Returns:
-        int: Código de resultado do diálogo (Accepted/Rejected)
+        int: Dialog result code (Accepted/Rejected)
     """
     if hasattr(dialog, "exec"):
         # Qt6 style
@@ -388,14 +408,14 @@ def safe_exec_dialog(dialog) -> int:
 
 def safe_exec_menu(menu, position) -> Any:
     """
-    Executa um menu de contexto de forma compatível entre versões do Qt.
+    Executes a context menu in a compatible way across Qt versions.
 
     Args:
-        menu: QMenu a ser executado
-        position: Posição onde mostrar o menu
+        menu: QMenu to execute
+        position: Position where to show the menu
 
     Returns:
-        QAction selecionada ou None
+        Selected QAction or None
     """
     if hasattr(menu, "exec"):
         # Qt6 style
@@ -407,49 +427,49 @@ def safe_exec_menu(menu, position) -> Any:
 
 def show_tooltip(message: str, period: int = 3000) -> None:
     """
-    Mostra tooltip temporário.
+    Shows temporary tooltip.
 
     Args:
-        message: Mensagem do tooltip
-        period: Duração em milissegundos
+        message: Tooltip message
+        period: Duration in milliseconds
     """
     try:
         tooltip(message)
     except:
-        # Fallback para showInfo se tooltip não estiver disponível
+        # Fallback to showInfo if tooltip is not available
         showInfo(message)
 
 
 # =============================================================================
-# EXECUÇÃO DE DIÁLOGOS (antigo fix_exec.py)
+# DIALOG EXECUTION (former fix_exec.py)
 # =============================================================================
 
 
 def safe_exec(dialog):
     """
-    Executa um diálogo de forma compatível com diferentes versões do Qt
+    Executes a dialog in a compatible way with different Qt versions
 
     Args:
-        dialog: O diálogo a ser executado
+        dialog: The dialog to execute
 
     Returns:
-        O resultado da execução do diálogo
+        The result of dialog execution
     """
     try:
-        # Tentar método mais novo primeiro (Qt6+)
+        # Try newer method first (Qt6+)
         return dialog.exec()
     except AttributeError:
-        # Fallback para versões antigas
+        # Fallback for older versions
         return dialog.exec_()
 
 
 # =============================================================================
-# CONSTANTES DE SELEÇÃO (antigo fix_multiselection.py)
+# SELECTION CONSTANTS (former fix_multiselection.py)
 # =============================================================================
 
-# Constantes de QAbstractItemView com fallback
+# QAbstractItemView constants with fallback
 try:
-    # Tentar Qt6+ primeiro (enums tipados)
+    # Try Qt6+ first (typed enums)
     MULTI_SELECTION = QAbstractItemView.SelectionMode.MultiSelection
     SINGLE_SELECTION = QAbstractItemView.SelectionMode.SingleSelection
     NO_SELECTION = QAbstractItemView.SelectionMode.NoSelection
@@ -457,14 +477,14 @@ try:
     CONTIGUOUS_SELECTION = QAbstractItemView.SelectionMode.ContiguousSelection
 except AttributeError:
     try:
-        # Tentar Qt5 (constantes de classe)
+        # Try Qt5 (class constants)
         MULTI_SELECTION = QAbstractItemView.MultiSelection
         SINGLE_SELECTION = QAbstractItemView.SingleSelection
         NO_SELECTION = QAbstractItemView.NoSelection
         EXTENDED_SELECTION = QAbstractItemView.ExtendedSelection
         CONTIGUOUS_SELECTION = QAbstractItemView.ContiguousSelection
     except AttributeError:
-        # Fallback para valores numéricos
+        # Fallback to numeric values
         MULTI_SELECTION = 2
         SINGLE_SELECTION = 1
         NO_SELECTION = 0
@@ -472,16 +492,16 @@ except AttributeError:
         CONTIGUOUS_SELECTION = 4
 
 # =============================================================================
-# INFORMAÇÕES DE DEBUG
+# DEBUG INFORMATION
 # =============================================================================
 
 
 def get_compatibility_info() -> dict:
     """
-    Retorna informações sobre compatibilidade para debug.
+    Returns compatibility information for debugging.
 
     Returns:
-        Dict com informações de versão e compatibilidade
+        Dict with version and compatibility information
     """
     return {
         "anki_version": ANKI_VERSION,

@@ -1,261 +1,261 @@
 # 📚 Sheets2Anki
 
-**Crie e gerencie seus flashcards do Anki diretamente no Google Sheets.**
+**Create and manage your Anki flashcards directly from Google Sheets.**
 
-## 🎯 O Problema
+## 🎯 The Problem
 
-Criar flashcards no Anki é trabalhoso. Você precisa abrir o app, navegar pelos menus, preencher campos um por um. Para quem trabalha com muitos cards — professores, estudantes de concursos, criadores de conteúdo — isso consome tempo e dificulta a colaboração.
+Creating flashcards in Anki is labor-intensive. You need to open the app, navigate through menus, fill in fields one by one. For those who work with many cards — teachers, students studying for exams, content creators — this consumes time and makes collaboration difficult.
 
-## ✨ A Solução
+## ✨ The Solution
 
-O **Sheets2Anki** usa sua planilha do Google Sheets como fonte dos cards. Você edita a planilha (sozinho ou em equipe), clica em sincronizar, e pronto — seus cards aparecem organizados no Anki.
+**Sheets2Anki** uses your Google Sheet as the source for cards. You edit the spreadsheet (alone or as a team), click sync, and that's it — your cards appear organized in Anki.
 
 ```
 Google Sheets  →  Anki  →  AnkiWeb
-   (edita)      (recebe)  (sincroniza para outros dispositivos)
+   (edit)       (receives) (syncs to other devices)
 ```
 
-## 🌟 O que você pode fazer
+## 🌟 What you can do
 
-- **Criar cards em massa** — Uma linha na planilha = um card no Anki
-- **Colaborar** — Múltiplas pessoas podem editar a mesma planilha
-- **Organizar por alunos** — Cada aluno tem seus próprios subdecks
-- **Hierarquia automática** — Cards organizados por tópico, subtópico e conceito
-- **Tags automáticas** — Classificação por bancas, anos, carreiras e importância
-- **Cards Cloze** — Suporte a `{{c1::texto}}` detectado automaticamente
-- **Sincronização AnkiWeb** — Seus cards chegam a todos os seus dispositivos
-
----
-
-## � Instalação
-
-1. No Anki: `Ferramentas → Complementos → Obter Complementos...`
-2. Cole o código: *(disponível no AnkiWeb)*
-3. Reinicie o Anki
-4. Acesse via `Ferramentas → Sheets2Anki`
+- **Create cards in bulk** — One row in the spreadsheet = one card in Anki
+- **Collaborate** — Multiple people can edit the same spreadsheet
+- **Organize by students** — Each student has their own subdecks
+- **Automatic hierarchy** — Cards organized by topic, subtopic and concept
+- **Automatic tags** — Classification by exam boards, years, careers and importance
+- **Cloze cards** — Support for `{{c1::text}}` detected automatically
+- **AnkiWeb sync** — Your cards reach all your devices
 
 ---
 
-## 📋 Configurando sua Planilha
+## 📦 Installation
 
-Use nosso [**modelo pronto**](https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing) como base.
+1. In Anki: `Tools → Add-ons → Get Add-ons...`
+2. Paste the code: *(available on AnkiWeb)*
+3. Restart Anki
+4. Access via `Tools → Sheets2Anki`
 
-### Estrutura das Colunas (23 obrigatórias)
+---
 
-| Coluna | O que colocar | Exemplo |
-|--------|---------------|---------|
-| **ID** | Identificador único do card | `Q001` |
-| **ALUNOS** | Quem recebe este card | `João, Maria` |
-| **SYNC** | Sincronizar? | `sim` ou `não` |
-| **IMPORTANCIA** | Prioridade | `Alta`, `Média`, `Baixa` |
-| **TOPICO** | Tema principal | `Geografia` |
-| **SUBTOPICO** | Tema secundário | `Capitais` |
-| **CONCEITO** | Conceito específico | `Brasil` |
-| **PERGUNTA** | Frente do card | `Qual é a capital do Brasil?` |
-| **LEVAR PARA PROVA** | Verso do card (resposta) | `Brasília` |
-| **INFO COMPLEMENTAR** | Detalhes extras | `Fundada em 1960` |
-| **INFO DETALHADA** | Mais detalhes | `Projetada por Oscar Niemeyer` |
-| **EXEMPLO 1** | Primeiro exemplo | - |
-| **EXEMPLO 2** | Segundo exemplo | - |
-| **EXEMPLO 3** | Terceiro exemplo | - |
-| **IMAGEM HTML** | Imagens/HTML | `<img src="...">` |
-| **VÍDEO HTML** | Vídeos embedded | `<iframe src="...">` |
-| **EXTRA 1** | Campo livre (uso pessoal) | - |
-| **EXTRA 2** | Campo livre (uso pessoal) | - |
-| **EXTRA 3** | Campo livre (uso pessoal) | - |
-| **BANCAS** | Bancas de concurso | `CESPE, FCC` |
-| **ULTIMO ANO EM PROVA** | Ano da questão | `2024` |
-| **CARREIRAS** | Área de aplicação | `Fiscal` |
-| **TAGS ADICIONAIS** | Tags extras | `fundamental` |
+## 📋 Setting Up Your Spreadsheet
 
-### Dicas Importantes
+Use our [**ready-made template**](https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing) as a base.
 
-**Alunos:** Liste separados por vírgula. Se deixar vazio, o card vai para `[MISSING A.]`.
+### Column Structure (23 required)
 
-**SYNC:** Deve ser explicitamente preenchido. Aceita `true`, `sim`, `1` para sincronizar. Células vazias ou com outros valores **não sincronizam**.
+| Column | What to put | Example |
+|--------|-------------|---------|
+| **ID** | Unique card identifier | `Q001` |
+| **ALUNOS** | Who receives this card | `John, Mary` |
+| **SYNC** | Synchronize? | `yes` or `no` |
+| **IMPORTANCIA** | Priority | `High`, `Medium`, `Low` |
+| **TOPICO** | Main theme | `Geography` |
+| **SUBTOPICO** | Secondary theme | `Capitals` |
+| **CONCEITO** | Specific concept | `Brazil` |
+| **PERGUNTA** | Front of the card | `What is the capital of Brazil?` |
+| **LEVAR PARA PROVA** | Back of the card (answer) | `Brasília` |
+| **INFO COMPLEMENTAR** | Extra details | `Founded in 1960` |
+| **INFO DETALHADA** | More details | `Designed by Oscar Niemeyer` |
+| **EXEMPLO 1** | First example | - |
+| **EXEMPLO 2** | Second example | - |
+| **EXEMPLO 3** | Third example | - |
+| **IMAGEM HTML** | Images/HTML | `<img src="...">` |
+| **VIDEO HTML** | Embedded videos | `<iframe src="...">` |
+| **CAMPO EXTRA 1** | Free field (personal use) | - |
+| **CAMPO EXTRA 2** | Free field (personal use) | - |
+| **CAMPO EXTRA 3** | Free field (personal use) | - |
+| **BANCAS** | Exam boards | `CESPE, FCC` |
+| **ULTIMO ANO EM PROVA** | Question year | `2024` |
+| **CARREIRAS** | Application area | `Tax` |
+| **TAGS ADICIONAIS** | Extra tags | `fundamental` |
 
-**Cards Cloze:** Escreva na PERGUNTA usando o padrão `{{c1::resposta}}`:
+### Important Tips
+
+**ALUNOS:** List separated by commas. If left empty, the card goes to `[MISSING STUDENT]`.
+
+**SYNC:** Must be explicitly filled. Accepts `true`, `yes`, `1` to synchronize. Empty cells or other values **do not sync**.
+
+**Cloze Cards:** Write in PERGUNTA using the pattern `{{c1::answer}}`:
 ```
-A capital do Brasil é {{c1::Brasília}} e fica no {{c2::Centro-Oeste}}.
+The capital of Brazil is {{c1::Brasília}} and it's in the {{c2::Center-West}}.
 ```
 
 ---
 
-## ⚙️ Usando o Addon
+## ⚙️ Using the Addon
 
-### Passo 1: Configure os Alunos
+### Step 1: Configure Students
 
-Antes de sincronizar, defina quais alunos você quer importar:
+Before syncing, define which students you want to import:
 
-1. Pressione `Ctrl+Shift+G` (ou `Ferramentas → Sheets2Anki → Configurar Alunos`)
-2. Marque os alunos que deseja sincronizar
-3. Confirme
+1. Press `Ctrl+Shift+G` (or `Tools → Sheets2Anki → Configure Students`)
+2. Check the students you want to sync
+3. Confirm
 
-> 💡 Apenas cards dos alunos marcados serão sincronizados.
+> 💡 Only cards from checked students will be synchronized.
 
-### Passo 2: Conecte sua Planilha
+### Step 2: Connect Your Spreadsheet
 
-1. Abra sua planilha no Google Sheets
-2. Clique em `Compartilhar` → `Qualquer pessoa com o link pode ver`
-3. Copie o link
-4. No Anki, pressione `Ctrl+Shift+A` (ou `Ferramentas → Sheets2Anki → Adicionar Deck Remoto`)
-5. Cole o link e confirme
+1. Open your spreadsheet in Google Sheets
+2. Click `Share` → `Anyone with the link can view`
+3. Copy the link
+4. In Anki, press `Ctrl+Shift+A` (or `Tools → Sheets2Anki → Add Remote Deck`)
+5. Paste the link and confirm
 
-### Passo 3: Sincronize
+### Step 3: Synchronize
 
-- Pressione `Ctrl+Shift+S` para sincronizar
-- O addon busca os dados da planilha e atualiza seus cards
-- Se configurado, sincroniza automaticamente com o AnkiWeb
-
----
-
-## ⌨️ Atalhos
-
-| Ação | Atalho |
-|------|--------|
-| Sincronizar | `Ctrl+Shift+S` |
-| Adicionar deck | `Ctrl+Shift+A` |
-| Configurar alunos | `Ctrl+Shift+G` |
-| Configurar AnkiWeb | `Ctrl+Shift+W` |
-| Desconectar deck | `Ctrl+Shift+D` |
+- Press `Ctrl+Shift+S` to synchronize
+- The addon fetches data from the spreadsheet and updates your cards
+- If configured, automatically syncs with AnkiWeb
 
 ---
 
-## 📂 Como os Cards são Organizados
+## ⌨️ Shortcuts
 
-Após sincronizar, seus cards ficam organizados assim:
+| Action | Shortcut |
+|--------|----------|
+| Synchronize | `Ctrl+Shift+S` |
+| Add deck | `Ctrl+Shift+A` |
+| Configure students | `Ctrl+Shift+G` |
+| Configure AnkiWeb | `Ctrl+Shift+W` |
+| Disconnect deck | `Ctrl+Shift+D` |
+
+---
+
+## 📂 How Cards are Organized
+
+After syncing, your cards are organized like this:
 
 ```
 Sheets2Anki::
-└── NomeDoDeck::
-    ├── João::
-    │   └── Alta::Geografia::Capitais::Brasil
-    ├── Maria::
-    │   └── Média::História::Descobrimentos::Portugal
-    └── [MISSING A.]::
-        └── (cards sem aluno definido)
+└── DeckName::
+    ├── John::
+    │   └── High::Geography::Capitals::Brazil
+    ├── Mary::
+    │   └── Medium::History::Discoveries::Portugal
+    └── [MISSING STUDENT]::
+        └── (cards without defined student)
 ```
 
-Tags são aplicadas automaticamente por tópico, banca, ano e importância. Veja detalhes em [Tópicos Avançados](#sistema-de-tags-hierárquico).
+Tags are automatically applied by topic, exam board, year and importance. See details in [Advanced Topics](#hierarchical-tag-system).
 
 ---
 
-## � Backup
+## 💾 Backup
 
-Acesse via `Ferramentas → Sheets2Anki → Backup de Decks Remotos`:
+Access via `Tools → Sheets2Anki → Backup Remote Decks`:
 
-- **Criar backup:** Salva configurações, decks e alunos em arquivo .zip
-- **Restaurar backup:** Recupera configurações de um backup anterior
-
----
-
-## ❓ Perguntas Frequentes
-
-**Meu progresso de estudo é perdido ao sincronizar?**
-> Não. Intervalos, facilidade e estatísticas são preservados. Apenas o conteúdo é atualizado.
-
-**Posso usar em vários dispositivos?**
-> Sim. Configure o AnkiWeb (`Ctrl+Shift+W`) e seus cards sincronizam automaticamente.
-
-**Como faço cards cloze?**
-> Use `{{c1::resposta}}` na coluna PERGUNTA. Veja exemplo em [Dicas Importantes](#dicas-importantes).
-
-**Cards não aparecem após sincronizar?**
-> Verifique: (1) coluna SYNC está `sim`, (2) alunos estão marcados em `Ctrl+Shift+G`, (3) ID é único.
-
-**Como desconectar uma planilha?**
-> Use `Ctrl+Shift+D` e selecione o deck para desconectar.
+- **Create backup:** Saves settings, decks and students in a .zip file
+- **Restore backup:** Recovers settings from a previous backup
 
 ---
 
-## � Problemas?
+## ❓ Frequently Asked Questions
 
-1. Verifique o arquivo de log: `Ferramentas → Complementos → [Sheets2Anki] → Ver arquivos → debug_sheets2anki.log`
-2. Teste a conexão AnkiWeb: `Ctrl+Shift+W → Testar Conexão`
-3. Para resetar: faça backup, desconecte o deck (`Ctrl+Shift+D`), reconecte (`Ctrl+Shift+A`)
+**Is my study progress lost when syncing?**
+> No. Intervals, ease and statistics are preserved. Only the content is updated.
+
+**Can I use on multiple devices?**
+> Yes. Configure AnkiWeb (`Ctrl+Shift+W`) and your cards sync automatically.
+
+**How do I make cloze cards?**
+> Use `{{c1::answer}}` in the PERGUNTA column. See example in [Important Tips](#important-tips).
+
+**Cards don't appear after syncing?**
+> Check: (1) SYNC column is `yes`, (2) students are checked in `Ctrl+Shift+G`, (3) ID is unique.
+
+**How to disconnect a spreadsheet?**
+> Use `Ctrl+Shift+D` and select the deck to disconnect.
 
 ---
 
-## 🔧 Tópicos Avançados
+## 🔧 Problems?
 
-Esta seção contém detalhes técnicos para usuários avançados.
+1. Check the log file: `Tools → Add-ons → [Sheets2Anki] → View files → debug_sheets2anki.log`
+2. Test AnkiWeb connection: `Ctrl+Shift+W → Test Connection`
+3. To reset: backup, disconnect the deck (`Ctrl+Shift+D`), reconnect (`Ctrl+Shift+A`)
 
-### Sistema de Tags Hierárquico
+---
 
-O addon aplica tags automaticamente em 6 categorias:
+## 🔧 Advanced Topics
 
-| Categoria | Formato | Exemplo |
-|-----------|---------|---------|
-| Tópicos | `Sheets2Anki::Topicos::topico::subtopico::conceito` | `Sheets2Anki::Topicos::geografia::capitais::brasil` |
-| Bancas | `Sheets2Anki::Bancas::banca` | `Sheets2Anki::Bancas::cespe` |
-| Anos | `Sheets2Anki::Anos::ano` | `Sheets2Anki::Anos::2024` |
-| Carreiras | `Sheets2Anki::Carreiras::carreira` | `Sheets2Anki::Carreiras::fiscal` |
-| Importância | `Sheets2Anki::Importancia::nivel` | `Sheets2Anki::Importancia::alta` |
-| Alunos | `Sheets2Anki::Alunos::aluno` | `Sheets2Anki::Alunos::joao` |
+This section contains technical details for advanced users.
 
-### Note Types Personalizados
+### Hierarchical Tag System
 
-O addon cria note types únicos para cada combinação de deck, aluno e tipo de card:
+The addon automatically applies tags in 6 categories:
 
-- **Cards básicos:** `Sheets2Anki - NomeDeck - Aluno - Basic`
-- **Cards cloze:** `Sheets2Anki - NomeDeck - Aluno - Cloze`
+| Category | Format | Example |
+|----------|--------|---------|
+| Topics | `Sheets2Anki::Topics::topic::subtopic::concept` | `Sheets2Anki::Topics::geography::capitals::brazil` |
+| Exam Boards | `Sheets2Anki::ExamBoards::board` | `Sheets2Anki::ExamBoards::cespe` |
+| Years | `Sheets2Anki::Years::year` | `Sheets2Anki::Years::2024` |
+| Careers | `Sheets2Anki::Careers::career` | `Sheets2Anki::Careers::tax` |
+| Importance | `Sheets2Anki::Importance::level` | `Sheets2Anki::Importance::high` |
+| Students | `Sheets2Anki::Students::student` | `Sheets2Anki::Students::john` |
 
-Isso permite que cada aluno tenha formatação e campos personalizados sem afetar outros.
+### Custom Note Types
 
-### Sistema de Consistência de Nomes
+The addon creates unique note types for each combination of deck, student and card type:
 
-Durante a sincronização, o addon verifica e corrige automaticamente:
+- **Basic cards:** `Sheets2Anki - DeckName - Student - Basic`
+- **Cloze cards:** `Sheets2Anki - DeckName - Student - Cloze`
 
-- Inconsistências entre nomes de note types no Anki e na configuração
-- Diferenças entre nomes remotos (planilha) e locais (Anki)
-- Atualiza configurações desatualizadas sem perda de dados
+This allows each student to have personalized formatting and fields without affecting others.
 
-### Colunas IMAGEM HTML e VÍDEO HTML
+### Name Consistency System
 
-Permitem adicionar conteúdo multimídia no verso dos cards:
+During synchronization, the addon automatically checks and corrects:
 
-**IMAGEM HTML** - Para imagens e ilustrações:
+- Inconsistencies between note type names in Anki and in the configuration
+- Differences between remote names (spreadsheet) and local names (Anki)
+- Updates outdated configurations without data loss
+
+### IMAGEM HTML and VIDEO HTML Columns
+
+Allow adding multimedia content to the back of cards:
+
+**IMAGEM HTML** - For images and illustrations:
 ```html
-<img src="https://exemplo.com/imagem.png" style="max-width:300px;">
-<a href="https://link.com">Link externo</a>
-<div style="color:red;">Texto destacado</div>
+<img src="https://example.com/image.png" style="max-width:300px;">
+<a href="https://link.com">External link</a>
+<div style="color:red;">Highlighted text</div>
 ```
 
-**VÍDEO HTML** - Para vídeos embedded (YouTube, Vimeo, etc.):
+**VIDEO HTML** - For embedded videos (YouTube, Vimeo, etc.):
 ```html
 <iframe width="560" height="315" src="https://www.youtube.com/embed/VIDEO_ID" frameborder="0" allowfullscreen></iframe>
 ```
 
-Ambos aparecem após a resposta principal no verso do card.
+Both appear after the main answer on the back of the card.
 
-### Formatos Aceitos no Campo ALUNOS
+### Accepted Formats in the ALUNOS Field
 
-O addon reconhece múltiplos separadores:
+The addon recognizes multiple separators:
 
-- Vírgula: `João, Maria, Pedro`
-- Ponto e vírgula: `João; Maria; Pedro`
-- Pipe: `João|Maria|Pedro`
+- Comma: `John, Mary, Peter`
+- Semicolon: `John; Mary; Peter`
+- Pipe: `John|Mary|Peter`
 
-### Backup Automático de Segurança
+### Automatic Safety Backup
 
-Ao restaurar um backup, o addon cria automaticamente um backup de segurança do estado atual antes de sobrescrever. Isso previne perda de dados caso a restauração não seja o desejado.
+When restoring a backup, the addon automatically creates a safety backup of the current state before overwriting. This prevents data loss in case the restoration is not what was desired.
 
-### Compatibilidade AnkiWeb
+### AnkiWeb Compatibility
 
-- ✅ Anki 2.1.50+ (método moderno de sincronização)
-- ✅ Versões anteriores (métodos de compatibilidade)
+- ✅ Anki 2.1.50+ (modern sync method)
+- ✅ Previous versions (compatibility methods)
 - ✅ AnkiMobile, AnkiDroid, AnkiWeb
 
-### Arquivo de Log
+### Log File
 
-O addon registra todas as operações em `debug_sheets2anki.log`:
+The addon logs all operations in `debug_sheets2anki.log`:
 
 ```
-Ferramentas → Complementos → [Sheets2Anki] → Ver arquivos
+Tools → Add-ons → [Sheets2Anki] → View files
 ```
 
-Útil para diagnosticar problemas de sincronização.
+Useful for diagnosing synchronization problems.
 
 ---
 
-🎉 **Pronto!** Edite sua planilha, sincronize, e seus cards estarão no Anki.
+🎉 **Done!** Edit your spreadsheet, sync, and your cards will be in Anki.

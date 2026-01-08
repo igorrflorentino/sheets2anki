@@ -1,29 +1,30 @@
 """
-Sheets2Anki - Add-on para sincronizar decks do Anki com planilhas do Google Sheets
+Sheets2Anki - Add-on for synchronizing Anki decks with Google Sheets spreadsheets
 
-Este módulo implementa a funcionalidade principal para sincronização de decks do Anki
-com planilhas do Google Sheets em formato TSV.
+This module implements the main functionality for synchronizing Anki decks
+with Google Sheets spreadsheets in TSV format.
 """
 
-# Importar módulo de compatibilidade que agora contém todas as funções de compatibilidade
+# Import compatibility module that now contains all compatibility functions
 from . import compat
 
-# Inicializar sistema de debug quando o addon é carregado
+# Initialize debug system when the addon is loaded
 try:
     from .utils import add_debug_message
     from .utils import initialize_debug_log
 
     initialize_debug_log()
-    add_debug_message("🚀 Sheets2Anki addon carregado", "SYSTEM")
+    add_debug_message("🚀 Sheets2Anki addon loaded", "SYSTEM")
 except Exception as e:
-    print(f"[SHEETS2ANKI] Erro ao inicializar debug: {e}")
+    print(f"[SHEETS2ANKI] Error initializing debug: {e}")
 
 # =============================================================================
-# FUNÇÕES PRINCIPAIS EXPOSTAS (consolidado de main.py)
+# MAIN EXPOSED FUNCTIONS (consolidated from main.py)
 # =============================================================================
 
-# Imports dos módulos do projeto
+# Project module imports
 from .backup_dialog import show_backup_dialog
+from .debug_dialog import show_debug_mode_dialog
 from .deck_manager import addNewDeck
 from .deck_manager import import_test_deck
 from .deck_manager import manage_deck_students
@@ -33,8 +34,8 @@ from .deck_manager import syncDecksWithSelection
 from .sync import syncDecks
 from .sync_dialog import show_sync_dialog
 
-# Estas funções são os pontos de entrada principais do addon
-# e são usadas pelo sistema de menus do Anki
+# These functions are the main entry points of the addon
+# and are used by Anki's menu system
 __all__ = [
     "syncDecks",
     "syncDecksWithSelection",
@@ -44,4 +45,6 @@ __all__ = [
     "manage_deck_students",
     "reset_student_selection",
     "show_backup_dialog",
+    "show_debug_mode_dialog",
 ]
+

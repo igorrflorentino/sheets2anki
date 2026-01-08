@@ -1,231 +1,246 @@
 # 📋 CHANGELOG - Sheets2Anki
 
-## Histórico Completo de Atualizações e Modificações
+## Complete History of Updates and Modifications
 
 ---
 
-## 🚀 **v2.2.0** - Agosto 2025 *(Versão Atual)*
+## 🚀 **v2.3.0** - January 2026 *(Current Version)*
 
-### ✨ **Simplificação Revolucionária do Sistema de URLs**
+### ✨ **New Features**
+- **Debug Mode UI**: Dedicated interface (`Ctrl+Shift+L`) to manage debug mode, view logs, and reset configurations.
+- **Sync Cancellation**: Added "CANCEL SYNC" button in data removal warning dialogs to prevent accidental data loss.
 
-#### 🎯 **URLs Unificadas**
-- **APENAS URLs de Edição**: Sistema simplificado trabalha exclusivamente com URLs de edição (`/edit?usp=sharing`)
-- **Eliminação de Formato Published**: Removido completamente o suporte a URLs publicadas (`/pub?output=tsv`)
-- **Conversão Automática**: URLs de edição são convertidas automaticamente para formato TSV de download
-- **Processo Simplificado**: Um único tipo de URL para todos os casos de uso
+### 🎨 **UI/UX Improvements**
+- **Modernized Configuration Dialogs**: Global Student, Deck Options, and AnkiWeb Sync dialogs updated with gradient headers, improved styling, and full dark mode support.
+- **Localization**: Standardized column names to Portuguese (`PERGUNTA`, `ALUNOS`, `LEVAR PARA PROVA`) in documentation and sample data.
+- **Sample Data**: Translated `sample_sheet.tsv` content to English while maintaining Portuguese column headers.
 
-#### 🆔 **Sistema de Identificação por ID Real**
-- **ID da Planilha**: Usa o ID real da planilha do Google Sheets como identificador
-- **Fim dos Hashes**: Elimina completamente o sistema de hash MD5 para identificação
-- **Configuração Mais Clara**: `meta.json` agora usa IDs reais das planilhas como chaves
-- **Transparência Total**: Usuários podem ver exatamente qual planilha está configurada
-
-#### 🔧 **Refatoração Completa da API**
-- **Novas Funções**:
-  - `extract_spreadsheet_id_from_url()`: Extrai ID da planilha de URLs de edição
-  - `get_spreadsheet_id_from_url()`: Obtém ID com validação
-  - `convert_edit_url_to_tsv()`: Converte URL de edição para TSV
-- **Funções Removidas**:
-  - `extract_publication_key_from_url()`: ❌ Removida
-  - `get_publication_key_hash()`: ❌ Removida
-  - `convert_google_sheets_url_to_tsv()`: ❌ Removida
-
-### 🗂️ **Migração Automática de Configurações**
-- **Compatibilidade**: Configurações existentes continuam funcionando
-- **Migração Transparente**: Sistema detecta e migra automaticamente configurações antigas
-- **Preservação de Dados**: Todos os decks e preferências são mantidos
-- **Sem Intervenção**: Processo completamente automático para o usuário
-
-### 🧪 **Nova Suite de Testes**
-- **Testes Específicos**: 18 novos testes para funcionalidades simplificadas
-- **Cobertura Completa**: Validação de todas as novas funções
-- **Testes de Erro**: Validação robusta de casos de erro
-- **Arquivo Dedicado**: `test_url_simplification.py` para testes das novas funcionalidades
+### 🔧 **Fixes & Optimization**
+- **AnkiWeb Timeout**: Fixed persistence issue where timeout settings were not being saved.
+- **Documentation**: Updated README to reflect support for 23 columns.
+- **Code Cleanup**: Removed dead code directories (`config_pkg`, `sync_pkg`, `utils_pkg`) and consolidated imports.
 
 ---
 
-## 🚀 **v2.1.0** - Agosto 2025
+## 🚀 **v2.2.0** - August 2025
 
-### ✨ **Novas Funcionalidades**
+### ✨ **Revolutionary URL System Simplification**
 
-#### 💾 **Sistema de Backup Avançado**
-- **Backup Automático de Configurações**: Backup automático a cada sincronização com rotação de arquivos (mantém apenas os 50 mais recentes)
-- **Backup de Configurações Apenas**: Nova modalidade de backup que preserva apenas as configurações do addon, ideal para reinstalação
-- **Interface de 3 Colunas**: Layout lado a lado para backup completo, recuperação e configurações automáticas
-- **Configuração Flexível**: Diretório customizável para backups automáticos
-- **Integração com Sincronização**: Trigger automático após cada sincronização bem-sucedida
+#### 🎯 **Unified URLs**
+- **ONLY Edit URLs**: Simplified system works exclusively with edit URLs (`/edit?usp=sharing`)
+- **Elimination of Published Format**: Completely removed support for published URLs (`/pub?output=tsv`)
+- **Automatic Conversion**: Edit URLs are automatically converted to TSV download format
+- **Simplified Process**: A single URL type for all use cases
 
-#### 🔧 **Sistema de Consistência Automática de Nomes**
-- **Correção Automática**: Detecta e corrige automaticamente inconsistências nos nomes dos note types
-- **Sincronização Inteligente**: Verifica alinhamento de nomes durante cada sincronização
-- **Atualização Transparente**: Corrige diferenças entre nomes remotos e locais sem intervenção manual
-- **Preservação de Dados**: Mantém histórico de estudo e configurações durante correções
-- **Nomes Padronizados**: Implementa padrões consistentes para decks, note types e configurações
+#### 🆔 **Real ID Identification System**
+- **Spreadsheet ID**: Uses the actual Google Sheets spreadsheet ID as identifier
+- **End of Hashes**: Completely eliminates the MD5 hash system for identification
+- **Clearer Configuration**: `meta.json` now uses real spreadsheet IDs as keys
+- **Total Transparency**: Users can see exactly which spreadsheet is configured
 
-#### 📊 **Resumo de Sincronização Aprimorado**
-- **Visualização Dupla**: Modos "Simplificado" e "Completo" para diferentes necessidades
-- **Ordem Otimizada**: No modo "Completo", resumo geral agregado aparece primeiro
-- **Métricas Detalhadas**: Estatísticas completas da planilha e resultados por deck
-- **Interface Responsiva**: Suporte automático para dark mode e layout adaptável
+#### 🔧 **Complete API Refactoring**
+- **New Functions**:
+  - `extract_spreadsheet_id_from_url()`: Extracts spreadsheet ID from edit URLs
+  - `get_spreadsheet_id_from_url()`: Gets ID with validation
+  - `convert_edit_url_to_tsv()`: Converts edit URL to TSV
+- **Removed Functions**:
+  - `extract_publication_key_from_url()`: ❌ Removed
+  - `get_publication_key_hash()`: ❌ Removed
+  - `convert_google_sheets_url_to_tsv()`: ❌ Removed
 
-#### 🖼️ **Suporte a Campos Multimídia**
-- **Campos de Mídia**: "IMAGEM HTML" para imagens/ilustrações e "VÍDEO HTML" para vídeos embedded
-- **Atualização Automática de Templates**: Adiciona campos automaticamente aos note types existentes
-- **Posicionamento Inteligente**: Mídias aparecem no verso do card para melhor pedagogia
-- **Templates Seguros**: Não duplica campos e preserva dados existentes
+### 🗂️ **Automatic Configuration Migration**
+- **Compatibility**: Existing configurations continue working
+- **Transparent Migration**: System automatically detects and migrates old configurations
+- **Data Preservation**: All decks and preferences are maintained
+- **No Intervention**: Completely automatic process for the user
 
-### 🔄 **Melhorias e Otimizações**
-
-#### 🌐 **Suporte Completo a URLs do Google Sheets**
-- **URLs de Edição**: Suporte nativo a URLs `/edit?usp=sharing` 
-- **Conversão Automática**: Converte automaticamente URLs de edição para formato TSV
-- **Auto-descoberta de GID**: Detecta automaticamente o gid correto da planilha
-- **Backward Compatibility**: Mantém compatibilidade com URLs TSV publicadas
-- **Correção de Bug**: Elimina erro HTTP 400 "Bad Request" com URLs de edição
-
-#### 👥 **Gestão Avançada de Alunos**
-- **Configuração Global**: Define uma vez quais alunos sincronizar em todos os decks
-- **Subdecks Personalizados**: Cada aluno tem sua própria hierarquia organizada
-- **Note Types Únicos**: Modelos de card personalizados para cada aluno
-- **Filtragem Inteligente**: Sincroniza apenas os alunos escolhidos
-
-#### 🏷️ **Sistema de Tags Hierárquico Completo**
-- **8 Categorias**: Alunos, Tópicos, Bancas, Anos, Carreiras, Importância, Tags Extras
-- **Estrutura Hierárquica**: Organização automática em níveis (`Sheets2Anki::Categoria::Item`)
-- **Tags Personalizadas**: Suporte a tags adicionais customizadas
-
-### 🐛 **Correções de Bugs**
-- **HTTP 400 com URLs de Edição**: Resolvido através da auto-descoberta de GID
-- **Inconsistência de Nomes**: Corrigido automaticamente pelo sistema de consistência
-- **Cálculo de Contagem**: Corrigido para usar notas em vez de questões
-- **Subdecks Vazios**: Remoção automática após sincronização
-- **Relatórios de Erro**: Link atualizado para repositório correto no GitHub
-
-### 🧪 **Testes e Qualidade**
-- **Suite de Testes Abrangente**: Testes para backup, diálogo, consistência de nomes
-- **Cobertura Completa**: 100% das novas funcionalidades testadas
-- **Testes de Integração**: Validação de funcionalidades end-to-end
-- **Testes de Compatibilidade**: Verificação com PyQt5/PyQt6
+### 🧪 **New Test Suite**
+- **Specific Tests**: 18 new tests for simplified functionalities
+- **Complete Coverage**: Validation of all new functions
+- **Error Tests**: Robust validation of error cases
+- **Dedicated File**: `test_url_simplification.py` for new functionality tests
 
 ---
 
-## 🏗️ **v2.0.0** - Julho 2025
+## 🚀 **v2.1.0** - August 2025
 
-### ✨ **Funcionalidades Principais**
-- **Sincronização Seletiva**: Coluna `SYNC` para controle individual de cards
-- **Sistema de Backup Básico**: Backup manual e restauração de decks
-- **Sincronização com AnkiWeb**: Automática após atualizações
-- **Suporte a Cards Cloze**: Detecção automática de padrões `{{c1::texto}}`
-- **Note Types Personalizados**: Um para cada aluno automaticamente
+### ✨ **New Features**
 
-### 🔧 **Arquitetura Base**
-- **19 Colunas Obrigatórias**: Estrutura padronizada para planilhas
-- **Processamento TSV**: Engine robusto para dados do Google Sheets
-- **Gestão de Configuração**: Sistema `meta.json` para persistência
-- **Interface Qt**: Diálogos modernos para configuração e status
+#### 💾 **Advanced Backup System**
+- **Automatic Configuration Backup**: Automatic backup on each synchronization with file rotation (keeps only the 50 most recent)
+- **Configuration-Only Backup**: New backup mode that preserves only addon settings, ideal for reinstallation
+- **3-Column Interface**: Side-by-side layout for full backup, recovery and automatic settings
+- **Flexible Configuration**: Customizable directory for automatic backups
+- **Sync Integration**: Automatic trigger after each successful synchronization
+
+#### 🔧 **Automatic Name Consistency System**
+- **Automatic Correction**: Automatically detects and corrects inconsistencies in note type names
+- **Intelligent Synchronization**: Checks name alignment during each synchronization
+- **Transparent Update**: Corrects differences between remote and local names without manual intervention
+- **Data Preservation**: Maintains study history and settings during corrections
+- **Standardized Names**: Implements consistent standards for decks, note types and configurations
+
+#### 📊 **Enhanced Sync Summary**
+- **Dual Visualization**: "Simplified" and "Complete" modes for different needs
+- **Optimized Order**: In "Complete" mode, aggregated general summary appears first
+- **Detailed Metrics**: Complete spreadsheet statistics and results per deck
+- **Responsive Interface**: Automatic support for dark mode and adaptive layout
+
+#### 🖼️ **Multimedia Field Support**
+- **Media Fields**: "IMAGE HTML" for images/illustrations and "VIDEO HTML" for embedded videos
+- **Automatic Template Update**: Automatically adds fields to existing note types
+- **Intelligent Positioning**: Media appears on the back of the card for better pedagogy
+- **Safe Templates**: Doesn't duplicate fields and preserves existing data
+
+### 🔄 **Improvements and Optimizations**
+
+#### 🌐 **Complete Google Sheets URL Support**
+- **Edit URLs**: Native support for `/edit?usp=sharing` URLs
+- **Automatic Conversion**: Automatically converts edit URLs to TSV format
+- **GID Auto-discovery**: Automatically detects the correct spreadsheet gid
+- **Backward Compatibility**: Maintains compatibility with published TSV URLs
+- **Bug Fix**: Eliminates HTTP 400 "Bad Request" error with edit URLs
+
+#### 👥 **Advanced Student Management**
+- **Global Configuration**: Define once which students to sync across all decks
+- **Personalized Subdecks**: Each student has their own organized hierarchy
+- **Unique Note Types**: Personalized card templates for each student
+- **Intelligent Filtering**: Syncs only the chosen students
+
+#### 🏷️ **Complete Hierarchical Tag System**
+- **8 Categories**: Students, Topics, Exam Boards, Years, Careers, Importance, Extra Tags
+- **Hierarchical Structure**: Automatic organization in levels (`Sheets2Anki::Category::Item`)
+- **Custom Tags**: Support for additional custom tags
+
+### 🐛 **Bug Fixes**
+- **HTTP 400 with Edit URLs**: Resolved through GID auto-discovery
+- **Name Inconsistency**: Automatically corrected by consistency system
+- **Count Calculation**: Fixed to use notes instead of questions
+- **Empty Subdecks**: Automatic removal after synchronization
+- **Error Reports**: Updated link to correct GitHub repository
+
+### 🧪 **Testing and Quality**
+- **Comprehensive Test Suite**: Tests for backup, dialog, name consistency
+- **Complete Coverage**: 100% of new features tested
+- **Integration Tests**: End-to-end functionality validation
+- **Compatibility Tests**: Verification with PyQt5/PyQt6
 
 ---
 
-## 📋 **v1.1.0** - Junho 2025
+## 🏗️ **v2.0.0** - July 2025
 
-### ✨ **Funcionalidades Básicas**
-- **Sincronização com Google Sheets**: Conexão direta com planilhas TSV
-- **Criação Automática de Decks**: Baseada em dados da planilha
-- **Note Types Básicos**: Suporte a cards básicos e cloze
-- **Tags Simples**: Sistema básico de categorização
+### ✨ **Main Features**
+- **Selective Synchronization**: `SYNC` column for individual card control
+- **Basic Backup System**: Manual backup and deck restoration
+- **AnkiWeb Synchronization**: Automatic after updates
+- **Cloze Card Support**: Automatic detection of `{{c1::text}}` patterns
+- **Personalized Note Types**: One for each student automatically
 
-### 🔧 **Infraestrutura**
-- **Add-on Anki**: Integração nativa com Anki 2.1+
-- **Processamento de Dados**: Engine básico para TSV
-- **Interface Simples**: Diálogos básicos de configuração
-
----
-
-## 📊 **Estatísticas do Projeto**
-
-### 📁 **Estrutura Atual**
-- **Módulos Python**: 15+ módulos principais
-- **Testes**: 10+ arquivos de teste com cobertura abrangente
-- **Documentação**: 6 documentos especializados
-- **Scripts**: 4 scripts de build e validação
-
-### 🏷️ **Funcionalidades por Versão**
-- **v1.1.0**: 4 funcionalidades básicas
-- **v2.0.0**: +8 funcionalidades avançadas  
-- **v2.1.0**: +12 funcionalidades premium
-
-### 🧪 **Qualidade e Testes**
-- **Cobertura de Testes**: 95%+ das funcionalidades
-- **Compatibilidade**: Anki 2.1.60+ até 2.1.66+
-- **Suporte Qt**: PyQt5 e PyQt6
-- **Plataformas**: Windows, macOS, Linux
+### 🔧 **Base Architecture**
+- **19 Required Columns**: Standardized structure for spreadsheets
+- **TSV Processing**: Robust engine for Google Sheets data
+- **Configuration Management**: `meta.json` system for persistence
+- **Qt Interface**: Modern dialogs for configuration and status
 
 ---
 
-## 🎯 **Próximas Versões Planejadas**
+## 📋 **v1.1.0** - June 2025
 
-### 🚀 **v2.2.0** - Planejado
-- **Sincronização em Tempo Real**: WebSocket para atualizações instantâneas
-- **Templates Avançados**: Editor visual de templates de cards
-- **Estatísticas Avançadas**: Dashboard completo de performance
-- **API REST**: Endpoints para integração com outras ferramentas
+### ✨ **Basic Features**
+- **Google Sheets Synchronization**: Direct connection with TSV spreadsheets
+- **Automatic Deck Creation**: Based on spreadsheet data
+- **Basic Note Types**: Support for basic and cloze cards
+- **Simple Tags**: Basic categorization system
+
+### 🔧 **Infrastructure**
+- **Anki Add-on**: Native integration with Anki 2.1+
+- **Data Processing**: Basic TSV engine
+- **Simple Interface**: Basic configuration dialogs
+
+---
+
+## 📊 **Project Statistics**
+
+### 📁 **Current Structure**
+- **Python Modules**: 15+ main modules
+- **Tests**: 10+ test files with comprehensive coverage
+- **Documentation**: 6 specialized documents
+- **Scripts**: 4 build and validation scripts
+
+### 🏷️ **Features by Version**
+- **v1.1.0**: 4 basic features
+- **v2.0.0**: +8 advanced features
+- **v2.1.0**: +12 premium features
+
+### 🧪 **Quality and Testing**
+- **Test Coverage**: 95%+ of features
+- **Compatibility**: Anki 2.1.60+ to 2.1.66+
+- **Qt Support**: PyQt5 and PyQt6
+- **Platforms**: Windows, macOS, Linux
+
+---
+
+## 🎯 **Planned Future Versions**
+
+### 🚀 **v2.4.0** - Planned
+- **Real-Time Synchronization**: WebSocket for instant updates
+- **Advanced Templates**: Visual card template editor
+- **Advanced Statistics**: Complete performance dashboard
+- **REST API**: Endpoints for integration with other tools
 
 ### 🌟 **v3.0.0** - Roadmap
-- **Inteligência Artificial**: Geração automática de cards com IA
-- **Colaboração em Tempo Real**: Edição simultânea de planilhas
-- **Versionamento**: Controle de versões para planilhas
-- **Mobile Support**: Aplicativo complementar para dispositivos móveis
+- **Artificial Intelligence**: Automatic AI card generation
+- **Real-Time Collaboration**: Simultaneous spreadsheet editing
+- **Versioning**: Version control for spreadsheets
+- **Mobile Support**: Companion app for mobile devices
 
 ---
 
-## 📚 **Documentação Relacionada**
+## 📚 **Related Documentation**
 
-### 📖 **Documentos Técnicos**
-- [`CHANGELOG_URL_SUPPORT.md`](./CHANGELOG_URL_SUPPORT.md) - Suporte completo a URLs do Google Sheets
-- [`NAME_CONSISTENCY_SYSTEM.md`](./NAME_CONSISTENCY_SYSTEM.md) - Sistema de consistência automática de nomes
-- [`TEMPLATE_UPDATE.md`](./TEMPLATE_UPDATE.md) - Atualização automática de templates
-- [`SUMMARY_VISUALIZATION.md`](./SUMMARY_VISUALIZATION.md) - Resumo de sincronização aprimorado
-- [`MULTIMIDIA_HTML.md`](./MULTIMIDIA_HTML.md) - Suporte a campos multimídia (IMAGEM HTML e VÍDEO HTML)
+### 📖 **Technical Documents**
+- [Developer Documentation](./README.md) - Comprehensive technical documentation
+- [User Guide](../README.md) - Feature explanations and usage instructions
 
-### 🛠️ **Para Desenvolvedores**
-- [`README.md`](../README.md) - Documentação principal do usuário
-- [`tests/README.md`](../tests/README.md) - Guia de testes e desenvolvimento
-- [`scripts/README.md`](../scripts/README.md) - Scripts de build e deploy
+### 🛠️ **For Developers**
+- [`README.md`](../README.md) - Main user documentation
+- [`tests/README.md`](../tests/README.md) - Testing and development guide
+- [`scripts/README.md`](../scripts/README.md) - Build and deploy scripts
 
 ---
 
-## 🤝 **Contribuições**
+## 🤝 **Contributions**
 
-### 👥 **Equipe Principal**
-- **Igor Florentino** - Desenvolvedor Principal e Mantenedor
+### 👥 **Core Team**
+- **Igor Florentino** - Lead Developer and Maintainer
 - **Email**: igorlopesc@gmail.com
 - **GitHub**: [@igorrflorentino](https://github.com/igorrflorentino)
 
-### 🐛 **Reportar Bugs**
+### 🐛 **Report Bugs**
 - **Issues**: [GitHub Issues](https://github.com/igorrflorentino/sheets2anki/issues)
-- **Discussões**: [GitHub Discussions](https://github.com/igorrflorentino/sheets2anki/discussions)
+- **Discussions**: [GitHub Discussions](https://github.com/igorrflorentino/sheets2anki/discussions)
 
-### 🌟 **Agradecimentos**
-- Comunidade Anki pela plataforma robusta
-- Usuários que forneceram feedback valioso
-- Contribuidores de código e documentação
-
----
-
-## 📄 **Licença**
-
-Este projeto está licenciado sob a **MIT License** - veja o arquivo [`LICENSE`](../LICENSE) para detalhes.
+### 🌟 **Acknowledgments**
+- Anki community for the robust platform
+- Users who provided valuable feedback
+- Code and documentation contributors
 
 ---
 
-## 🔗 **Links Úteis**
+## 📄 **License**
+
+This project is licensed under the **MIT License** - see the [`LICENSE`](../LICENSE) file for details.
+
+---
+
+## 🔗 **Useful Links**
 
 - **🏠 Homepage**: [Sheets2Anki](https://github.com/igorrflorentino/sheets2anki)
 - **📦 AnkiWeb**: [Add-on Page](https://ankiweb.net/shared/info/sheets2anki)
-- **📖 Documentação**: [Wiki](https://github.com/igorrflorentino/sheets2anki/wiki)
-- **💬 Suporte**: [Discord/Telegram](https://t.me/sheets2anki)
+- **📖 Documentation**: [Wiki](https://github.com/igorrflorentino/sheets2anki/wiki)
+- **💬 Support**: [Discord/Telegram](https://t.me/sheets2anki)
 
 ---
 
-*Última atualização: 27 de Agosto de 2025*
-*Versão do CHANGELOG: 1.0.0*
+*Last updated: January 08, 2026*
+*CHANGELOG Version: 1.0.0*

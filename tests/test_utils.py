@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Testes para o módulo utils.py
+Tests for the utils.py module
 
-Testa funcionalidades utilitárias como:
-- Validação de URLs
-- Extração de chaves de publicação
-- Geração de hashes
-- Funções de helpers gerais
+Tests utility functionalities like:
+- URL validation
+- Publication key extraction
+- Hash generation
+- General helper functions
 """
 
 import hashlib
@@ -16,16 +16,16 @@ from unittest.mock import patch
 import pytest
 
 # =============================================================================
-# TESTES DE VALIDAÇÃO DE URL
+# URL VALIDATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestUrlValidation:
-    """Testes para validação de URLs do Google Sheets."""
+    """Tests for Google Sheets URL validation."""
 
     def test_validate_valid_urls(self):
-        """Teste com URLs válidas."""
+        """Test with valid URLs."""
 
         def validate_url(url):
             if not url:
@@ -45,7 +45,7 @@ class TestUrlValidation:
             assert validate_url(url) == True, f"URL should be valid: {url}"
 
     def test_validate_invalid_urls(self):
-        """Teste com URLs inválidas."""
+        """Test with invalid URLs."""
 
         def validate_url(url):
             if not url:
@@ -70,16 +70,16 @@ class TestUrlValidation:
 
 
 # =============================================================================
-# TESTES DE EXTRAÇÃO DE CHAVE DE PUBLICAÇÃO
+# PUBLICATION KEY EXTRACTION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestPublicationKeyExtraction:
-    """Testes para extração de chave de publicação."""
+    """Tests for publication key extraction."""
 
     def test_extract_publication_key_success(self):
-        """Teste de extração bem-sucedida de chave."""
+        """Successful key extraction test."""
 
         def extract_publication_key_from_url(url):
             if not url:
@@ -93,7 +93,7 @@ class TestPublicationKeyExtraction:
             if match:
                 return match.group(1)
 
-            # Fallback para formato antigo
+            # Fallback for old format
             pattern_old = r"/spreadsheets/d/([^/]+)/"
             match_old = re.search(pattern_old, url)
             if match_old:
@@ -121,7 +121,7 @@ class TestPublicationKeyExtraction:
             assert result == expected_key, f"Failed for URL: {url}"
 
     def test_extract_publication_key_failure(self):
-        """Teste de falha na extração de chave."""
+        """Key extraction failure test."""
 
         def extract_publication_key_from_url(url):
             if not url:
@@ -151,16 +151,16 @@ class TestPublicationKeyExtraction:
 
 
 # =============================================================================
-# TESTES DE GERAÇÃO DE HASH
+# HASH GENERATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestHashGeneration:
-    """Testes para geração de hashes."""
+    """Tests for hash generation."""
 
     def test_get_publication_key_hash(self):
-        """Teste de geração de hash da chave de publicação."""
+        """Publication key hash generation test."""
 
         def get_publication_key_hash(url):
             def extract_key(url):
@@ -178,7 +178,7 @@ class TestHashGeneration:
                 hash_obj = hashlib.md5(publication_key.encode("utf-8"))
                 return hash_obj.hexdigest()[:8]
             else:
-                # Fallback para hash da URL completa
+                # Fallback to full URL hash
                 hash_obj = hashlib.md5(url.encode("utf-8"))
                 return hash_obj.hexdigest()[:8]
 
@@ -188,12 +188,12 @@ class TestHashGeneration:
         assert len(hash_result) == 8
         assert isinstance(hash_result, str)
 
-        # Hash deve ser consistente
+        # Hash must be consistent
         hash_result2 = get_publication_key_hash(url)
         assert hash_result == hash_result2
 
     def test_hash_consistency(self):
-        """Teste de consistência de hash."""
+        """Hash consistency test."""
 
         def generate_hash(text):
             hash_obj = hashlib.md5(text.encode("utf-8"))
@@ -209,29 +209,29 @@ class TestHashGeneration:
 
 
 # =============================================================================
-# TESTES DE FUNÇÕES DE DECK
+# DECK FUNCTION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestDeckUtilities:
-    """Testes para funções utilitárias de deck."""
+    """Tests for deck utility functions."""
 
     def test_get_or_create_deck(self, mock_mw):
-        """Teste de obtenção/criação de deck."""
+        """Deck retrieval/creation test."""
 
         def get_or_create_deck(deck_name, mw):
-            # Simular busca por deck existente
+            # Simulate search for existing deck
             deck_id = mw.col.decks.id(deck_name, create=False)
             if deck_id:
                 return deck_id
 
-            # Criar novo deck
+            # Create new deck
             new_deck = mw.col.decks.new(deck_name)
             return mw.col.decks.save(new_deck)
 
-        # Mock do comportamento
-        mock_mw.col.decks.id = Mock(return_value=None)  # Deck não existe
+        # Behavioral mock
+        mock_mw.col.decks.id = Mock(return_value=None)  # Deck doesn't exist
         mock_mw.col.decks.new = Mock(return_value={"name": "Test Deck", "id": 123})
         mock_mw.col.decks.save = Mock(return_value=123)
 
@@ -241,7 +241,7 @@ class TestDeckUtilities:
         mock_mw.col.decks.new.assert_called_once_with("Test Deck")
 
     def test_get_subdeck_name(self):
-        """Teste de geração de nome de subdeck."""
+        """Subdeck name generation test."""
 
         def get_subdeck_name(
             parent_deck, student, importance, topic, subtopic, concept
@@ -262,17 +262,17 @@ class TestDeckUtilities:
             return "::".join(parts)
 
         result = get_subdeck_name(
-            "Sheets2Anki", "João", "Alta", "Geografia", "Capitais", "Brasil"
+            "Sheets2Anki", "John", "High", "Geography", "Capitals", "Brazil"
         )
 
-        expected = "Sheets2Anki::João::Alta::Geografia::Capitais::Brasil"
+        expected = "Sheets2Anki::John::High::Geography::Capitals::Brazil"
         assert result == expected
 
     def test_ensure_subdeck_exists(self, mock_mw):
-        """Teste de garantia de existência de subdeck."""
+        """Subdeck existence guarantee test."""
 
         def ensure_subdeck_exists(subdeck_name, mw):
-            # Simular criação hierárquica
+            # Simulate hierarchical creation
             parts = subdeck_name.split("::")
             current_deck = ""
 
@@ -285,27 +285,27 @@ class TestDeckUtilities:
                     mw.col.decks.save(new_deck)
 
         # Setup mocks
-        mock_mw.col.decks.id = Mock(return_value=None)  # Decks não existem
+        mock_mw.col.decks.id = Mock(return_value=None)  # Decks don't exist
         mock_mw.col.decks.new = Mock(return_value={"name": "deck"})
         mock_mw.col.decks.save = Mock()
 
         ensure_subdeck_exists("Parent::Child::Grandchild", mock_mw)
 
-        # Deve criar 3 decks
+        # Should create 3 decks
         assert mock_mw.col.decks.new.call_count == 3
 
 
 # =============================================================================
-# TESTES DE FUNÇÕES DE STRING
+# STRING FUNCTION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestStringUtilities:
-    """Testes para funções utilitárias de string."""
+    """Tests for string utility functions."""
 
     def test_clean_filename(self):
-        """Teste de limpeza de nome de arquivo."""
+        """File name cleaning test."""
 
         def clean_filename(filename):
             if not filename:
@@ -313,18 +313,18 @@ class TestStringUtilities:
 
             import re
 
-            # Remove caracteres especiais
+            # Remove special characters
             cleaned = re.sub(r"[^\w\s\-_.]", "", filename)
-            # Remove espaços extras e substitui por underscore
+            # Remove extra spaces and replace with underscore
             cleaned = re.sub(r"\s+", "_", cleaned.strip())
             return cleaned
 
         test_cases = [
-            ("Arquivo Normal.txt", "Arquivo_Normal.txt"),
-            ("Arquivo com @#$%!.doc", "Arquivo_com_.doc"),
-            ("  Espaços  Extras  .pdf", "Espaços_Extras_.pdf"),
+            ("Normal File.txt", "Normal_File.txt"),
+            ("File with @#$%!.doc", "File_with_.doc"),
+            ("  Extra  Spaces  .pdf", "Extra_Spaces_.pdf"),
             ("", ""),
-            ("arquivo_já_limpo.txt", "arquivo_já_limpo.txt"),
+            ("already_clean_file.txt", "already_clean_file.txt"),
         ]
 
         for input_text, expected in test_cases:
@@ -332,19 +332,19 @@ class TestStringUtilities:
             assert result == expected, f"Failed for: {input_text}"
 
     def test_normalize_text(self):
-        """Teste de normalização de texto."""
+        """Text normalization test."""
 
         def normalize_text(text):
             if not text:
                 return ""
 
-            # Remove acentos e caracteres especiais
+            # Remove accents and special characters
             import unicodedata
 
             normalized = unicodedata.normalize("NFD", text)
             ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
 
-            # Remove caracteres especiais exceto letras, números e espaços
+            # Remove special characters except letters, numbers and spaces
             import re
 
             cleaned = re.sub(r"[^\w\s]", "", ascii_text)
@@ -352,9 +352,9 @@ class TestStringUtilities:
             return cleaned.strip().lower()
 
         test_cases = [
-            ("João da Silva", "joao da silva"),
+            ("John Smith", "john smith"),
             ("Conceição", "conceicao"),
-            ("Programação!", "programacao"),
+            ("Programming!", "programming"),
             ("", ""),
             ("123 Test", "123 test"),
         ]
@@ -365,16 +365,16 @@ class TestStringUtilities:
 
 
 # =============================================================================
-# TESTES DE VALIDAÇÃO DE DADOS
+# DATA VALIDATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestDataValidation:
-    """Testes para validação de dados."""
+    """Tests for data validation."""
 
     def test_validate_student_name(self):
-        """Teste de validação de nome de aluno."""
+        """Student name validation test."""
 
         def validate_student_name(name):
             if not name or not isinstance(name, str):
@@ -384,12 +384,13 @@ class TestDataValidation:
             if len(name) < 1:
                 return False
 
-            # Não deve conter apenas números ou caracteres especiais
+            # Must not contain only numbers or special characters
+            # Check for letters (including accented ones)
             import re
 
             return bool(re.search(r"[a-zA-ZÀ-ÿ]", name))
 
-        valid_names = ["João", "Maria Silva", "Ana-Paula", "José123"]
+        valid_names = ["John", "Mary Smith", "Ann-Paula", "Joe123"]
         invalid_names = ["", "   ", None, "123", "!@#$%", 123]
 
         for name in valid_names:
@@ -399,7 +400,7 @@ class TestDataValidation:
             assert validate_student_name(name) == False, f"Should be invalid: {name}"
 
     def test_validate_deck_name(self):
-        """Teste de validação de nome de deck."""
+        """Deck name validation test."""
 
         def validate_deck_name(name):
             if not name or not isinstance(name, str):
@@ -409,11 +410,11 @@ class TestDataValidation:
             if len(name) < 1 or len(name) > 100:
                 return False
 
-            # Não deve conter caracteres problemáticos para o Anki
+            # Should not contain characters problematic for Anki
             forbidden_chars = ["<", ">", ":", '"', "|", "?", "*"]
             return not any(char in name for char in forbidden_chars)
 
-        valid_names = ["Geografia Geral", "Matemática - Álgebra", "Deck_Teste_123"]
+        valid_names = ["General Geography", "Mathematics - Algebra", "Test_Deck_123"]
         invalid_names = ["", "Deck<Invalid>", "Deck|With|Pipes", "A" * 101]
 
         for name in valid_names:
@@ -424,16 +425,16 @@ class TestDataValidation:
 
 
 # =============================================================================
-# TESTES DE EXCEPTION HANDLING
+# EXCEPTION HANDLING TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestExceptionHandling:
-    """Testes para tratamento de exceções."""
+    """Tests for exception handling."""
 
     def test_safe_int_conversion(self):
-        """Teste de conversão segura para inteiro."""
+        """Safe integer conversion test."""
 
         def safe_int(value, default=0):
             try:
@@ -456,7 +457,7 @@ class TestExceptionHandling:
             assert result == expected, f"Failed for: {input_val}"
 
     def test_safe_json_load(self):
-        """Teste de carregamento seguro de JSON."""
+        """Safe JSON loading test."""
         import json
 
         def safe_json_load(json_string, default=None):
@@ -479,23 +480,23 @@ class TestExceptionHandling:
 
 
 # =============================================================================
-# TESTES DE PERFORMANCE
+# PERFORMANCE TESTS
 # =============================================================================
 
 
 @pytest.mark.slow
 class TestPerformance:
-    """Testes de performance para funções críticas."""
+    """Performance tests for critical functions."""
 
     def test_hash_generation_performance(self):
-        """Teste de performance da geração de hash."""
+        """Hash generation performance test."""
         import time
 
         def generate_hash(text):
             hash_obj = hashlib.md5(text.encode("utf-8"))
             return hash_obj.hexdigest()[:8]
 
-        # Gerar muitos hashes
+        # Generate many hashes
         start_time = time.time()
 
         for i in range(1000):
@@ -506,21 +507,21 @@ class TestPerformance:
         end_time = time.time()
         duration = end_time - start_time
 
-        # Deve processar 1000 hashes em menos de 1 segundo
+        # Should process 1000 hashes in less than 1 second
         assert duration < 1.0, f"Hash generation too slow: {duration}s"
 
 
 # =============================================================================
-# TESTES DE INTEGRAÇÃO
+# INTEGRATION TESTS
 # =============================================================================
 
 
 @pytest.mark.integration
 class TestUtilsIntegration:
-    """Testes de integração das funções utilitárias."""
+    """Integration tests of utility functions."""
 
     def test_url_to_hash_workflow(self):
-        """Teste do fluxo completo de URL para hash."""
+        """Full URL to hash workflow test."""
 
         def extract_publication_key_from_url(url):
             if not url:
@@ -544,36 +545,36 @@ class TestUtilsIntegration:
             required_parts = ["docs.google.com", "spreadsheets", "pub?output=tsv"]
             return all(part in url for part in required_parts)
 
-        # Fluxo completo
+        # Full workflow
         url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSample/pub?output=tsv"
 
-        # 1. Validar URL
+        # 1. Validate URL
         assert validate_url(url) == True
 
-        # 2. Extrair chave
+        # 2. Extract key
         key = extract_publication_key_from_url(url)
         assert key == "2PACX-1vSample"
 
-        # 3. Gerar hash
+        # 3. Generate hash
         hash_result = get_publication_key_hash(url)
         assert len(hash_result) == 8
 
-        # 4. Hash deve ser consistente
+        # 4. Hash must be consistent
         hash_result2 = get_publication_key_hash(url)
         assert hash_result == hash_result2
 
 
 # =============================================================================
-# TESTES PARA NOVAS FUNCIONALIDADES - URLS DE EDIÇÃO
+# TESTS FOR NEW FEATURES - EDIT URLS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestGoogleSheetsUrlConversion:
-    """Testes para conversão de URLs do Google Sheets."""
+    """Tests for Google Sheets URL conversion."""
 
     def test_convert_edit_url_to_tsv(self):
-        """Teste conversão de URL de edição para TSV."""
+        """Test conversion of edit URL to TSV."""
         from src.utils import convert_edit_url_to_tsv
 
         edit_url = "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing"
@@ -583,21 +584,21 @@ class TestGoogleSheetsUrlConversion:
         assert result == expected_tsv
 
     def test_convert_already_tsv_url(self):
-        """Teste com URL que já está em formato TSV."""
-        # URLs que já estão em formato TSV não precisam ser convertidas
-        # A função convert_edit_url_to_tsv só funciona com URLs de edição
-        # Este teste não se aplica mais à nova função
+        """Test with URL already in TSV format."""
+        # URLs already in TSV format don't need conversion
+        # The convert_edit_url_to_tsv function only works with edit URLs
+        # This test no longer applies to the new function
         pass
 
     def test_convert_export_format_url(self):
-        """Teste com URL que já está em formato export."""
-        # URLs que já estão em formato export não precisam ser convertidas
-        # A função convert_edit_url_to_tsv só funciona com URLs de edição
-        # Este teste não se aplica mais à nova função
+        """Test with URL already in export format."""
+        # URLs already in export format don't need conversion
+        # The convert_edit_url_to_tsv function only works with edit URLs
+        # This test no longer applies to the new function
         pass
 
     def test_convert_invalid_url(self):
-        """Teste com URL inválida."""
+        """Test with invalid URL."""
         from src.utils import convert_edit_url_to_tsv
 
         invalid_url = "https://example.com/not-google-sheets"
@@ -605,19 +606,19 @@ class TestGoogleSheetsUrlConversion:
         with pytest.raises(ValueError) as exc_info:
             convert_edit_url_to_tsv(invalid_url)
         
-        assert "URL deve ser do Google Sheets" in str(exc_info.value)
+        assert "URL must be from Google Sheets" in str(exc_info.value)
 
     def test_convert_empty_url(self):
-        """Teste com URL vazia."""
+        """Test with empty URL."""
         from src.utils import convert_edit_url_to_tsv
 
         with pytest.raises(ValueError) as exc_info:
             convert_edit_url_to_tsv("")
         
-        assert "URL deve ser uma string não vazia" in str(exc_info.value)
+        assert "URL must be a non-empty string" in str(exc_info.value)
 
     def test_convert_unrecognized_format(self):
-        """Teste com URL do Google Sheets em formato não reconhecido."""
+        """Test with Google Sheets URL in unrecognized format."""
         from src.utils import convert_edit_url_to_tsv
 
         unrecognized_url = "https://docs.google.com/spreadsheets/d/1abc123/view"
@@ -625,28 +626,28 @@ class TestGoogleSheetsUrlConversion:
         with pytest.raises(ValueError) as exc_info:
             convert_edit_url_to_tsv(unrecognized_url)
         
-        assert "URL deve ser uma URL de edição do Google Sheets" in str(exc_info.value)
+        assert "URL must be a Google Sheets edit URL" in str(exc_info.value)
 
     def test_convert_edit_url_fallback(self):
-        """Teste de fallback para URLs de edição que não são acessíveis."""
+        """Fallback test for edit URLs that are not accessible."""
         from src.utils import convert_edit_url_to_tsv
 
-        # URL de edição com ID fictício (não acessível)
+        # Edit URL with fictitious ID (not accessible)
         edit_url = "https://docs.google.com/spreadsheets/d/1fictitious123/edit?usp=sharing"
         
         result = convert_edit_url_to_tsv(edit_url)
         
-        # Deve retornar URL sem gid (sempre baixa primeira aba)
+        # Should return URL without gid (always downloads first tab)
         expected_result = "https://docs.google.com/spreadsheets/d/1fictitious123/export?format=tsv"
         assert result == expected_result
 
 
 @pytest.mark.unit
 class TestExtractPublicationKeyFromUrl:
-    """Testes para extração de chaves/IDs de URLs do Google Sheets."""
+    """Tests for extracting keys/IDs from Google Sheets URLs."""
 
     def test_extract_publication_key_from_published_url(self):
-        """Teste extração de chave de publicação de URL publicada."""
+        """Test publication key extraction from published URL."""
         from src.utils import extract_publication_key_from_url
 
         url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSample-Key-123/pub?output=tsv"
@@ -656,7 +657,7 @@ class TestExtractPublicationKeyFromUrl:
         assert result == expected_key
 
     def test_extract_id_from_edit_url(self):
-        """Teste extração de ID de planilha de URL de edição."""
+        """Test spreadsheet ID extraction from edit URL."""
         from src.utils import extract_publication_key_from_url
 
         url = "https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing"
@@ -666,14 +667,14 @@ class TestExtractPublicationKeyFromUrl:
         assert result == expected_id
 
     def test_extract_from_empty_url(self):
-        """Teste com URL vazia."""
+        """Test with empty URL."""
         from src.utils import extract_publication_key_from_url
 
         result = extract_publication_key_from_url("")
         assert result is None
 
     def test_extract_from_invalid_url(self):
-        """Teste com URL que não é do Google Sheets."""
+        """Test with URL that is not from Google Sheets."""
         from src.utils import extract_publication_key_from_url
 
         url = "https://example.com/not-google-sheets"
@@ -684,10 +685,10 @@ class TestExtractPublicationKeyFromUrl:
 
 @pytest.mark.unit
 class TestGetPublicationKeyHash:
-    """Testes para geração de hash de chaves/IDs."""
+    """Tests for key/ID hash generation."""
 
     def test_hash_consistency(self):
-        """Teste que o hash é consistente para a mesma URL."""
+        """Test that hash is consistent for the same URL."""
         from src.utils import get_publication_key_hash
 
         url = "https://docs.google.com/spreadsheets/d/1abc123/edit?usp=sharing"
@@ -699,7 +700,7 @@ class TestGetPublicationKeyHash:
         assert len(hash1) == 8
 
     def test_hash_different_urls(self):
-        """Teste que URLs diferentes produzem hashes diferentes."""
+        """Test that different URLs produce different hashes."""
         from src.utils import get_publication_key_hash
 
         url1 = "https://docs.google.com/spreadsheets/d/1abc123/edit?usp=sharing"
@@ -713,10 +714,10 @@ class TestGetPublicationKeyHash:
         assert len(hash2) == 8
 
     def test_hash_fallback_for_unknown_format(self):
-        """Teste fallback para URLs em formato desconhecido."""
+        """Fallback test for URLs in unknown format."""
         from src.utils import get_publication_key_hash
 
-        # URL em formato não reconhecido, mas ainda deve gerar hash
+        # URL in unrecognized format, but should still generate hash
         url = "https://docs.google.com/spreadsheets/unknown-format"
         
         hash_result = get_publication_key_hash(url)

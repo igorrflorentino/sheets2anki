@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Testes para o módulo data_processor.py
+Tests for the data_processor.py module
 
-Testa funcionalidades de:
-- Parse de dados TSV
-- Validação de colunas
-- Detecção de cards cloze
-- Processamento de dados
+Tests functionalities for:
+- TSV data parsing
+- Column validation
+- Cloze card detection
+- Data processing
 """
 
 import os
@@ -20,26 +20,26 @@ from unittest.mock import patch
 
 import pytest
 
-# Adicionar src ao path
+# Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # =============================================================================
-# TESTES DE PARSING TSV
+# TSV PARSING TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestDataProcessor:
-    """Classe para testes do processador de dados."""
+    """Class for data processor tests."""
 
     def test_parse_tsv_basic(self, sample_tsv_content):
-        """Teste básico de parsing TSV."""
+        """Basic TSV parsing test."""
         try:
             from data_processor import parse_tsv_data
         except ImportError:
-            pytest.skip("Módulo data_processor não disponível")
+            pytest.skip("data_processor module not available")
 
-        # Mock da função parse_tsv_data
+        # parse_tsv_data function mock
         def mock_parse_tsv(content):
             lines = content.strip().split("\n")
             headers = lines[0].split("\t")
@@ -55,11 +55,11 @@ class TestDataProcessor:
 
             assert len(result) == 2
             assert result[0]["ID"] == "Q001"
-            assert result[0]["PERGUNTA"] == "Qual é a capital do Brasil?"
+            assert result[0]["PERGUNTA"] == "What is the capital of Brazil?"
             assert result[1]["ID"] == "Q002"
 
     def test_parse_empty_tsv(self):
-        """Teste de parsing com TSV vazio."""
+        """Parsing test with empty TSV."""
 
         def mock_parse_empty(content):
             if not content or content.strip() == "":
@@ -70,12 +70,12 @@ class TestDataProcessor:
         assert result == []
 
     def test_parse_invalid_tsv(self):
-        """Teste de parsing com TSV inválido."""
+        """Parsing test with invalid TSV."""
         invalid_content = "invalid\tcontent\nwithout\tproper\theaders"
 
         def mock_parse_invalid(content):
             if "ID" not in content or "PERGUNTA" not in content:
-                raise ValueError("TSV inválido - colunas obrigatórias ausentes")
+                raise ValueError("Invalid TSV - mandatory columns missing")
             return []
 
         with pytest.raises(ValueError):
@@ -83,21 +83,21 @@ class TestDataProcessor:
 
 
 # =============================================================================
-# TESTES DE VALIDAÇÃO DE COLUNAS
+# COLUMN VALIDATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestColumnValidation:
-    """Testes de validação das 18 colunas obrigatórias."""
+    """Validation tests for the 18 mandatory columns."""
 
     def test_validate_required_columns(self, sample_tsv_data):
-        """Teste de validação de colunas obrigatórias."""
+        """Mandatory columns validation test."""
         required_columns = [
             "ID",
             "PERGUNTA",
             "LEVAR PARA PROVA",
-            "SYNC?",
+            "SYNC",
             "ALUNOS",
             "INFO COMPLEMENTAR",
             "INFO DETALHADA",
@@ -123,16 +123,18 @@ class TestColumnValidation:
             if not data:
                 return False
             first_row = data[0]
+            # In the sample data, column names might be the English ones or Portuguese originals
+            # but we've updated fixtures/conftest to use English.
             return all(col in first_row for col in required_columns)
 
         assert validate_columns(sample_tsv_data) == True
 
     def test_missing_columns(self):
-        """Teste com colunas faltando."""
-        incomplete_data = [{"ID": "Q001", "PERGUNTA": "Teste"}]
+        """Test with missing columns."""
+        incomplete_data = [{"ID": "Q001", "PERGUNTA": "Test"}]
 
         def validate_columns(data):
-            # Apenas ID e LEVAR PARA PROVA são realmente obrigatórios agora
+            # Only ID and LEVAR PARA PROVA are actually required now
             required_columns = ["ID", "LEVAR PARA PROVA"]
             if not data:
                 return False
@@ -143,16 +145,16 @@ class TestColumnValidation:
 
 
 # =============================================================================
-# TESTES DE DETECÇÃO DE CLOZE
+# CLOZE DETECTION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestClozeDetection:
-    """Testes para detecção de cards cloze."""
+    """Tests for cloze card detection."""
 
     def test_detect_cloze_basic(self):
-        """Teste básico de detecção de cloze."""
+        """Basic cloze detection test."""
 
         def detect_cloze(question):
             import re
@@ -160,18 +162,18 @@ class TestClozeDetection:
             cloze_pattern = r"\{\{c\d+::.*?\}\}"
             return bool(re.search(cloze_pattern, question))
 
-        # Casos positivos
-        assert detect_cloze("A capital do {{c1::Brasil}} é {{c2::Brasília}}") == True
-        assert detect_cloze("{{c1::Python}} é uma linguagem") == True
-        assert detect_cloze("Teste {{c3::múltiplas}} palavras {{c1::cloze}}") == True
+        # Positive cases
+        assert detect_cloze("The capital of {{c1::Brazil}} is {{c2::Brasília}}") == True
+        assert detect_cloze("{{c1::Python}} is a language") == True
+        assert detect_cloze("Test {{c3::multiple}} words {{c1::cloze}}") == True
 
-        # Casos negativos
-        assert detect_cloze("Pergunta normal sem cloze") == False
-        assert detect_cloze("Texto com {chaves} mas não cloze") == False
+        # Negative cases
+        assert detect_cloze("Normal question without cloze") == False
+        assert detect_cloze("Text with {curly_braces} but not cloze") == False
         assert detect_cloze("") == False
 
     def test_cloze_patterns(self):
-        """Teste de diferentes padrões de cloze."""
+        """Test different cloze patterns."""
 
         def detect_cloze(question):
             import re
@@ -180,12 +182,12 @@ class TestClozeDetection:
             return bool(re.search(cloze_pattern, question))
 
         test_cases = [
-            ("{{c1::resposta}}", True),
-            ("{{c10::resposta longa}}", True),
-            ("{{c1::resposta::dica}}", True),
-            ("{{c1:resposta}}", False),  # Formato incorreto
-            ("{c1::resposta}", False),  # Formato incorreto
-            ("{{C1::resposta}}", False),  # Case sensitive
+            ("{{c1::answer}}", True),
+            ("{{c10::long answer}}", True),
+            ("{{c1::answer::hint}}", True),
+            ("{{c1:answer}}", False),  # Incorrect format
+            ("{c1::answer}", False),  # Incorrect format
+            ("{{C1::answer}}", False),  # Case sensitive
         ]
 
         for question, expected in test_cases:
@@ -193,68 +195,68 @@ class TestClozeDetection:
 
 
 # =============================================================================
-# TESTES DE PROCESSAMENTO DE ALUNOS
+# STUDENT PROCESSING TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestStudentProcessing:
-    """Testes para processamento de dados de alunos."""
+    """Tests for student data processing."""
 
     def test_parse_students_comma_separated(self):
-        """Teste de parsing de alunos separados por vírgula."""
+        """Test parsing of comma-separated students."""
 
         def parse_students(student_text):
             if not student_text or student_text.strip() == "":
                 return []
 
-            # Suporta vírgula, ponto e vírgula, pipe
+            # Supports comma, semicolon, pipe
             import re
 
             students = re.split(r"[,;|]", student_text)
             return [s.strip() for s in students if s.strip()]
 
-        assert parse_students("João, Maria, Pedro") == ["João", "Maria", "Pedro"]
-        assert parse_students("João;Maria;Pedro") == ["João", "Maria", "Pedro"]
-        assert parse_students("João|Maria|Pedro") == ["João", "Maria", "Pedro"]
-        assert parse_students("João") == ["João"]
+        assert parse_students("John, Mary, Peter") == ["John", "Mary", "Peter"]
+        assert parse_students("John;Mary;Peter") == ["John", "Mary", "Peter"]
+        assert parse_students("John|Mary|Peter") == ["John", "Mary", "Peter"]
+        assert parse_students("John") == ["John"]
         assert parse_students("") == []
         assert parse_students("  ") == []
 
     def test_normalize_student_names(self):
-        """Teste de normalização de nomes de alunos."""
+        """Test student name normalization."""
 
         def normalize_student_name(name):
             if not name:
                 return ""
             return name.strip().replace(" ", "_")
 
-        assert normalize_student_name("João Silva") == "João_Silva"
-        assert normalize_student_name("  Maria  ") == "Maria"
+        assert normalize_student_name("John Smith") == "John_Smith"
+        assert normalize_student_name("  Mary  ") == "Mary"
         assert normalize_student_name("") == ""
 
 
 # =============================================================================
-# TESTES DE SYNC CONTROL
+# SYNC CONTROL TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestSyncControl:
-    """Testes para controle de sincronização."""
+    """Tests for sync control."""
 
     def test_sync_flag_parsing(self):
-        """Teste de interpretação da flag SYNC?"""
+        """Test SYNC flag interpretation."""
 
         def should_sync(sync_flag):
             if not sync_flag:
-                return True  # Padrão é sincronizar
+                return True  # Default is to sync
 
             sync_flag = str(sync_flag).lower().strip()
 
-            # Valores que indicam SIM para sync
+            # Values that indicate YES to sync
             yes_values = ["true", "sim", "yes", "1", "v", "verdadeiro"]
-            # Valores que indicam NÃO para sync
+            # Values that indicate NO to sync
             no_values = ["false", "não", "nao", "no", "0", "f", "falso"]
 
             if sync_flag in yes_values or sync_flag == "":
@@ -262,9 +264,9 @@ class TestSyncControl:
             elif sync_flag in no_values:
                 return False
             else:
-                return True  # Default para valores desconhecidos
+                return True  # Default for unknown values
 
-        # Casos positivos
+        # Positive cases
         assert should_sync("true") == True
         assert should_sync("sim") == True
         assert should_sync("yes") == True
@@ -272,7 +274,7 @@ class TestSyncControl:
         assert should_sync("") == True
         assert should_sync(None) == True
 
-        # Casos negativos
+        # Negative cases
         assert should_sync("false") == False
         assert should_sync("não") == False
         assert should_sync("no") == False
@@ -280,32 +282,29 @@ class TestSyncControl:
 
 
 # =============================================================================
-# TESTES DE CRIAÇÃO DE TAGS
+# TAG CREATION TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestTagCreation:
-    """Testes para criação de tags hierárquicas."""
+    """Tests for hierarchical tag creation."""
 
     def test_create_hierarchical_tags(self):
-        """Teste de criação de tags hierárquicas."""
+        """Hierarchical tags creation test."""
 
         def create_tags_for_note(note_data):
             tags = []
 
-            # Tag root
+            # Root tag
             tag_root = "Sheets2Anki"
 
-            # Tags de alunos foram REMOVIDAS para simplificar lógica
-            # (Esta seção foi eliminada)
-
-            # Tags de tópicos
+            # Topic tags
             if note_data.get("TOPICO"):
                 topics = [t.strip() for t in note_data["TOPICO"].split(",")]
                 for topic in topics:
                     if topic:
-                        tag = f"{tag_root}::Topicos::{topic}"
+                        tag = f"{tag_root}::Topics::{topic}"
                         if note_data.get("SUBTOPICO"):
                             subtopics = [
                                 st.strip() for st in note_data["SUBTOPICO"].split(",")
@@ -326,26 +325,26 @@ class TestTagCreation:
                         else:
                             tags.append(tag)
 
-            # Tags de importância
+            # Importance tags
             if note_data.get("IMPORTANCIA"):
-                tags.append(f"{tag_root}::Importancia::{note_data['IMPORTANCIA']}")
+                tags.append(f"{tag_root}::Importance::{note_data['IMPORTANCIA']}")
 
-            return list(set(tags))  # Remove duplicatas
+            return list(set(tags))  # Remove duplicates
 
         test_note = {
-            "ALUNOS": "João, Maria",
-            "TOPICO": "Geografia",
-            "SUBTOPICO": "Capitais",
-            "CONCEITO": "Brasil",
-            "IMPORTANCIA": "Alta",
+            "ALUNOS": "John, Mary",
+            "TOPICO": "Geography",
+            "SUBTOPICO": "Capitals",
+            "CONCEITO": "Brazil",
+            "IMPORTANCIA": "High",
         }
 
         tags = create_tags_for_note(test_note)
 
-        # Verificar se contém tags esperadas (excluindo tags de alunos)
+        # Check if it contains expected tags (excluding student tags)
         expected_patterns = [
-            "Sheets2Anki::Topicos::Geografia::Capitais::Brasil",
-            "Sheets2Anki::Importancia::Alta",
+            "Sheets2Anki::Topics::Geography::Capitals::Brazil",
+            "Sheets2Anki::Importance::High",
         ]
 
         for pattern in expected_patterns:
@@ -353,10 +352,10 @@ class TestTagCreation:
                 pattern in tag for tag in tags
             ), f"Pattern '{pattern}' not found in: {tags}"
 
-        # Verificar que tags de alunos NÃO estão presentes
+        # Verify that student tags are NOT present
         student_patterns = [
-            "Sheets2Anki::Alunos::João",
-            "Sheets2Anki::Alunos::Maria",
+            "Sheets2Anki::Students::John",
+            "Sheets2Anki::Students::Mary",
         ]
 
         for pattern in student_patterns:
@@ -365,37 +364,37 @@ class TestTagCreation:
             ), f"Student pattern '{pattern}' should NOT be found in: {tags}"
 
     def test_clean_tag_text(self):
-        """Teste de limpeza de texto para tags."""
+        """Tag text cleaning test."""
 
         def clean_tag_text(text):
             if not text:
                 return ""
             import re
 
-            # Remove caracteres especiais e substitui espaços
+            # Remove special characters and replace spaces
             cleaned = re.sub(r"[^\w\s-]", "", text)
             cleaned = cleaned.replace(" ", "_").replace("-", "_")
             return cleaned.strip("_")
 
-        assert clean_tag_text("Geografia Geral") == "Geografia_Geral"
-        assert clean_tag_text("Conceitos - Básicos") == "Conceitos___Básicos"
-        assert clean_tag_text("Teste!@#$%") == "Teste"
+        assert clean_tag_text("General Geography") == "General_Geography"
+        assert clean_tag_text("Basic - Concepts") == "Basic___Concepts"
+        assert clean_tag_text("Test!@#$%") == "Test"
         assert clean_tag_text("") == ""
 
 
 # =============================================================================
-# TESTES DE REMOTE DECK
+# REMOTE DECK TESTS
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestRemoteDeck:
-    """Testes para funcionalidades de deck remoto."""
+    """Tests for remote deck functionalities."""
 
     @patch("urllib.request.urlopen")
     def test_fetch_remote_deck_success(self, mock_urlopen, sample_tsv_content):
-        """Teste de busca bem-sucedida de deck remoto."""
-        # Mock da resposta HTTP
+        """Successful remote deck fetching test."""
+        # HTTP response mock
         mock_response = Mock()
         mock_response.read.return_value = sample_tsv_content.encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_response
@@ -411,11 +410,11 @@ class TestRemoteDeck:
         result = fetch_remote_deck(url)
 
         assert "Q001" in result
-        assert "Qual é a capital do Brasil?" in result
+        assert "What is the capital of Brazil?" in result
 
     @patch("urllib.request.urlopen")
     def test_fetch_remote_deck_error(self, mock_urlopen):
-        """Teste de erro ao buscar deck remoto."""
+        """Error fetching remote deck test."""
         mock_urlopen.side_effect = Exception("Network error")
 
         def fetch_remote_deck_with_error(url):
@@ -425,25 +424,25 @@ class TestRemoteDeck:
                 with urllib.request.urlopen(url) as response:
                     return response.read().decode("utf-8")
             except Exception as e:
-                raise Exception(f"Erro ao buscar deck: {str(e)}")
+                raise Exception(f"Error fetching deck: {str(e)}")
 
         url = "https://invalid-url.com"
 
-        with pytest.raises(Exception, match="Erro ao buscar deck"):
+        with pytest.raises(Exception, match="Error fetching deck"):
             fetch_remote_deck_with_error(url)
 
 
 # =============================================================================
-# TESTES DE INTEGRAÇÃO
+# INTEGRATION TESTS
 # =============================================================================
 
 
 @pytest.mark.integration
 class TestDataProcessorIntegration:
-    """Testes de integração do data processor."""
+    """Integration tests for data processor."""
 
     def test_full_processing_pipeline(self, sample_tsv_content, sample_students):
-        """Teste do pipeline completo de processamento."""
+        """Full processing pipeline test."""
 
         def process_tsv_data(content, global_students):
             # 1. Parse TSV
@@ -466,17 +465,18 @@ class TestDataProcessorIntegration:
             # 3. Add metadata
             for row in filtered_data:
                 row["_is_cloze"] = "{{c" in row.get("PERGUNTA", "")
-                row["_should_sync"] = row.get("SYNC?", "").lower() not in [
+                row["_should_sync"] = row.get("SYNC", "").lower() not in [
                     "false",
                     "não",
                     "0",
+                    "no",
                 ]
 
             return filtered_data
 
-        result = process_tsv_data(sample_tsv_content, ["João", "Maria"])
+        result = process_tsv_data(sample_tsv_content, ["John", "Mary"])
 
-        assert len(result) == 2  # Ambos os registros têm João ou Maria
+        assert len(result) == 2  # Both records have John or Mary
         assert result[0]["_should_sync"] == True
         assert result[1]["_is_cloze"] == True
 

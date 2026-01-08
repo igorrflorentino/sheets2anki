@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Teste simples para validar que as correções de busca estão funcionando.
+Simple test to validate that search corrections are working.
 """
 
 import os
@@ -8,61 +8,67 @@ import sys
 
 def test_search_patterns():
     """
-    Testa se os padrões de busca foram corrigidos corretamente.
+    Tests if search patterns were correctly fixed.
     """
-    print("🧪 Testando correções de padrões de busca...")
+    print("🧪 Testing search pattern corrections...")
     
-    # Verificar config_manager.py
-    config_path = "/Users/igorflorentino/• Principais do Home/Git/Coding/anki/sheets2anki/src/config_manager.py"
+    # Get the project root directory
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    # Verify config_manager.py
+    config_path = os.path.join(base_dir, "src/config_manager.py")
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             content = f.read()
             
         if 'find_notes("*")' in content:
-            print("✅ config_manager.py: Padrão corrigido encontrado")
+            print("✅ config_manager.py: Corrected pattern found")
         else:
-            print("❌ config_manager.py: Padrão de correção não encontrado")
+            print("❌ config_manager.py: Correction pattern not found")
             
         if 'find_notes("")' in content:
-            print("❌ config_manager.py: Padrão problemático ainda presente")
+            print("❌ config_manager.py: Problematic pattern still present")
         else:
-            print("✅ config_manager.py: Padrão problemático removido")
+            print("✅ config_manager.py: Problematic pattern removed")
             
     except Exception as e:
-        print(f"❌ Erro ao verificar config_manager.py: {e}")
+        print(f"❌ Error verifying config_manager.py: {e}")
     
-    # Verificar student_manager.py
-    student_path = "/Users/igorflorentino/• Principais do Home/Git/Coding/anki/sheets2anki/src/student_manager.py"
+    # Verify student_manager.py
+    student_path = os.path.join(base_dir, "src/student_manager.py")
     try:
         with open(student_path, 'r', encoding='utf-8') as f:
             content = f.read()
             
         if 'find_notes("*")' in content:
-            print("✅ student_manager.py: Padrão corrigido encontrado")
+            print("✅ student_manager.py: Corrected pattern found")
         else:
-            print("❌ student_manager.py: Padrão de correção não encontrado")
+            print("❌ student_manager.py: Correction pattern not found")
             
         if 'find_notes("")' in content:
-            print("❌ student_manager.py: Padrão problemático ainda presente")
+            print("❌ student_manager.py: Problematic pattern still present")
         else:
-            print("✅ student_manager.py: Padrão problemático removido")
+            print("✅ student_manager.py: Problematic pattern removed")
             
     except Exception as e:
-        print(f"❌ Erro ao verificar student_manager.py: {e}")
+        print(f"❌ Error verifying student_manager.py: {e}")
     
-    print("\n🎯 Teste de correções concluído!")
+    print("\n🎯 Correction test completed!")
 
 
 def test_comment_quality():
     """
-    Verifica se os comentários explicativos foram adicionados.
+    Verifies if explanatory comments were added.
     """
-    print("\n🧪 Testando qualidade dos comentários...")
+    print("\n🧪 Testing comment quality...")
     
-    # Verificar se há comentários explicativos
+    # Get the project root directory
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    # Verify if explanatory comments are present
     paths_to_check = [
-        "/Users/igorflorentino/• Principais do Home/Git/Coding/anki/sheets2anki/src/config_manager.py",
-        "/Users/igorflorentino/• Principais do Home/Git/Coding/anki/sheets2anki/src/student_manager.py"
+        os.path.join(base_dir, "src/config_manager.py"),
+        os.path.join(base_dir, "src/student_manager.py")
     ]
     
     for path in paths_to_check:
@@ -72,27 +78,28 @@ def test_comment_quality():
                 
             filename = os.path.basename(path)
             
-            if "usar wildcard" in content:
-                print(f"✅ {filename}: Comentário explicativo encontrado")
+            # Since comments were translated to English, we check for English keywords
+            if "use wildcard" in content.lower():
+                print(f"✅ {filename}: Explanatory comment found")
             else:
-                print(f"⚠️ {filename}: Comentário explicativo não encontrado")
+                print(f"⚠️ {filename}: Explanatory comment not found")
                 
         except Exception as e:
-            print(f"❌ Erro ao verificar {path}: {e}")
+            print(f"❌ Error verifying {path}: {e}")
     
-    print("\n🎯 Teste de comentários concluído!")
+    print("\n🎯 Comment test completed!")
 
 
 if __name__ == "__main__":
-    print("🚀 Teste de Validação de Correções - Sheets2Anki")
+    print("🚀 Correction Validation Test - Sheets2Anki")
     print("=" * 60)
     
     test_search_patterns()
     test_comment_quality()
     
     print("\n" + "=" * 60)
-    print("✨ Todos os testes finalizados!")
-    print("\n💡 Resumo da correção:")
+    print("✨ All tests finished!")
+    print("\n💡 Correction summary:")
     print("   • find_notes('') → find_notes('*')")
-    print("   • Erro de double quotes eliminado")
-    print("   • Compatibilidade com Anki moderno melhorada")
+    print("   • Double quotes error eliminated")
+    print("   • Compatibility with modern Anki improved")
