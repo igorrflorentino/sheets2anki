@@ -264,13 +264,12 @@ class BackupManager:
 
 ### 5. **AnkiWeb Integration** (`src/ankiweb_sync.py`)
 
-#### Multi-version Compatibility:
+#### Integration:
 ```python
 class AnkiWebSyncManager:
     def auto_sync_after_changes() -> None
     def test_connectivity() -> SyncStatus
-    def _sync_modern(mw) -> None      # Anki 2.1.50+
-    def _sync_legacy(mw) -> None      # Previous versions
+    def sync_with_ankiweb() -> None   # Anki 25.x+ modern API
 ```
 
 ## 🔄 Data Flow
@@ -348,9 +347,8 @@ mw.col.models.addTemplate()
 mw.col.models.save()
 ```
 
-#### Version Compatibility:
-- **Anki 2.1.50+**: Modern API with async support
-- **Anki 2.1.x**: Legacy API with compatibility layer
+#### Compatibility:
+- **Anki 25.x+**: Qt6 with modern async API
 - **Database**: Direct SQLite for complex queries
 
 ### **Google Sheets Integration**
@@ -396,12 +394,18 @@ LOG_FILE = os.path.join(ADDON_DIR, "debug_sheets2anki.log")
 
 ### **Prerequisites**
 ```bash
-# Python 3.9+ (compatible with Anki)
+# Python 3.13+ (required - same version as Anki 25.x)
 python --version
 
-# Anki installed for development
+# Anki 25.x or newer installed for development
 # Download: https://apps.ankiweb.net/
 ```
+
+### **System Requirements**
+- **Python:** 3.13 or newer
+- **Anki:** Version 25.x or newer
+- **Qt:** Qt6 (included with Anki 25.x)
+- **Operating System:** Windows, macOS, or Linux
 
 ### **Clone and Setup**
 ```bash
@@ -575,11 +579,9 @@ logger.addHandler(handler)
 #### **1. Anki Developer Mode**
 ```python
 # In __init__.py
-from anki import buildinfo
-if buildinfo.version.startswith("2.1"):
-    # Enable debug mode
-    import sys
-    sys.path.insert(0, "/path/to/dev/tools")
+import sys
+# Enable debug mode
+sys.path.insert(0, "/path/to/dev/tools")
 ```
 
 #### **2. Remote Debugging**
@@ -680,14 +682,11 @@ with open(file_path, 'r', encoding='utf-8') as f:
     data = f.read()
 ```
 
-#### **2. Anki API Changes**
+#### **2. Qt6 API Usage**
 ```python
-# Version detection
-from anki import version
-if version.startswith("2.1.50"):
-    # Use modern API
-else:
-    # Use legacy compatibility
+# All code uses Qt6 enums
+from aqt.qt import Qt
+alignment = Qt.AlignmentFlag.AlignCenter  # Qt6 style
 ```
 
 #### **3. Threading Issues**

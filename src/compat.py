@@ -1,321 +1,163 @@
 """
 Qt/Anki Compatibility Module
 
-This module provides a compatibility layer between different Qt
-and Anki versions, ensuring the add-on works with versions 23.x, 24.x and 25.x.
-
-Features:
-- Safe Qt module imports
-- Compatibility constants
-- Fallbacks for older versions
-- Automatic version detection
+This module provides clean imports and constants for Anki 25.x+ with Qt6.
+All backward compatibility code has been removed.
 """
 
-import sys
-from typing import Any
-from typing import Optional
-
-# =============================================================================
-# ANKI VERSION DETECTION
-# =============================================================================
-
-
-def get_anki_version() -> tuple[int, int, int]:
-    """
-    Detects the running Anki version.
-
-    Returns:
-        Tuple with (major, minor, patch) of the Anki version
-    """
-    try:
-        import anki
-
-        version_str = anki.version
-        # Format: "25.02.7" or "2.1.66"
-        parts = version_str.split(".")
-        return (int(parts[0]), int(parts[1]), int(parts[2]) if len(parts) > 2 else 0)
-    except:
-        # Fallback for old version
-        return (2, 1, 0)
-
-
-ANKI_VERSION = get_anki_version()
-IS_ANKI_25_PLUS = ANKI_VERSION[0] >= 25
-IS_ANKI_24_PLUS = ANKI_VERSION[0] >= 24 or (
-    ANKI_VERSION[0] == 2 and ANKI_VERSION[1] >= 1 and ANKI_VERSION[2] >= 60
-)
+from typing import Any, Optional
 
 # =============================================================================
 # ANKI IMPORTS
 # =============================================================================
 
-try:
-    from aqt import mw
-    from aqt.qt import QAction
-    from aqt.qt import QKeySequence
-    from aqt.qt import QMenu
-    from aqt.qt import qconnect
-    from aqt.utils import showCritical
-    from aqt.utils import showInfo
-    from aqt.utils import showWarning
-    from aqt.utils import tooltip
-except ImportError as e:
-    raise ImportError(f"Could not import Anki modules: {e}")
+from aqt import mw
+from aqt.qt import (
+    QAbstractItemView,
+    QAction,
+    QApplication,
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFont,
+    QFormLayout,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QKeySequence,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QMessageBox,
+    QPalette,
+    QProgressBar,
+    QProgressDialog,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QSplitter,
+    Qt,
+    QTabWidget,
+    QTextBrowser,
+    QTextEdit,
+    QTimer,
+    QVBoxLayout,
+    QWidget,
+    qconnect,
+)
+from aqt.utils import showCritical, showInfo, showWarning, tooltip
 
 # Export qconnect for direct use
 safe_qconnect = qconnect
 
 # =============================================================================
-# QT IMPORTS WITH COMPATIBILITY
-# =============================================================================
-
-try:
-    from aqt.qt import QAbstractItemView
-    from aqt.qt import QAction
-    from aqt.qt import QApplication
-    from aqt.qt import QButtonGroup
-    from aqt.qt import QCheckBox
-    from aqt.qt import QComboBox
-    from aqt.qt import QDialog
-    from aqt.qt import QDialogButtonBox
-    from aqt.qt import QFileDialog
-    from aqt.qt import QFont
-    from aqt.qt import QFormLayout
-    from aqt.qt import QFrame
-    from aqt.qt import QGridLayout
-    from aqt.qt import QGroupBox
-    from aqt.qt import QHBoxLayout
-    from aqt.qt import QInputDialog
-    from aqt.qt import QKeySequence
-    from aqt.qt import QLabel
-    from aqt.qt import QLineEdit
-    from aqt.qt import QListWidget
-    from aqt.qt import QListWidgetItem
-    from aqt.qt import QMenu
-    from aqt.qt import QMessageBox
-    from aqt.qt import QPalette
-    from aqt.qt import QProgressBar
-    from aqt.qt import QProgressDialog
-    from aqt.qt import QPushButton
-    from aqt.qt import QRadioButton
-    from aqt.qt import QScrollArea
-    from aqt.qt import QSizePolicy
-    from aqt.qt import QSpinBox
-    from aqt.qt import QSplitter
-    from aqt.qt import Qt
-    from aqt.qt import QTabWidget
-    from aqt.qt import QTextBrowser
-    from aqt.qt import QTextEdit
-    from aqt.qt import QTimer
-    from aqt.qt import QVBoxLayout
-    from aqt.qt import QWidget
-
-    # Check if we have Qt6 or Qt5
-    QT_VERSION = 6 if hasattr(Qt, "AlignmentFlag") else 5
-
-except ImportError as e:
-    raise ImportError(f"Could not import Qt components: {e}")
-
-# =============================================================================
-# COMPATIBILITY CONSTANTS
+# QT6 CONSTANTS
 # =============================================================================
 
 # Alignment constants
-if QT_VERSION >= 6:
-    # Qt6 style
-    AlignTop = Qt.AlignmentFlag.AlignTop
-    AlignLeft = Qt.AlignmentFlag.AlignLeft
-    AlignCenter = Qt.AlignmentFlag.AlignCenter
-    AlignRight = Qt.AlignmentFlag.AlignRight
-    AlignBottom = Qt.AlignmentFlag.AlignBottom
-    AlignVCenter = Qt.AlignmentFlag.AlignVCenter
-    AlignHCenter = Qt.AlignmentFlag.AlignHCenter
-else:
-    # Qt5 style
-    AlignTop = Qt.AlignTop
-    AlignLeft = Qt.AlignLeft
-    AlignCenter = Qt.AlignCenter
-    AlignRight = Qt.AlignRight
-    AlignBottom = Qt.AlignBottom
-    AlignVCenter = Qt.AlignVCenter
-    AlignHCenter = Qt.AlignHCenter
+AlignTop = Qt.AlignmentFlag.AlignTop
+AlignLeft = Qt.AlignmentFlag.AlignLeft
+AlignCenter = Qt.AlignmentFlag.AlignCenter
+AlignRight = Qt.AlignmentFlag.AlignRight
+AlignBottom = Qt.AlignmentFlag.AlignBottom
+AlignVCenter = Qt.AlignmentFlag.AlignVCenter
+AlignHCenter = Qt.AlignmentFlag.AlignHCenter
 
 # Key constants
-if QT_VERSION >= 6:
-    Key_Return = Qt.Key.Key_Return
-    Key_Enter = Qt.Key.Key_Enter
-    Key_Escape = Qt.Key.Key_Escape
-else:
-    Key_Return = Qt.Key_Return
-    Key_Enter = Qt.Key_Enter
-    Key_Escape = Qt.Key_Escape
+Key_Return = Qt.Key.Key_Return
+Key_Enter = Qt.Key.Key_Enter
+Key_Escape = Qt.Key.Key_Escape
 
 # Text format constants
-if QT_VERSION >= 6:
-    TextFormat_RichText = Qt.TextFormat.RichText
-    TextFormat_PlainText = Qt.TextFormat.PlainText
-else:
-    TextFormat_RichText = Qt.RichText
-    TextFormat_PlainText = Qt.PlainText
+TextFormat_RichText = Qt.TextFormat.RichText
+TextFormat_PlainText = Qt.TextFormat.PlainText
 
 # Orientation constants
-if QT_VERSION >= 6:
-    Horizontal = Qt.Orientation.Horizontal
-    Vertical = Qt.Orientation.Vertical
-else:
-    Horizontal = Qt.Horizontal
-    Vertical = Qt.Vertical
+Horizontal = Qt.Orientation.Horizontal
+Vertical = Qt.Orientation.Vertical
 
 # Context Menu Policy constants
-if QT_VERSION >= 6:
-    CustomContextMenu = Qt.ContextMenuPolicy.CustomContextMenu
-    NoContextMenu = Qt.ContextMenuPolicy.NoContextMenu
-    DefaultContextMenu = Qt.ContextMenuPolicy.DefaultContextMenu
-else:
-    CustomContextMenu = Qt.CustomContextMenu
-    NoContextMenu = Qt.NoContextMenu
-    DefaultContextMenu = Qt.DefaultContextMenu
+CustomContextMenu = Qt.ContextMenuPolicy.CustomContextMenu
+NoContextMenu = Qt.ContextMenuPolicy.NoContextMenu
+DefaultContextMenu = Qt.ContextMenuPolicy.DefaultContextMenu
 
 # Dialog constants
-if hasattr(QDialog, "Accepted"):
-    DialogAccepted = QDialog.Accepted
-    DialogRejected = QDialog.Rejected
-else:
-    DialogAccepted = 1
-    DialogRejected = 0
+DialogAccepted = QDialog.DialogCode.Accepted
+DialogRejected = QDialog.DialogCode.Rejected
 
 # Window modality constants
-if QT_VERSION >= 6:
-    WINDOW_MODAL = Qt.WindowModality.WindowModal
-    APPLICATION_MODAL = Qt.WindowModality.ApplicationModal
-    NON_MODAL = Qt.WindowModality.NonModal
-else:
-    WINDOW_MODAL = Qt.WindowModal
-    APPLICATION_MODAL = Qt.ApplicationModal
-    NON_MODAL = Qt.NonModal
+WINDOW_MODAL = Qt.WindowModality.WindowModal
+APPLICATION_MODAL = Qt.WindowModality.ApplicationModal
+NON_MODAL = Qt.WindowModality.NonModal
 
 # QDialogButtonBox constants
-if QT_VERSION >= 6:
-    ButtonBox_Ok = QDialogButtonBox.StandardButton.Ok
-    ButtonBox_Cancel = QDialogButtonBox.StandardButton.Cancel
-    ButtonBox_Yes = QDialogButtonBox.StandardButton.Yes
-    ButtonBox_No = QDialogButtonBox.StandardButton.No
-    ButtonBox_Apply = QDialogButtonBox.StandardButton.Apply
-    ButtonBox_Close = QDialogButtonBox.StandardButton.Close
-else:
-    ButtonBox_Ok = QDialogButtonBox.Ok
-    ButtonBox_Cancel = QDialogButtonBox.Cancel
-    ButtonBox_Yes = QDialogButtonBox.Yes
-    ButtonBox_No = QDialogButtonBox.No
-    ButtonBox_Apply = QDialogButtonBox.Apply
-    ButtonBox_Close = QDialogButtonBox.Close
+ButtonBox_Ok = QDialogButtonBox.StandardButton.Ok
+ButtonBox_Cancel = QDialogButtonBox.StandardButton.Cancel
+ButtonBox_Yes = QDialogButtonBox.StandardButton.Yes
+ButtonBox_No = QDialogButtonBox.StandardButton.No
+ButtonBox_Apply = QDialogButtonBox.StandardButton.Apply
+ButtonBox_Close = QDialogButtonBox.StandardButton.Close
 
 # QMessageBox constants
-if QT_VERSION >= 6:
-    MessageBox_Yes = QMessageBox.StandardButton.Yes
-    MessageBox_No = QMessageBox.StandardButton.No
-    MessageBox_Ok = QMessageBox.StandardButton.Ok
-    MessageBox_Cancel = QMessageBox.StandardButton.Cancel
-    MessageBox_Information = QMessageBox.Icon.Information
-    MessageBox_Warning = QMessageBox.Icon.Warning
-    MessageBox_Critical = QMessageBox.Icon.Critical
-    MessageBox_Question = QMessageBox.Icon.Question
-else:
-    MessageBox_Yes = QMessageBox.Yes
-    MessageBox_No = QMessageBox.No
-    MessageBox_Ok = QMessageBox.Ok
-    MessageBox_Cancel = QMessageBox.Cancel
-    MessageBox_Information = QMessageBox.Information
-    MessageBox_Warning = QMessageBox.Warning
-    MessageBox_Critical = QMessageBox.Critical
-    MessageBox_Question = QMessageBox.Question
+MessageBox_Yes = QMessageBox.StandardButton.Yes
+MessageBox_No = QMessageBox.StandardButton.No
+MessageBox_Ok = QMessageBox.StandardButton.Ok
+MessageBox_Cancel = QMessageBox.StandardButton.Cancel
+MessageBox_Information = QMessageBox.Icon.Information
+MessageBox_Warning = QMessageBox.Icon.Warning
+MessageBox_Critical = QMessageBox.Icon.Critical
+MessageBox_Question = QMessageBox.Icon.Question
 
 # Echo mode constants for QLineEdit
-if hasattr(QLineEdit, "EchoMode"):
-    EchoModeNormal = QLineEdit.EchoMode.Normal
-    EchoModePassword = QLineEdit.EchoMode.Password
-else:
-    EchoModeNormal = QLineEdit.Normal
-    EchoModePassword = QLineEdit.Password
+EchoModeNormal = QLineEdit.EchoMode.Normal
+EchoModePassword = QLineEdit.EchoMode.Password
 
-# QPalette constants for dark mode detection
-if QT_VERSION >= 6:
-    try:
-        Palette_Window = QPalette.ColorRole.Window
-        Palette_WindowText = QPalette.ColorRole.WindowText
-        Palette_Base = QPalette.ColorRole.Base
-        Palette_Text = QPalette.ColorRole.Text
-    except AttributeError:
-        # Fallback for Qt6 without ColorRole
-        Palette_Window = QPalette.Window
-        Palette_WindowText = QPalette.WindowText
-        Palette_Base = QPalette.Base
-        Palette_Text = QPalette.Text
-else:
-    Palette_Window = QPalette.Window
-    Palette_WindowText = QPalette.WindowText
-    Palette_Base = QPalette.Base
-    Palette_Text = QPalette.Text
+# QPalette constants
+Palette_Window = QPalette.ColorRole.Window
+Palette_WindowText = QPalette.ColorRole.WindowText
+Palette_Base = QPalette.ColorRole.Base
+Palette_Text = QPalette.ColorRole.Text
 
 # QAbstractItemView constants
-if QT_VERSION >= 6:
-    MultiSelection = QAbstractItemView.SelectionMode.MultiSelection
-    SingleSelection = QAbstractItemView.SelectionMode.SingleSelection
-    NoSelection = QAbstractItemView.SelectionMode.NoSelection
-    ExtendedSelection = QAbstractItemView.SelectionMode.ExtendedSelection
-    ContiguousSelection = QAbstractItemView.SelectionMode.ContiguousSelection
-else:
-    MultiSelection = QAbstractItemView.MultiSelection
-    SingleSelection = QAbstractItemView.SingleSelection
-    NoSelection = QAbstractItemView.NoSelection
-    ExtendedSelection = QAbstractItemView.ExtendedSelection
-    ContiguousSelection = QAbstractItemView.ContiguousSelection
+MultiSelection = QAbstractItemView.SelectionMode.MultiSelection
+SingleSelection = QAbstractItemView.SelectionMode.SingleSelection
+NoSelection = QAbstractItemView.SelectionMode.NoSelection
+ExtendedSelection = QAbstractItemView.SelectionMode.ExtendedSelection
+ContiguousSelection = QAbstractItemView.SelectionMode.ContiguousSelection
+
+# Alternative names for consistency
+MULTI_SELECTION = MultiSelection
+SINGLE_SELECTION = SingleSelection
+NO_SELECTION = NoSelection
+EXTENDED_SELECTION = ExtendedSelection
+CONTIGUOUS_SELECTION = ContiguousSelection
 
 # QFrame constants
-if QT_VERSION >= 6:
-    Frame_HLine = QFrame.Shape.HLine
-    Frame_VLine = QFrame.Shape.VLine
-    Frame_NoFrame = QFrame.Shape.NoFrame
-    Frame_Sunken = QFrame.Shadow.Sunken
-    Frame_Raised = QFrame.Shadow.Raised
-    Frame_Plain = QFrame.Shadow.Plain
-else:
-    Frame_HLine = QFrame.HLine
-    Frame_VLine = QFrame.VLine
-    Frame_NoFrame = QFrame.NoFrame
-    Frame_Sunken = QFrame.Sunken
-    Frame_Raised = QFrame.Raised
-    Frame_Plain = QFrame.Plain
+Frame_HLine = QFrame.Shape.HLine
+Frame_VLine = QFrame.Shape.VLine
+Frame_NoFrame = QFrame.Shape.NoFrame
+Frame_Sunken = QFrame.Shadow.Sunken
+Frame_Raised = QFrame.Shadow.Raised
+Frame_Plain = QFrame.Shadow.Plain
 
 # QFont constants
-if QT_VERSION >= 6:
-    try:
-        Font_Bold = QFont.Weight.Bold
-        Font_Normal = QFont.Weight.Normal
-        Font_Light = QFont.Weight.Light
-    except AttributeError:
-        Font_Bold = 75
-        Font_Normal = 50
-        Font_Light = 25
-else:
-    Font_Bold = QFont.Bold
-    Font_Normal = QFont.Normal
-    Font_Light = QFont.Light
+Font_Bold = QFont.Weight.Bold
+Font_Normal = QFont.Weight.Normal
+Font_Light = QFont.Weight.Light
 
 # ScrollBar Policy constants
-if QT_VERSION >= 6:
-    try:
-        ScrollBarAlwaysOff = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        ScrollBarAlwaysOn = Qt.ScrollBarPolicy.ScrollBarAlwaysOn
-        ScrollBarAsNeeded = Qt.ScrollBarPolicy.ScrollBarAsNeeded
-    except AttributeError:
-        ScrollBarAlwaysOff = Qt.ScrollBarAlwaysOff
-        ScrollBarAlwaysOn = Qt.ScrollBarAlwaysOn
-        ScrollBarAsNeeded = Qt.ScrollBarAsNeeded
-else:
-    ScrollBarAlwaysOff = Qt.ScrollBarAlwaysOff
-    ScrollBarAlwaysOn = Qt.ScrollBarAlwaysOn
-    ScrollBarAsNeeded = Qt.ScrollBarAsNeeded
+ScrollBarAlwaysOff = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+ScrollBarAlwaysOn = Qt.ScrollBarPolicy.ScrollBarAlwaysOn
+ScrollBarAsNeeded = Qt.ScrollBarPolicy.ScrollBarAsNeeded
 
 # =============================================================================
 # UTILITY FUNCTIONS
@@ -324,21 +166,18 @@ else:
 
 def safe_connect(signal, slot) -> None:
     """
-    Connects signal/slot safely across Qt versions.
+    Connects signal/slot safely.
 
     Args:
         signal: Qt signal to connect
         slot: Slot/function to connect to the signal
     """
     try:
-        if hasattr(signal, "connect"):
-            signal.connect(slot)
-        else:
-            qconnect(signal, slot)
+        signal.connect(slot)
     except Exception as e:
-        # Avoid circular imports if utils uses compat
         try:
             from .utils import add_debug_message
+
             add_debug_message(f"Error connecting signal/slot: {e}", "COMPAT")
         except ImportError:
             print(f"Error connecting signal/slot: {e}")
@@ -348,7 +187,7 @@ def create_button(
     text: str, callback=None, tooltip_text: Optional[str] = None
 ) -> QPushButton:
     """
-    Creates a button with callback and tooltip in a compatible way.
+    Creates a button with callback and tooltip.
 
     Args:
         text: Button text
@@ -371,7 +210,7 @@ def create_button(
 
 def show_message(title: str, message: str, message_type: str = "info") -> None:
     """
-    Shows message to user in a compatible way across versions.
+    Shows message to user.
 
     Args:
         title: Message title
@@ -390,7 +229,7 @@ def show_message(title: str, message: str, message_type: str = "info") -> None:
 
 def safe_exec_dialog(dialog) -> int:
     """
-    Executes a dialog in a compatible way across Qt versions.
+    Executes a dialog.
 
     Args:
         dialog: Qt dialog to execute
@@ -398,17 +237,12 @@ def safe_exec_dialog(dialog) -> int:
     Returns:
         int: Dialog result code (Accepted/Rejected)
     """
-    if hasattr(dialog, "exec"):
-        # Qt6 style
-        return dialog.exec()
-    else:
-        # Qt5 style
-        return dialog.exec_()
+    return dialog.exec()
 
 
 def safe_exec_menu(menu, position) -> Any:
     """
-    Executes a context menu in a compatible way across Qt versions.
+    Executes a context menu.
 
     Args:
         menu: QMenu to execute
@@ -417,12 +251,7 @@ def safe_exec_menu(menu, position) -> Any:
     Returns:
         Selected QAction or None
     """
-    if hasattr(menu, "exec"):
-        # Qt6 style
-        return menu.exec(position)
-    else:
-        # Qt5 style
-        return menu.exec_(position)
+    return menu.exec(position)
 
 
 def show_tooltip(message: str, period: int = 3000) -> None:
@@ -433,80 +262,8 @@ def show_tooltip(message: str, period: int = 3000) -> None:
         message: Tooltip message
         period: Duration in milliseconds
     """
-    try:
-        tooltip(message)
-    except:
-        # Fallback to showInfo if tooltip is not available
-        showInfo(message)
+    tooltip(message)
 
 
-# =============================================================================
-# DIALOG EXECUTION (former fix_exec.py)
-# =============================================================================
-
-
-def safe_exec(dialog):
-    """
-    Executes a dialog in a compatible way with different Qt versions
-
-    Args:
-        dialog: The dialog to execute
-
-    Returns:
-        The result of dialog execution
-    """
-    try:
-        # Try newer method first (Qt6+)
-        return dialog.exec()
-    except AttributeError:
-        # Fallback for older versions
-        return dialog.exec_()
-
-
-# =============================================================================
-# SELECTION CONSTANTS (former fix_multiselection.py)
-# =============================================================================
-
-# QAbstractItemView constants with fallback
-try:
-    # Try Qt6+ first (typed enums)
-    MULTI_SELECTION = QAbstractItemView.SelectionMode.MultiSelection
-    SINGLE_SELECTION = QAbstractItemView.SelectionMode.SingleSelection
-    NO_SELECTION = QAbstractItemView.SelectionMode.NoSelection
-    EXTENDED_SELECTION = QAbstractItemView.SelectionMode.ExtendedSelection
-    CONTIGUOUS_SELECTION = QAbstractItemView.SelectionMode.ContiguousSelection
-except AttributeError:
-    try:
-        # Try Qt5 (class constants)
-        MULTI_SELECTION = QAbstractItemView.MultiSelection
-        SINGLE_SELECTION = QAbstractItemView.SingleSelection
-        NO_SELECTION = QAbstractItemView.NoSelection
-        EXTENDED_SELECTION = QAbstractItemView.ExtendedSelection
-        CONTIGUOUS_SELECTION = QAbstractItemView.ContiguousSelection
-    except AttributeError:
-        # Fallback to numeric values
-        MULTI_SELECTION = 2
-        SINGLE_SELECTION = 1
-        NO_SELECTION = 0
-        EXTENDED_SELECTION = 3
-        CONTIGUOUS_SELECTION = 4
-
-# =============================================================================
-# DEBUG INFORMATION
-# =============================================================================
-
-
-def get_compatibility_info() -> dict:
-    """
-    Returns compatibility information for debugging.
-
-    Returns:
-        Dict with version and compatibility information
-    """
-    return {
-        "anki_version": ANKI_VERSION,
-        "qt_version": QT_VERSION,
-        "is_anki_25_plus": IS_ANKI_25_PLUS,
-        "is_anki_24_plus": IS_ANKI_24_PLUS,
-        "python_version": sys.version_info[:3],
-    }
+# Alias for consistency
+safe_exec = safe_exec_dialog

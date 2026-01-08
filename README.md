@@ -240,10 +240,15 @@ The addon recognizes multiple separators:
 
 When restoring a backup, the addon automatically creates a safety backup of the current state before overwriting. This prevents data loss in case the restoration is not what was desired.
 
+### System Requirements
+
+- **Anki:** Version 25.x or newer
+- **Python:** 3.13+ (included with Anki 25.x)
+- **Qt:** Qt6 (included with Anki 25.x)
+
 ### AnkiWeb Compatibility
 
-- ✅ Anki 2.1.50+ (modern sync method)
-- ✅ Previous versions (compatibility methods)
+- ✅ Anki 25.x+ (Qt6, modern sync)
 - ✅ AnkiMobile, AnkiDroid, AnkiWeb
 
 ### Log File

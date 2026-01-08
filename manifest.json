@@ -1,13 +1,13 @@
 {
     "package": "sheets2anki",
     "name": "Sheets2Anki",
-    "version": "2.2.0",
+    "version": "3.0.0",
     "author": "Igor Florentino",
     "description": "Synchronize Anki decks with Google Sheets in TSV format. Ideal for exam preparation with question structures in Portuguese.",
     "homepage": "https://github.com/igorrflorentino/sheets2anki",
-    "min_point_version": 231000,
+    "min_point_version": 250000,
     "max_point_version": 260000,
     "conflicts": [],
-    "mod": 1673299200,
+    "mod": 1768320000,
     "disabled": false
 }

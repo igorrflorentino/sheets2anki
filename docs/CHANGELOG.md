@@ -4,7 +4,84 @@
 
 ---
 
-## 🚀 **v2.3.0** - January 2026 *(Current Version)*
+---
+
+## 🚀 **v3.0.0** - January 2026 *(BREAKING CHANGES)*
+
+### ⚠️ **Breaking Changes**
+- **Python 3.13 Required**: Minimum Python version upgraded from 3.9 to 3.13
+- **Anki 25.x Required**: Add-on now requires Anki version 25.x or newer
+- **Qt6 Only**: Removed all Qt5 compatibility code
+- **No Backward Compatibility**: Users on older Anki versions must update or use v2.x
+
+### 🎯 **Major Simplification**
+
+#### 🔧 **Compatibility Module Rewrite** (`src/compat.py`)
+- **Before**: 513 lines with complex version detection
+- **After**: 265 lines with clean Qt6-only code
+- **Removed**: ~250 lines of backward compatibility code
+- **Result**: Simpler, more maintainable codebase
+
+#### 🗑️ **Removed Code**
+- ❌ All Qt5/Qt6 version detection logic
+- ❌ All Anki version detection (23.x, 24.x checks)
+- ❌ `get_anki_version()` function
+- ❌ `ANKI_VERSION`, `IS_ANKI_25_PLUS`, `IS_ANKI_24_PLUS` constants
+- ❌ `QT_VERSION` detection
+- ❌ Conditional imports with `hasattr()` checks
+- ❌ `exec_()` fallback methods for Qt5
+
+#### ✨ **Modernization**
+- ✅ Direct Qt6 imports only
+- ✅ All constants use Qt6 enum syntax (e.g., `Qt.AlignmentFlag.AlignCenter`)
+- ✅ Clean `exec()` method calls
+- ✅ Simplified utility functions
+- ✅ Python 3.13 features available
+
+### 📝 **Configuration Updates**
+
+#### **Development Tools**
+- **Black**: Target version updated to `py313` only
+- **Ruff**: Target version updated to `py313`
+- **Mypy**: Python version set to `3.13`
+- **Pyright**: Python version set to `3.13`
+
+#### **Project Files**
+- **pyproject.toml**: `requires-python = ">=3.13"`
+- **Classifiers**: Removed Python 3.9-3.12, kept only 3.13
+- **.python-version**: Updated to `3.13`
+
+### 📚 **Documentation Updates**
+- **README.md**: Added system requirements section
+- **docs/README.md**: Removed all Anki 2.1.x references
+- **Development Guide**: Updated prerequisites to Python 3.13+
+- **Code Examples**: Updated to reflect Qt6-only usage
+
+### 🎁 **Benefits**
+- **Performance**: Python 3.13 performance improvements
+- **Simplicity**: 250+ lines of complexity removed
+- **Modern**: Using latest Python and Qt6 features
+- **Maintainability**: Single code path, no version conditionals
+- **Future-proof**: Ready for upcoming Anki versions
+- **Easier Debugging**: No more version-specific bugs
+
+### 📦 **Dependencies**
+- **Anki**: 25.7.5+
+- **PyQt6**: 6.9.1+
+- **Python**: 3.13.5+
+
+### 🔄 **Migration Guide**
+Users upgrading from v2.x should:
+1. Update to Anki 25.x or newer
+2. Install the new add-on version
+3. Existing decks and configurations will work without changes
+4. No manual migration needed
+
+---
+
+## 🚀 **v2.3.0** - January 2026
+
+
 
 ### ✨ **New Features**
 - **Debug Mode UI**: Dedicated interface (`Ctrl+Shift+L`) to manage debug mode, view logs, and reset configurations.
@@ -171,24 +248,25 @@
 - **v1.1.0**: 4 basic features
 - **v2.0.0**: +8 advanced features
 - **v2.1.0**: +12 premium features
+- **v3.0.0**: Major modernization (Python 3.13, Qt6 only)
 
 ### 🧪 **Quality and Testing**
 - **Test Coverage**: 95%+ of features
-- **Compatibility**: Anki 2.1.60+ to 2.1.66+
-- **Qt Support**: PyQt5 and PyQt6
+- **Compatibility**: Anki 25.x+ only (Qt6)
+- **Python**: 3.13+
 - **Platforms**: Windows, macOS, Linux
 
 ---
 
 ## 🎯 **Planned Future Versions**
 
-### 🚀 **v2.4.0** - Planned
+### 🚀 **v3.1.0** - Planned
 - **Real-Time Synchronization**: WebSocket for instant updates
 - **Advanced Templates**: Visual card template editor
 - **Advanced Statistics**: Complete performance dashboard
 - **REST API**: Endpoints for integration with other tools
 
-### 🌟 **v3.0.0** - Roadmap
+### 🌟 **v4.0.0** - Roadmap
 - **Artificial Intelligence**: Automatic AI card generation
 - **Real-Time Collaboration**: Simultaneous spreadsheet editing
 - **Versioning**: Version control for spreadsheets

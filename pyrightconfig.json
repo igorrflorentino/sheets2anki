@@ -25,7 +25,7 @@
     "reportUnknownParameterType": "none",
     "reportMissingParameterType": "none",
     "reportGeneralTypeIssues": "warning",
-    "pythonVersion": "3.9",
+    "pythonVersion": "3.13",
     "venvPath": ".",
     "venv": "venv"
 }
