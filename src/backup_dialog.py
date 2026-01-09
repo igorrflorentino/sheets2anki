@@ -903,7 +903,7 @@ class BackupDialog(QDialog):
             return
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"sheets2anki_config_backup_{timestamp}.zip"
+        backup_filename = f"sheets2anki_backup_manual_simple_{timestamp}.zip"
         path = os.path.join(backup_dir, backup_filename)
         
         # Run with progress dialog
@@ -936,7 +936,7 @@ class BackupDialog(QDialog):
             return
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"sheets2anki_full_backup_{timestamp}.zip"
+        backup_filename = f"sheets2anki_backup_manual_full_{timestamp}.zip"
         path = os.path.join(backup_dir, backup_filename)
         
         # Run with progress dialog
@@ -1081,7 +1081,8 @@ class BackupDialog(QDialog):
                 status_text.append(f"• Auto Simple Backups: {summary.get('auto_simple_count', 0)}")
                 status_text.append(f"• Manual Full Backups: {summary.get('manual_full_count', 0)}")
                 status_text.append(f"• Manual Simple Backups: {summary.get('manual_simple_count', 0)}")
-                status_text.append(f"• Safety Backups: {summary.get('safety_count', 0)}")
+                status_text.append(f"• Safety Full Backups: {summary.get('safety_full_count', 0)}")
+                status_text.append(f"• Safety Simple Backups: {summary.get('safety_simple_count', 0)}")
                 status_text.append(f"• Other files: {summary.get('other_files_count', 0)}")
                 
                 # Sizes
@@ -1089,6 +1090,7 @@ class BackupDialog(QDialog):
                 status_text.append(f"💾 <b>Sizes:</b>")
                 status_text.append(f"• Auto Backups: {summary.get('auto_size_human', '0 B')}")
                 status_text.append(f"• Manual Backups: {summary.get('manual_size_human', '0 B')}")
+                status_text.append(f"• Safety Backups: {summary.get('safety_size_human', '0 B')}")
                 status_text.append(f"• All Backups: {summary.get('total_backup_size_human', '0 B')}")
                 
                 # Latest backup

@@ -1495,9 +1495,9 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
     progress = _setup_progress_dialog(total_decks, include_backup=backup_enabled)
     status_msgs = []
     
-    # Step 0: Safety backup before sync (if enabled)
+    # Step 0: Backup before sync (if enabled)
     if backup_enabled:
-        status_msgs.append("💾 Creating safety backup...")
+        status_msgs.append("💾 Creating backup...")
         _update_progress_text(progress, status_msgs)
         progress.setValue(0)
         mw.app.processEvents()

@@ -74,8 +74,8 @@ class SimplifiedBackupManager:
     def __init__(self):
         self.backup_version = "2.0"
         self.sheets2anki_deck_name = "Sheets2Anki"
-        self._safety_backup_prefix = "sheets2anki_safety_"
-        self._auto_backup_prefix = "sheets2anki_auto_config_"
+        self._safety_backup_prefix = "sheets2anki_backup_safety_"
+        self._auto_backup_prefix = "sheets2anki_backup_auto_"
         self._manual_backup_prefix = "sheets2anki_backup_"
 
     def _validate_backup_directory(self, show_warning: bool = True) -> tuple:
@@ -200,7 +200,7 @@ class SimplifiedBackupManager:
             
             # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_filename = f"{self._safety_backup_prefix}{timestamp}.zip"
+            backup_filename = f"{self._safety_backup_prefix}full_{timestamp}.zip"
             backup_path = os.path.join(backup_dir, backup_filename)
             
             # Create full backup (includes deck if exists)
@@ -348,7 +348,7 @@ class SimplifiedBackupManager:
             
             # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_filename = f"{self._safety_backup_prefix}config_{timestamp}.zip"
+            backup_filename = f"{self._safety_backup_prefix}simple_{timestamp}.zip"
             backup_path = os.path.join(backup_dir, backup_filename)
             
             # Create config-only backup
@@ -641,7 +641,7 @@ class SimplifiedBackupManager:
                 add_debug_message("Creating COMPLETE automatic backup (config + deck)...", "AUTO_BACKUP")
                 success = self.create_backup(os.path.join(backup_dir, backup_filename))
             else:
-                backup_filename = f"{self._auto_backup_prefix}{timestamp}.zip"
+                backup_filename = f"{self._auto_backup_prefix}simple_{timestamp}.zip"
                 add_debug_message("Creating SIMPLE automatic backup (config only)...", "AUTO_BACKUP")
                 success = self.create_config_backup(os.path.join(backup_dir, backup_filename))
             
@@ -674,7 +674,7 @@ class SimplifiedBackupManager:
             import glob
             
             # Find all automatic backup files
-            pattern = os.path.join(backup_dir, "sheets2anki_auto_config_*.zip")
+            pattern = os.path.join(backup_dir, "sheets2anki_backup_auto_*.zip")
             backup_files = glob.glob(pattern)
             
             # Sort by modification time (most recent first)
@@ -709,7 +709,7 @@ class SimplifiedBackupManager:
             
             # Count existing backup files
             import glob
-            pattern = os.path.join(backup_dir, "sheets2anki_auto_config_*.zip")
+            pattern = os.path.join(backup_dir, "sheets2anki_backup_auto_*.zip")
             backup_files = glob.glob(pattern)
             backup_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
             
@@ -889,12 +889,15 @@ class SimplifiedBackupManager:
                     "auto_simple_count": 0,
                     "manual_full_count": 0,
                     "manual_simple_count": 0,
-                    "safety_count": 0,
+                    "safety_full_count": 0,
+                    "safety_simple_count": 0,
                     "other_files_count": 0,
                     "auto_size": 0,
                     "auto_size_human": "0 B",
                     "manual_size": 0,
                     "manual_size_human": "0 B",
+                    "safety_size": 0,
+                    "safety_size_human": "0 B",
                     "total_backup_size": 0,
                     "total_backup_size_human": "0 B",
                     "all_files_size": 0,
@@ -930,11 +933,15 @@ class SimplifiedBackupManager:
             auto_simple = []
             manual_full = []
             manual_simple = []
-            safety_backups = []
+            safety_full = []
+            safety_simple = []
             
             for b in backups:
                 if b.backup_type == 'safety':
-                    safety_backups.append(b)
+                    if b.apkg_included:
+                        safety_full.append(b)
+                    else:
+                        safety_simple.append(b)
                 elif b.backup_type == 'auto':
                     if b.apkg_included:
                         auto_full.append(b)
@@ -950,6 +957,7 @@ class SimplifiedBackupManager:
             # Calculate sizes
             auto_size = sum(b.size for b in (auto_full + auto_simple))
             manual_size = sum(b.size for b in (manual_full + manual_simple))
+            safety_size = sum(b.size for b in (safety_full + safety_simple))
             total_backup_size = sum(b.size for b in backups)
             
             # Find latest backup
@@ -962,12 +970,15 @@ class SimplifiedBackupManager:
                 "auto_simple_count": len(auto_simple),
                 "manual_full_count": len(manual_full),
                 "manual_simple_count": len(manual_simple),
-                "safety_count": len(safety_backups),
+                "safety_full_count": len(safety_full),
+                "safety_simple_count": len(safety_simple),
                 "other_files_count": other_files_count,
                 "auto_size": auto_size,
                 "auto_size_human": self._format_size(auto_size),
                 "manual_size": manual_size,
                 "manual_size_human": self._format_size(manual_size),
+                "safety_size": safety_size,
+                "safety_size_human": self._format_size(safety_size),
                 "total_backup_size": total_backup_size,
                 "total_backup_size_human": self._format_size(total_backup_size),
                 "all_files_size": all_files_size,
