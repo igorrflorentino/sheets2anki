@@ -873,11 +873,13 @@ def _remove_student_note_types(student: str, deck_names: List[str]) -> int:
             # METHOD 2: Check general pattern for orphaned note types (robust fallback)
             if not should_remove and note_type_name.startswith("Sheets2Anki - "):
                 # General format: "Sheets2Anki - {any_deck} - {student} - {Basic|Cloze}"
+                # IMPORTANT: deck_name may contain " - ", so parse from the END
                 parts = note_type_name.split(" - ")
                 if len(parts) >= 4:
-                    # Student is in the third part (index 2)
-                    note_student = parts[2]
-                    note_type_suffix = parts[-1]  # Basic or Cloze
+                    # Last part is the type (Basic or Cloze)
+                    note_type_suffix = parts[-1].strip()
+                    # Second-to-last part is the student name
+                    note_student = parts[-2].strip()
                     
                     if (note_student == student and 
                         note_type_suffix in ["Basic", "Cloze"]):
@@ -1121,24 +1123,18 @@ def _update_meta_after_missing_cleanup(deck_names: List[str]) -> None:
         traceback.print_exc()
 
 
-def get_disabled_students_for_cleanup(
-    current_enabled: Set[str], previous_enabled: Set[str]
-) -> Set[str]:
+def get_disabled_students_for_cleanup(current_enabled: Set[str]) -> Set[str]:
     """
     Identifies students who were removed from the enabled list and need data cleanup.
     
-    CORRECTED VERSION FOR PROPER LOGIC:
-    - Only considers students who were SYNCHRONIZED at least once
-    - A student can only have data for cleanup if data was created previously
-    - Students in available_students that were never synchronized SHOULD NOT be cleaned up
-    - Detects existing note types in Anki as secondary source
+    SIMPLIFIED LOGIC:
+    - Only considers students who were SYNCHRONIZED at least once (in sync_history)
+    - Students need cleanup ONLY if they are in sync_history but NOT in enabled_students
     
-    NOTE: DEFAULT_STUDENT is not considered a "real student" for cleanup purposes.
-    Its presence depends on the sync_missing_students_notes configuration, not the enabled student list.
+    NOTE: DEFAULT_STUDENT is handled separately by missing students cleanup.
 
     Args:
         current_enabled (Set[str]): Currently enabled students
-        previous_enabled (Set[str]): Previously enabled students (can be used as additional source)
 
     Returns:
         Set[str]: Students that were disabled and need data removed
@@ -1152,71 +1148,32 @@ def get_disabled_students_for_cleanup(
     
     log_func("🔍 CLEANUP: Identifying disabled students for cleanup...")
     
-    # MAIN SOURCE: Only students who were synchronized at least once
+    # SOURCE: sync_history - students who were actually synchronized
+    # This is the ONLY reliable source since it tracks actual sync operations
     from .config_manager import get_students_with_sync_history
-    historically_synced_students = get_students_with_sync_history()
-    log_func(f"📚 Students already synchronized: {sorted(historically_synced_students)}")
+    sync_history_students = get_students_with_sync_history()
+    log_func(f"📚 Students in sync_history: {sorted(sync_history_students)}")
     
-    # ADDITIONAL SOURCE: Existing note types in Anki (for inconsistency cases)
-    anki_detected_students = set()
-    if hasattr(mw, "col") and mw.col:
-        try:
-            note_types = mw.col.models.all()
-            for note_type in note_types:
-                note_type_name = note_type.get("name", "")
-                # Format: "Sheets2Anki - {remote_deck_name} - {student} - {Basic|Cloze}"
-                if note_type_name.startswith("Sheets2Anki - ") and " - " in note_type_name:
-                    parts = note_type_name.split(" - ")
-                    if len(parts) >= 4:
-                        # Student is in the third part (index 2)
-                        student_name = parts[2]
-                        if student_name and student_name != "[MISSING S.]":
-                            anki_detected_students.add(student_name)
-            
-            log_func(f"🔍 Students found in Anki via note types: {sorted(anki_detected_students)}")
-        except Exception as e:
-            log_func(f"⚠️ Error checking note types in Anki: {e}")
+    # Filter out missing student placeholders (handled separately)
+    missing_placeholders = {DEFAULT_STUDENT, "[MISSING STUDENTS]", "[MISSING S.]"}
+    real_students_with_data = sync_history_students - missing_placeholders
     
-    # COMBINE: Students who had data created (sync_history + existing note types)
-    students_with_created_data = historically_synced_students.union(anki_detected_students)
+    log_func(f"👤 Real students with data (from sync_history): {sorted(real_students_with_data)}")
     
-    # INCLUDE available_students only if they are also in history or have note types
-    from .config_manager import get_global_student_config
-    config = get_global_student_config()
-    available_students = set(config.get("available_students", []))
-    
-    # Students in available_students that also have sync evidence
-    available_and_synced = available_students.intersection(students_with_created_data)
-    
-    # Combine all student sources where data was created
-    all_students_with_data = students_with_created_data.union(available_and_synced)
-    
-    log_func(f"📊 Source report:")
-    log_func(f"   • Sync history: {sorted(historically_synced_students)}")
-    log_func(f"   • Note types in Anki: {sorted(anki_detected_students)}")
-    log_func(f"   • Available students: {sorted(available_students)}")
-    log_func(f"   • Available + with data: {sorted(available_and_synced)}")
-    log_func(f"   • TOTAL with created data: {sorted(all_students_with_data)}")
-    
-    # Remove DEFAULT_STUDENT from comparison, since it's not a "real student"
-    current_real_students = {s for s in current_enabled if s != DEFAULT_STUDENT}
-    students_with_data_real = {s for s in all_students_with_data if s != DEFAULT_STUDENT}
+    # Filter out DEFAULT_STUDENT from current enabled
+    current_real_students = {s for s in current_enabled if s not in missing_placeholders}
+    log_func(f"✅ Currently enabled students: {sorted(current_real_students)}")
 
-    log_func(f"✅ Real students currently enabled: {sorted(current_real_students)}")
-    log_func(f"📖 Real students with created data: {sorted(students_with_data_real)}")
-
-    # MAIN DETECTION: Students who had data but are no longer enabled
-    disabled_students = students_with_data_real - current_real_students
+    # SIMPLE CHECK: Students who have data but are no longer enabled
+    disabled_students = real_students_with_data - current_real_students
 
     if disabled_students:
         log_func(f"🎯 CLEANUP: Detected students for cleanup: {sorted(disabled_students)}")
+        log_func(f"   • Students with data (sync_history): {sorted(real_students_with_data)}")
         log_func(f"   • Currently enabled: {sorted(current_real_students)}")
-        log_func(f"   • With created data: {sorted(students_with_data_real)}")
         log_func(f"   • Students to remove: {sorted(disabled_students)}")
     else:
-        log_func("✅ CLEANUP: No student was disabled")
-
-    log_func(f"🔍 CLEANUP: {DEFAULT_STUDENT} excluded from comparison (not a real student)")
+        log_func("✅ CLEANUP: No students need cleanup")
 
     return disabled_students
 
@@ -1398,11 +1355,14 @@ def cleanup_missing_students_data(deck_names: List[str]) -> Dict[str, int]:
                         break
             
             # METHOD 2: Check general pattern for orphaned missing student note types
+            # IMPORTANT: deck_name may contain " - ", so parse from the END
             if not should_remove and note_type_name.startswith("Sheets2Anki - "):
                 parts = note_type_name.split(" - ")
                 if len(parts) >= 4:
-                    note_student = parts[2]
-                    note_type_suffix = parts[-1]
+                    # Last part is the type (Basic or Cloze)
+                    note_type_suffix = parts[-1].strip()
+                    # Second-to-last part is the student name
+                    note_student = parts[-2].strip()
                     
                     if (note_student in missing_placeholders and 
                         note_type_suffix in ["Basic", "Cloze"]):
@@ -1458,6 +1418,12 @@ def cleanup_missing_students_data(deck_names: List[str]) -> Dict[str, int]:
 
         # NEW: Update meta.json after cleanup
         _update_meta_after_missing_cleanup(deck_names)
+        
+        # NEW: Remove missing student placeholders from sync history after successful cleanup
+        from .config_manager import remove_student_from_sync_history
+        for placeholder in missing_placeholders:
+            remove_student_from_sync_history(placeholder)
+        add_debug_msg(f"📝 CLEANUP: Missing student placeholders removed from sync history: {missing_placeholders}")
 
         # Save changes
         col.save()

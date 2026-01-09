@@ -39,7 +39,6 @@ from .data_processor import getRemoteDeck
 from .student_manager import get_selected_students_for_deck
 from .templates_and_definitions import update_existing_note_type_templates
 from .templates_and_definitions import DEFAULT_STUDENT
-from .templates_and_definitions import DEFAULT_STUDENT
 from .utils import SyncError
 from .compat import MessageBox_Yes, MessageBox_No, MessageBox_Cancel
 
@@ -1652,12 +1651,12 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         successful_decks = len(stats_manager.get_successful_decks())
         deck_results = stats_manager.deck_results  # Get results per deck
 
-        # **NEW**: Create automatic configuration backup after successful synchronization
+        # Create automatic configuration backup after successful synchronization
         if successful_decks > 0:  # Only backup if at least one deck was successfully synced
             try:
                 from .backup_system import SimplifiedBackupManager
                 backup_manager = SimplifiedBackupManager()
-                backup_success = backup_manager.create_auto_config_backup()
+                backup_success = backup_manager.create_auto_backup()
                 if backup_success:
                     add_debug_message("💾 Automatic configuration backup successfully created", "SYNC")
                 else:
@@ -2771,13 +2770,32 @@ def _handle_consolidated_cleanup(remote_decks):
 
 def _needs_missing_students_cleanup(remote_decks):
     """
-    Checks if [MISSING S.] data cleanup is necessary without showing dialogs.
+    Checks if missing student data cleanup is necessary.
+    
+    SIMPLIFIED LOGIC:
+    Cleanup is needed ONLY if:
+    1. sync_missing_students_notes is disabled (feature turned off)
+    2. There's a missing student placeholder in sync_history (data exists)
+    
+    This correctly detects when a user has disabled the missing students feature
+    after it was previously used (and thus has data to be deleted).
 
     Returns:
         bool: True if cleanup is required
     """
     from .config_manager import is_auto_remove_disabled_students
     from .config_manager import is_sync_missing_students_notes
+    from .config_manager import get_students_with_sync_history
+    from .templates_and_definitions import DEFAULT_STUDENT
+
+    add_debug_message("📋 CLEANUP: Checking if [MISSING S.] cleanup is needed...", "CLEANUP")
+
+    # All missing student placeholders to check
+    missing_placeholders = {
+        DEFAULT_STUDENT,  # "[MISSING STUDENT]"
+        "[MISSING STUDENTS]",
+        "[MISSING S.]"
+    }
 
     # FIRST CHECK: If feature is enabled, no need to clean
     if is_sync_missing_students_notes():
@@ -2792,83 +2810,43 @@ def _needs_missing_students_cleanup(remote_decks):
         )
         return False
 
-    add_debug_message(
-        "🔍 [MISSING S.]: Feature DISABLED and automatic removal ENABLED, checking for data to clean...",
-        "CLEANUP"
-    )
-
-    # Check if there's [MISSING S.] data to clean
-    deck_names = [
-        deck_info.get("remote_deck_name", "") for deck_info in remote_decks.values()
-    ]
-    deck_names = [name for name in deck_names if name]
-
-    if not deck_names or not _is_anki_ready():
-        add_debug_message("🔍 [MISSING S.]: No decks or no Anki connection", "CLEANUP")
-        return False
-
-    assert mw.col is not None  # Type hint for checker
-    col = mw.col
-    has_missing_data = False
-
-    for deck_name in deck_names:
-        add_debug_message(f"🔍 [MISSING S.]: Checking deck '{deck_name}'...", "CLEANUP")
-
-        # Check for [MISSING S.] decks
-        missing_deck_pattern = f"{deck_name}::[MISSING S.]::"
-        all_decks = col.decks.all_names_and_ids()
-
-        missing_decks_found = [
-            deck.name
-            for deck in all_decks
-            if deck.name.startswith(missing_deck_pattern)
-        ]
-        if missing_deck_pattern:
-            if missing_decks_found:
-                has_missing_data = True
-                add_debug_message(f"  📁 Found {len(missing_decks_found)} [MISSING S.] decks", "CLEANUP")
-
-        # Check for [MISSING S.] note types
-        all_models = col.models.all()
-        missing_pattern = f"Sheets2Anki - {deck_name} - [MISSING S.] -"
-
-        missing_models_found = [
-            model["name"] for model in all_models if missing_pattern in model["name"]
-        ]
-        if missing_models_found:
-            has_missing_data = True
-            add_debug_message(
-                f"  🏷️ Found {len(missing_models_found)} [MISSING S.] note types",
-                "CLEANUP"
-            )
-
-        if has_missing_data:
-            break  # Data found, no need to continue
-
-    if has_missing_data:
-        add_debug_message("⚠️ [MISSING S.]: Data found, cleanup required", "CLEANUP")
+    # SIMPLE CHECK: Is there any missing student placeholder in sync_history?
+    # This is the ONLY condition that requires cleanup warning
+    sync_history_students = get_students_with_sync_history()
+    missing_students_with_data = missing_placeholders.intersection(sync_history_students)
+    
+    add_debug_message(f"   📚 Students in sync_history: {sorted(sync_history_students)}", "CLEANUP")
+    add_debug_message(f"   🔍 Missing placeholders with data: {sorted(missing_students_with_data)}", "CLEANUP")
+    
+    if missing_students_with_data:
+        add_debug_message(
+            f"⚠️ [MISSING S.]: Found {sorted(missing_students_with_data)} in sync_history, cleanup required",
+            "CLEANUP"
+        )
+        return True
     else:
-        add_debug_message("✅ [MISSING S.]: No data found, cleanup unnecessary", "CLEANUP")
-
-    return has_missing_data
+        add_debug_message("✅ [MISSING S.]: No missing student data found in sync_history, cleanup NOT required", "CLEANUP")
+        return False
 
 
 def _needs_disabled_students_cleanup(remote_decks):
     """
     Checks if disabled students cleanup is necessary.
-
-    NEW VERSION: Uses consistent name normalization.
-
-    ROBUSTNESS: Uses multiple sources to detect previously enabled students:
-    1. Existing note types in Anki
-    2. Global available students configuration
-    3. Remote deck data
+    
+    SIMPLIFIED LOGIC:
+    Cleanup is needed ONLY if there are students in sync_history 
+    that are NOT in enabled_students.
+    
+    This correctly detects when a user has disabled a student 
+    that was previously synced (and thus has data to be deleted).
 
     Returns:
         bool: True if cleanup is required
     """
     from .config_manager import get_global_student_config
     from .config_manager import is_auto_remove_disabled_students
+    from .config_manager import get_students_with_sync_history
+    from .templates_and_definitions import DEFAULT_STUDENT
 
     add_debug_message("🔍 CLEANUP: Checking if disabled students cleanup is required...", "CLEANUP")
 
@@ -2881,178 +2859,93 @@ def _needs_disabled_students_cleanup(remote_decks):
         return False
 
     config = get_global_student_config()
-    current_enabled_raw = config.get("enabled_students", [])
-
-    # Currently enabled students (case-sensitive)
-    current_enabled_set = {
-        student for student in current_enabled_raw if student and student.strip()
-    }
     
-    add_debug_message(f"   👥 Currently enabled students: {sorted(current_enabled_set)}", "CLEANUP")
-
-    # MULTIPLE SOURCES to detect previously enabled students (ROBUSTNESS)
-    previous_enabled_raw = set()
-
-    # Source 1: Sync history (most reliable)
-    # These are students who were ACTUALLY synchronized in the past
-    from .config_manager import get_students_with_sync_history
+    # Get currently enabled students
+    current_enabled = set(config.get("enabled_students", []))
+    add_debug_message(f"   👥 Currently enabled students: {sorted(current_enabled)}", "CLEANUP")
+    
+    # Get students from sync_history (these are students who have data in Anki)
     sync_history_students = get_students_with_sync_history()
-    previous_enabled_raw.update(sync_history_students)
-    add_debug_message(f"   📚 Students from sync history: {sorted(sync_history_students)}", "CLEANUP")
-
-    # Source 2: Check for student decks/notes in Anki (direct scan)
-    if mw and hasattr(mw, "col") and mw.col:
-        anki_students = _get_students_from_anki_data()
-        # Filter only students who are also in history or are current
-        available_students = config.get("available_students", [])
-        relevant_students_context = sync_history_students.union(set(available_students))
-        relevant_anki_students = anki_students.intersection(relevant_students_context)
-        previous_enabled_raw.update(relevant_anki_students)
-        add_debug_message(f"   💾 Students found in Anki: {sorted(anki_students)}", "CLEANUP")
-        add_debug_message(f"   🔍 Relevant students from Anki: {sorted(relevant_anki_students)}", "CLEANUP")
-
-    # Process previous_enabled (case-sensitive)
-    previous_enabled_set = {
-        student for student in previous_enabled_raw if student and student.strip()
-    }
-
-    add_debug_message(f"   📈 Total historical students: {sorted(previous_enabled_set)}", "CLEANUP")
-
-    # CALCULATE disabled students (case-sensitive)
-    disabled_students_set = previous_enabled_set - current_enabled_set
-
-    if disabled_students_set:
+    add_debug_message(f"   📚 Students in sync_history: {sorted(sync_history_students)}", "CLEANUP")
+    
+    # Filter out missing student placeholders (handled separately)
+    missing_placeholders = {DEFAULT_STUDENT, "[MISSING STUDENTS]", "[MISSING S.]"}
+    real_students_with_data = sync_history_students - missing_placeholders
+    add_debug_message(f"   👤 Real students with data: {sorted(real_students_with_data)}", "CLEANUP")
+    
+    # SIMPLE CHECK: Are there any students with data that are no longer enabled?
+    # This is the ONLY condition that requires cleanup warning
+    students_to_cleanup = real_students_with_data - current_enabled
+    
+    if students_to_cleanup:
         add_debug_message("🔍 CLEANUP: Students detected for cleanup:", "CLEANUP")
-        add_debug_message(f"  • Currently enabled: {sorted(current_enabled_raw)}", "CLEANUP")
-        add_debug_message(f"  • Previously enabled: {sorted(previous_enabled_set)}", "CLEANUP")
-        add_debug_message(f"  • Students to remove: {sorted(disabled_students_set)}", "CLEANUP")
+        add_debug_message(f"  • Students with data (sync_history): {sorted(real_students_with_data)}", "CLEANUP")
+        add_debug_message(f"  • Currently enabled: {sorted(current_enabled)}", "CLEANUP")
+        add_debug_message(f"  • Students to remove: {sorted(students_to_cleanup)}", "CLEANUP")
         add_debug_message("✅ CLEANUP: Cleanup is REQUIRED", "CLEANUP")
+        return True
     else:
-        add_debug_message("✅ CLEANUP: No students were disabled, cleanup NOT required", "CLEANUP")
-
-    return bool(disabled_students_set)
-
-
-def _get_students_from_anki_data():
-    """
-    NEW FUNCTION: Scans Anki data to find students with existing data.
-    Now uses consistent name normalization.
-
-    Returns:
-        set: Set of students found in Anki (normalized names)
-    """
-    students_found = set()
-
-    if not _is_anki_ready():
-        return students_found
-
-    assert mw.col is not None  # Type hint for checker
-    col = mw.col
-
-    try:
-        # Scan decks for student patterns "Sheets2Anki::RemoteDeck::StudentName::"
-        all_decks = col.decks.all_names_and_ids()
-        for deck in all_decks:
-            deck_parts = deck.name.split("::")
-            if len(deck_parts) >= 3 and "Sheets2Anki" in deck_parts[0]:
-                # Structure: ["Sheets2Anki", "RemoteDeck", "StudentName", ...]
-                potential_student = deck_parts[2].strip()  # Third position is student
-                if potential_student and potential_student != "[MISSING S.]":
-                    students_found.add(potential_student)
-
-        # Scan note types searching for student names
-        all_models = col.models.all()
-        for model in all_models:
-            model_name = model["name"]
-            if "Sheets2Anki -" in model_name:
-                # Extract student name from format: "Sheets2Anki - Deck - StudentName - Type"
-                parts = model_name.split(" - ")
-                if len(parts) >= 4:
-                    student_name = parts[2].strip()  # Third part is student name
-                    # Filter [MISSING S.] - should not be considered a normal "student"
-                    if student_name and student_name != "[MISSING S.]":
-                        students_found.add(student_name)
-
-        add_debug_message(
-            f"🔍 SCAN: Found students with data in Anki: {sorted(students_found)}", "CLEANUP"
-        )
-
-    except Exception as e:
-        add_debug_message(f"⚠️ SCAN: Error scanning Anki data: {e}", "CLEANUP")
-
-    return students_found
+        add_debug_message("✅ CLEANUP: No disabled students with data found, cleanup NOT required", "CLEANUP")
+        return False
 
 
 def _handle_consolidated_confirmation_cleanup(remote_decks):
     """
     Shows a single confirmation for both types of cleanup and executes both if confirmed.
-    REFACTORED: Uses centralized module for message generation and confirmation.
+    
+    SIMPLIFIED LOGIC:
+    - Uses sync_history as the ONLY source of truth for students with data
+    - Students need cleanup ONLY if they are in sync_history but NOT in enabled_students
 
     Returns:
         tuple: (missing_cleanup_result, cleanup_result)
     """
     from .config_manager import get_global_student_config
+    from .config_manager import get_students_with_sync_history
     from .student_manager import cleanup_disabled_students_data
     from .student_manager import cleanup_missing_students_data
     from .data_removal_confirmation import collect_students_for_removal, show_data_removal_confirmation_dialog
+    from .templates_and_definitions import DEFAULT_STUDENT
 
-    # GET DISABLED STUDENTS using consistent normalization
+    # Missing student placeholders
+    missing_placeholders = {DEFAULT_STUDENT, "[MISSING STUDENTS]", "[MISSING S.]"}
+
+    # Get configuration
     config = get_global_student_config()
-    current_enabled_raw = config.get("enabled_students", [])
-    available_students = config.get("available_students", [])
-
-    # Currently enabled students (case-sensitive)
-    current_enabled_set = {
-        student for student in current_enabled_raw if student and student.strip()
-    }
-
-    # MULTIPLE SOURCES to detect previously enabled students
-    previous_enabled_raw = set()
     
-    # Primary source: sync history (most reliable)
-    # These are students who were ACTUALLY synchronized in the past
-    from .config_manager import get_students_with_sync_history
+    # Currently enabled students
+    current_enabled = set(config.get("enabled_students", []))
+    add_debug_message(f"   👥 Currently enabled students: {sorted(current_enabled)}", "CLEANUP")
+
+    # SOURCE: sync_history (ONLY source of truth for students with data)
     sync_history_students = get_students_with_sync_history()
-    previous_enabled_raw.update(sync_history_students)
+    add_debug_message(f"   📚 Students in sync_history: {sorted(sync_history_students)}", "CLEANUP")
 
-    # Secondary source: Anki data (only as backup)
-    # NOTE: This source can include very old students, use carefully
-    if mw and hasattr(mw, "col") and mw.col:
-        anki_students = _get_students_from_anki_data()
-        # Filter only students who are also in history or are current
-        # This avoids detecting very old students who are no longer relevant
-        relevant_students_context = sync_history_students.union(set(available_students))
-        relevant_anki_students = anki_students.intersection(relevant_students_context)
-        previous_enabled_raw.update(relevant_anki_students)
-        
-        add_debug_message(f"   📊 Students detected in Anki: {sorted(anki_students)}", "CLEANUP")
-        add_debug_message(f"   🔍 Relevant students from Anki: {sorted(relevant_anki_students)}", "CLEANUP")
-        add_debug_message(f"   📚 Students from history: {sorted(sync_history_students)}", "CLEANUP")
+    # Filter out missing student placeholders (handled separately)
+    real_students_with_data = sync_history_students - missing_placeholders
+    add_debug_message(f"   👤 Real students with data: {sorted(real_students_with_data)}", "CLEANUP")
 
-    # Process previous_enabled (case-sensitive)
-    previous_enabled_set = {
-        student for student in previous_enabled_raw if student and student.strip()
-    }
-
-    # CALCULATE disabled (case-sensitive)
-    disabled_students_set = previous_enabled_set - current_enabled_set
+    # SIMPLE CHECK: Students who have data but are no longer enabled
+    disabled_students_set = real_students_with_data - current_enabled
+    add_debug_message(f"   🎯 Students to cleanup: {sorted(disabled_students_set)}", "CLEANUP")
 
     deck_names = [
         deck_info.get("remote_deck_name", "") for deck_info in remote_decks.values()
     ]
     deck_names = [name for name in deck_names if name]
 
-    # ✅ USE CENTRALIZED MODULE FOR COLLECTION AND CONFIRMATION
-    disabled_students_list = list(disabled_students_set)
-    
     # Check if [MISSING S.] should be cleaned
     from .config_manager import is_sync_missing_students_notes
     missing_functionality_disabled = not is_sync_missing_students_notes()
     
+    # Check if there's actually missing student data in sync_history
+    missing_students_in_history = missing_placeholders.intersection(sync_history_students)
+    should_cleanup_missing = missing_functionality_disabled and bool(missing_students_in_history)
+    
     # Collect all students to be removed using centralized function
     students_to_remove = collect_students_for_removal(
-        disabled_students=disabled_students_list,
-        missing_functionality_disabled=missing_functionality_disabled
+        disabled_students=list(disabled_students_set),
+        missing_functionality_disabled=should_cleanup_missing  # Only if there's actual data
     )
     
     # If nothing to remove, return without showing dialog
@@ -3071,14 +2964,15 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
         add_debug_message(f"🧹 CLEANUP: Disabled students: {sorted(disabled_students_set)}", "CLEANUP")
 
         # Execute both cleanups
-        if missing_functionality_disabled:
+        if should_cleanup_missing:
             cleanup_missing_students_data(deck_names)
-        cleanup_disabled_students_data(disabled_students_set, deck_names)
+        if disabled_students_set:
+            cleanup_disabled_students_data(disabled_students_set, deck_names)
 
         # Return results
         missing_result = {
-            "missing_cleanup_count": 1 if missing_functionality_disabled else 0,
-            "missing_cleanup_message": "[MISSING S.] data removed" if missing_functionality_disabled else "",
+            "missing_cleanup_count": 1 if should_cleanup_missing else 0,
+            "missing_cleanup_message": "[MISSING S.] data removed" if should_cleanup_missing else "",
         }
 
         cleanup_result = {
@@ -3100,11 +2994,11 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
 
 def _handle_missing_students_cleanup(remote_decks):
     """
-    Manages [MISSING S.] note data cleanup when feature is disabled.
-  Esta função:
-    1. Checks if syncing notes without students has been disabled
-    2. Shows security confirmation
-    3. Removes [MISSING S.] data if confirmed
+    Manages missing student note data cleanup when feature is disabled.
+    
+    SIMPLIFIED LOGIC:
+    - Only checks sync_history for missing student placeholders
+    - No Anki scanning needed (sync_history is the source of truth)
 
     Args:
         remote_decks (dict): Dictionary of configured remote decks
@@ -3113,64 +3007,43 @@ def _handle_missing_students_cleanup(remote_decks):
         dict: Cleanup statistics or None if no cleanup occurred
     """
     from .config_manager import is_sync_missing_students_notes
+    from .config_manager import get_students_with_sync_history
     from .student_manager import cleanup_missing_students_data
     from .student_manager import show_missing_cleanup_confirmation_dialog
+    from .templates_and_definitions import DEFAULT_STUDENT
+
+    # All missing student placeholders to check
+    missing_placeholders = {
+        DEFAULT_STUDENT,  # "[MISSING STUDENT]"
+        "[MISSING STUDENTS]",
+        "[MISSING S.]"
+    }
 
     # If feature is enabled, do nothing
     if is_sync_missing_students_notes():
         return None  # Feature enabled, nothing to clean
 
-    # Feature disabled - check if there's [MISSING S.] data to remove
+    # Feature disabled - check if there's missing student data in sync_history
     add_debug_message(
         "🔍 CLEANUP: Sync [MISSING S.] is DISABLED, checking for data to clean...",
         "CLEANUP"
     )
 
-    # Check if [MISSING S.] decks or note types exist
-    if not _is_anki_ready():
-        return None
-
-    assert mw.col is not None  # Type hint for checker
-    col = mw.col
+    # Extract deck_names (needed for cleanup later)
     deck_names = [
         deck_info.get("remote_deck_name", "") for deck_info in remote_decks.values()
     ]
     deck_names = [name for name in deck_names if name]  # Filter empty names
 
-    # Check for existing [MISSING S.] data
-    has_missing_data = False
+    # SIMPLE CHECK: Check sync_history for any missing student placeholders
+    sync_history_students = get_students_with_sync_history()
+    missing_students_with_data = missing_placeholders.intersection(sync_history_students)
+    
+    add_debug_message(f"   📚 Students in sync_history: {sorted(sync_history_students)}", "CLEANUP")
+    add_debug_message(f"   🔍 Missing placeholders with data: {sorted(missing_students_with_data)}", "CLEANUP")
 
-    try:
-        for deck_name in deck_names:
-            # Check for [MISSING S.] decks
-            missing_deck_pattern = f"{deck_name}::[MISSING S.]::"
-            all_decks = col.decks.all()
-            for deck in all_decks:
-                if deck.get("name", "").startswith(missing_deck_pattern):
-                    has_missing_data = True
-                    break
-
-            if has_missing_data:
-                break
-
-            # Check for [MISSING S.] note types
-            note_types = col.models.all()
-            for note_type in note_types:
-                note_type_name = note_type.get("name", "")
-                missing_pattern = f"Sheets2Anki - {deck_name} - [MISSING S.] -"
-                if note_type_name.startswith(missing_pattern):
-                    has_missing_data = True
-                    break
-
-            if has_missing_data:
-                break
-
-    except Exception as e:
-        add_debug_message(f"❌ CLEANUP: Error checking [MISSING S.] data: {e}", "CLEANUP")
-        return None
-
-    if not has_missing_data:
-        add_debug_message("✅ CLEANUP: No [MISSING S.] data found for cleanup", "CLEANUP")
+    if not missing_students_with_data:
+        add_debug_message("✅ CLEANUP: No missing student data found in sync_history", "CLEANUP")
         return None
 
     add_debug_message("⚠️ CLEANUP: [MISSING S.] data found for cleanup", "CLEANUP")
@@ -3253,10 +3126,8 @@ def _handle_disabled_students_cleanup(remote_decks):
             "          If existing [MISSING S.] notes exist, they will be detected for removal", "CLEANUP"
         )
 
-    # FIXED: Use get_disabled_students_for_cleanup which already uses history
-    disabled_students = get_disabled_students_for_cleanup(
-        current_enabled, set()  # previous_enabled is ignored in new implementation
-    )
+    # Use get_disabled_students_for_cleanup which uses sync_history as source of truth
+    disabled_students = get_disabled_students_for_cleanup(current_enabled)
 
     if not disabled_students:
         add_debug_message("✅ CLEANUP: No disabled students detected", "CLEANUP")

@@ -691,11 +691,6 @@ class SimplifiedBackupManager:
             add_debug_message(f"❌ Error creating automatic backup: {e}", "AUTO_BACKUP")
             return False
 
-    # Keep old method name for backward compatibility
-    def create_auto_config_backup(self) -> bool:
-        """Deprecated: Use create_auto_backup() instead. Kept for backward compatibility."""
-        return self.create_auto_backup()
-
     def _rotate_auto_backup_files(self, backup_dir: str, max_files: int) -> None:
         """
         Removes old backup files, keeping only the most recent ones.
@@ -995,7 +990,3 @@ class SimplifiedBackupManager:
         except Exception as e:
             add_debug_message(f"Error cleaning up safety backups: {e}", "BACKUP")
             return 0
-
-
-# Maintain compatibility with old code
-BackupManager = SimplifiedBackupManager

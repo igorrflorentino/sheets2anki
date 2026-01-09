@@ -35,7 +35,7 @@ from .compat import (
     ScrollBarAlwaysOff,
 )
 from .styled_messages import StyledMessageBox
-from .backup_system import BackupManager
+from .backup_system import SimplifiedBackupManager
 from .config_manager import (
     get_auto_backup_config,
     set_auto_backup_config,
@@ -54,7 +54,7 @@ class BackupDialog(QDialog):
         self.setMinimumSize(700, 750)
         self.resize(750, 800)
         
-        self.backup_manager = BackupManager()
+        self.backup_manager = SimplifiedBackupManager()
         
         # Detect dark mode
         palette = self.palette()

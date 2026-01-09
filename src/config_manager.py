@@ -1804,14 +1804,16 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
         # Update each note type ID with the new expected name
         for note_type_id, old_name in note_types.items():
             # Analyze old name to extract student and type
+            # IMPORTANT: deck_name may contain " - ", so parse from the END
             if old_name.startswith("Sheets2Anki - "):
                 parts = old_name.split(" - ")
 
-                if (
-                    len(parts) == 4
-                ):  # Format: "Sheets2Anki - remote_name - student - type"
-                    student = parts[2]
-                    note_type = parts[3]
+                if len(parts) >= 4:
+                    # Format: "Sheets2Anki - remote_name - student - type"
+                    # Last part is the type (Basic/Cloze)
+                    note_type = parts[-1].strip()
+                    # Second-to-last part is the student name
+                    student = parts[-2].strip()
                     is_cloze = note_type == "Cloze"
 
                     new_name = get_note_type_name(
@@ -1819,7 +1821,7 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
                     )
 
                 elif len(parts) == 3:  # Format: "Sheets2Anki - remote_name - type"
-                    note_type = parts[2]
+                    note_type = parts[-1].strip()
                     is_cloze = note_type == "Cloze"
 
                     new_name = get_note_type_name(
@@ -2175,9 +2177,12 @@ def fix_note_type_names_consistency(url, correct_remote_name):
                 return old_name  # Unrecognized format
 
             # Extract information from old name
-            if len(parts) == 4:  # Format: "Sheets2Anki - remote_name - student - type"
-                student = parts[2]
-                note_type = parts[3]
+            # IMPORTANT: deck_name may contain " - ", so parse from the END
+            if len(parts) >= 4:  # Format: "Sheets2Anki - remote_name - student - type"
+                # Last part is the type (Basic/Cloze)
+                note_type = parts[-1].strip()
+                # Second-to-last part is the student name
+                student = parts[-2].strip()
                 is_cloze = note_type == "Cloze"
 
                 return get_note_type_name(
@@ -2185,7 +2190,7 @@ def fix_note_type_names_consistency(url, correct_remote_name):
                 )
 
             elif len(parts) == 3:  # Format: "Sheets2Anki - remote_name - type"
-                note_type = parts[2]
+                note_type = parts[-1].strip()
                 is_cloze = note_type == "Cloze"
 
                 return get_note_type_name(
@@ -2267,13 +2272,16 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
                 return None, None, False
 
             parts = old_name.split(" - ")
-            if len(parts) == 4:  # "Sheets2Anki - remote_name - student - type"
-                student = parts[2]
-                note_type = parts[3]
+            # IMPORTANT: deck_name may contain " - ", so parse from the END
+            if len(parts) >= 4:  # "Sheets2Anki - remote_name - student - type"
+                # Last part is the type (Basic/Cloze)
+                note_type = parts[-1].strip()
+                # Second-to-last part is the student name
+                student = parts[-2].strip()
                 is_cloze = note_type == "Cloze"
                 return student, note_type, is_cloze
             elif len(parts) == 3:  # "Sheets2Anki - remote_name - type"
-                note_type = parts[2]
+                note_type = parts[-1].strip()
                 is_cloze = note_type == "Cloze"
                 return None, note_type, is_cloze
 

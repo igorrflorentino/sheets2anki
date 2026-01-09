@@ -518,6 +518,13 @@ def removeRemoteDeck():
                 disconnect_deck(url)
                 disconnected_decks.append(deck_name)
 
+        # Clean up orphaned deck option groups after disconnecting decks
+        # This removes any Sheets2Anki deck options that are no longer linked to any local decks
+        from .utils import cleanup_orphaned_deck_option_groups
+        cleaned_options = cleanup_orphaned_deck_option_groups()
+        if cleaned_options > 0:
+            add_debug_msg(f"Cleaned up {cleaned_options} orphaned deck option group(s)")
+
         # Show success message
         if len(disconnected_decks) == 1:
             if delete_local_data:
