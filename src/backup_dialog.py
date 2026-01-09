@@ -1071,18 +1071,25 @@ class BackupDialog(QDialog):
             
             status_text = []
             
-            # Total backups
-            total = summary.get("total_count", 0)
-            if total > 0:
-                status_text.append(f"📊 <b>Total backups found:</b> {total}")
-                status_text.append(f"💾 <b>Total size:</b> {summary.get('total_size_human', '0 B')}")
+            # Check if we have any files
+            total_files = summary.get("total_files_count", 0)
+            
+            if total_files > 0:
+                # Counts
+                status_text.append(f"🧮 <b>Countings:</b>")
+                status_text.append(f"• Auto Full Backups: {summary.get('auto_full_count', 0)}")
+                status_text.append(f"• Auto Simple Backups: {summary.get('auto_simple_count', 0)}")
+                status_text.append(f"• Manual Full Backups: {summary.get('manual_full_count', 0)}")
+                status_text.append(f"• Manual Simple Backups: {summary.get('manual_simple_count', 0)}")
+                status_text.append(f"• Safety Backups: {summary.get('safety_count', 0)}")
+                status_text.append(f"• Other files: {summary.get('other_files_count', 0)}")
                 
-                # By type
+                # Sizes
                 status_text.append("")
-                status_text.append(f"• Safety backups: {summary.get('safety_count', 0)}")
-                status_text.append(f"• Auto backups: {summary.get('auto_count', 0)}")
-                status_text.append(f"• Manual backups: {summary.get('manual_count', 0)}")
-                status_text.append(f"• Full backups (with deck): {summary.get('full_count', 0)}")
+                status_text.append(f"💾 <b>Sizes:</b>")
+                status_text.append(f"• Auto Backups: {summary.get('auto_size_human', '0 B')}")
+                status_text.append(f"• Manual Backups: {summary.get('manual_size_human', '0 B')}")
+                status_text.append(f"• All Backups: {summary.get('total_backup_size_human', '0 B')}")
                 
                 # Latest backup
                 latest = summary.get("latest_backup")
@@ -1092,7 +1099,7 @@ class BackupDialog(QDialog):
                     status_text.append(f"   {latest.get('filename', 'Unknown')}")
                     status_text.append(f"   Created: {latest.get('created_at', 'Unknown')[:19].replace('T', ' ')}")
             else:
-                status_text.append("📭 No backups found in the backup directory.")
+                status_text.append("📭 No files found in the backup directory.")
                 status_text.append("")
                 status_text.append("Create your first backup using the options above!")
             

@@ -78,6 +78,55 @@ class SimplifiedBackupManager:
         self._auto_backup_prefix = "sheets2anki_auto_config_"
         self._manual_backup_prefix = "sheets2anki_backup_"
 
+    def _validate_backup_directory(self, show_warning: bool = True) -> tuple:
+        """
+        Validates the backup directory and returns it along with validation status.
+        
+        Args:
+            show_warning: If True, shows a warning dialog when directory is invalid.
+            
+        Returns:
+            tuple: (backup_dir: str, is_valid: bool, used_fallback: bool)
+        """
+        from .config_manager import get_auto_backup_config
+        
+        config = get_auto_backup_config()
+        configured_dir = config.get("directory", "")
+        
+        # Check if a directory is configured
+        if not configured_dir:
+            # Not configured - will use default
+            backup_dir = get_auto_backup_directory()
+            return (backup_dir, True, False)
+        
+        # Directory is configured, check if it exists
+        if os.path.isdir(configured_dir):
+            return (configured_dir, True, False)
+        
+        # Directory doesn't exist, try to create it
+        try:
+            Path(configured_dir).mkdir(parents=True, exist_ok=True)
+            return (configured_dir, True, False)
+        except Exception as e:
+            add_debug_message(f"⚠️ Cannot use configured backup directory: {configured_dir} - {e}", "BACKUP")
+            
+            # Show warning to user if requested
+            if show_warning and mw:
+                StyledMessageBox.warning(
+                    mw,
+                    "Backup Directory Issue",
+                    f"Cannot use the configured backup directory:\n{configured_dir}",
+                    detailed_text=(
+                        f"Error: {e}\n\n"
+                        "The backup will be saved to the default location instead.\n"
+                        "Please check your backup directory settings."
+                    )
+                )
+            
+            # Fall back to default directory
+            fallback_dir = get_auto_backup_directory()
+            return (fallback_dir, True, True)
+
     def create_backup(self, backup_path: str) -> bool:
         """Creates a full backup of the Sheets2Anki system"""
         # Note: Do not wrap in try/except here. Let exceptions propagate to the caller (UI or sync)
@@ -143,8 +192,11 @@ class SimplifiedBackupManager:
         try:
             add_debug_message("Creating safety backup before restore operation...", "SAFETY_BACKUP")
             
-            # Get backup directory
-            backup_dir = get_auto_backup_directory()
+            # Validate and get backup directory
+            backup_dir, is_valid, used_fallback = self._validate_backup_directory(show_warning=True)
+            
+            if used_fallback:
+                add_debug_message(f"⚠️ Using fallback directory for safety backup: {backup_dir}", "SAFETY_BACKUP")
             
             # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -288,8 +340,11 @@ class SimplifiedBackupManager:
         try:
             add_debug_message("Creating config-only safety backup...", "SAFETY_BACKUP")
             
-            # Get backup directory
-            backup_dir = get_auto_backup_directory()
+            # Validate and get backup directory
+            backup_dir, is_valid, used_fallback = self._validate_backup_directory(show_warning=True)
+            
+            if used_fallback:
+                add_debug_message(f"⚠️ Using fallback directory for config safety backup: {backup_dir}", "SAFETY_BACKUP")
             
             # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -571,8 +626,11 @@ class SimplifiedBackupManager:
             # Get backup type setting
             backup_type = auto_config.get("type", "simple")
             
-            # Get backup directory
-            backup_dir = get_auto_backup_directory()
+            # Validate and get backup directory
+            backup_dir, is_valid, used_fallback = self._validate_backup_directory(show_warning=True)
+            
+            if used_fallback:
+                add_debug_message(f"⚠️ Using fallback directory for automatic backup: {backup_dir}", "AUTO_BACKUP")
             
             # Generate filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -814,46 +872,113 @@ class SimplifiedBackupManager:
 
     def get_backup_summary(self, backup_dir: Optional[str] = None) -> Dict[str, Any]:
         """
-        Gets a summary of all available backups.
+        Gets a detailed summary of backups and files in the backup directory.
         
-        Args:
-            backup_dir: Optional directory to search.
-            
         Returns:
-            Dict with backup statistics and lists
+            Dict with backup statistics, sizes, and counts.
         """
         try:
-            backups = self.list_available_backups(backup_dir)
+            # Determine backup directory
+            if backup_dir is None:
+                backup_dir = get_auto_backup_directory()
             
+            if not os.path.exists(backup_dir):
+                return {
+                    "total_files_count": 0,
+                    "auto_full_count": 0,
+                    "auto_simple_count": 0,
+                    "manual_full_count": 0,
+                    "manual_simple_count": 0,
+                    "safety_count": 0,
+                    "other_files_count": 0,
+                    "auto_size": 0,
+                    "auto_size_human": "0 B",
+                    "manual_size": 0,
+                    "manual_size_human": "0 B",
+                    "total_backup_size": 0,
+                    "total_backup_size_human": "0 B",
+                    "all_files_size": 0,
+                    "all_files_size_human": "0 B",
+                    "latest_backup": None
+                }
+
+            # Scan directory
+            all_files = [f for f in os.listdir(backup_dir) if os.path.isfile(os.path.join(backup_dir, f))]
+            
+            backups: List[BackupInfo] = []
+            other_files_count = 0
+            all_files_size = 0
+            
+            for f in all_files:
+                f_path = os.path.join(backup_dir, f)
+                f_size = os.path.getsize(f_path)
+                all_files_size += f_size
+                
+                # Check if it is a Sheets2Anki backup
+                is_backup = False
+                if f.startswith("sheets2anki_") and f.endswith(".zip"):
+                    backup_info = self._get_backup_info_from_file(f_path)
+                    if backup_info:
+                        backups.append(backup_info)
+                        is_backup = True
+                
+                if not is_backup:
+                    other_files_count += 1
+
             # Categorize backups
-            safety_backups = [b for b in backups if b.backup_type == "safety"]
-            auto_backups = [b for b in backups if b.backup_type == "auto"]
-            manual_backups = [b for b in backups if b.backup_type in ("manual", "full", "config_only")]
-            full_backups = [b for b in backups if b.apkg_included]
+            auto_full = []
+            auto_simple = []
+            manual_full = []
+            manual_simple = []
+            safety_backups = []
             
-            # Calculate total size
-            total_size = sum(b.size for b in backups)
+            for b in backups:
+                if b.backup_type == 'safety':
+                    safety_backups.append(b)
+                elif b.backup_type == 'auto':
+                    if b.apkg_included:
+                        auto_full.append(b)
+                    else:
+                        auto_simple.append(b)
+                else: 
+                    # Manual or Config Only (treated as Manual)
+                    if b.apkg_included:
+                        manual_full.append(b)
+                    else:
+                        manual_simple.append(b)
+            
+            # Calculate sizes
+            auto_size = sum(b.size for b in (auto_full + auto_simple))
+            manual_size = sum(b.size for b in (manual_full + manual_simple))
+            total_backup_size = sum(b.size for b in backups)
+            
+            # Find latest backup
+            backups.sort(key=lambda x: x.created_at, reverse=True)
+            latest_backup = backups[0].to_dict() if backups else None
             
             return {
-                "total_count": len(backups),
-                "total_size": total_size,
-                "total_size_human": self._format_size(total_size),
+                "total_files_count": len(all_files),
+                "auto_full_count": len(auto_full),
+                "auto_simple_count": len(auto_simple),
+                "manual_full_count": len(manual_full),
+                "manual_simple_count": len(manual_simple),
                 "safety_count": len(safety_backups),
-                "auto_count": len(auto_backups),
-                "manual_count": len(manual_backups),
-                "full_count": len(full_backups),
-                "latest_backup": backups[0].to_dict() if backups else None,
-                "latest_safety": safety_backups[0].to_dict() if safety_backups else None,
-                "latest_auto": auto_backups[0].to_dict() if auto_backups else None,
-                "all_backups": [b.to_dict() for b in backups]
+                "other_files_count": other_files_count,
+                "auto_size": auto_size,
+                "auto_size_human": self._format_size(auto_size),
+                "manual_size": manual_size,
+                "manual_size_human": self._format_size(manual_size),
+                "total_backup_size": total_backup_size,
+                "total_backup_size_human": self._format_size(total_backup_size),
+                "all_files_size": all_files_size,
+                "all_files_size_human": self._format_size(all_files_size),
+                "latest_backup": latest_backup
             }
             
         except Exception as e:
             add_debug_message(f"Error getting backup summary: {e}", "BACKUP")
             return {
-                "total_count": 0,
-                "total_size": 0,
-                "total_size_human": "0 B",
+                "total_files_count": 0,
                 "error": str(e)
             }
 

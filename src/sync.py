@@ -1502,18 +1502,18 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         progress.setValue(0)
         mw.app.processEvents()
         
-        add_debug_message("💾 Creating safety backup before synchronization...", "SYNC")
+        add_debug_message("💾 Creating automatic backup before synchronization...", "SYNC")
         try:
             backup_manager = SimplifiedBackupManager()
-            backup_path = backup_manager.create_safety_backup()
-            if backup_path:
-                add_debug_message(f"✅ Safety backup created: {backup_path}", "SYNC")
-                status_msgs.append("✅ Safety backup created")
+            backup_success = backup_manager.create_auto_backup()
+            if backup_success:
+                add_debug_message("✅ Automatic backup created", "SYNC")
+                status_msgs.append("✅ Automatic backup created")
             else:
-                add_debug_message("⚠️ Failed to create safety backup", "SYNC")
+                add_debug_message("⚠️ Failed to create automatic backup", "SYNC")
                 status_msgs.append("⚠️ Backup skipped")
         except Exception as e:
-            add_debug_message(f"⚠️ Error creating safety backup: {e}", "SYNC")
+            add_debug_message(f"⚠️ Error creating automatic backup: {e}", "SYNC")
             status_msgs.append("⚠️ Backup error (continuing...)")
         
         _update_progress_text(progress, status_msgs)
