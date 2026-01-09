@@ -966,9 +966,29 @@ class BackupDialog(QDialog):
         path = self._get_open_filename()
         if not path:
             return
+            
+        # Confirm operation
+        if not StyledMessageBox.question(
+            self,
+            "Confirm Configuration Recovery",
+            "Are you sure you want to restore the configuration?",
+            detailed_text=(
+                "This operation will:\n"
+                "• Create a safety backup of your current settings\n"
+                "• Restore all addon settings\n"
+                "• Restore remote deck information\n"
+                "• Recreate links between remote and local decks\n"
+                "• NOT change any Anki data (notes, cards, etc.)"
+            ),
+            yes_text="Restore",
+            no_text="Cancel",
+            destructive=True
+        ):
+            return
         
         # Run with progress dialog
-        success, timed_out, error = self._run_with_progress(
+        # result_data will act as 'success' from _run_with_progress
+        result_data, timed_out, error = self._run_with_progress(
             lambda: self.backup_manager.restore_config_only(path),
             "Restoring Backup",
             "Restoring configuration from backup..."
@@ -978,18 +998,51 @@ class BackupDialog(QDialog):
             StyledMessageBox.critical(self, "Timeout", "The restore operation timed out after 60 seconds.")
         elif error:
             StyledMessageBox.critical(self, "Restore Failed", f"Error restoring backup:\n{error}")
-        elif success:
+        elif result_data and isinstance(result_data, dict) and result_data.get("success"):
+            # Show success message
+            safety_path = result_data.get("safety_backup_path")
+            success_msg = "Settings restored successfully!\n\n"
+            if safety_path:
+                success_msg += f"📦 Safety backup saved at:\n{safety_path}\n\n"
+            success_msg += (
+                "• Addon settings have been restored\n"
+                "• Remote decks have been relinked to local decks\n"
+                "• No Anki data was modified\n\n"
+                "Restart Anki to ensure all\n"
+                "settings are applied correctly."
+            )
+            StyledMessageBox.success(self, "Restore Complete", success_msg)
             self._refresh_backup_status()
-        # Note: restore_config_only shows its own success message
+        else:
+            StyledMessageBox.warning(self, "Restore Failed", "The restore operation failed unexpectedly.")
 
     def _restore_full_backup(self):
         """Restores a full backup."""
         path = self._get_open_filename()
         if not path:
             return
+            
+        # Confirm operation
+        if not StyledMessageBox.question(
+            self,
+            "Confirm Restoration",
+            "Are you sure you want to restore this backup?",
+            detailed_text=(
+                "This operation will:\n"
+                "• Create a safety backup of your current state\n"
+                "• Remove the current 'Sheets2Anki' deck and all its subdecks\n"
+                "• Restore settings from the backup\n"
+                "• Import the deck from the backup\n"
+                "• Recreate all links between remote and local decks"
+            ),
+            yes_text="Restore",
+            no_text="Cancel",
+            destructive=True
+        ):
+            return
         
         # Run with progress dialog
-        success, timed_out, error = self._run_with_progress(
+        result_data, timed_out, error = self._run_with_progress(
             lambda: self.backup_manager.restore_backup(path),
             "Restoring Backup",
             "Restoring full backup (configuration + deck data)...\nThis may take a moment."
@@ -999,9 +1052,17 @@ class BackupDialog(QDialog):
             StyledMessageBox.critical(self, "Timeout", "The restore operation timed out after 60 seconds.")
         elif error:
             StyledMessageBox.critical(self, "Restore Failed", f"Error restoring backup:\n{error}")
-        elif success:
+        elif result_data and isinstance(result_data, dict) and result_data.get("success"):
+            # Show success message
+            safety_path = result_data.get("safety_backup_path")
+            success_msg = "Backup restored successfully!\n\n"
+            if safety_path:
+                success_msg += f"📦 Safety backup saved at:\n{safety_path}\n\n"
+            success_msg += "Restart Anki to ensure all settings are applied."
+            StyledMessageBox.success(self, "Restore Complete", success_msg)
             self._refresh_backup_status()
-        # Note: restore_backup shows its own success message
+        else:
+            StyledMessageBox.warning(self, "Restore Failed", "The restore operation failed unexpectedly.")
 
     def _refresh_backup_status(self):
         """Refreshes the backup status display."""

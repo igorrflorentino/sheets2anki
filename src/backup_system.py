@@ -80,60 +80,55 @@ class SimplifiedBackupManager:
 
     def create_backup(self, backup_path: str) -> bool:
         """Creates a full backup of the Sheets2Anki system"""
-        try:
-            if not mw or not mw.col:
-                StyledMessageBox.critical(mw, "Error", "Anki is not available for backup.")
-                return False
+        # Note: Do not wrap in try/except here. Let exceptions propagate to the caller (UI or sync)
+        # where they can be properly displayed or logged.
+        
+        if not mw or not mw.col:
+            raise Exception("Anki is not available for backup.")
 
-            # Create temporary directory
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
-                
-                # 1. Export main deck as .apkg
-                apkg_success = self._export_main_deck_apkg(temp_path)
-                if not apkg_success:
-                    StyledMessageBox.warning(mw, "Warning", "Deck 'Sheets2Anki' not found. Creating a backup of settings only.")
-                
-                # 2. Save all settings
-                self._save_configurations(temp_path)
-                
-                # 3. Save backup information
-                self._save_backup_info(temp_path, apkg_success, config_only=False)
-                
-                # 4. Create final ZIP file
-                self._create_backup_zip(temp_path, backup_path)
-                
-            return True
+        # Create temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
             
-        except Exception as e:
-            StyledMessageBox.critical(mw, "Error", f"Error creating backup: {str(e)}")
-            return False
+            # 1. Export main deck as .apkg
+            apkg_success = self._export_main_deck_apkg(temp_path)
+            # Note: If deck is not found, we continue (config-only backup effectively)
+            # This logic was already present.
+            
+            # 2. Save all settings
+            self._save_configurations(temp_path)
+            
+            # 3. Save backup information
+            self._save_backup_info(temp_path, apkg_success, config_only=False)
+            
+            # 4. Create final ZIP file
+            # This might raise PermissionError if target directory is locked
+            self._create_backup_zip(temp_path, backup_path)
+            
+        return True
 
     def create_config_backup(self, backup_path: str) -> bool:
         """Creates a backup of addon settings only"""
-        try:
-            if not mw or not mw.col:
-                StyledMessageBox.critical(mw, "Error", "Anki is not available for backup.")
-                return False
+        # Note: Do not wrap in try/except here. Let exceptions propagate to the caller.
+        
+        if not mw or not mw.col:
+            raise Exception("Anki is not available for backup.")
 
-            # Create temporary directory
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
-                
-                # 1. Save only settings
-                self._save_configurations(temp_path)
-                
-                # 2. Save backup information (no deck)
-                self._save_backup_info(temp_path, apkg_included=False, config_only=True)
-                
-                # 3. Create final ZIP file
-                self._create_backup_zip(temp_path, backup_path)
-                
-            return True
+        # Create temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
             
-        except Exception as e:
-            StyledMessageBox.critical(mw, "Error", f"Error creating configuration backup: {str(e)}")
-            return False
+            # 1. Save only settings
+            self._save_configurations(temp_path)
+            
+            # 2. Save backup information (no deck)
+            self._save_backup_info(temp_path, apkg_included=False, config_only=True)
+            
+            # 3. Create final ZIP file
+            # This might raise PermissionError if target directory is locked
+            self._create_backup_zip(temp_path, backup_path)
+            
+        return True
 
     def create_safety_backup(self) -> Optional[str]:
         """
@@ -170,193 +165,118 @@ class SimplifiedBackupManager:
             add_debug_message(f"❌ Error creating safety backup: {e}", "SAFETY_BACKUP")
             return None
 
-    def restore_backup(self, backup_path: str, create_safety: bool = True) -> bool:
+    def restore_backup(self, backup_path: str, create_safety: bool = True) -> Dict[str, Any]:
         """Restores a full backup of the Sheets2Anki system
         
         Args:
             backup_path: Path to the backup file to restore
             create_safety: If True, creates a safety backup before restoring (default: True)
+            
+        Returns:
+            Dict: Result containing success status and safety backup path
         """
-        try:
-            if not os.path.exists(backup_path):
-                showCritical("Backup file not found.")
-                return False
+        # Note: UI logic (confirmations, success/error messages) has been moved to the caller
+        
+        if not os.path.exists(backup_path):
+            raise Exception("Backup file not found.")
 
-            if not mw or not mw.col:
-                showCritical("Anki is not available for restoration.")
-                return False
+        if not mw or not mw.col:
+            raise Exception("Anki is not available for restoration.")
 
-            # Confirm operation
-            if not StyledMessageBox.question(
-                mw,
-                "Confirm Restoration",
-                "Are you sure you want to restore this backup?",
-                detailed_text=(
-                    "This operation will:\n"
-                    "• Create a safety backup of your current state\n"
-                    "• Remove the current 'Sheets2Anki' deck and all its subdecks\n"
-                    "• Restore settings from the backup\n"
-                    "• Import the deck from the backup\n"
-                    "• Recreate all links between remote and local decks"
-                ),
-                yes_text="Restore",
-                no_text="Cancel",
-                destructive=True
-            ):
-                return False
-
-            # Create safety backup before restoring
-            safety_backup_path = None
-            if create_safety:
-                safety_backup_path = self.create_safety_backup()
-                if safety_backup_path:
-                    add_debug_message(f"Safety backup created at: {safety_backup_path}", "BACKUP")
-                else:
-                    # Ask user if they want to continue without safety backup
-                    if not StyledMessageBox.question(
-                        mw,
-                        "Safety Backup Failed",
-                        "Could not create safety backup.",
-                        detailed_text="Do you want to continue anyway?\n(This is not recommended as you may lose current data)",
-                        yes_text="Continue Anyway",
-                        no_text="Cancel",
-                        destructive=True
-                    ):
-                        return False
-
-            # Create temporary directory for extraction
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
-                
-                # 1. Extract backup
-                self._extract_backup_zip(backup_path, temp_path)
-                
-                # 2. Validate backup
-                if not self._validate_backup(temp_path):
-                    StyledMessageBox.critical(mw, "Error", "Invalid or corrupted backup file.")
-                    return False
-                
-                # 3. Remove current deck
-                self._remove_current_sheets2anki_deck()
-                
-                # 4. Restore settings
-                self._restore_configurations(temp_path)
-                
-                # 5. Import deck from backup
-                apkg_path = temp_path / "sheets2anki_deck.apkg"
-                if apkg_path.exists():
-                    self._import_deck_apkg(str(apkg_path))
-                
-                # 6. Recreate links
-                self._recreate_deck_links()
-            
-            # Show success message with safety backup info
-            success_msg = "Backup restored successfully!\n\n"
+        # Create safety backup before restoring
+        safety_backup_path = None
+        if create_safety:
+            safety_backup_path = self.create_safety_backup()
             if safety_backup_path:
-                success_msg += f"📦 Safety backup saved at:\n{safety_backup_path}\n\n"
-            success_msg += "Restart Anki to ensure all settings are applied."
-            StyledMessageBox.success(mw, "Restore Complete", success_msg)
-            return True
-            
-        except Exception as e:
-            StyledMessageBox.critical(mw, "Error", f"Error restoring backup: {str(e)}")
-            return False
+                add_debug_message(f"Safety backup created at: {safety_backup_path}", "BACKUP")
+            else:
+                # If safety backup fails, fail the operation. 
+                # To skip safety backup, caller must pass create_safety=False
+                raise Exception("Could not create safety backup.")
 
-    def restore_config_only(self, backup_path: str, create_safety: bool = True) -> bool:
+        # Create temporary directory for extraction
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            # 1. Extract backup
+            self._extract_backup_zip(backup_path, temp_path)
+            
+            # 2. Validate backup
+            if not self._validate_backup(temp_path):
+                raise Exception("Invalid or corrupted backup file.")
+            
+            # 3. Remove current deck
+            self._remove_current_sheets2anki_deck()
+            
+            # 4. Restore settings
+            self._restore_configurations(temp_path)
+            
+            # 5. Import deck from backup
+            apkg_path = temp_path / "sheets2anki_deck.apkg"
+            if apkg_path.exists():
+                self._import_deck_apkg(str(apkg_path))
+            
+            # 6. Recreate links
+            self._recreate_deck_links()
+        
+        return {
+            "success": True, 
+            "safety_backup_path": safety_backup_path
+        }
+
+    def restore_config_only(self, backup_path: str, create_safety: bool = True) -> Dict[str, Any]:
         """Restores settings only from the backup, without affecting Anki data
         
         Args:
             backup_path: Path to the backup file to restore
             create_safety: If True, creates a safety backup before restoring (default: True)
+            
+        Returns:
+            Dict: Result containing success status and safety backup path
         """
-        try:
-            if not os.path.exists(backup_path):
-                StyledMessageBox.critical(mw, "Error", "Backup file not found.")
-                return False
+        # Note: UI logic has been moved to the caller
+        
+        if not os.path.exists(backup_path):
+            raise Exception("Backup file not found.")
 
-            if not mw or not mw.col:
-                StyledMessageBox.critical(mw, "Error", "Anki is not available for restoration.")
-                return False
+        if not mw or not mw.col:
+            raise Exception("Anki is not available for restoration.")
 
-            # Confirm operation
-            if not StyledMessageBox.question(
-                mw,
-                "Confirm Configuration Recovery",
-                "Are you sure you want to restore the configuration?",
-                detailed_text=(
-                    "This operation will:\n"
-                    "• Create a safety backup of your current settings\n"
-                    "• Restore all addon settings\n"
-                    "• Restore remote deck information\n"
-                    "• Recreate links between remote and local decks\n"
-                    "• NOT change any Anki data (notes, cards, etc.)"
-                ),
-                yes_text="Restore",
-                no_text="Cancel",
-                destructive=True
-            ):
-                return False
-
-            # Create safety backup before restoring (config only)
-            safety_backup_path = None
-            if create_safety:
-                safety_backup_path = self._create_config_safety_backup()
-                if safety_backup_path:
-                    add_debug_message(f"Safety config backup created at: {safety_backup_path}", "BACKUP")
-                else:
-                    # Ask user if they want to continue without safety backup
-                    if not StyledMessageBox.question(
-                        mw,
-                        "Safety Backup Failed",
-                        "Could not create safety backup of current settings.",
-                        detailed_text="Do you want to continue anyway?",
-                        yes_text="Continue Anyway",
-                        no_text="Cancel",
-                        destructive=True
-                    ):
-                        return False
-
-            # Create temporary directory for extraction
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
-                
-                # 1. Extract backup
-                self._extract_backup_zip(backup_path, temp_path)
-                
-                # 2. Validate backup
-                backup_info = self._get_backup_info(temp_path)
-                if not backup_info:
-                    StyledMessageBox.critical(mw, "Error", "Invalid or corrupted backup file.")
-                    return False
-                
-                # 3. Check if it's a valid backup (full or config only)
-                if backup_info.get("version") != self.backup_version:
-                    StyledMessageBox.critical(mw, "Error", "Incompatible backup version.")
-                    return False
-                
-                # 4. Restore settings only
-                self._restore_configurations(temp_path)
-                
-                # 5. Recreate links between remote and local decks
-                self._recreate_deck_links()
-            
-            # Show success message with safety backup info
-            success_msg = "Settings restored successfully!\n\n"
+        # Create safety backup before restoring (config only)
+        safety_backup_path = None
+        if create_safety:
+            safety_backup_path = self._create_config_safety_backup()
             if safety_backup_path:
-                success_msg += f"📦 Safety backup saved at:\n{safety_backup_path}\n\n"
-            success_msg += (
-                "• Addon settings have been restored\n"
-                "• Remote decks have been relinked to local decks\n"
-                "• No Anki data was modified\n\n"
-                "Restart Anki to ensure all\n"
-                "settings are applied correctly."
-            )
-            StyledMessageBox.success(mw, "Restore Complete", success_msg)
-            return True
+                add_debug_message(f"Safety config backup created at: {safety_backup_path}", "BACKUP")
+            else:
+                raise Exception("Could not create safety backup of current settings.")
+
+        # Create temporary directory for extraction
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
             
-        except Exception as e:
-            StyledMessageBox.critical(mw, "Error", f"Error restoring configurations: {str(e)}")
-            return False
+            # 1. Extract backup
+            self._extract_backup_zip(backup_path, temp_path)
+            
+            # 2. Validate backup
+            backup_info = self._get_backup_info(temp_path)
+            if not backup_info:
+                raise Exception("Invalid or corrupted backup file.")
+            
+            # 3. Check if it's a valid backup (full or config only)
+            if backup_info.get("version") != self.backup_version:
+                raise Exception("Incompatible backup version.")
+            
+            # 4. Restore settings only
+            self._restore_configurations(temp_path)
+            
+            # 5. Recreate links between remote and local decks
+            self._recreate_deck_links()
+        
+        return {
+            "success": True, 
+            "safety_backup_path": safety_backup_path
+        }
 
     def _create_config_safety_backup(self) -> Optional[str]:
         """
@@ -537,57 +457,52 @@ class SimplifiedBackupManager:
 
     def _import_deck_apkg(self, apkg_path: str) -> None:
         """Imports the deck from the .apkg file using modern Anki API"""
+        if not mw or not mw.col:
+            raise Exception("Anki is not available")
+        
+        # Method 1: Try using AnkiPackageImporter (modern API)
         try:
-            if not mw or not mw.col:
-                raise Exception("Anki is not available")
+            from anki.importing.apkg import AnkiPackageImporter
             
-            # Method 1: Try using AnkiPackageImporter (modern API)
-            try:
-                from anki.importing.apkg import AnkiPackageImporter
-                
-                importer = AnkiPackageImporter(mw.col, apkg_path)
-                importer.run()
-                mw.col.save()
-                
-                add_debug_message("Deck imported successfully (modern API)", "BACKUP")
-                StyledMessageBox.success(mw, "Import Successful", "Deck imported successfully from backup!")
-                return
-                
-            except Exception as e:
-                add_debug_message(f"Modern method failed: {e}", "BACKUP")
+            importer = AnkiPackageImporter(mw.col, apkg_path)
+            importer.run()
+            mw.col.save()
             
-            # Method 2: Try using UI import (more compatible)
-            try:
-                from aqt.importing import importFile
-                
-                # Use UI import function
-                importFile(mw, apkg_path)
-                
-                add_debug_message("Deck imported successfully (UI method)", "BACKUP")
-                StyledMessageBox.success(mw, "Import Successful", "Deck imported successfully from backup!")
-                return
-                
-            except Exception as e:
-                add_debug_message(f"UI method failed: {e}", "BACKUP")
-            
-            # Method 3: Fallback for older versions
-            try:
-                from aqt.importing import doImport
-                doImport(mw, apkg_path)
-                
-                add_debug_message("Deck imported successfully (legacy method)", "BACKUP")
-                StyledMessageBox.success(mw, "Import Successful", "Deck imported successfully from backup!")
-                return
-                
-            except Exception as e:
-                add_debug_message(f"Legacy method failed: {e}", "BACKUP")
-            
-            # If all methods failed
-            raise Exception("All import methods failed")
+            add_debug_message("Deck imported successfully (modern API)", "BACKUP")
+            return
             
         except Exception as e:
-            add_debug_message(f"Error importing deck: {e}", "BACKUP")
-            StyledMessageBox.critical(mw, "Import Error", f"Error importing deck from backup:\n{e}\n\nTry manually importing the .apkg file via Anki's File > Import menu.")
+            add_debug_message(f"Modern method failed: {e}", "BACKUP")
+        
+        # Method 2: Try using UI import (more compatible)
+        # Note: importFile might show UI, which is risky in a background thread,
+        # but it typically runs synchronously. Ideally we avoid this in a thread.
+        # However, for now we keep it as fallback but avoid specific Success UI calls.
+        try:
+            from aqt.importing import importFile
+            
+            # Use UI import function
+            importFile(mw, apkg_path)
+            
+            add_debug_message("Deck imported successfully (UI method)", "BACKUP")
+            return
+            
+        except Exception as e:
+            add_debug_message(f"UI method failed: {e}", "BACKUP")
+        
+        # Method 3: Fallback for older versions
+        try:
+            from aqt.importing import doImport
+            doImport(mw, apkg_path)
+            
+            add_debug_message("Deck imported successfully (legacy method)", "BACKUP")
+            return
+            
+        except Exception as e:
+            add_debug_message(f"Legacy method failed: {e}", "BACKUP")
+        
+        # If all methods failed
+        raise Exception("All import methods failed")
 
     def _import_deck_manual(self, apkg_path: str) -> None:
         """Manual import method as a last resort"""
