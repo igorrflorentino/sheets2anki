@@ -736,7 +736,8 @@ class BackupDialog(QDialog):
 
     def _get_save_filename(self, default_name):
         """Opens a file dialog to save a backup."""
-        last_dir = os.path.expanduser("~/Desktop")
+        # Use backup directory by default so backups are detected
+        last_dir = get_auto_backup_directory()
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Save Backup",
@@ -747,7 +748,8 @@ class BackupDialog(QDialog):
 
     def _get_open_filename(self):
         """Opens a file dialog to select a backup file."""
-        last_dir = os.path.expanduser("~/Desktop")
+        # Use backup directory by default so users find their backups
+        last_dir = get_auto_backup_directory()
         filename, _ = QFileDialog.getOpenFileName(
             self,
             "Select Backup File",
