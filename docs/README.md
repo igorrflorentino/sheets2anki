@@ -291,7 +291,7 @@ Google Sheets URL → TSV Download
     ↓
 DataProcessor.parse_tsv() → List[Dict]
     ↓
-Column validation (18 cols required)
+Column validation (23 columns required)
     ↓
 StudentManager.filter_data_by_students()
     ↓
@@ -534,10 +534,10 @@ python -m pytest tests/ --cov=src/ --cov-report=html
 SAMPLE_TSV_DATA = [
     {
         'ID': 'Q001',
-        'PERGUNTA': 'Capital of Brazil?',
-        'LEVAR PARA PROVA': 'Brasília',
+        'QUESTION': 'Capital of Brazil?',
+        'ANSWER': 'Brasília',
         'SYNC': 'true',
-        'ALUNOS': 'João, Maria',
+        'STUDENTS': 'João, Maria',
         # ... 18 more columns
     }
 ]

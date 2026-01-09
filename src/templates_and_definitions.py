@@ -18,7 +18,7 @@ Consolidated from:
 
 # Basic system fields
 identifier = "ID"  # Unique question identifier (required)
-students = "ALUNOS"  # Indicates which students are interested in studying this note
+students = "STUDENTS"  # Indicates which students are interested in studying this note
 is_sync = "SYNC"  # Synchronization control field (true/false/1/0)
 
 # =============================================================================
@@ -26,62 +26,62 @@ is_sync = "SYNC"  # Synchronization control field (true/false/1/0)
 # =============================================================================
 
 # Main question fields
-question = "PERGUNTA"  # Main question text / front of card
-answer = "LEVAR PARA PROVA"  # Succinct and atomic answer to the question
+question = "QUESTION"  # Main question text / front of card
+answer = "ANSWER"  # Succinct and atomic answer to the question
 
 # =============================================================================
 # DETAIL FIELDS
 # =============================================================================
 
 # Additional information about the question
-info_1 = "INFO COMPLEMENTAR"  # Basic complementary information
-info_2 = "INFO DETALHADA"  # Additional detailed information
+info_1 = "COMPLEMENTARY INFO"  # Basic complementary information
+info_2 = "DETAILED INFO"  # Additional detailed information
 
 # =============================================================================
 # EXAMPLE FIELDS
 # =============================================================================
 
 # Examples related to the question (up to 3 examples)
-example_1 = "EXEMPLO 1"  # First example
-example_2 = "EXEMPLO 2"  # Second example
-example_3 = "EXEMPLO 3"  # Third example
+example_1 = "EXAMPLE 1"  # First example
+example_2 = "EXAMPLE 2"  # Second example
+example_3 = "EXAMPLE 3"  # Third example
 
 # =============================================================================
 # MULTIMEDIA FIELDS
 # =============================================================================
 
 # Helps make information visually more attractive
-multimedia_1 = "IMAGEM HTML"  # HTML code for renderable images and illustrations
-multimedia_2 = "VIDEO HTML"  # HTML code for embedded videos (YouTube, Vimeo, etc.)
+multimedia_1 = "HTML IMAGE"  # HTML code for renderable images and illustrations
+multimedia_2 = "HTML VIDEO"  # HTML code for embedded videos (YouTube, Vimeo, etc.)
 
 # =============================================================================
 # CATEGORIZATION FIELDS
 # =============================================================================
 
 # Hierarchical content categorization
-hierarchy_1 = "IMPORTANCIA"  # Question importance level
-hierarchy_2 = "TOPICO"  # Main question topic
-hierarchy_3 = "SUBTOPICO"  # Specific subtopic
-hierarchy_4 = "CONCEITO"  # Atomic concept being asked (more refined than subtopic)
+hierarchy_1 = "IMPORTANCE"  # Question importance level
+hierarchy_2 = "TOPIC"  # Main question topic
+hierarchy_3 = "SUBTOPIC"  # Specific subtopic
+hierarchy_4 = "CONCEPT"  # Atomic concept being asked (more refined than subtopic)
 
 # =============================================================================
 # METADATA FIELDS
 # =============================================================================
 
 # Context and source information
-tags_1 = "BANCAS"  # Related exam boards
-tags_2 = "ULTIMO ANO EM PROVA"  # Last year appeared in exam
-tags_3 = "CARREIRAS"  # Related careers or professional areas
-tags_4 = "TAGS ADICIONAIS"  # Additional tags for organization
+tags_1 = "BOARDS"  # Related exam boards
+tags_2 = "LAST YEAR IN EXAM"  # Last year appeared in exam
+tags_3 = "CAREERS"  # Related careers or professional areas
+tags_4 = "OTHER TAGS"  # Additional tags for organization
 
 # =============================================================================
 # CUSTOMIZABLE EXTRA FIELDS
 # =============================================================================
 
 # Extra fields for user customization
-extra_field_1 = "CAMPO EXTRA 1"  # Extra field 1 - free use
-extra_field_2 = "CAMPO EXTRA 2"  # Extra field 2 - free use
-extra_field_3 = "CAMPO EXTRA 3"  # Extra field 3 - free use
+extra_field_1 = "EXTRA FIELD 1"  # Extra field 1 - free use
+extra_field_2 = "EXTRA FIELD 2"  # Extra field 2 - free use
+extra_field_3 = "EXTRA FIELD 3"  # Extra field 3 - free use
 
 # =============================================================================
 # VALIDATION CONFIGURATIONS

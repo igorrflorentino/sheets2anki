@@ -45,36 +45,36 @@ Use our [**ready-made template**](https://docs.google.com/spreadsheets/d/1N-Va4Z
 | Column | What to put | Example |
 |--------|-------------|---------|
 | **ID** | Unique card identifier | `Q001` |
-| **ALUNOS** | Who receives this card | `John, Mary` |
+| **STUDENTS** | Who receives this card | `John, Mary` |
 | **SYNC** | Synchronize? | `yes` or `no` |
-| **IMPORTANCIA** | Priority | `High`, `Medium`, `Low` |
-| **TOPICO** | Main theme | `Geography` |
-| **SUBTOPICO** | Secondary theme | `Capitals` |
-| **CONCEITO** | Specific concept | `Brazil` |
-| **PERGUNTA** | Front of the card | `What is the capital of Brazil?` |
-| **LEVAR PARA PROVA** | Back of the card (answer) | `Brasília` |
-| **INFO COMPLEMENTAR** | Extra details | `Founded in 1960` |
-| **INFO DETALHADA** | More details | `Designed by Oscar Niemeyer` |
-| **EXEMPLO 1** | First example | - |
-| **EXEMPLO 2** | Second example | - |
-| **EXEMPLO 3** | Third example | - |
-| **IMAGEM HTML** | Images/HTML | `<img src="...">` |
-| **VIDEO HTML** | Embedded videos | `<iframe src="...">` |
-| **CAMPO EXTRA 1** | Free field (personal use) | - |
-| **CAMPO EXTRA 2** | Free field (personal use) | - |
-| **CAMPO EXTRA 3** | Free field (personal use) | - |
-| **BANCAS** | Exam boards | `CESPE, FCC` |
-| **ULTIMO ANO EM PROVA** | Question year | `2024` |
-| **CARREIRAS** | Application area | `Tax` |
-| **TAGS ADICIONAIS** | Extra tags | `fundamental` |
+| **IMPORTANCE** | Priority | `High`, `Medium`, `Low` |
+| **TOPIC** | Main theme | `Geography` |
+| **SUBTOPIC** | Secondary theme | `Capitals` |
+| **CONCEPT** | Specific concept | `Brazil` |
+| **QUESTION** | Front of the card | `What is the capital of Brazil?` |
+| **ANSWER** | Back of the card (answer) | `Brasília` |
+| **COMPLEMENTARY INFO** | Extra details | `Founded in 1960` |
+| **DETAILED INFO** | More details | `Designed by Oscar Niemeyer` |
+| **EXAMPLE 1** | First example | - |
+| **EXAMPLE 2** | Second example | - |
+| **EXAMPLE 3** | Third example | - |
+| **HTML IMAGE** | Images/HTML | `<img src="...">` |
+| **HTML VIDEO** | Embedded videos | `<iframe src="...">` |
+| **EXTRA FIELD 1** | Free field (personal use) | - |
+| **EXTRA FIELD 2** | Free field (personal use) | - |
+| **EXTRA FIELD 3** | Free field (personal use) | - |
+| **BOARDS** | Exam boards | `CESPE, FCC` |
+| **LAST YEAR IN EXAM** | Question year | `2024` |
+| **CAREERS** | Application area | `Tax` |
+| **OTHER TAGS** | Extra tags | `fundamental` |
 
 ### Important Tips
 
-**ALUNOS:** List separated by commas. If left empty, the card goes to `[MISSING STUDENT]`.
+**STUDENTS:** List separated by commas. If left empty, the card goes to `[MISSING STUDENT]`.
 
 **SYNC:** Must be explicitly filled. Accepts `true`, `yes`, `1` to synchronize. Empty cells or other values **do not sync**.
 
-**Cloze Cards:** Write in PERGUNTA using the pattern `{{c1::answer}}`:
+**Cloze Cards:** Write in QUESTION using the pattern `{{c1::answer}}`:
 ```
 The capital of Brazil is {{c1::Brasília}} and it's in the {{c2::Center-West}}.
 ```
@@ -158,7 +158,7 @@ Access via `Tools → Sheets2Anki → Backup Remote Decks`:
 > Yes. Configure AnkiWeb (`Ctrl+Shift+W`) and your cards sync automatically.
 
 **How do I make cloze cards?**
-> Use `{{c1::answer}}` in the PERGUNTA column. See example in [Important Tips](#important-tips).
+> Use `{{c1::answer}}` in the QUESTION column. See example in [Important Tips](#important-tips).
 
 **Cards don't appear after syncing?**
 > Check: (1) SYNC column is `yes`, (2) students are checked in `Ctrl+Shift+G`, (3) ID is unique.
@@ -210,25 +210,25 @@ During synchronization, the addon automatically checks and corrects:
 - Differences between remote names (spreadsheet) and local names (Anki)
 - Updates outdated configurations without data loss
 
-### IMAGEM HTML and VIDEO HTML Columns
+### HTML IMAGE and HTML VIDEO Columns
 
 Allow adding multimedia content to the back of cards:
 
-**IMAGEM HTML** - For images and illustrations:
+**HTML IMAGE** - For images and illustrations:
 ```html
 <img src="https://example.com/image.png" style="max-width:300px;">
 <a href="https://link.com">External link</a>
 <div style="color:red;">Highlighted text</div>
 ```
 
-**VIDEO HTML** - For embedded videos (YouTube, Vimeo, etc.):
+**HTML VIDEO** - For embedded videos (YouTube, Vimeo, etc.):
 ```html
 <iframe width="560" height="315" src="https://www.youtube.com/embed/VIDEO_ID" frameborder="0" allowfullscreen></iframe>
 ```
 
 Both appear after the main answer on the back of the card.
 
-### Accepted Formats in the ALUNOS Field
+### Accepted Formats in the STUDENTS Field
 
 The addon recognizes multiple separators:
 
