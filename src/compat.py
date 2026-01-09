@@ -111,7 +111,6 @@ ButtonBox_Close = QDialogButtonBox.StandardButton.Close
 
 # QMessageBox constants
 MessageBox_Yes = QMessageBox.StandardButton.Yes
-MessageBox_No = QMessageBox.StandardButton.No
 MessageBox_Ok = QMessageBox.StandardButton.Ok
 MessageBox_Cancel = QMessageBox.StandardButton.Cancel
 MessageBox_Information = QMessageBox.Icon.Information

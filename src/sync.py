@@ -3191,13 +3191,9 @@ def _handle_consolidated_confirmation_cleanup(remote_decks):
         add_debug_message("✅ CLEANUP: Consolidated cleanup completed", "CLEANUP")
         return missing_result, cleanup_result
         
-    elif result == MessageBox_Cancel:
+    else:  # MessageBox_Cancel or any other response
         add_debug_message("🛑 CLEANUP: User cancelled consolidated cleanup - ABORTING SYNC", "CLEANUP")
         raise SyncAborted("User cancelled data cleanup")
-        
-    else:
-        add_debug_message("🛡️ CLEANUP: User chose to keep data - Continuing sync", "CLEANUP")
-        return None, None
 
 
 def _handle_missing_students_cleanup(remote_decks):
@@ -3274,13 +3270,9 @@ def _handle_missing_students_cleanup(remote_decks):
             "missing_cleanup_message": "[MISSING S.] data removed",
         }
         
-    elif result == MessageBox_Cancel:
+    else:  # MessageBox_Cancel or any other response
         add_debug_message("🛑 CLEANUP: User cancelled [MISSING S.] cleanup - ABORTING SYNC", "CLEANUP")
         raise SyncAborted("User cancelled [MISSING S.] cleanup")
-        
-    else:
-        add_debug_message("🛡️ CLEANUP: User chose to keep [MISSING S.] data", "CLEANUP")
-        return None
 
 
 def _handle_disabled_students_cleanup(remote_decks):
@@ -3367,10 +3359,6 @@ def _handle_disabled_students_cleanup(remote_decks):
             "disabled_students_names": ", ".join(sorted(disabled_students)),
         }
         
-    elif result == MessageBox_Cancel:
+    else:  # MessageBox_Cancel or any other response
         add_debug_message("🛑 CLEANUP: User cancelled student cleanup - ABORTING SYNC", "CLEANUP")
         raise SyncAborted("User cancelled student cleanup")
-        
-    else:
-        add_debug_message("🛡️ CLEANUP: User cancelled cleanup, data preserved", "CLEANUP")
-        return None

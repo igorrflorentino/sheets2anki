@@ -6,7 +6,7 @@ confirmation messages when student data needs to be removed.
 """
 
 from typing import List, Optional
-from .compat import MessageBox_No, MessageBox_Yes, MessageBox_Cancel, safe_exec_dialog
+from .compat import MessageBox_Yes, MessageBox_Cancel, safe_exec_dialog
 from .styled_messages import StyledMessageBox
 from .templates_and_definitions import DEFAULT_STUDENT
 
@@ -51,12 +51,16 @@ def show_data_removal_confirmation_dialog(
     students_to_remove: List[str], 
     window_title: str = "Confirm Permanent Data Removal",
     parent=None
-) -> bool:
+) -> int:
     """
     Shows the confirmation dialog for student data removal.
     
     This function centralizes all dialog display logic to ensure
     consistent behavior throughout the system.
+    
+    The dialog presents two options:
+    - DELETE DATA: Continues sync and removes the data (returns MessageBox_Yes)
+    - CANCEL SYNC: Aborts the sync entirely (returns MessageBox_Cancel)
     
     Args:
         students_to_remove: List of student/feature names to be removed
@@ -64,7 +68,7 @@ def show_data_removal_confirmation_dialog(
         parent: Parent widget (optional)
         
     Returns:
-        int: Dialog result code (MessageBox_Yes, MessageBox_No, MessageBox_Cancel)
+        int: Dialog result code (MessageBox_Yes or MessageBox_Cancel)
     """
     if not students_to_remove:
         return False
@@ -72,20 +76,14 @@ def show_data_removal_confirmation_dialog(
     # Generate message using centralized function
     message = generate_data_removal_confirmation_message(students_to_remove)
     
-    # Create custom buttons
+    # Create custom buttons (simplified to 2 options)
     buttons = [
         {
-            "text": "🗑️ YES, DELETE DATA",
+            "text": "🗑️ DELETE DATA",
             "role": "custom",
             "result_code": MessageBox_Yes,
             "primary": True,
             "destructive": True
-        },
-        {
-            "text": "🛡️ NO, KEEP DATA",
-            "role": "custom",
-            "result_code": MessageBox_No,
-            "primary": True
         },
         {
             "text": "🚫 CANCEL SYNC",
@@ -153,14 +151,14 @@ def confirm_students_removal(
         parent: Parent widget (optional)
         
     Returns:
-        int: Dialog result code (MessageBox_Yes, MessageBox_No, MessageBox_Cancel)
+        int: Dialog result code (MessageBox_Yes or MessageBox_Cancel)
     """
     students_to_remove = collect_students_for_removal(
         disabled_students, missing_functionality_disabled
     )
     
     if not students_to_remove:
-        return MessageBox_No
+        return MessageBox_Cancel
     
     return show_data_removal_confirmation_dialog(
         students_to_remove, window_title, parent

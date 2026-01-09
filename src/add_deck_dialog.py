@@ -666,7 +666,7 @@ class AddDeckDialog(QDialog):
 
         invalid_lines = deck_stats.get("invalid_note_lines", 0)
         if invalid_lines > 0:
-            self.stats_layout.addWidget(self._create_stat_card("⚠️", str(invalid_lines), "Skipped"))
+            self.stats_layout.addWidget(self._create_stat_card("🫥", str(invalid_lines), "Invalid Rows"))
 
         self.stats_layout.addStretch()
 

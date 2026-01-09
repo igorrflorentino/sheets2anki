@@ -23,7 +23,7 @@ from . import templates_and_definitions as cols
 from .compat import ButtonBox_Cancel
 from .compat import ButtonBox_Ok
 from .compat import DialogAccepted
-from .compat import MessageBox_Yes, MessageBox_No, MessageBox_Cancel
+from .compat import MessageBox_Yes, MessageBox_Cancel
 from .compat import QCheckBox
 from .compat import QDialog
 from .compat import QDialogButtonBox
@@ -1183,17 +1183,21 @@ def show_cleanup_confirmation_dialog(disabled_students: Set[str]) -> int:
     Shows a confirmation dialog before removing data of disabled students.
     
     REFATURED: Now uses centralized function to ensure consistency.
+    
+    The dialog presents two options:
+    - DELETE DATA: Removes data and continues sync (returns MessageBox_Yes)
+    - CANCEL SYNC: Aborts the sync entirely (returns MessageBox_Cancel)
 
     Args:
         disabled_students (Set[str]): Set of students that will have data removed
 
     Returns:
-        int: Dialog result code (MessageBox_Yes, MessageBox_No, MessageBox_Cancel)
+        int: Dialog result code (MessageBox_Yes or MessageBox_Cancel)
     """
     from .data_removal_confirmation import confirm_students_removal
 
     if not disabled_students:
-        return MessageBox_No
+        return MessageBox_Cancel
 
     # Convert set to list and use centralized function
     disabled_students_list = list(disabled_students)
@@ -1209,10 +1213,8 @@ def show_cleanup_confirmation_dialog(disabled_students: Set[str]) -> int:
         add_debug_msg(
             f"⚠️ CLEANUP: User confirmed data removal for {len(disabled_students)} students"
         )
-    elif result == MessageBox_Cancel:
-        add_debug_msg("🛡️ CLEANUP: User CANCELLED sync operation")
-    else:
-        add_debug_msg("🛡️ CLEANUP: User chose to KEEP data")
+    else:  # MessageBox_Cancel or any other response
+        add_debug_msg("🛑 CLEANUP: User CANCELLED sync operation")
 
     return result
 
@@ -1440,9 +1442,13 @@ def show_missing_cleanup_confirmation_dialog() -> int:
     """
     Shows confirmation dialog for missing student data cleanup.
     REFATURED: Uses centralized module for message generation and confirmation.
+    
+    The dialog presents two options:
+    - DELETE DATA: Removes data and continues sync (returns MessageBox_Yes)
+    - CANCEL SYNC: Aborts the sync entirely (returns MessageBox_Cancel)
 
     Returns:
-        int: Dialog result code (MessageBox_Yes, MessageBox_No, MessageBox_Cancel)
+        int: Dialog result code (MessageBox_Yes or MessageBox_Cancel)
     """
     from .data_removal_confirmation import show_data_removal_confirmation_dialog
     
@@ -1455,9 +1461,7 @@ def show_missing_cleanup_confirmation_dialog() -> int:
     
     if result == MessageBox_Yes:
         add_debug_msg(f"⚠️ CLEANUP: User confirmed {DEFAULT_STUDENT} data removal")
-    elif result == MessageBox_Cancel:
-        add_debug_msg(f"🛡️ CLEANUP: User CANCELLED sync (during {DEFAULT_STUDENT} check)")
-    else:
-        add_debug_msg(f"🛡️ CLEANUP: User chose to KEEP {DEFAULT_STUDENT} data")
+    else:  # MessageBox_Cancel or any other response
+        add_debug_msg(f"🛑 CLEANUP: User CANCELLED sync (during {DEFAULT_STUDENT} check)")
 
     return result

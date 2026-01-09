@@ -543,10 +543,10 @@ def removeRemoteDeck():
                     f"To reconnect, you will need to add it again."
                 )
         else:
-            decks_list = "', '".join(disconnected_decks)
+            decks_formatted = "\n• " + "\n• ".join(disconnected_decks)
             if delete_local_data:
                 message = (
-                    f"The decks '{decks_list}' were disconnected and all local data was deleted.\n\n"
+                    f"The following decks were disconnected and all local data was deleted:{decks_formatted}\n\n"
                     f"Deleted data for each deck:\n"
                     f"• Local decks and subdecks\n"
                     f"• All cards and notes\n"
@@ -555,7 +555,7 @@ def removeRemoteDeck():
                 )
             else:
                 message = (
-                    f"The decks '{decks_list}' were disconnected from their remote sources.\n\n"
+                    f"The following decks were disconnected from their remote sources:{decks_formatted}\n\n"
                     f"The local decks remain in Anki and can be managed normally.\n"
                     f"To reconnect, you will need to add them again."
                 )

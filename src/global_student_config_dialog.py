@@ -8,7 +8,6 @@ should be synchronized across all remote decks.
 from .compat import CustomContextMenu
 from .compat import DialogAccepted
 from .compat import Horizontal
-from .compat import MessageBox_No
 from .compat import MessageBox_Yes
 from .compat import Palette_Window
 from .compat import QAction
