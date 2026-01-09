@@ -3,7 +3,6 @@
     "auto_sync_on_startup": false,
     "max_sync_retries": 3,
     "sync_timeout_seconds": 30,
-    "show_sync_notifications": true,
     "auto_remove_disabled_students": true,
     "remote-decks": {}
 }

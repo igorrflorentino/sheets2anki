@@ -16,7 +16,7 @@ Features:
 from .compat import mw
 from .styled_messages import StyledMessageBox
 from .config_manager import get_ankiweb_sync_mode
-from .config_manager import get_ankiweb_sync_notifications
+
 from .config_manager import get_ankiweb_sync_timeout
 
 # =============================================================================
@@ -200,8 +200,7 @@ def execute_ankiweb_sync_if_configured():
         error_msg = "AnkiWeb not configured - access Tools > Sync in Anki"
         add_debug_message(f"⚠️ {error_msg}", "ANKIWEB_SYNC")
 
-        if get_ankiweb_sync_notifications():
-            StyledMessageBox.warning(None, "AnkiWeb Config Error", f"Sheets2Anki: {error_msg}")
+        StyledMessageBox.warning(None, "AnkiWeb Config Error", f"Sheets2Anki: {error_msg}")
 
         return {"success": False, "error": error_msg}
 
@@ -230,7 +229,7 @@ def get_sync_status():
         "ankiweb_configured": can_sync_ankiweb(),
         "sync_mode": get_ankiweb_sync_mode(),
         "timeout": get_ankiweb_sync_timeout(),
-        "notifications_enabled": get_ankiweb_sync_notifications(),
+        "notifications_enabled": True,
         "can_sync": can_sync_ankiweb(),
         "debug_info": {},
     }

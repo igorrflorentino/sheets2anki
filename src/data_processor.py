@@ -131,10 +131,8 @@ class RemoteDeck:
         else:
             self.invalid_note_lines += 1
             # Debug log for invalid lines
-            add_debug_msg(
-                f"Invalid line found: ID='{note_data.get(cols.identifier, '')}', QUESTION='{note_data.get(cols.question, '')[:50]}...'",
-                category="METRICS"
-            )
+            # Debug log for invalid lines removed to avoid log spam
+            # add_debug_msg(f"Invalid line found...", category="METRICS")
             # For invalid lines, do not process additional metrics
             # but continue to allow other accounting if necessary
             return
@@ -1091,12 +1089,13 @@ def create_or_update_notes(
                     add_debug_msg(f"❌ Stack trace: {error_details}")
                     stats.errors += 1
 
-        # 6. Separate obsolete notes from disabled students' notes
+        # 6. Separate obsolete notes from disabled students' notes and sync-disabled notes
         all_existing_note_ids = set(existing_notes.keys())
         
         # 6.1. Identify truly obsolete notes (no longer in spreadsheet)
         notes_really_obsolete = set()
         notes_from_disabled_students = set()
+        notes_with_sync_disabled = set()  # NEW: Notes with SYNC=false should be preserved
         
         for student_note_id in all_existing_note_ids - expected_student_note_ids:
             # Extract note information
@@ -1107,20 +1106,29 @@ def create_or_update_notes(
             student_name = student_note_id.split("_")[0]
             note_id = "_".join(student_note_id.split("_")[1:])
             
-            # Check if note still exists in remote spreadsheet
+            # Check if note still exists in remote spreadsheet and get its sync status
             note_exists_in_remote = False
+            note_has_sync_disabled = False
             for note_data in remoteDeck.notes:
                 remote_note_id = note_data.get(cols.identifier, "").strip()
                 if remote_note_id == note_id:
                     note_exists_in_remote = True
+                    # Check if SYNC is explicitly disabled for this note
+                    sync_value = str(note_data.get(cols.is_sync, "")).strip().lower()
+                    if sync_value not in ["true", "1", "yes", "sim"]:
+                        note_has_sync_disabled = True
                     break
             
             if not note_exists_in_remote:
                 # Note truly no longer exists in spreadsheet
                 notes_really_obsolete.add(student_note_id)
                 add_debug_msg(f"📝 Obsolete note (removed from spreadsheet): {student_note_id}")
+            elif note_has_sync_disabled:
+                # Note exists but SYNC=false - ALWAYS preserve (user intentionally disabled sync)
+                notes_with_sync_disabled.add(student_note_id)
+                add_debug_msg(f"⏸️ Note with SYNC disabled (preserving): {student_note_id}")
             else:
-                # Note exists in spreadsheet, but student was disabled
+                # Note exists in spreadsheet with SYNC=true, but student was disabled
                 notes_from_disabled_students.add(student_note_id)
                 add_debug_msg(f"👤 Note from disabled student: {student_note_id} (student: {student_name})")
         
@@ -1131,6 +1139,14 @@ def create_or_update_notes(
                 note_to_delete = existing_notes[student_note_id]
                 if delete_note_by_id(col, note_to_delete):
                     stats.deleted += 1
+                    # Extract question text for better logging
+                    pergunta = ""
+                    try:
+                        if cols.question in note_to_delete.keys():
+                            full_pergunta = note_to_delete[cols.question]
+                            pergunta = full_pergunta[:100] + ("..." if len(full_pergunta) > 100 else "")
+                    except:
+                        pass
                     # Capture deletion details
                     deletion_detail = {
                         "student_note_id": student_note_id,
@@ -1144,7 +1160,8 @@ def create_or_update_notes(
                             if "_" in student_note_id
                             else student_note_id
                         ),
-                        "reason": "obsolete"
+                        "reason": "obsolete",
+                        "pergunta": pergunta
                     }
                     stats.deletion_details.append(deletion_detail)
                     add_debug_msg(f"✅ Obsolete note removed: {student_note_id}")
@@ -1163,6 +1180,14 @@ def create_or_update_notes(
                         note_to_delete = existing_notes[student_note_id]
                         if delete_note_by_id(col, note_to_delete):
                             stats.deleted += 1
+                            # Extract question text for better logging
+                            pergunta = ""
+                            try:
+                                if cols.question in note_to_delete.keys():
+                                    full_pergunta = note_to_delete[cols.question]
+                                    pergunta = full_pergunta[:100] + ("..." if len(full_pergunta) > 100 else "")
+                            except:
+                                pass
                             # Capture deletion details
                             deletion_detail = {
                                 "student_note_id": student_note_id,
@@ -1176,7 +1201,8 @@ def create_or_update_notes(
                                     if "_" in student_note_id
                                     else student_note_id
                                 ),
-                                "reason": "disabled_student"
+                                "reason": "disabled_student",
+                                "pergunta": pergunta
                             }
                             stats.deletion_details.append(deletion_detail)
                             add_debug_msg(f"✅ Note from disabled student removed: {student_note_id}")
@@ -1188,6 +1214,12 @@ def create_or_update_notes(
                 for student_note_id in notes_from_disabled_students:
                     student_name = student_note_id.split("_")[0] if "_" in student_note_id else "Unknown"
                     add_debug_msg(f"🛡️ Preserving note: {student_note_id} (student: {student_name})")
+
+        # 6.4. Log sync-disabled notes (always preserved)
+        if notes_with_sync_disabled:
+            add_debug_msg(f"⏸️ Preserving {len(notes_with_sync_disabled)} notes with SYNC disabled (user choice)")
+            for student_note_id in notes_with_sync_disabled:
+                add_debug_msg(f"⏸️ SYNC disabled, preserving: {student_note_id}")
 
         # 7. Final statistics
         add_debug_msg("=== FINAL STATISTICS ===")

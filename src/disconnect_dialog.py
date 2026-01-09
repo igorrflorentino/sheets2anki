@@ -225,19 +225,22 @@ class DisconnectDialog(QDialog):
             }}
         """)
         warning_layout = QHBoxLayout(warning_frame)
-        warning_layout.setContentsMargins(15, 12, 15, 12)
+        warning_layout.setContentsMargins(15, 12, 10, 12)
+        warning_layout.setSpacing(15)  # Space between icon and text
 
         warning_icon = QLabel("⚠️")
         warning_icon.setStyleSheet("font-size: 20pt;")
         warning_layout.addWidget(warning_icon)
-
+   
         warning_text = QLabel(
-            "This action will permanently disconnect selected decks. "
+            "This action will permanently disconnect selected decks.\n"
             "To reconnect, you will need to add them again."
         )
         warning_text.setStyleSheet(f"color: {self.colors['accent_warning']}; font-size: 12pt;")
-        warning_text.setWordWrap(True)
+
         warning_layout.addWidget(warning_text)
+        
+        warning_layout.addStretch()    # Push content to center (right side)
 
         layout.addWidget(warning_frame)
 

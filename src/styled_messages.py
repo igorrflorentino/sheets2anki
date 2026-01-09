@@ -174,17 +174,32 @@ class StyledMessageBox(QDialog):
         
         # Detailed Text (if any)
         if detailed_text:
+            # Use a container for the background and padding to avoid QLabel clipping issues
+            detail_container = QWidget()
+            detail_container.setObjectName("detailContainer")
+            detail_container.setStyleSheet(f"""
+                QWidget#detailContainer {{
+                    background-color: {self.colors['background_secondary']};
+                    border-radius: 6px;
+                }}
+            """)
+            
+            container_layout = QVBoxLayout(detail_container)
+            container_layout.setContentsMargins(12, 12, 12, 12)
+            container_layout.setSpacing(0)
+            
             detail_label = QLabel(detailed_text)
             detail_label.setStyleSheet(f"""
                 font-size: 12px;
                 color: {self.colors['text_secondary']};
-                background-color: {self.colors['background_secondary']};
-                padding: 12px;
-                border-radius: 6px;
-                line-height: 1.3;
+                background: transparent;
+                border: none;
             """)
             detail_label.setWordWrap(True)
-            content_layout.addWidget(detail_label)
+            detail_label.setAlignment(AlignLeft | Qt.AlignmentFlag.AlignTop)
+            
+            container_layout.addWidget(detail_label)
+            content_layout.addWidget(detail_container)
             
         layout.addWidget(content_widget)
         

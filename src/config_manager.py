@@ -62,7 +62,7 @@ DEFAULT_CONFIG = {
     "backup_before_sync": True,
     "max_sync_retries": 3,
     "sync_timeout_seconds": 30,
-    "show_sync_notifications": True,
+
 }
 
 DEFAULT_META = {
@@ -72,11 +72,11 @@ DEFAULT_META = {
         "backup_before_sync": True,
         "max_sync_retries": 3,
         "sync_timeout_seconds": 30,
-        "show_sync_notifications": True,
+
         "deck_options_mode": "shared",  # "shared", "individual", "manual"
         "ankiweb_sync_mode": "none",  # "none", "sync"
         "ankiweb_sync_timeout": 30,  # timeout in seconds for AnkiWeb sync
-        "show_ankiweb_sync_notifications": True,  # show AnkiWeb sync notifications
+
         # Automatic backup settings
         "auto_backup_enabled": True,  # enable automatic configuration backup
         "auto_backup_directory": "",  # directory to save automatic backups (empty = use default)
@@ -2078,16 +2078,7 @@ def set_ankiweb_sync_timeout(timeout):
     add_debug_msg(f"[ANKIWEB_SYNC_TIMEOUT] Timeout changed to: {timeout}s")
 
 
-def get_ankiweb_sync_notifications():
-    """
-    Checks if AnkiWeb sync notifications are enabled.
 
-    Returns:
-        bool: True if enabled, False otherwise
-    """
-    meta = get_meta()
-    config = meta.get("config", {})
-    return config.get("show_ankiweb_sync_notifications", True)
 
 
 def set_ankiweb_sync_notifications(enabled):
@@ -2108,14 +2099,13 @@ def set_ankiweb_sync_notifications(enabled):
     )
 
 
-def set_ankiweb_sync_config(mode, timeout, notifications):
+def set_ankiweb_sync_config(mode, timeout):
     """
     Sets all AnkiWeb synchronization configuration at once.
 
     Args:
         mode (str): "none" or "sync"
         timeout (int): Timeout in seconds
-        notifications (bool): Show notifications
     """
     # Validation
     if mode not in ["none", "sync"]:
@@ -2130,11 +2120,11 @@ def set_ankiweb_sync_config(mode, timeout, notifications):
 
     meta["config"]["ankiweb_sync_mode"] = mode
     meta["config"]["ankiweb_sync_timeout"] = timeout
-    meta["config"]["show_ankiweb_sync_notifications"] = notifications
+    # Notification setting removed (always enabled)
 
     save_meta(meta)
     add_debug_msg(
-        f"[ANKIWEB_CONFIG] Updated: mode={mode}, timeout={timeout}, notif={notifications}"
+        f"[ANKIWEB_CONFIG] Updated: mode={mode}, timeout={timeout}"
     )
 
 

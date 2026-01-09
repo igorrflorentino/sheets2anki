@@ -511,6 +511,9 @@ def generate_simplified_view(total_stats, sync_errors=None, deck_results=None):
     """
     details_content = []
 
+    # NEW: Summary of operations
+
+
     # FIRST: Detailed remote deck metrics (aggregated)
     if (
         total_stats.remote_total_table_lines > 0
@@ -533,21 +536,42 @@ def generate_simplified_view(total_stats, sync_errors=None, deck_results=None):
             f"🔄 4. Lines marked for sync: {total_stats.remote_sync_marked_lines}"
         )
         details_content.append(
-            f"📝 5. Potential total notes in Anki: {total_stats.remote_total_potential_anki_notes}"
+            f"⏸️ 5. Skipped lines (SYNC != yes): {total_stats.skipped}"
         )
         details_content.append(
-            f"🎓 6. Potential notes for specific students: {total_stats.remote_potential_student_notes}"
+            f"⏭️ 6. Unchanged notes: {total_stats.unchanged}"
         )
         details_content.append(
-            f"❓ 7. Potential notes for {DEFAULT_STUDENT}: {total_stats.remote_potential_missing_students_notes}"
+            f"➕ 7. Created notes: {total_stats.created}"
         )
         details_content.append(
-            f"👥 8. Total unique students: {total_stats.remote_unique_students_count}"
+            f"✏️ 8. Updated notes: {total_stats.updated}"
+        )
+        details_content.append(
+            f"🗑️ 9. Deleted notes: {total_stats.deleted}"
+        )
+        details_content.append(
+            f"⚠️ 10. Ignored notes: {total_stats.ignored}"
+        )
+        details_content.append(
+            f"❌ 11. Errors: {total_stats.errors}"
+        )
+        details_content.append(
+            f"📝 12. Potential total notes in Anki: {total_stats.remote_total_potential_anki_notes}"
+        )
+        details_content.append(
+            f"🎓 13. Potential notes for specific students: {total_stats.remote_potential_student_notes}"
+        )
+        details_content.append(
+            f"❓ 14. Potential notes for {DEFAULT_STUDENT}: {total_stats.remote_potential_missing_students_notes}"
+        )
+        details_content.append(
+            f"👥 15. Total unique students: {total_stats.remote_unique_students_count}"
         )
 
-        # 9. Show notes per individual student
+        # 16. Show notes per individual student
         if total_stats.remote_notes_per_student:
-            details_content.append("📊 9. Notes per student (aggregated totals):")
+            details_content.append("📊 16. Notes per student (aggregated totals):")
             for student, count in sorted(total_stats.remote_notes_per_student.items()):
                 details_content.append(f"   • {student}: {count} notes")
 
@@ -672,21 +696,42 @@ def generate_aggregated_summary_only(total_stats, sync_errors=None):
             f"🔄 4. Lines marked for sync: {total_stats.remote_sync_marked_lines}"
         )
         details_content.append(
-            f"📝 5. Potential total notes in Anki: {total_stats.remote_total_potential_anki_notes}"
+            f"⏸️ 5. Skipped lines (SYNC != yes): {total_stats.skipped}"
         )
         details_content.append(
-            f"🎓 6. Potential notes for specific students: {total_stats.remote_potential_student_notes}"
+            f"⏭️ 6. Unchanged notes: {total_stats.unchanged}"
         )
         details_content.append(
-            f"❓ 7. Potential notes for {DEFAULT_STUDENT}: {total_stats.remote_potential_missing_students_notes}"
+            f"➕ 7. Created notes: {total_stats.created}"
         )
         details_content.append(
-            f"👥 8. Total unique students: {total_stats.remote_unique_students_count}"
+            f"✏️ 8. Updated notes: {total_stats.updated}"
+        )
+        details_content.append(
+            f"🗑️ 9. Deleted notes: {total_stats.deleted}"
+        )
+        details_content.append(
+            f"⚠️ 10. Ignored notes: {total_stats.ignored}"
+        )
+        details_content.append(
+            f"❌ 11. Errors: {total_stats.errors}"
+        )
+        details_content.append(
+            f"📝 12. Potential total notes in Anki: {total_stats.remote_total_potential_anki_notes}"
+        )
+        details_content.append(
+            f"🎓 13. Potential notes for specific students: {total_stats.remote_potential_student_notes}"
+        )
+        details_content.append(
+            f"❓ 14. Potential notes for {DEFAULT_STUDENT}: {total_stats.remote_potential_missing_students_notes}"
+        )
+        details_content.append(
+            f"👥 15. Total unique students: {total_stats.remote_unique_students_count}"
         )
 
-        # 9. Show notes per individual student
+        # 16. Show notes per individual student
         if total_stats.remote_notes_per_student:
-            details_content.append("📊 9. Notes per student (aggregated totals):")
+            details_content.append("📊 16. Notes per student (aggregated totals):")
             for student, count in sorted(total_stats.remote_notes_per_student.items()):
                 details_content.append(f"   • {student}: {count} notes")
 
@@ -708,26 +753,7 @@ def generate_deck_detailed_metrics(stats, deck_name):
     """
     metrics_content = []
     
-    # Basic modification statistics
-    modifications = []
-    if stats.created > 0:
-        modifications.append(f"{stats.created} created")
-    if stats.updated > 0:
-        modifications.append(f"{stats.updated} updated")
-    if stats.deleted > 0:
-        modifications.append(f"{stats.deleted} deleted")
-    if stats.ignored > 0:
-        modifications.append(f"{stats.ignored} ignored")
-    if stats.unchanged > 0:
-        modifications.append(f"{stats.unchanged} unchanged")
-    if stats.skipped > 0:
-        modifications.append(f"{stats.skipped} skipped")
-    if stats.errors > 0:
-        modifications.append(f"{stats.errors} errors")
-    
-    if modifications:
-        metrics_content.append(f"     📝 Notes: {', '.join(modifications)}")
-    
+
     # All 9 detailed remote deck metrics (same as simplified mode)
     if (
         stats.remote_total_table_lines > 0
@@ -740,14 +766,21 @@ def generate_deck_detailed_metrics(stats, deck_name):
         metrics_content.append(f"        ✅ 2. Lines with valid notes (ID filled): {stats.remote_valid_note_lines}")
         metrics_content.append(f"        ❌ 3. Invalid lines (empty ID): {stats.remote_invalid_note_lines}")
         metrics_content.append(f"        🔄 4. Lines marked for sync: {stats.remote_sync_marked_lines}")
-        metrics_content.append(f"        📝 5. Potential total notes in Anki: {stats.remote_total_potential_anki_notes}")
-        metrics_content.append(f"        🎓 6. Potential notes for specific students: {stats.remote_potential_student_notes}")
-        metrics_content.append(f"        ❓ 7. Potential notes for {DEFAULT_STUDENT}: {stats.remote_potential_missing_students_notes}")
-        metrics_content.append(f"        👥 8. Total unique students: {stats.remote_unique_students_count}")
+        metrics_content.append(f"        ⏸️ 5. Skipped lines (SYNC != yes): {stats.skipped}")
+        metrics_content.append(f"        ⏭️ 6. Unchanged notes: {stats.unchanged}")
+        metrics_content.append(f"        ➕ 7. Created notes: {stats.created}")
+        metrics_content.append(f"        ✏️ 8. Updated notes: {stats.updated}")
+        metrics_content.append(f"        🗑️ 9. Deleted notes: {stats.deleted}")
+        metrics_content.append(f"        ⚠️ 10. Ignored notes: {stats.ignored}")
+        metrics_content.append(f"        ❌ 11. Errors: {stats.errors}")
+        metrics_content.append(f"        📝 12. Potential total notes in Anki: {stats.remote_total_potential_anki_notes}")
+        metrics_content.append(f"        🎓 13. Potential notes for specific students: {stats.remote_potential_student_notes}")
+        metrics_content.append(f"        ❓ 14. Potential notes for {DEFAULT_STUDENT}: {stats.remote_potential_missing_students_notes}")
+        metrics_content.append(f"        👥 15. Total unique students: {stats.remote_unique_students_count}")
         
-        # 9. Show notes per individual student for this deck
+        # 16. Show notes per individual student for this deck
         if stats.remote_notes_per_student:
-            metrics_content.append(f"        📊 9. Notes per student in this deck:")
+            metrics_content.append(f"        📊 16. Notes per student in this deck:")
             for student, count in sorted(stats.remote_notes_per_student.items()):
                 metrics_content.append(f"           • {student}: {count} notes")
     
@@ -1158,6 +1191,9 @@ def _show_sync_summary_with_scroll(
     ))
     stats_layout.addWidget(create_stat_card(
         total_stats.deleted, "Deleted", "🗑️", colors['accent_purple'], "cardDeleted"
+    ))
+    stats_layout.addWidget(create_stat_card(
+        total_stats.skipped, "Skipped", "⏸️", "#888888" if is_dark_mode else "#666666", "cardSkipped"
     ))
     stats_layout.addWidget(create_stat_card(
         total_stats.errors + len(sync_errors or []), "Errors", "⚠️", colors['accent_error'], "cardErrors"

@@ -37,12 +37,12 @@ class AnkiWebSyncConfigDialog(QDialog):
 
         # Get current settings
         from .config_manager import get_ankiweb_sync_mode
-        from .config_manager import get_ankiweb_sync_notifications
+
         from .config_manager import get_ankiweb_sync_timeout
 
         self.current_mode = get_ankiweb_sync_mode()
         self.current_timeout = get_ankiweb_sync_timeout()
-        self.current_notifications = get_ankiweb_sync_notifications()
+
 
         # Detect dark mode
         palette = self.palette()
@@ -221,17 +221,7 @@ class AnkiWebSyncConfigDialog(QDialog):
         timeout_layout.addStretch()
         advanced_layout.addWidget(timeout_frame)
 
-        # Notifications checkbox
-        self.notifications_check = QCheckBox("🔔 Show synchronization notifications")
-        self.notifications_check.setChecked(self.current_notifications)
-        self.notifications_check.setStyleSheet(f"""
-            QCheckBox {{
-                padding: 10px;
-                background-color: {self.colors['bg']};
-                border-radius: 6px;
-            }}
-        """)
-        advanced_layout.addWidget(self.notifications_check)
+
 
         advanced_group.setLayout(advanced_layout)
         layout.addWidget(advanced_group)
@@ -417,7 +407,6 @@ class AnkiWebSyncConfigDialog(QDialog):
             set_ankiweb_sync_config(
                 selected_mode,
                 self.timeout_spin.value(),
-                self.notifications_check.isChecked(),
             )
 
             self.accept()
