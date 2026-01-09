@@ -65,7 +65,6 @@ DEFAULT_CONFIG = {
         "sync_timeout_seconds": 60,
         "deck_options_mode": "individual",  # "shared", "individual", "manual"
         "ankiweb_sync_mode": "sync",  # "none", "sync"
-        "ankiweb_sync_timeout": 60,  # timeout in seconds for AnkiWeb sync
         # Automatic backup settings
         "auto_backup_enabled": False,  # enable automatic configuration backup
         "auto_backup_directory": None,  # directory to save automatic backups (empty = use default)
@@ -2047,37 +2046,7 @@ def set_ankiweb_sync_mode(mode):
     add_debug_msg(f"[ANKIWEB_SYNC_MODE] Mode changed to: {mode}")
 
 
-def get_ankiweb_sync_timeout():
-    """
-    Gets the configured AnkiWeb synchronization timeout.
 
-    Returns:
-        int: Timeout in seconds (default: 30)
-    """
-    meta = get_meta()
-    config = meta.get("config", {})
-    return config.get("ankiweb_sync_timeout", 30)
-
-
-def set_ankiweb_sync_timeout(timeout):
-    """
-    Sets the AnkiWeb synchronization timeout.
-
-    Args:
-        timeout (int): Timeout in seconds (minimum 10, maximum 300)
-    """
-    if not isinstance(timeout, int) or timeout < 10 or timeout > 300:
-        raise ValueError(
-            f"Invalid timeout: {timeout}. Use values between 10 and 300 seconds"
-        )
-
-    meta = get_meta()
-    if "config" not in meta:
-        meta["config"] = {}
-
-    meta["config"]["ankiweb_sync_timeout"] = timeout
-    save_meta(meta)
-    add_debug_msg(f"[ANKIWEB_SYNC_TIMEOUT] Timeout changed to: {timeout}s")
 
 
 
@@ -2101,32 +2070,28 @@ def set_ankiweb_sync_notifications(enabled):
     )
 
 
-def set_ankiweb_sync_config(mode, timeout):
+def set_ankiweb_sync_config(mode):
     """
     Sets all AnkiWeb synchronization configuration at once.
 
     Args:
         mode (str): "none" or "sync"
-        timeout (int): Timeout in seconds
     """
     # Validation
     if mode not in ["none", "sync"]:
         raise ValueError(f"Invalid mode: {mode}")
-
-    if not isinstance(timeout, int) or timeout < 10 or timeout > 300:
-        raise ValueError(f"Invalid timeout: {timeout}")
 
     meta = get_meta()
     if "config" not in meta:
         meta["config"] = {}
 
     meta["config"]["ankiweb_sync_mode"] = mode
-    meta["config"]["ankiweb_sync_timeout"] = timeout
+    # Timeout setting removed
     # Notification setting removed (always enabled)
 
     save_meta(meta)
     add_debug_msg(
-        f"[ANKIWEB_CONFIG] Updated: mode={mode}, timeout={timeout}"
+        f"[ANKIWEB_CONFIG] Updated: mode={mode}"
     )
 
 

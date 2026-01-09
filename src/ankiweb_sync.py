@@ -17,7 +17,7 @@ from .compat import mw
 from .styled_messages import StyledMessageBox
 from .config_manager import get_ankiweb_sync_mode
 
-from .config_manager import get_ankiweb_sync_timeout
+
 
 # =============================================================================
 # DEBUG UTILITIES
@@ -228,7 +228,7 @@ def get_sync_status():
     status = {
         "ankiweb_configured": can_sync_ankiweb(),
         "sync_mode": get_ankiweb_sync_mode(),
-        "timeout": get_ankiweb_sync_timeout(),
+
         "notifications_enabled": True,
         "can_sync": can_sync_ankiweb(),
         "debug_info": {},

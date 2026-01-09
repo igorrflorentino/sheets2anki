@@ -6,7 +6,6 @@
         "sync_timeout_seconds": 60,
         "deck_options_mode": "individual",
         "ankiweb_sync_mode": "sync",
-        "ankiweb_sync_timeout": 60,
         "auto_backup_enabled": false,
         "auto_backup_directory": null,
         "auto_backup_max_files": 50,

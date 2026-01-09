@@ -314,6 +314,7 @@ class DisconnectDialog(QDialog):
         self.delete_local_data_checkbox = QCheckBox(
             "🗑️ Delete local data (decks, cards, notes and note types)"
         )
+        self.delete_local_data_checkbox.setChecked(True)
         self.delete_local_data_checkbox.setToolTip(
             "ATTENTION: This action is irreversible!\n\n"
             "If checked, all local data for selected decks will be deleted:\n"

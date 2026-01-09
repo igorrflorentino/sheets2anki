@@ -38,11 +38,7 @@ class AnkiWebSyncConfigDialog(QDialog):
         # Get current settings
         from .config_manager import get_ankiweb_sync_mode
 
-        from .config_manager import get_ankiweb_sync_timeout
-
         self.current_mode = get_ankiweb_sync_mode()
-        self.current_timeout = get_ankiweb_sync_timeout()
-
 
         # Detect dark mode
         palette = self.palette()
@@ -190,41 +186,7 @@ class AnkiWebSyncConfigDialog(QDialog):
         )
         layout.addWidget(sync_card)
 
-        # Advanced settings
-        advanced_group = QGroupBox("Advanced Settings")
-        advanced_layout = QVBoxLayout()
-        advanced_layout.setSpacing(12)
 
-        # Timeout setting
-        timeout_frame = QFrame()
-        timeout_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.colors['bg']};
-                border-radius: 6px;
-                padding: 5px;
-            }}
-        """)
-        timeout_layout = QHBoxLayout(timeout_frame)
-        timeout_layout.setContentsMargins(10, 8, 10, 8)
-
-        timeout_label = QLabel("⏱️ Timeout:")
-        timeout_label.setStyleSheet(f"font-size: 12pt; color: {self.colors['text']};")
-        timeout_layout.addWidget(timeout_label)
-
-        self.timeout_spin = QSpinBox()
-        self.timeout_spin.setRange(10, 300)
-        self.timeout_spin.setValue(self.current_timeout)
-        self.timeout_spin.setSuffix(" seconds")
-        self.timeout_spin.setMinimumWidth(120)
-        timeout_layout.addWidget(self.timeout_spin)
-
-        timeout_layout.addStretch()
-        advanced_layout.addWidget(timeout_frame)
-
-
-
-        advanced_group.setLayout(advanced_layout)
-        layout.addWidget(advanced_group)
 
         layout.addStretch()
 
@@ -404,10 +366,7 @@ class AnkiWebSyncConfigDialog(QDialog):
             mode_map = {0: "none", 1: "sync"}
             selected_mode = mode_map[self.mode_group.checkedId()]
 
-            set_ankiweb_sync_config(
-                selected_mode,
-                self.timeout_spin.value(),
-            )
+            set_ankiweb_sync_config(selected_mode)
 
             self.accept()
 
