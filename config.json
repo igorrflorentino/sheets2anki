@@ -1,8 +1,23 @@
 {
-    "debug": false,
-    "auto_sync_on_startup": false,
-    "max_sync_retries": 3,
-    "sync_timeout_seconds": 30,
-    "auto_remove_disabled_students": true,
-    "remote-decks": {}
+    "config": {
+        "debug": false,
+        "auto_sync_on_startup": false,
+        "max_sync_retries": 3,
+        "sync_timeout_seconds": 60,
+        "deck_options_mode": "individual",
+        "ankiweb_sync_mode": "sync",
+        "ankiweb_sync_timeout": 60,
+        "auto_backup_enabled": false,
+        "auto_backup_directory": null,
+        "auto_backup_max_files": 50,
+        "auto_backup_type": "simple"
+    },
+    "students": {
+        "available_students": [],
+        "enabled_students": [],
+        "auto_remove_disabled_students": true,
+        "sync_missing_students_notes": true,
+        "sync_history": {}
+    },
+    "decks": {}
 }

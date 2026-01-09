@@ -49,6 +49,7 @@ from aqt.qt import (
     Qt,
     QTabWidget,
     QTextBrowser,
+    QTextCursor,
     QTextEdit,
     QTimer,
     QVBoxLayout,

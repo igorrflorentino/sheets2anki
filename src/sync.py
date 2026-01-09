@@ -16,12 +16,14 @@ from typing import List
 from typing import Optional
 
 from .compat import AlignLeft
+from .compat import AlignRight
 from .compat import AlignTop
 from .compat import QDialog
 from .compat import QGroupBox
 from .compat import QLabel
-from .compat import QMessageBox
+
 from .compat import QProgressDialog
+from .compat import QProgressBar
 from .compat import QPushButton
 from .compat import QTextEdit
 from .compat import QVBoxLayout
@@ -29,18 +31,20 @@ from .compat import Qt
 from .compat import mw
 from .compat import safe_exec_dialog
 from .styled_messages import StyledMessageBox
+from .config_manager import get_meta
 from .config_manager import get_deck_local_name
 from .config_manager import get_remote_decks
 from .config_manager import save_remote_decks
 from .config_manager import sync_note_type_names_robustly
 from .config_manager import update_note_type_names_in_meta
+from .backup_system import SimplifiedBackupManager
 from .data_processor import create_or_update_notes
 from .data_processor import getRemoteDeck
 from .student_manager import get_selected_students_for_deck
 from .templates_and_definitions import update_existing_note_type_templates
 from .templates_and_definitions import DEFAULT_STUDENT
 from .utils import SyncError
-from .compat import MessageBox_Yes, MessageBox_No, MessageBox_Cancel
+from .compat import MessageBox_Yes, MessageBox_Cancel
 
 
 class SyncAborted(Exception):
@@ -241,150 +245,45 @@ class SyncStatsManager:
 # ========================================================================================
 
 
-def _finalize_sync_new(
-    progress,
-    total_decks,
-    successful_decks,
-    total_stats,
-    sync_errors,
-    cleanup_result=None,
-    missing_cleanup_result=None,
-    deck_results=None,
-    new_deck_mode=False,
-):
+def _finalize_sync_cleanup(progress):
     """
-    Finalizes the synchronization process using the new statistics system.
-
+    Performs final cleanup operations for synchronization.
+    
     Args:
-        progress: QProgressDialog instance
-        total_decks: Total decks for sync
-        successful_decks: Number of successfully synced decks
-        total_stats: Total sync statistics
-        sync_errors: List of sync errors
-        cleanup_result: Cleanup result (optional)
-        missing_cleanup_result: Result of removing missing decks (optional)
-        deck_results: List of DeckSyncResult for per-deck visualization (optional)
-
+        progress: QProgressDialog instance to update status
+        
     Returns:
-        Consolidated synchronization result
+        int: Number of removed subdecks
     """
-
-    add_debug_message("🎯 _finalize_sync_new STARTED", "SYNC")
-
-    progress.setLabelText("Cleaning up empty subdecks...")
+    if hasattr(progress, 'appendMessage'):
+        progress.appendMessage("Cleaning up empty subdecks...")
+    else:
+        progress.setLabelText("Cleaning up empty subdecks...")
+        
+    mw.app.processEvents()
+    
     from .config_manager import get_remote_decks
-
+    from .utils import apply_automatic_deck_options_system
+    
     # Remove empty subdecks
     remote_decks = get_remote_decks()
     removed_subdecks = remove_empty_subdecks(remote_decks)
-
-    add_debug_message(
-        "🔧 About to call apply_automatic_deck_options_system()", "SYNC"
-    )
+    
     # Apply automatic deck options system
-    from .utils import apply_automatic_deck_options_system
-
     options_result = apply_automatic_deck_options_system()
     add_debug_message(
         f"✅ apply_automatic_deck_options_system() returned: {options_result}", "SYNC"
     )
 
-    # Prepare final message to display in progress bar
-    cleanup_info = ""
-    if cleanup_result:
-        cleanup_info = f", {cleanup_result['disabled_students_count']} students removed"
-
-    if missing_cleanup_result:
-        if cleanup_info:
-            cleanup_info += f", {DEFAULT_STUDENT} data removed"
-        else:
-            cleanup_info = f", {DEFAULT_STUDENT} data removed"
-
-    # Generate final message based on statistics
-    if sync_errors or total_stats.errors > 0:
-        final_msg = f"Completed with problems: {successful_decks}/{total_decks} decks synchronized"
-        if total_stats.created > 0:
-            final_msg += f", {total_stats.created} notes created"
-        if total_stats.updated > 0:
-            final_msg += f", {total_stats.updated} updated"
-        if total_stats.deleted > 0:
-            final_msg += f", {total_stats.deleted} deleted"
-        if total_stats.ignored > 0:
-            final_msg += f", {total_stats.ignored} ignored"
-        if removed_subdecks > 0:
-            final_msg += f", {removed_subdecks} empty subdecks removed"
-        if cleanup_info:
-            final_msg += cleanup_info
-        final_msg += f", {total_stats.errors + len(sync_errors)} errors"
-    else:
-        final_msg = "Synchronization completed successfully!"
-        if total_stats.created > 0:
-            final_msg += f" {total_stats.created} notes created"
-        if total_stats.updated > 0:
-            final_msg += f", {total_stats.updated} updated"
-        if total_stats.deleted > 0:
-            final_msg += f", {total_stats.deleted} deleted"
-        if total_stats.ignored > 0:
-            final_msg += f", {total_stats.ignored} ignored"
-        if removed_subdecks > 0:
-            final_msg += f", {removed_subdecks} empty subdecks removed"
-        if cleanup_info:
-            final_msg += cleanup_info
-
-    # Add final debug message
-    add_debug_message("🎬 Synchronization finished", "SYSTEM")
+    add_debug_message("🎬 Synchronization cleanup finished", "SYSTEM")
 
     # Update Anki interface to show changes
     ensure_interface_refresh()
-
-    # Update final progress
-    progress.setValue(total_decks)
-    progress.setLabelText(final_msg)
-
-    # Wait a moment to show the final message
-    time.sleep(1)
-
-    # Show detailed summary FIRST (without AnkiWeb result yet)
-    def execute_ankiweb_sync_after_close():
-        """Callback to execute AnkiWeb synchronization after the user closes the summary window"""
-        # AFTER user closes window, run AnkiWeb sync if configured
-        add_debug_message(
-            "🔄 Checking AnkiWeb synchronization configuration...", "SYNC"
-        )
-        try:
-            from .ankiweb_sync import execute_ankiweb_sync_if_configured
-
-            ankiweb_result = execute_ankiweb_sync_if_configured()
-
-            if ankiweb_result:
-                if ankiweb_result["success"]:
-                    add_debug_message(
-                        f"✅ AnkiWeb sync: {ankiweb_result['message']}", "SYNC"
-                    )
-                else:
-                    add_debug_message(
-                        f"❌ AnkiWeb sync failed: {ankiweb_result['error']}", "SYNC"
-                    )
-            else:
-                add_debug_message("⏹️ AnkiWeb sync disabled", "SYNC")
-        except Exception as ankiweb_error:
-            add_debug_message(
-                f"❌ AnkiWeb synchronization error: {ankiweb_error}", "SYNC"
-            )
-
-    _show_sync_summary_new(
-        sync_errors,
-        total_stats,
-        successful_decks,
-        total_decks,
-        removed_subdecks,
-        cleanup_result,
-        missing_cleanup_result,
-        ankiweb_result=None,
-        on_close_callback=execute_ankiweb_sync_after_close,
-        deck_results=deck_results,
-        new_deck_mode=new_deck_mode,
-    )
+    
+    # Wait a moment to show the cleanup message
+    time.sleep(0.5)
+    
+    return removed_subdecks
 
 
 def _show_sync_summary_new(
@@ -1549,33 +1448,13 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         return
 
     col = mw.col
+    
     remote_decks = get_remote_decks()
 
     # Clear previous debug messages
     clear_debug_messages()
 
-    # **NEW**: Update existing note type templates before synchronization
-    try:
-        add_debug_message("🔄 Updating existing note type templates...", "SYNC")
-        updated_count = update_existing_note_type_templates(col, [])
-        add_debug_message(f"✅ {updated_count} note types successfully updated", "SYNC")
-    except Exception as e:
-        add_debug_message(f"⚠️ Error updating templates: {e}", "SYNC")
-        # Continue synchronization even if template update failed
-
-    # **NEW**: Manage cleanups in a consolidated way to avoid multiple confirmations
-    try:
-        missing_cleanup_result, cleanup_result = _handle_consolidated_cleanup(remote_decks)
-    except SyncAborted:
-        add_debug_message("🛑 SYNC: User aborted synchronization.", "SYNC")
-        return
-
-    # Initialize statistics system
-    stats_manager = SyncStatsManager()
-    sync_errors = []
-    status_msgs = []
-
-    # Determine which decks to synchronize
+    # Determine which decks to synchronize (needed to setup progress dialog)
     deck_keys = _get_deck_keys_to_sync(
         remote_decks, selected_deck_names, selected_deck_urls
     )
@@ -1586,8 +1465,59 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         _show_no_decks_message(selected_deck_names)
         return
 
-    # Setup and show progress bar
-    progress = _setup_progress_dialog(total_decks)
+    # Check if backup is enabled (affects progress steps)
+    meta_config = get_meta().get("config", {})
+    backup_enabled = meta_config.get("auto_backup_enabled", False)
+
+    # Setup and show progress bar (includes backup step if enabled)
+    progress = _setup_progress_dialog(total_decks, include_backup=backup_enabled)
+    status_msgs = []
+    
+    # Step 0: Safety backup before sync (if enabled)
+    if backup_enabled:
+        status_msgs.append("💾 Creating safety backup...")
+        _update_progress_text(progress, status_msgs)
+        progress.setValue(0)
+        mw.app.processEvents()
+        
+        add_debug_message("💾 Creating safety backup before synchronization...", "SYNC")
+        try:
+            backup_manager = SimplifiedBackupManager()
+            backup_path = backup_manager.create_safety_backup()
+            if backup_path:
+                add_debug_message(f"✅ Safety backup created: {backup_path}", "SYNC")
+                status_msgs[-1] = "✅ Safety backup created"
+            else:
+                add_debug_message("⚠️ Failed to create safety backup", "SYNC")
+                status_msgs[-1] = "⚠️ Backup skipped"
+        except Exception as e:
+            add_debug_message(f"⚠️ Error creating safety backup: {e}", "SYNC")
+            status_msgs[-1] = "⚠️ Backup error (continuing...)"
+        
+        _update_progress_text(progress, status_msgs)
+        progress.setValue(1)
+        mw.app.processEvents()
+
+    # Update existing note type templates before synchronization
+    try:
+        add_debug_message("🔄 Updating existing note type templates...", "SYNC")
+        updated_count = update_existing_note_type_templates(col, [])
+        add_debug_message(f"✅ {updated_count} note types successfully updated", "SYNC")
+    except Exception as e:
+        add_debug_message(f"⚠️ Error updating templates: {e}", "SYNC")
+        # Continue synchronization even if template update failed
+
+    # Manage cleanups in a consolidated way to avoid multiple confirmations
+    try:
+        missing_cleanup_result, cleanup_result = _handle_consolidated_cleanup(remote_decks)
+    except SyncAborted:
+        add_debug_message("🛑 SYNC: User aborted synchronization.", "SYNC")
+        progress.close()
+        return
+
+    # Initialize statistics system
+    stats_manager = SyncStatsManager()
+    sync_errors = []
 
     # Add initial debug message
     add_debug_message(
@@ -1595,7 +1525,8 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
     )
     _update_progress_text(progress, status_msgs)
 
-    step = 0
+    # Start step counter (1 if backup was done, 0 otherwise)
+    step = 1 if backup_enabled else 0
     try:
         # Synchronize each deck
         for deckKey in deck_keys:
@@ -1669,58 +1600,78 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
                 stats_manager.add_deck_result(failed_result)
                 continue
 
-        # We don't need to save remote_decks here because add_note_type_id_to_deck already saves individually
-        # and this call would overwrite the note_type_ids that were added
 
-        # But we need to save local_deck_name updates that were made during synchronization
-        from .config_manager import get_meta
-        from .config_manager import save_meta
-
-        try:
-            current_meta = get_meta()
-            save_meta(current_meta)
-        except Exception as e:
-            add_debug_message(f"⚠️ [WARNING] Error saving configurations after synchronization: {e}", "SYNC")
 
         # Get statistics summary
         summary = stats_manager.get_summary()
         successful_decks = len(stats_manager.get_successful_decks())
         deck_results = stats_manager.deck_results  # Get results per deck
 
-        # Create automatic configuration backup after successful synchronization
-        if successful_decks > 0:  # Only backup if at least one deck was successfully synced
-            try:
-                from .backup_system import SimplifiedBackupManager
-                backup_manager = SimplifiedBackupManager()
-                backup_success = backup_manager.create_auto_backup()
-                if backup_success:
-                    add_debug_message("💾 Automatic configuration backup successfully created", "SYNC")
-                else:
-                    add_debug_message("⚠️ Automatic configuration backup disabled or failed", "SYNC")
-            except Exception as e:
-                add_debug_message(f"❌ Error creating automatic backup: {e}", "SYNC")
-
         add_debug_message(
-            f"🎯 Calling _finalize_sync_new - successful_decks: {successful_decks}, total_decks: {total_decks}",
+            f"🎯 Calling _finalize_sync_cleanup - successful_decks: {successful_decks}, total_decks: {total_decks}",
             "SYNC",
         )
-        # Finalize progress and show results
-        _finalize_sync_new(
-            progress,
-            total_decks,
-            successful_decks,
-            summary["total_stats"],
-            sync_errors,
-            cleanup_result,
-            missing_cleanup_result,
-            deck_results,
-            new_deck_mode=new_deck_mode,
-        )
+        
+        # Finalize cleanup
+        removed_subdecks = _finalize_sync_cleanup(progress)
+
+        # Define callback for AnkiWeb sync (to be called after summary window closes)
+        def execute_ankiweb_sync_after_close():
+            """Callback to execute AnkiWeb synchronization after the user closes the summary window"""
+            add_debug_message(
+                "🔄 Checking AnkiWeb synchronization configuration...", "SYNC"
+            )
+            try:
+                from .ankiweb_sync import execute_ankiweb_sync_if_configured
+
+                ankiweb_result = execute_ankiweb_sync_if_configured()
+
+                if ankiweb_result:
+                    if ankiweb_result["success"]:
+                        add_debug_message(
+                            f"✅ AnkiWeb sync: {ankiweb_result['message']}", "SYNC"
+                        )
+                    else:
+                        add_debug_message(
+                            f"❌ AnkiWeb sync failed: {ankiweb_result['error']}", "SYNC"
+                        )
+                else:
+                    add_debug_message("⏹️ AnkiWeb sync disabled", "SYNC")
+            except Exception as ankiweb_error:
+                add_debug_message(
+                    f"❌ AnkiWeb synchronization error: {ankiweb_error}", "SYNC"
+                )
+
+        # Define callback to open summary window (to be called after progress bar closes)
+        def open_summary_window():
+            _show_sync_summary_new(
+                sync_errors,
+                summary["total_stats"],
+                successful_decks,
+                total_decks,
+                removed_subdecks,
+                cleanup_result,
+                missing_cleanup_result,
+                ankiweb_result=None,
+                on_close_callback=execute_ankiweb_sync_after_close,
+                deck_results=deck_results,
+                new_deck_mode=new_deck_mode,
+            )
+
+        # Set the action to perform when progress dialog is closed
+        on_close_action = open_summary_window
 
     finally:
-        # Ensure progress dialog is closed
+        # Show completion status with Close button (dialog stays open)
         if progress.isVisible():
-            progress.close()
+            _show_sync_completion(
+                progress, 
+                status_msgs, 
+                total_decks, 
+                successful_decks if 'successful_decks' in dir() else 0, 
+                sync_errors if 'sync_errors' in dir() else None,
+                on_close_callback=on_close_action if 'on_close_action' in locals() else None
+            )
 
 
 def _get_deck_keys_to_sync(remote_decks, selected_deck_names, selected_deck_urls=None):
@@ -1796,116 +1747,249 @@ def _show_no_decks_message(selected_deck_names):
         StyledMessageBox.information(None, "No Remote Decks", "No remote decks configured for synchronization.")
 
 
-def _setup_progress_dialog(total_decks):
+class LogProgressDialog(QDialog):
     """
-    Configures and returns the progress dialog with enlarged size.
+    Custom progress dialog with a scrollable log area.
+    Mimics QProgressDialog interface used in this module.
+    """
+    def __init__(self, title, message, min_val, max_val, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("📚 Deck Synchronization")
+        
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+        
+        # Title/Status label
+        self.label = QLabel(title)
+        self.label.setWordWrap(True)
+        self.label.setStyleSheet("font-weight: bold; font-size: 14pt; color: white;")
+        layout.addWidget(self.label)
+        
+        # Progress bar
+        self.bar = QProgressBar()
+        self.bar.setRange(min_val, max_val)
+        self.bar.setValue(0)
+        self.bar.setTextVisible(True)
+        layout.addWidget(self.bar)
+        
+        # Scrollable log area
+        self.log_area = QTextEdit()
+        self.log_area.setReadOnly(True)
+        layout.addWidget(self.log_area)
+        
+        # Cancel/Close button
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        layout.addWidget(self.cancel_btn, 0, AlignRight)
+        
+        # Initial sizing
+        self.resize(600, 450)
+        
+        # Apply style
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #2d2d2d;
+                color: #ffffff;
+                font-size: 12pt;
+            }
+            QLabel {
+                color: #ffffff;
+                border: none;
+            }
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+                border: 1px solid #3d3d3d;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 11pt;
+            }
+            QProgressBar {
+                border: none;
+                border-radius: 4px;
+                background-color: #404040;
+                height: 24px;
+                text-align: center;
+                color: white;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #4CAF50, stop:1 #8BC34A);
+                border-radius: 4px;
+            }
+            QPushButton {
+                background-color: #505050;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #606060;
+            }
+        """)
 
-    This function configures a progress bar with:
-    - Width expanded to 600px to accommodate debug messages
-    - Height expanded to 450px to show more content
-    - Word wrap for long texts
-    - Proper text alignment
+    def setValue(self, val):
+        self.bar.setValue(val)
+        
+    def maximum(self):
+        return self.bar.maximum()
+        
+    def setLabelText(self, text):
+        # Update log area
+        self.log_area.setPlainText(text)
+        # Scroll to bottom
+        cursor = self.log_area.textCursor()
+        from .compat import QTextCursor
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.log_area.setTextCursor(cursor)
+        
+    def setCancelButton(self, btn):
+        if btn is None:
+            self.cancel_btn.hide()
+        else:
+            self.layout().replaceWidget(self.cancel_btn, btn)
+            self.cancel_btn.deleteLater()
+            self.cancel_btn = btn
+            self.cancel_btn.show()
 
+    def setCancelButtonText(self, text):
+        self.cancel_btn.setText(text)
+        
+    def setTitle(self, text):
+        """Updates the title label."""
+        self.label.setText(text)
+        
+    def appendMessage(self, text):
+        """Appends a message to the log area without clearing history."""
+        self.log_area.append(text)
+        # Scroll to bottom
+        cursor = self.log_area.textCursor()
+        from .compat import QTextCursor
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.log_area.setTextCursor(cursor)
+        
+    def setAutoClose(self, b): pass
+    def setAutoReset(self, b): pass
+    def setMinimumDuration(self, ms): pass
+
+
+def _setup_progress_dialog(total_decks, include_backup=False):
+    """
+    Configures and returns a modern, user-friendly progress dialog with scrollable log.
+    
     Args:
         total_decks: Total number of decks to calculate bar maximum
+        include_backup: If True, adds 1 step for the backup phase
 
     Returns:
-        QProgressDialog: Configured progress dialog
+        LogProgressDialog: Configured progress dialog
     """
-    progress = QProgressDialog("Synchronizing decks...", "", 0, total_decks * 3, mw)
-    progress.setWindowTitle("Deck Synchronization")
-    progress.setMinimumDuration(0)
-    progress.setValue(0)
-    progress.setCancelButton(None)
-    progress.setAutoClose(False)  # Don't close automatically
-    progress.setAutoReset(False)  # Don't reset automatically
-
-    # Setup normal size (clean interface without debug messages)
-    progress.setFixedWidth(500)  # Normal width of 500 pixels
-    progress.setFixedHeight(200)  # Reduced height for 200 pixels
-
-    # Configure label to word wrap automatically
-    label = progress.findChild(QLabel)
-    if label:
-        label.setWordWrap(True)  # Allow word wrap
-        label.setAlignment(AlignTop | AlignLeft)  # Align top left
-        label.setMinimumSize(480, 180)  # Size adjusted for clean interface
-
+    # Calculate total steps: backup (if enabled) + deck steps
+    backup_steps = 1 if include_backup else 0
+    total_steps = backup_steps + (total_decks * 3)
+    
+    initial_message = "🔄 Synchronizing..."
+    
+    progress = LogProgressDialog(initial_message, "", 0, total_steps, mw)
     progress.show()
-    mw.app.processEvents()  # Force bar display
+    mw.app.processEvents()
     return progress
 
 
+def _show_sync_completion(progress, status_msgs, total_decks, successful_decks, errors=None, on_close_callback=None):
+    """
+    Shows sync completion status and adds a Close button.
+    
+    Args:
+        progress: The progress dialog
+        status_msgs: List of status messages
+        total_decks: Total decks attempted
+        successful_decks: Number of successful syncs
+        errors: List of errors (if any)
+        on_close_callback: Optional function to call when dialog is closed
+    """
+    # Set progress to maximum
+    progress.setValue(progress.maximum())
+    
+    # Build completion status
+    if successful_decks == total_decks:
+        completion_icon = "✅"
+        completion_status = "Synchronization Complete!"
+    elif successful_decks > 0:
+        completion_icon = "⚠️"
+        completion_status = "Synchronization Completed with Issues"
+    else:
+        completion_icon = "❌"
+        completion_status = "Synchronization Failed"
+
+    # Update title to show completion status
+    if hasattr(progress, 'setTitle'):
+        progress.setTitle(f"{completion_icon} {completion_status}")
+    
+    # Append simple finish message to log instead of replacing it
+    if hasattr(progress, 'appendMessage'):
+        progress.appendMessage("-" * 40)
+        progress.appendMessage(f"Status: {completion_status}")
+        progress.appendMessage(f"Results: {successful_decks}/{total_decks} decks synchronized.")
+        progress.appendMessage("-" * 40)
+    else:
+        # Fallback if somehow using standard dialog
+        completion_msg = f"{completion_icon} {completion_status}\n\n"
+        completion_msg += f"📊 Results: {successful_decks}/{total_decks} decks synchronized successfully"
+        if errors:
+            completion_msg += f"\n⚠️ {len(errors)} error(s) occurred"
+        progress.setLabelText(completion_msg)
+    
+    # Add Close button
+    from .compat import QPushButton
+    close_btn = QPushButton("Close")
+    
+    def on_close_click():
+        progress.close()
+        if on_close_callback:
+            on_close_callback()
+            
+    close_btn.clicked.connect(on_close_click)
+    
+    progress.setCancelButton(close_btn)
+    progress.setCancelButtonText("Close")
+    
+    mw.app.processEvents()
+
+
 def _update_progress_text(
-    progress, status_msgs, max_lines=3, debug_messages=None, show_debug=False
+    progress, status_msgs, max_lines=None, debug_messages=None, show_debug=False
 ):
     """
-    Updates progress bar text with proper formatting.
-
+    Updates progress bar log with all messages.
+    
     Args:
-        progress: QProgressDialog instance
+        progress: LogProgressDialog instance
         status_msgs: List of status messages
-        max_lines: Maximum number of lines to show for status
-        debug_messages: List of debug messages (only stored, not displayed by default)
-        show_debug: If True, shows debug messages in interface (default: False)
+        max_lines: Ignored (kept for compatibility)
+        debug_messages: List of debug messages
+        show_debug: If True, shows debug messages in interface
     """
     all_text_lines = []
 
-    # Add recent status messages
-    recent_msgs = (
-        status_msgs[-max_lines:] if len(status_msgs) > max_lines else status_msgs
-    )
-    if recent_msgs:
-        all_text_lines.extend(recent_msgs)
+    # Add all status messages
+    if status_msgs:
+        all_text_lines.extend(status_msgs)
 
     # Add debug messages if provided AND requested
     if debug_messages and show_debug:
-        all_text_lines.append("")  # Blank line to separate
+        all_text_lines.append("")
         all_text_lines.append("=== DEBUG MESSAGES ===")
-
-        # Show the last debug messages (max 15 for expanded window)
-        recent_debug = (
-            debug_messages[-15:] if len(debug_messages) > 15 else debug_messages
-        )
-        all_text_lines.extend(recent_debug)
-
-        if len(debug_messages) > 15:
-            all_text_lines.append(
-                f"... and more {len(debug_messages) - 15} debug messages"
-            )
+        all_text_lines.extend(debug_messages)
 
     # Join all lines
     text = "\n".join(all_text_lines)
 
-    # Limit each line length to avoid too long text
-    lines = text.split("\n")
-    formatted_lines = []
-
-    for line in lines:
-        # If line is too long, wrap at words
-        if len(line) > 80:  # Increase to 80 characters for debug messages
-            words = line.split(" ")
-            current_line = ""
-
-            for word in words:
-                if len(current_line) + len(word) + 1 <= 80:
-                    if current_line:
-                        current_line += " " + word
-                    else:
-                        current_line = word
-                else:
-                    if current_line:
-                        formatted_lines.append(current_line)
-                    current_line = word
-
-            if current_line:
-                formatted_lines.append(current_line)
-        else:
-            formatted_lines.append(line)
-
-    # Update progress bar text
-    final_text = "\n".join(formatted_lines)
-    progress.setLabelText(final_text)
+    # Update log area (no manual wrapping needed as QTextEdit handles it)
+    progress.setLabelText(text)
 
     # Force interface update
     mw.app.processEvents()

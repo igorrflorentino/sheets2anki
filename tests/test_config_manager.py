@@ -319,35 +319,35 @@ class TestAnkiWebConfig:
 class TestBackupConfig:
     """Tests for backup configuration."""
 
-    def test_set_backup_before_sync(self):
-        """Backup before sync configuration test."""
+    def test_set_auto_backup_enabled(self):
+        """Auto backup enabled configuration test."""
 
-        def set_backup_before_sync(config, enabled):
-            config["backup_before_sync"] = enabled
+        def set_auto_backup_enabled(config, enabled):
+            config["auto_backup_enabled"] = enabled
             return config
 
         config = {}
-        updated_config = set_backup_before_sync(config, True)
+        updated_config = set_auto_backup_enabled(config, True)
 
-        assert updated_config["backup_before_sync"] == True
+        assert updated_config["auto_backup_enabled"] == True
 
     def test_get_backup_settings(self):
         """Backup settings retrieval test."""
 
         def get_backup_settings(config):
             return {
-                "backup_before_sync": config.get("backup_before_sync", False),
-                "auto_backup": config.get("auto_backup", False),
-                "backup_directory": config.get("backup_directory", "backups/"),
+                "auto_backup_enabled": config.get("auto_backup_enabled", False),
+                "backup_directory": config.get("auto_backup_directory", "backups/"),
+                "max_files": config.get("auto_backup_max_files", 50),
             }
 
-        config = {"backup_before_sync": True, "auto_backup": False}
+        config = {"auto_backup_enabled": True, "auto_backup_directory": "/backups"}
 
         settings = get_backup_settings(config)
 
-        assert settings["backup_before_sync"] == True
-        assert settings["auto_backup"] == False
-        assert "backup_directory" in settings
+        assert settings["auto_backup_enabled"] == True
+        assert settings["backup_directory"] == "/backups"
+        assert settings["max_files"] == 50
 
 
 # =============================================================================
@@ -382,7 +382,7 @@ class TestConfigValidation:
 
         def validate_config_structure(config):
             required_keys = ["remote_decks", "global_students"]
-            optional_keys = ["ankiweb_sync", "backup_before_sync"]
+            optional_keys = ["ankiweb_sync", "auto_backup_enabled"]
 
             # Check mandatory keys
             for key in required_keys:

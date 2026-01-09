@@ -24,12 +24,10 @@ from aqt import mw
 from .styled_messages import StyledMessageBox
 
 try:
-    from .compat import QDialog, QVBoxLayout, QPushButton, QLabel, QFileDialog, QTextEdit, QGroupBox, QProgressDialog, WINDOW_MODAL
     from .config_manager import get_meta, save_meta, get_remote_decks, save_remote_decks, get_auto_backup_config, get_auto_backup_directory
     from .utils import add_debug_message
 except ImportError:
     # For standalone testing
-    from compat import QDialog, QVBoxLayout, QPushButton, QLabel, QFileDialog, QTextEdit, QGroupBox, QProgressDialog, WINDOW_MODAL
     from config_manager import get_meta, save_meta, get_remote_decks, save_remote_decks, get_auto_backup_config, get_auto_backup_directory
     def add_debug_message(message, category="DEBUG"):
         print(f"[{category}] {message}")
@@ -639,7 +637,7 @@ class SimplifiedBackupManager:
 
     def create_auto_backup(self) -> bool:
         """
-        Creates an automatic backup during synchronization.
+        Creates an automatic backup before synchronization.
         
         The backup type (simple or complete) is determined by user configuration.
         - Simple: Configuration files only (fast, small size)

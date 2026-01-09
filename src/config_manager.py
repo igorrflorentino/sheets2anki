@@ -16,6 +16,7 @@ import json
 import os
 import time
 import traceback
+import copy
 
 try:
     from .compat import mw
@@ -57,41 +58,32 @@ def get_deck_id(url):
 # =============================================================================
 
 DEFAULT_CONFIG = {
-    "debug": False,
-    "auto_sync_on_startup": False,
-    "backup_before_sync": True,
-    "max_sync_retries": 3,
-    "sync_timeout_seconds": 30,
-
-}
-
-DEFAULT_META = {
     "config": {
         "debug": False,
         "auto_sync_on_startup": False,
-        "backup_before_sync": True,
         "max_sync_retries": 3,
-        "sync_timeout_seconds": 30,
-
-        "deck_options_mode": "shared",  # "shared", "individual", "manual"
-        "ankiweb_sync_mode": "none",  # "none", "sync"
-        "ankiweb_sync_timeout": 30,  # timeout in seconds for AnkiWeb sync
-
+        "sync_timeout_seconds": 60,
+        "deck_options_mode": "individual",  # "shared", "individual", "manual"
+        "ankiweb_sync_mode": "sync",  # "none", "sync"
+        "ankiweb_sync_timeout": 60,  # timeout in seconds for AnkiWeb sync
         # Automatic backup settings
-        "auto_backup_enabled": True,  # enable automatic configuration backup
-        "auto_backup_directory": "",  # directory to save automatic backups (empty = use default)
+        "auto_backup_enabled": False,  # enable automatic configuration backup
+        "auto_backup_directory": None,  # directory to save automatic backups (empty = use default)
         "auto_backup_max_files": 50,  # maximum backup files to keep
+        "auto_backup_type": "simple"  # "simple" or "full"
     },
     "students": {
         "available_students": [],
         "enabled_students": [],
-        # NEW: Persistent history of students who have already been synchronized
-        "sync_history": {
-            # format: "student_name": {"first_sync": timestamp, "last_sync": timestamp, "total_syncs": count}
-        }
+        "auto_remove_disabled_students": True,
+        "sync_missing_students_notes": True,
+        # Persistent history of students who have already been synchronized
+        "sync_history": {}  # format: "student_name": {"first_sync": timestamp, "last_sync": timestamp, "total_syncs": count}
     },
-    "decks": {},
+    "decks": {}
 }
+
+DEFAULT_META = copy.deepcopy(DEFAULT_CONFIG)
 
 # =============================================================================
 # MAIN FUNCTIONS
@@ -134,6 +126,7 @@ def get_config():
 def get_meta():
     """
     Loads user metadata from meta.json (source of truth).
+    If meta.json doesn't exist, allows initialization from config.json.
 
     Returns:
         dict: User metadata including preferences and remote decks
@@ -142,13 +135,22 @@ def get_meta():
         import json
         import os
 
-        # Load directly from meta.json file
+        # Paths
         addon_path = os.path.dirname(os.path.dirname(__file__))
         meta_path = os.path.join(addon_path, "meta.json")
+        config_path = os.path.join(addon_path, "config.json")
 
+        # 1. Try to load meta.json (User settings)
         if os.path.exists(meta_path):
             with open(meta_path, encoding="utf-8") as f:
                 meta = json.load(f)
+        
+        # 2. If meta.json doesn't exist, try config.json (Defaults)
+        elif os.path.exists(config_path):
+            with open(config_path, encoding="utf-8") as f:
+                meta = json.load(f)
+                
+        # 3. Fallback to hardcoded defaults
         else:
             meta = DEFAULT_META.copy()
 

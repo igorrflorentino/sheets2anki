@@ -183,7 +183,7 @@ def sample_config():
         },
         "global_students": ["John", "Mary", "Peter"],
         "ankiweb_sync": {"enabled": False, "auto_sync": False},
-        "backup_before_sync": True,
+        "auto_backup_enabled": True,
     }
 
 
