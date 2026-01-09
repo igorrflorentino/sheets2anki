@@ -256,9 +256,9 @@ def _finalize_sync_cleanup(progress):
         int: Number of removed subdecks
     """
     if hasattr(progress, 'appendMessage'):
-        progress.appendMessage("Cleaning up empty subdecks...")
+        progress.appendMessage("🧹 Cleaning up empty subdecks...")
     else:
-        progress.setLabelText("Cleaning up empty subdecks...")
+        progress.setLabelText("🧹 Cleaning up empty subdecks...")
         
     mw.app.processEvents()
     
@@ -270,14 +270,36 @@ def _finalize_sync_cleanup(progress):
     removed_subdecks = remove_empty_subdecks(remote_decks)
     
     # Apply automatic deck options system
+    if hasattr(progress, 'appendMessage'):
+        progress.appendMessage("⚙️ Configuring deck options...")
+    else:
+        progress.setLabelText("⚙️ Configuring deck options...")
+    mw.app.processEvents()
+
     options_result = apply_automatic_deck_options_system()
     add_debug_message(
         f"✅ apply_automatic_deck_options_system() returned: {options_result}", "SYNC"
     )
 
+    if options_result and options_result.get("success"):
+        if options_result.get("root_deck_updated") or options_result.get("remote_decks_updated", 0) > 0:
+            count = options_result.get("remote_decks_updated", 0)
+            root_txt = "Root + " if options_result.get("root_deck_updated") else ""
+            if hasattr(progress, 'appendMessage'):
+                progress.appendMessage(f"   ✅ Options applied: {root_txt}{count} decks")
+        else:
+            if hasattr(progress, 'appendMessage'):
+                progress.appendMessage("   ✅ Options verification: OK")
+
     add_debug_message("🎬 Synchronization cleanup finished", "SYSTEM")
 
     # Update Anki interface to show changes
+    if hasattr(progress, 'appendMessage'):
+        progress.appendMessage("🔄 Refreshing interface...")
+    else:
+        progress.setLabelText("🔄 Refreshing interface...")
+    mw.app.processEvents()
+
     ensure_interface_refresh()
     
     # Wait a moment to show the cleanup message
@@ -1486,34 +1508,60 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
             backup_path = backup_manager.create_safety_backup()
             if backup_path:
                 add_debug_message(f"✅ Safety backup created: {backup_path}", "SYNC")
-                status_msgs[-1] = "✅ Safety backup created"
+                status_msgs.append("✅ Safety backup created")
             else:
                 add_debug_message("⚠️ Failed to create safety backup", "SYNC")
-                status_msgs[-1] = "⚠️ Backup skipped"
+                status_msgs.append("⚠️ Backup skipped")
         except Exception as e:
             add_debug_message(f"⚠️ Error creating safety backup: {e}", "SYNC")
-            status_msgs[-1] = "⚠️ Backup error (continuing...)"
+            status_msgs.append("⚠️ Backup error (continuing...)")
         
         _update_progress_text(progress, status_msgs)
         progress.setValue(1)
         mw.app.processEvents()
 
     # Update existing note type templates before synchronization
+    status_msgs.append("🎨 Updating card templates...")
+    _update_progress_text(progress, status_msgs)
+    mw.app.processEvents()
+    
     try:
         add_debug_message("🔄 Updating existing note type templates...", "SYNC")
         updated_count = update_existing_note_type_templates(col, [])
         add_debug_message(f"✅ {updated_count} note types successfully updated", "SYNC")
+        
+        status_msgs.append(f"✅ Templates updated ({updated_count} types)")
+        _update_progress_text(progress, status_msgs)
+        
     except Exception as e:
         add_debug_message(f"⚠️ Error updating templates: {e}", "SYNC")
+        
+        status_msgs.append("⚠️ Template update failed (continuing...)")
+        _update_progress_text(progress, status_msgs)
         # Continue synchronization even if template update failed
 
     # Manage cleanups in a consolidated way to avoid multiple confirmations
     try:
         missing_cleanup_result, cleanup_result = _handle_consolidated_cleanup(remote_decks)
+        
+        if missing_cleanup_result:
+             status_msgs.append("🧹 Removed [MISSING S.] data")
+             _update_progress_text(progress, status_msgs)
+             
+        if cleanup_result:
+             count = cleanup_result.get('disabled_students_count', 0)
+             status_msgs.append(f"🧹 Removed data for {count} disabled student(s)")
+             _update_progress_text(progress, status_msgs)
+             
     except SyncAborted:
         add_debug_message("🛑 SYNC: User aborted synchronization.", "SYNC")
         progress.close()
         return
+
+    # Check if no cleanup was needed and report it (Explicit feedback)
+    if not missing_cleanup_result and not cleanup_result:
+         status_msgs.append("🧹 Cleanup verification: OK")
+         _update_progress_text(progress, status_msgs)
 
     # Initialize statistics system
     stats_manager = SyncStatsManager()
@@ -1559,6 +1607,10 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
                 stats_manager.add_deck_result(deck_result)
 
                 add_debug_message(f"✅ Deck completed: {deckKey}", "SYNC")
+
+                # Explicitly state deck sync is finished
+                status_msgs.append(f"✅ {deck_name}: Synchronization finished")
+                _update_progress_text(progress, status_msgs)
 
             except SyncError as e:
                 step, sync_errors = _handle_sync_error(
@@ -1838,8 +1890,20 @@ class LogProgressDialog(QDialog):
         return self.bar.maximum()
         
     def setLabelText(self, text):
-        # Update log area
-        self.log_area.setPlainText(text)
+        import html
+        # Formatting to increase spacing
+        lines = text.split('\n')
+        html_parts = []
+        for line in lines:
+            if not line:
+                continue
+            escaped = html.escape(line)
+            # Use div with margin and line-height for spacing
+            html_parts.append(f"<div style='margin-bottom: 6px; line-height: 1.45;'>{escaped}</div>")
+        
+        full_html = "".join(html_parts)
+        self.log_area.setHtml(full_html)
+        
         # Scroll to bottom
         cursor = self.log_area.textCursor()
         from .compat import QTextCursor
@@ -1864,7 +1928,12 @@ class LogProgressDialog(QDialog):
         
     def appendMessage(self, text):
         """Appends a message to the log area without clearing history."""
-        self.log_area.append(text)
+        import html
+        escaped = html.escape(text)
+        # Create styled HTML block
+        html_block = f"<div style='margin-bottom: 6px; line-height: 1.45;'>{escaped}</div>"
+        self.log_area.append(html_block)
+        
         # Scroll to bottom
         cursor = self.log_area.textCursor()
         from .compat import QTextCursor
@@ -2053,7 +2122,7 @@ def _sync_single_deck(
         local_deck_id = current_deck_id
 
         # Inform about recreation
-        msg = f"Deck recreated: '{current_deck_name}'"
+        msg = f"♻️ Recreating deck: '{current_deck_name}'"
         status_msgs.append(msg)
         _update_progress_text(progress, status_msgs)
 
@@ -2083,7 +2152,7 @@ def _sync_single_deck(
     tsv_url = validate_url(remote_deck_url)
 
     # 1. Download
-    msg = f"{deckName}: downloading file..."
+    msg = f"📥 {deckName}: Downloading data..."
     status_msgs.append(msg)
     _update_progress_text(progress, status_msgs)
 
@@ -2384,26 +2453,35 @@ def _sync_single_deck(
             )    # Update deck name if necessary using DeckNameManager
     current_remote_name = currentRemoteInfo.get("remote_deck_name")
     sync_result = DeckNameManager.sync_deck_with_config(remote_deck_url)
+    
     if sync_result:
         sync_deck_id, updated_name = sync_result
         if updated_name != deckName:
             # Update deck info in configuration
             currentRemoteInfo["local_deck_name"] = updated_name
+            
+            msg = f"🏷️ {deckName} → {updated_name}: Name updated automatically"
             deckName = updated_name
             remoteDeck.deckName = updated_name
-
-        msg = f"{deckName}: deck name automatically updated..."
-        status_msgs.append(msg)
-        _update_progress_text(progress, status_msgs)
+            
+            status_msgs.append(msg)
+            _update_progress_text(progress, status_msgs)
+        else:
+             # Name verified but no changes needed
+             msg = f"🏷️ {deckName}: Name verification OK"
+             # Optional: Uncomment if we want this verbose line, but likely too verbose for every sync? 
+             # For now, per user request "no step should be silent", we add it.
+             status_msgs.append(msg)
+             _update_progress_text(progress, status_msgs)
 
     # 2. Processing and writing to database
-    msg = f"{deckName}: processing data..."
+    msg = f"⚙️ {deckName}: Processing data..."
     status_msgs.append(msg)
     _update_progress_text(progress, status_msgs)
 
     remoteDeck.deckName = deckName
 
-    msg = f"{deckName}: writing to database..."
+    msg = f"💾 {deckName}: Saving changes..."
     status_msgs.append(msg)
     _update_progress_text(progress, status_msgs)
 
@@ -2495,11 +2573,15 @@ def _sync_single_deck(
                         f"✅ Consistency applied: {', '.join(updates)} updated",
                         "NAME_CONSISTENCY",
                     )
+                    status_msgs.append(f"🔧 Consistency applied: {', '.join(updates)}")
+                    _update_progress_text(progress, status_msgs)
                 else:
                     add_debug_message(
                         "✅ Consistency verified: all names were already correct",
                         "NAME_CONSISTENCY",
                     )
+                    status_msgs.append(f"🔧 Name consistency verification: OK")
+                    _update_progress_text(progress, status_msgs)
             elif consistency_result and consistency_result.get('errors'):
                 # Error - but don't fail synchronization
                 for error in consistency_result['errors']:
@@ -2551,10 +2633,16 @@ def _sync_single_deck(
                     f"[NOTE_TYPE_SYNC] - Notes migrated: {sync_result['notes_migrated']}",
                     "SYNC",
                 )
+            
+            status_msgs.append(f"🔄 Note Types: {sync_result['updated_count']} synced")
+            _update_progress_text(progress, status_msgs)
+
         else:
             add_debug_message(
                 "[NOTE_TYPE_SYNC] ✅ All note_types are already consistent", "SYNC"
             )
+            status_msgs.append("🔄 Note Types verification: OK")
+            _update_progress_text(progress, status_msgs)
 
     except Exception as e:
         add_debug_message(
@@ -2642,7 +2730,7 @@ def _handle_sync_error(
         except:
             deckName = "Unknown"
 
-    error_msg = f"Failed to sync deck '{deckName}': {str(e)}"
+    error_msg = f"❌ {deckName}: Sync failed - {str(e)}"
     sync_errors.append(error_msg)
     status_msgs.append(error_msg)
     _update_progress_text(progress, status_msgs)
@@ -2680,7 +2768,7 @@ def _handle_unexpected_error(
         except:
             deckName = "Unknown"
 
-    error_msg = f"Unexpected error syncing deck '{deckName}': {str(e)}"
+    error_msg = f"🔥 {deckName}: Unexpected error - {str(e)}"
     sync_errors.append(error_msg)
     status_msgs.append(error_msg)
     _update_progress_text(progress, status_msgs)

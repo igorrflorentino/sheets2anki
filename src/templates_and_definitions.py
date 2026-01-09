@@ -693,7 +693,7 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
 def update_existing_note_type_templates(col, debug_messages=None):
     """
     Updates templates of all existing Sheets2Anki note types
-    to include the new IMAGE HTML column.
+    to include ALL fields defined in NOTE_FIELDS and ensure templates are up to date.
     
     Args:
         col: Anki collection object
@@ -720,53 +720,59 @@ def update_existing_note_type_templates(col, debug_messages=None):
         try:
             model_name = model.get("name", "")
             is_cloze = model.get("type") == 1
+            model_was_updated = False
             
-            debug_messages.append(f"[UPDATE_TEMPLATES] Processing: {model_name} (cloze: {is_cloze})")
-            
-            # Check if IMAGE HTML field already exists
-            existing_fields = []
+            # 1. Check for missing fields
+            # ----------------------------------------------------------------
+            existing_field_names = []
             for field in model.get("flds", []):
                 # Handle different field formats (dict or object)
                 if hasattr(field, 'get'):
-                    field_name = field.get("name", "")
+                    fname = field.get("name", "")
                 elif isinstance(field, dict):
-                    field_name = field.get("name", "")
+                    fname = field.get("name", "")
                 else:
-                    # Assume it's an object with name attribute
-                    field_name = getattr(field, 'name', "")
-                existing_fields.append(field_name)
+                    fname = getattr(field, 'name', "")
+                existing_field_names.append(fname)
             
-            if multimedia_1 not in existing_fields:
-                debug_messages.append(f"[UPDATE_TEMPLATES] Adding field {multimedia_1}")
-                # Add IMAGE HTML field
-                field_template = col.models.new_field(multimedia_1)
-                col.models.add_field(model, field_template)
-            else:
-                debug_messages.append(f"[UPDATE_TEMPLATES] Field {multimedia_1} already exists")
+            # Verify every standard field
+            for target_field in NOTE_FIELDS:
+                if target_field not in existing_field_names:
+                    debug_messages.append(f"[UPDATE_TEMPLATES] Adding missing field '{target_field}' to {model_name}")
+                    # Add missing field
+                    field_template = col.models.new_field(target_field)
+                    col.models.add_field(model, field_template)
+                    model_was_updated = True
             
-            # Update card templates
+            # 2. Update card templates (HTML/CSS)
+            # ----------------------------------------------------------------
+            # We force update if we added fields OR if we want to ensure latest HTML structure
+            # To be efficient, we generate the current standard template
+            new_card_template = create_card_template(is_cloze)
             templates = model.get("tmpls", [])
+            
             if templates:
-                new_card_template = create_card_template(is_cloze)
-                template_updated = False
-                
                 for i, template in enumerate(templates):
-                    # Handle different template formats
+                    # Get current content
                     if hasattr(template, 'get'):
-                        old_qfmt = template.get("qfmt", "")
-                        old_afmt = template.get("afmt", "")
+                        current_qfmt = template.get("qfmt", "")
+                        current_afmt = template.get("afmt", "")
                     elif isinstance(template, dict):
-                        old_qfmt = template.get("qfmt", "")
-                        old_afmt = template.get("afmt", "")
+                        current_qfmt = template.get("qfmt", "")
+                        current_afmt = template.get("afmt", "")
                     else:
-                        old_qfmt = getattr(template, 'qfmt', "")
-                        old_afmt = getattr(template, 'afmt', "")
+                        current_qfmt = getattr(template, 'qfmt', "")
+                        current_afmt = getattr(template, 'afmt', "")
                     
-                    # Check if needs update (if doesn't have IMAGE HTML in template)
-                    needs_update = multimedia_1 not in old_afmt
+                    # Check if update is needed (simple string comparison)
+                    # This ensures any HTML change in code is propagated
+                    needs_template_update = (
+                        current_qfmt.strip() != new_card_template["qfmt"].strip() or 
+                        current_afmt.strip() != new_card_template["afmt"].strip()
+                    )
                     
-                    if needs_update:
-                        # Update template
+                    if needs_template_update:
+                        # Update template content
                         if hasattr(template, '__setitem__'):
                             template["qfmt"] = new_card_template["qfmt"]
                             template["afmt"] = new_card_template["afmt"]
@@ -777,21 +783,22 @@ def update_existing_note_type_templates(col, debug_messages=None):
                             setattr(template, 'qfmt', new_card_template["qfmt"])
                             setattr(template, 'afmt', new_card_template["afmt"])
                         
-                        template_updated = True
+                        model_was_updated = True
                         debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} updated for {model_name}")
-                    else:
-                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} already contains {multimedia_1}")
-                
-                if not template_updated:
-                    debug_messages.append(f"[UPDATE_TEMPLATES] No template needed update for {model_name}")
             
-            # Save updated model
-            col.models.save(model)
-            updated_count += 1
-            debug_messages.append(f"[UPDATE_TEMPLATES] ✅ {model_name} processed successfully")
+            # 3. Save changes if anything was modified
+            # ----------------------------------------------------------------
+            if model_was_updated:
+                col.models.save(model)
+                updated_count += 1
+                debug_messages.append(f"[UPDATE_TEMPLATES] ✅ {model_name} updated successfully")
+            else:
+                debug_messages.append(f"[UPDATE_TEMPLATES] ⏭️ {model_name} is already up to date")
             
         except Exception as e:
-            debug_messages.append(f"[UPDATE_TEMPLATES] ❌ Error updating {model.get('name', 'unknown')}: {e}")
+            debug_messages.append(f"[UPDATE_TEMPLATES] ❌ Error processing {model.get('name', 'unknown')}: {e}")
+            import traceback
+            debug_messages.append(traceback.format_exc())
     
-    debug_messages.append(f"[UPDATE_TEMPLATES] 🎯 Total note types processed: {updated_count}")
+    debug_messages.append(f"[UPDATE_TEMPLATES] 🎯 Total note types updated: {updated_count}")
     return updated_count
