@@ -2441,9 +2441,28 @@ def _sync_single_deck(
                     "[MEMORY_UPDATE] In-memory configuration updated", "SYNC"
                 )
 
+            # Update local_deck_configurations_package_name if in individual mode
+            if should_update:
+                try:
+                    from .config_manager import get_deck_options_mode
+                    current_mode = get_deck_options_mode()
+                    if current_mode == "individual":
+                        expected_package_name = f"Sheets2Anki - {current_remote_name}"
+                        currentRemoteInfo["local_deck_configurations_package_name"] = expected_package_name
+                        remote_decks[deckKey]["local_deck_configurations_package_name"] = expected_package_name
+                        add_debug_message(
+                            f"[DECK_OPTIONS_UPDATE] local_deck_configurations_package_name updated to: '{expected_package_name}'",
+                            "SYNC",
+                        )
+                except Exception as opts_error:
+                    add_debug_message(
+                        f"[DECK_OPTIONS_ERROR] Error updating deck options name: {opts_error}",
+                        "SYNC",
+                    )
+
             # IMPORTANT: Do not reload from file here to preserve in-memory updates
             add_debug_message(
-                "[CONFIG_PRESERVE] Preserving in-memory updates (remote_deck_name and note_types)", "SYNC"
+                "[CONFIG_PRESERVE] Preserving in-memory updates (remote_deck_name, note_types, and deck_options)", "SYNC"
             )
             
             # Save final configuration (now with updated note_types AND correct remote_deck_name)

@@ -130,7 +130,9 @@ class NameConsistencyManager:
                     deck_url,
                     standard_names['local_deck_name'],
                     note_types_result['final_note_types'],
-                    debug
+                    debug,
+                    remote_deck_name=remote_deck_name,
+                    deck_options_name=standard_names['deck_option_name']
                 )
                 
                 # CRITICAL: Also update remote_decks in memory to avoid reversion
@@ -140,7 +142,9 @@ class NameConsistencyManager:
                         remote_decks,
                         standard_names['local_deck_name'],
                         note_types_result['final_note_types'],
-                        debug
+                        debug,
+                        remote_deck_name=remote_deck_name,
+                        deck_options_name=standard_names['deck_option_name']
                     )
                 
                 if meta_json_changed and not results['note_types_updated']:
@@ -375,13 +379,23 @@ class NameConsistencyManager:
         deck_url: str,
         local_deck_name: str,
         note_types: Dict[str, str],
-        debug_callback
+        debug_callback,
+        remote_deck_name: Optional[str] = None,
+        deck_options_name: Optional[str] = None
     ):
         """
         Updates meta.json with the new applied names.
+        
+        Args:
+            deck_url: URL of the remote deck
+            local_deck_name: New local deck name
+            note_types: Dict of note type IDs to names
+            debug_callback: Function for debug messages
+            remote_deck_name: New remote deck name (optional)
+            deck_options_name: New deck options package name (optional)
         """
         try:
-            from .config_manager import get_meta, save_meta, get_deck_id
+            from .config_manager import get_meta, save_meta, get_deck_id, get_deck_options_mode
             
             meta = get_meta()
             spreadsheet_id = get_deck_id(deck_url)
@@ -392,6 +406,20 @@ class NameConsistencyManager:
                 
                 # Update note_types
                 meta["decks"][spreadsheet_id]["note_types"] = note_types
+                
+                # Update remote_deck_name if provided
+                if remote_deck_name is not None:
+                    meta["decks"][spreadsheet_id]["remote_deck_name"] = remote_deck_name
+                    debug_callback(f"📋 remote_deck_name updated to: '{remote_deck_name}'")
+                
+                # Update local_deck_configurations_package_name based on mode
+                current_mode = get_deck_options_mode()
+                if current_mode == "individual" and remote_deck_name is not None:
+                    expected_package_name = f"Sheets2Anki - {remote_deck_name}"
+                    meta["decks"][spreadsheet_id]["local_deck_configurations_package_name"] = expected_package_name
+                    debug_callback(f"📋 deck_options_name updated to: '{expected_package_name}'")
+                elif deck_options_name is not None:
+                    meta["decks"][spreadsheet_id]["local_deck_configurations_package_name"] = deck_options_name
                 
                 save_meta(meta)
                 debug_callback("✅ Configuration updated in meta.json")
@@ -407,14 +435,25 @@ class NameConsistencyManager:
         remote_decks: Dict,
         local_deck_name: str,
         note_types: Dict[str, str],
-        debug_callback
+        debug_callback,
+        remote_deck_name: Optional[str] = None,
+        deck_options_name: Optional[str] = None
     ):
         """
         CRITICAL: Also updates the remote_decks dictionary in memory
         to prevent save_remote_decks() from later reverting changes.
+        
+        Args:
+            deck_url: URL of the remote deck
+            remote_decks: In-memory dictionary of remote decks
+            local_deck_name: New local deck name
+            note_types: Dict of note type IDs to names
+            debug_callback: Function for debug messages
+            remote_deck_name: New remote deck name (optional)
+            deck_options_name: New deck options package name (optional)
         """
         try:
-            from .config_manager import get_deck_id
+            from .config_manager import get_deck_id, get_deck_options_mode
             
             spreadsheet_id = get_deck_id(deck_url)
             
@@ -424,6 +463,18 @@ class NameConsistencyManager:
                 
                 # Update note_types in memory dictionary
                 remote_decks[spreadsheet_id]["note_types"] = note_types
+                
+                # Update remote_deck_name if provided
+                if remote_deck_name is not None:
+                    remote_decks[spreadsheet_id]["remote_deck_name"] = remote_deck_name
+                
+                # Update local_deck_configurations_package_name based on mode
+                current_mode = get_deck_options_mode()
+                if current_mode == "individual" and remote_deck_name is not None:
+                    expected_package_name = f"Sheets2Anki - {remote_deck_name}"
+                    remote_decks[spreadsheet_id]["local_deck_configurations_package_name"] = expected_package_name
+                elif deck_options_name is not None:
+                    remote_decks[spreadsheet_id]["local_deck_configurations_package_name"] = deck_options_name
                 
                 debug_callback("💾 In-memory remote_decks dictionary updated to avoid reversion")
             else:
