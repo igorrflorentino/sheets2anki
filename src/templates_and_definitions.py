@@ -233,26 +233,26 @@ MARKERS_TEMPLATE = """
 <hr>
 """
 
-# Default values for empty fields
-DEFAULT_IMPORTANCE = "[MISSING IMPORTANCE]"
-DEFAULT_TOPIC = "[MISSING TOPIC]"
-DEFAULT_SUBTOPIC = "[MISSING SUBTOPIC]"
-DEFAULT_CONCEPT = "[MISSING CONCEPT]"
-DEFAULT_STUDENT = "[MISSING STUDENT]"
+# Default values for empty fields (will be converted to lowercase by clean_tag_text)
+DEFAULT_IMPORTANCE = "[MISSING_IMPORTANCE]"
+DEFAULT_TOPIC = "[MISSING_TOPIC]"
+DEFAULT_SUBTOPIC = "[MISSING_SUBTOPIC]"
+DEFAULT_CONCEPT = "[MISSING_CONCEPT]"
+DEFAULT_STUDENT = "[MISSING_STUDENT]"
 
 # Root deck name - non-modifiable constant by user
 DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
 
-# Tag prefixes
-TAG_ROOT = "Sheets2Anki"
-TAG_TOPICS = "Topics"
-TAG_SUBTOPICS = "Subtopics"
-TAG_CONCEPTS = "Concepts"
-TAG_EXAM_BOARDS = "Boards"
-TAG_YEARS = "Years"
-TAG_CAREERS = "Careers"
-TAG_IMPORTANCE = "Importance"
-TAG_ADDITIONAL = "Other_tags"
+# Tag prefixes (all lowercase for consistency - Anki tags are case-insensitive)
+TAG_ROOT = "sheets2anki"
+TAG_TOPICS = "topics"
+TAG_SUBTOPICS = "subtopics"
+TAG_CONCEPTS = "concepts"
+TAG_EXAM_BOARDS = "boards"
+TAG_YEARS = "years"
+TAG_CAREERS = "careers"
+TAG_IMPORTANCE = "importance"
+TAG_ADDITIONAL = "other_tags"
 
 # =============================================================================
 # COLUMN VALIDATION FUNCTIONS

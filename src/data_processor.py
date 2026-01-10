@@ -617,14 +617,15 @@ def create_tags_from_fields(note_data):
     tags.append(TAG_ROOT)
 
     def clean_tag_text(text):
-        """Cleans text for use as Anki tag"""
+        """Cleans text for use as Anki tag - always returns lowercase"""
         if not text or not isinstance(text, str):
             return ""
         # Remove extra spaces, replace spaces with underscores and problematic characters
         cleaned = text.strip().replace(" ", "_").replace(":", "_").replace(";", "_")
         # Remove special characters that may cause issues in Anki, but allow brackets
         cleaned = re.sub(r"[^\w\-_\[\]]", "", cleaned)
-        return cleaned
+        # Always return lowercase for consistency (Anki tags are case-insensitive)
+        return cleaned.lower()
 
     # 1. STUDENT tags - REMOVED to simplify logic
     # (Student tags were eliminated as requested)
@@ -1531,17 +1532,28 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
                 )
                 changes.append(f"{field_anki_name}: '{old_display}' → '{new_display}'")
 
-    # Compare tags
+    # Compare tags (case-insensitive, since Anki treats tags as case-insensitive)
+    # This prevents infinite update loops when only the case of a tag changes
     existing_tags = set(existing_note.tags) if hasattr(existing_note, "tags") else set()
     new_tags = set(new_data.get("tags", []))
+    
+    # Create case-insensitive versions for comparison
+    existing_tags_lower = {tag.lower() for tag in existing_tags}
+    new_tags_lower = {tag.lower() for tag in new_tags}
 
     # Detailed tag debug
     add_debug_msg(f"🏷️ Existing tags: {sorted(existing_tags)}")
     add_debug_msg(f"🏷️ New tags: {sorted(new_tags)}")
 
-    if existing_tags != new_tags:
-        added_tags = new_tags - existing_tags
-        removed_tags = existing_tags - new_tags
+    # Compare case-insensitively to avoid false positives from case-only changes
+    if existing_tags_lower != new_tags_lower:
+        # Find truly added tags (not just case changes)
+        added_tags_lower = new_tags_lower - existing_tags_lower
+        removed_tags_lower = existing_tags_lower - new_tags_lower
+        
+        # Get the original-cased tags for display
+        added_tags = {tag for tag in new_tags if tag.lower() in added_tags_lower}
+        removed_tags = {tag for tag in existing_tags if tag.lower() in removed_tags_lower}
 
         add_debug_msg("🏷️ Different tags detected!")
         if added_tags:
@@ -1551,7 +1563,11 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
             changes.append(f"Tags removed: {', '.join(removed_tags)}")
             add_debug_msg(f"🏷️ Removed: {sorted(removed_tags)}")
     else:
-        add_debug_msg("🏷️ Tags are identical")
+        # Check if there are case-only differences (for logging purposes only)
+        if existing_tags != new_tags:
+            add_debug_msg("🏷️ Tags differ only in case - treating as identical (Anki is case-insensitive)")
+        else:
+            add_debug_msg("🏷️ Tags are identical")
 
     needs_update = len(changes) > 0
 
