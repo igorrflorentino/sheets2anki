@@ -24,13 +24,13 @@ def create_ankiweb_package():
     build_dir = source_dir / "build"
     package_dir = build_dir / "sheets2anki"
     
-    # Clean previous build
-    if build_dir.exists():
-        shutil.rmtree(build_dir)
+    # Clean previous build of this package
+    if package_dir.exists():
+        shutil.rmtree(package_dir)
     
     # Create directories
-    build_dir.mkdir()
-    package_dir.mkdir()
+    build_dir.mkdir(exist_ok=True)
+    package_dir.mkdir(exist_ok=True)
     
     print("1. Copying essential files...")
     
@@ -38,7 +38,9 @@ def create_ankiweb_package():
     essential_files = [
         "__init__.py",
         "manifest.json", 
-        "config.json"
+        "config.json",
+        "README.md",
+        "LICENSE"
     ]
     
     for file in essential_files:
@@ -69,21 +71,26 @@ def create_ankiweb_package():
     print("\n3. Configuring production mode...")
     
     # Change IS_DEVELOPMENT_MODE constant to False
-    constants_path = package_dir / "src" / "constants.py"
-    if constants_path.exists():
-        with open(constants_path, 'r', encoding='utf-8') as f:
-            constants_content = f.read()
+    templates_path = package_dir / "src" / "templates_and_definitions.py"
+    if templates_path.exists():
+        with open(templates_path, 'r', encoding='utf-8') as f:
+            content = f.read()
         
         # Replace IS_DEVELOPMENT_MODE = True with IS_DEVELOPMENT_MODE = False
-        constants_content = constants_content.replace(
-            "IS_DEVELOPMENT_MODE = True", 
-            "IS_DEVELOPMENT_MODE = False"
-        )
-        
-        with open(constants_path, 'w', encoding='utf-8') as f:
-            f.write(constants_content)
-        
-        print("   ✅ Development mode disabled")
+        if "IS_DEVELOPMENT_MODE = True" in content:
+            content = content.replace(
+                "IS_DEVELOPMENT_MODE = True", 
+                "IS_DEVELOPMENT_MODE = False"
+            )
+            
+            with open(templates_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            print("   ✅ Development mode disabled")
+        else:
+            print("   ⚠️  IS_DEVELOPMENT_MODE = True not found in templates_and_definitions.py")
+    else:
+        print(f"   ❌ ERROR: File not found: {templates_path}")
     
     print("\n4. Cleaning unnecessary files...")
     

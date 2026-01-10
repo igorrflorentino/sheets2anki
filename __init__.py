@@ -210,6 +210,15 @@ def configure_ankiweb_sync():
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
 
+def open_debug_mode():
+    """Opens the debug mode configuration dialog."""
+    try:
+        from .src.debug_dialog import show_debug_mode_dialog
+        show_debug_mode_dialog()
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
 # =============================================================================
 # ANKI INTERFACE CONFIGURATION
 # =============================================================================
@@ -271,16 +280,6 @@ if mw is not None:
     backupDecksAction.setShortcut(QKeySequence("Ctrl+Shift+B"))
     qconnect(backupDecksAction.triggered, backup_decks)
     remoteDecksSubMenu.addAction(backupDecksAction)
-
-    # Action: Debug Mode
-    def open_debug_mode():
-        """Opens the debug mode configuration dialog."""
-        try:
-            from .src.debug_dialog import show_debug_mode_dialog
-            show_debug_mode_dialog()
-        except Exception as e:
-            error_msg = errorTemplate.format(str(e))
-            showInfo(error_msg)
 
     debugModeAction = QAction("Debug Mode", mw)
     debugModeAction.setShortcut(QKeySequence("Ctrl+Shift+L"))
