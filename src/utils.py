@@ -2350,13 +2350,54 @@ def get_subdeck_name(main_deck_name, fields, student=None):
     Returns:
         str: Full subdeck name in the format "MainDeck::[Student::]Importance::Topic::Subtopic::Concept"
     """
+    import re
     from . import templates_and_definitions as cols
 
-    # Get field values, using default values if empty
-    importancia = fields.get(cols.hierarchy_1, "").strip() or cols.DEFAULT_IMPORTANCE
-    topico = fields.get(cols.hierarchy_2, "").strip() or cols.DEFAULT_TOPIC
-    subtopico = fields.get(cols.hierarchy_3, "").strip() or cols.DEFAULT_SUBTOPIC
-    conceito = fields.get(cols.hierarchy_4, "").strip() or cols.DEFAULT_CONCEPT
+    def clean_deck_text(text):
+        """Cleans text for use as Anki deck name (single value, NOT list)."""
+        if not text or not isinstance(text, str):
+            return ""
+        # Remove extra spaces, replace spaces with underscores and problematic characters
+        # Deck names can't contain :: as it's the separator
+        cleaned = text.strip().replace("::", "_").replace(":", "_")
+        # Remove special characters that may cause issues, but allow brackets and basic punctuation
+        cleaned = re.sub(r"[^\w\s\-_\[\]()]", "", cleaned)
+        # Replace multiple spaces with single underscore
+        cleaned = re.sub(r"\s+", "_", cleaned)
+        return cleaned
+
+    # Get field values (single values, NOT lists)
+    importancia_raw = fields.get(cols.hierarchy_1, "").strip()
+    topico_raw = fields.get(cols.hierarchy_2, "").strip()
+    subtopico_raw = fields.get(cols.hierarchy_3, "").strip()
+    conceito_raw = fields.get(cols.hierarchy_4, "").strip()
+    
+    # Use default values if empty
+    if not importancia_raw:
+        importancia_raw = cols.DEFAULT_IMPORTANCE
+    if not topico_raw:
+        topico_raw = cols.DEFAULT_TOPIC
+    if not subtopico_raw:
+        subtopico_raw = cols.DEFAULT_SUBTOPIC
+    if not conceito_raw:
+        conceito_raw = cols.DEFAULT_CONCEPT
+    
+    # Clean for deck name use
+    importancia = clean_deck_text(importancia_raw)
+    topico = clean_deck_text(topico_raw)
+    subtopico = clean_deck_text(subtopico_raw)
+    conceito = clean_deck_text(conceito_raw)
+    
+    # If cleaning results in empty string (e.g., field had only invalid characters),
+    # use the default placeholder
+    if not importancia:
+        importancia = clean_deck_text(cols.DEFAULT_IMPORTANCE)
+    if not topico:
+        topico = clean_deck_text(cols.DEFAULT_TOPIC)
+    if not subtopico:
+        subtopico = clean_deck_text(cols.DEFAULT_SUBTOPIC)
+    if not conceito:
+        conceito = clean_deck_text(cols.DEFAULT_CONCEPT)
 
     # Create full subdeck hierarchy
     if student:

@@ -622,14 +622,14 @@ def create_tags_from_fields(note_data):
             return ""
         # Remove extra spaces, replace spaces with underscores and problematic characters
         cleaned = text.strip().replace(" ", "_").replace(":", "_").replace(";", "_")
-        # Remove special characters that may cause issues in Anki
-        cleaned = re.sub(r"[^\w\-_]", "", cleaned)
+        # Remove special characters that may cause issues in Anki, but allow brackets
+        cleaned = re.sub(r"[^\w\-_\[\]]", "", cleaned)
         return cleaned
 
     # 1. STUDENT tags - REMOVED to simplify logic
     # (Student tags were eliminated as requested)
 
-    # 2. TOPIC::SUBTOPIC::CONCEPT hierarchical tags (nested)
+    # 2. TOPIC::SUBTOPIC::CONCEPT hierarchical tags (single values, NOT lists)
     topico = note_data.get(cols.hierarchy_2, "").strip()
     subtopico = note_data.get(cols.hierarchy_3, "").strip()
     conceito = note_data.get(cols.hierarchy_4, "").strip()
@@ -642,25 +642,29 @@ def create_tags_from_fields(note_data):
     if not conceito:
         conceito = DEFAULT_CONCEPT
 
-    # Process multiple values (comma separated)
-    topicos = [clean_tag_text(t) for t in topico.split(",") if clean_tag_text(t)]
-    subtopicos = [clean_tag_text(s) for s in subtopico.split(",") if clean_tag_text(s)]
-    conceitos = [clean_tag_text(c) for c in conceito.split(",") if clean_tag_text(c)]
+    # Clean for tag use (single values, not lists)
+    topico_clean = clean_tag_text(topico)
+    subtopico_clean = clean_tag_text(subtopico)
+    conceito_clean = clean_tag_text(conceito)
+    
+    # If cleaning results in empty string (e.g., field had only invalid characters),
+    # use the default placeholder to ensure tags are always generated
+    if not topico_clean:
+        topico_clean = clean_tag_text(DEFAULT_TOPIC)
+    if not subtopico_clean:
+        subtopico_clean = clean_tag_text(DEFAULT_SUBTOPIC)
+    if not conceito_clean:
+        conceito_clean = clean_tag_text(DEFAULT_CONCEPT)
 
-    # Generate all hierarchical combinations - format: Sheets2Anki::topics::topic::subtopic::concept
-    for topico_clean in topicos:
-        for subtopico_clean in subtopicos:
-            for conceito_clean in conceitos:
-                # Full nested hierarchical tag (without repeating subtopic/concept prefixes)
-                tags.append(
-                    f"{TAG_ROOT}::{TAG_TOPICS}::{topico_clean}::{subtopico_clean}::{conceito_clean}"
-                )
+    # Generate hierarchical tag - format: Sheets2Anki::Topics::topic::subtopic::concept
+    tags.append(
+        f"{TAG_ROOT}::{TAG_TOPICS}::{topico_clean}::{subtopico_clean}::{conceito_clean}"
+    )
 
-    # 3. Direct CONCEPT tags (for easy search)
-    for conceito_clean in conceitos:
-        tags.append(f"{TAG_ROOT}::{TAG_CONCEPTS}::{conceito_clean}")
+    # 3. Direct CONCEPT tag (for easy search)
+    tags.append(f"{TAG_ROOT}::{TAG_CONCEPTS}::{conceito_clean}")
 
-    # 4. EXAMINATION BOARD tags
+    # 4. EXAMINATION BOARD tags (supports comma-separated list)
     bancas = note_data.get(cols.tags_1, "").strip()
     if bancas:
         for banca in bancas.split(","):
@@ -668,15 +672,14 @@ def create_tags_from_fields(note_data):
             if banca_clean:
                 tags.append(f"{TAG_ROOT}::{TAG_EXAM_BOARDS}::{banca_clean}")
 
-    # 5. YEAR tags
+    # 5. YEAR tag (single value, NOT list - represents LAST year in exam)
     ano = note_data.get(cols.tags_2, "").strip()
     if ano:
-        for ano_item in ano.split(","):
-            ano_clean = clean_tag_text(ano_item)
-            if ano_clean:
-                tags.append(f"{TAG_ROOT}::{TAG_YEARS}::{ano_clean}")
+        ano_clean = clean_tag_text(ano)
+        if ano_clean:
+            tags.append(f"{TAG_ROOT}::{TAG_YEARS}::{ano_clean}")
 
-    # 6. CAREER tags
+    # 6. CAREER tags (supports comma-separated list)
     carreira = note_data.get(cols.tags_3, "").strip()
     if carreira:
         for carr in carreira.split(","):
@@ -684,14 +687,22 @@ def create_tags_from_fields(note_data):
             if carr_clean:
                 tags.append(f"{TAG_ROOT}::{TAG_CAREERS}::{carr_clean}")
 
-    # 7. IMPORTANCE tags
+    # 7. IMPORTANCE tags (single value, NOT list)
     importancia = note_data.get(cols.hierarchy_1, "").strip()
-    if importancia:
-        importancia_clean = clean_tag_text(importancia)
-        if importancia_clean:
-            tags.append(f"{TAG_ROOT}::{TAG_IMPORTANCE}::{importancia_clean}")
+    
+    if not importancia:
+        importancia = DEFAULT_IMPORTANCE
+        
+    importancia_clean = clean_tag_text(importancia)
+    
+    # If cleaning results in empty string (e.g., field had only invalid characters),
+    # use the default placeholder to ensure importance tag is always generated
+    if not importancia_clean:
+        importancia_clean = clean_tag_text(DEFAULT_IMPORTANCE)
+        
+    tags.append(f"{TAG_ROOT}::{TAG_IMPORTANCE}::{importancia_clean}")
 
-    # 8. ADDITIONAL tags
+    # 8. ADDITIONAL tags (supports comma and semicolon separated list)
     tags_adicionais = note_data.get(cols.tags_4, "").strip()
     if tags_adicionais:
         # Supports both comma and semicolon separation

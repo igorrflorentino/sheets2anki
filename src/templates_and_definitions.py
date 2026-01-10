@@ -245,14 +245,14 @@ DEFAULT_PARENT_DECK_NAME = "Sheets2Anki"
 
 # Tag prefixes
 TAG_ROOT = "Sheets2Anki"
-TAG_TOPICS = "topics"
-TAG_SUBTOPICS = "subtopics"
-TAG_CONCEPTS = "concepts"
-TAG_EXAM_BOARDS = "exam_boards"
-TAG_YEARS = "years"
-TAG_CAREERS = "careers"
-TAG_IMPORTANCE = "importance"
-TAG_ADDITIONAL = "additional"
+TAG_TOPICS = "Topics"
+TAG_SUBTOPICS = "Subtopics"
+TAG_CONCEPTS = "Concepts"
+TAG_EXAM_BOARDS = "Boards"
+TAG_YEARS = "Years"
+TAG_CAREERS = "Careers"
+TAG_IMPORTANCE = "Importance"
+TAG_ADDITIONAL = "Other_tags"
 
 # =============================================================================
 # COLUMN VALIDATION FUNCTIONS
