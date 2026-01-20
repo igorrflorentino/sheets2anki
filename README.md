@@ -40,7 +40,7 @@ Google Sheets  →  Anki  →  AnkiWeb
 
 Use our [**ready-made template**](https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing) as a base.
 
-### Column Structure (23 required)
+### Column Structure 
 
 | Column | What to put | Example |
 |--------|-------------|---------|
@@ -70,9 +70,12 @@ Use our [**ready-made template**](https://docs.google.com/spreadsheets/d/1N-Va4Z
 
 ### Important Tips
 
-**STUDENTS:** List separated by commas. If left empty, the card goes to `[MISSING STUDENT]`.
-
-**SYNC:** Must be explicitly filled. Accepts `true`, `yes`, `1` to synchronize. Empty cells or other values **do not sync**.
+**Requirements:** The spreadsheet must have the 23 columns listed above, but only the following columns must be filled:
+- ID - unique card identifier (auto-generated in the [**template**](https://docs.google.com/spreadsheets/d/1N-Va4ZzLUJBsD6wBaOkoeFTE6EnbZdaPBB88FYl2hrs/edit?usp=sharing))
+- STUDENTS - who receives this card (list separated by commas. If left empty, the card goes to `[MISSING STUDENT]`)
+- SYNC - synchronize? (true, yes, 1 to sync, empty or other values do not sync)
+- QUESTION - front of the card
+- ANSWER - back of the card
 
 **Cloze Cards:** Write in QUESTION using the pattern `{{c1::answer}}`:
 ```
@@ -146,25 +149,6 @@ Access via `Tools → Sheets2Anki → Backup Remote Decks`:
 
 - **Create backup:** Saves settings, decks and students in a .zip file
 - **Restore backup:** Recovers settings from a previous backup
-
----
-
-## ❓ Frequently Asked Questions
-
-**Is my study progress lost when syncing?**
-> No. Intervals, ease and statistics are preserved. Only the content is updated.
-
-**Can I use on multiple devices?**
-> Yes. Configure AnkiWeb (`Ctrl+Shift+W`) and your cards sync automatically.
-
-**How do I make cloze cards?**
-> Use `{{c1::answer}}` in the QUESTION column. See example in [Important Tips](#important-tips).
-
-**Cards don't appear after syncing?**
-> Check: (1) SYNC column is `yes`, (2) students are checked in `Ctrl+Shift+G`, (3) ID is unique.
-
-**How to disconnect a spreadsheet?**
-> Use `Ctrl+Shift+D` and select the deck to disconnect.
 
 ---
 
