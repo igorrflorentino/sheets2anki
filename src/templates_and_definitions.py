@@ -233,6 +233,109 @@ MARKERS_TEMPLATE = """
 <hr>
 """
 
+# =============================================================================
+# TIMER FEATURE - CSS AND JAVASCRIPT
+# =============================================================================
+
+# Timer CSS styling - positioned in top-right corner
+TIMER_CSS = """
+<style>
+.sheets2anki-timer {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #00ff88;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 8px;
+  z-index: 9999;
+  user-select: none;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.sheets2anki-timer::before {
+  content: '⏱️ ';
+}
+.sheets2anki-timer-frozen::before {
+  content: '🏁 ';
+}
+</style>
+"""
+
+# Timer JavaScript for FRONT side (starts timer)
+TIMER_JS_FRONT = """
+<script>
+(function() {
+  // Start timer when front side loads
+  var startTime = Date.now();
+  sessionStorage.setItem('sheets2anki_timer_start', startTime.toString());
+  
+  var timerEl = document.getElementById('sheets2anki-timer');
+  if (!timerEl) return;
+  
+  function formatTime(ms) {
+    var totalSeconds = Math.floor(ms / 1000);
+    var minutes = Math.floor(totalSeconds / 60);
+    var seconds = totalSeconds % 60;
+    return (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+  }
+  
+  function updateTimer() {
+    var elapsed = Date.now() - startTime;
+    timerEl.textContent = formatTime(elapsed);
+  }
+  
+  // Update immediately and then every second
+  updateTimer();
+  var intervalId = setInterval(updateTimer, 1000);
+  
+  // Store interval ID for potential cleanup
+  window.sheets2ankiTimerInterval = intervalId;
+})();
+</script>
+"""
+
+# Timer JavaScript for BACK side (shows frozen time)
+TIMER_JS_BACK = """
+<script>
+(function() {
+  var timerEl = document.getElementById('sheets2anki-timer');
+  if (!timerEl) return;
+  
+  // Clear any running interval from front side
+  if (window.sheets2ankiTimerInterval) {
+    clearInterval(window.sheets2ankiTimerInterval);
+  }
+  
+  // Change emoji to 🏁 to indicate frozen/finished state
+  timerEl.classList.add('sheets2anki-timer-frozen');
+  
+  var startTimeStr = sessionStorage.getItem('sheets2anki_timer_start');
+  if (startTimeStr) {
+    var startTime = parseInt(startTimeStr, 10);
+    var elapsed = Date.now() - startTime;
+    
+    function formatTime(ms) {
+      var totalSeconds = Math.floor(ms / 1000);
+      var minutes = Math.floor(totalSeconds / 60);
+      var seconds = totalSeconds % 60;
+      return (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    }
+    
+    timerEl.textContent = formatTime(elapsed);
+  } else {
+    timerEl.textContent = '--:--';
+  }
+})();
+</script>
+"""
+
+# Timer HTML element
+TIMER_HTML = '<div id="sheets2anki-timer" class="sheets2anki-timer">00:00</div>'
+
 # Default values for empty fields (will be converted to lowercase by clean_tag_text)
 DEFAULT_IMPORTANCE = "[MISSING_IMPORTANCE]"
 DEFAULT_TOPIC = "[MISSING_TOPIC]"
@@ -464,29 +567,41 @@ def create_card_template(is_cloze=False):
             field_name=field_name.capitalize(), field_value=field_value
         )
 
-    # Build complete templates
+    # Build complete templates with timer
+    # Front template: CSS + Timer HTML + Content + Timer JS (starts timer)
     qfmt = (
+        TIMER_CSS +
+        TIMER_HTML +
         MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
         header +        
         MARKERS_TEMPLATE.format(text="CARD", observation="") +
-        question_html  # Front: only header and question
+        question_html +  # Front: only header and question
+        TIMER_JS_FRONT
     )
-    afmt = (
-        MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
-        (header + 
-        MARKERS_TEMPLATE.format(text="CARD", observation="") +
-         question_html +
-        MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
-         extra_infos + 
-         examples + 
-         image_html + 
-         video_html + 
-         extras + 
-         MARKERS_TEMPLATE.format(text="TAGS", observation="May be empty") + 
-         footer)
-        if is_cloze
-        else (
-            "{{FrontSide}}" + 
+    
+    # Back template: CSS + Timer HTML + Content + Timer JS (freezes timer)
+    # Both cloze and basic now include full content (no {{FrontSide}})
+    # This ensures timer appears correctly on back side
+    if is_cloze:
+        back_content = (
+            header + 
+            MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            question_html +
+            MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
+            extra_infos + 
+            examples + 
+            image_html + 
+            video_html + 
+            extras + 
+            MARKERS_TEMPLATE.format(text="TAGS", observation="May be empty") + 
+            footer
+        )
+    else:
+        # Basic card: show question + answer + additional info
+        back_content = (
+            header + 
+            MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            question_html +
             answer_html +
             MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
             extra_infos + 
@@ -495,7 +610,15 @@ def create_card_template(is_cloze=False):
             video_html + 
             extras + 
             MARKERS_TEMPLATE.format(text="TAGS", observation="May be empty") +
-            footer)
+            footer
+        )
+    
+    afmt = (
+        TIMER_CSS +
+        TIMER_HTML +
+        MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
+        back_content +
+        TIMER_JS_BACK
     )
 
     return {"qfmt": qfmt, "afmt": afmt}
