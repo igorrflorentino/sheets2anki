@@ -237,8 +237,8 @@ MARKERS_TEMPLATE = """
 # TIMER FEATURE - CSS AND JAVASCRIPT
 # =============================================================================
 
-# Timer CSS styling - positioned in top-right corner
-TIMER_CSS = """
+# Timer CSS styling - Between Sections (inline, centered)
+TIMER_CSS_BETWEEN_SECTIONS = """
 <style>
 .sheets2anki-timer {
   display: block;
@@ -264,6 +264,42 @@ TIMER_CSS = """
 }
 </style>
 """
+
+# Timer CSS styling - Top Middle (fixed position)
+TIMER_CSS_TOP_MIDDLE = """
+<style>
+/* Add padding to prevent timer from covering content */
+body {
+  padding-top: 50px;
+}
+.sheets2anki-timer {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #00ff88;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 8px;
+  z-index: 9999;
+  user-select: none;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.sheets2anki-timer::before {
+  content: '⏱️ ';
+}
+.sheets2anki-timer-frozen::before {
+  content: '🏁 ';
+}
+</style>
+"""
+
+# Default timer CSS (for backward compatibility)
+TIMER_CSS = TIMER_CSS_BETWEEN_SECTIONS
 
 # Timer JavaScript for FRONT side (starts timer)
 TIMER_JS_FRONT = """
@@ -477,16 +513,26 @@ def get_all_column_info():
 # =============================================================================
 
 
-def create_card_template(is_cloze=False):
+def create_card_template(is_cloze=False, timer_position=None):
     """
     Creates the HTML template for a card (standard or cloze).
 
     Args:
         is_cloze (bool): Whether to create a cloze template
+        timer_position (str): Timer position - "top_middle", "between_sections", or "hidden"
+                             If None, reads from config
 
     Returns:
         dict: Dictionary with 'qfmt' and 'afmt' template strings
     """
+    
+    # Get timer position from config if not specified
+    if timer_position is None:
+        try:
+            from .config_manager import get_timer_position
+            timer_position = get_timer_position()
+        except ImportError:
+            timer_position = "between_sections"  # Default fallback
 
     # Common header fields
     header_fields = [
@@ -567,24 +613,63 @@ def create_card_template(is_cloze=False):
             field_name=field_name.capitalize(), field_value=field_value
         )
 
-    # Build complete templates with timer
-    # Front template: CSS at top, timer between CONTEXT and CARD
-    qfmt = (
-        TIMER_CSS +
-        MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
-        header +
-        TIMER_HTML +  # Timer appears between CONTEXT and CARD
-        MARKERS_TEMPLATE.format(text="CARD", observation="") +
-        question_html +
-        TIMER_JS_FRONT
-    )
+    # Determine timer components based on position
+    if timer_position == "hidden":
+        # No timer
+        timer_css = ""
+        timer_html = ""
+        timer_js_front = ""
+        timer_js_back = ""
+    elif timer_position == "top_middle":
+        # Fixed position at top middle
+        timer_css = TIMER_CSS_TOP_MIDDLE
+        timer_html = TIMER_HTML
+        timer_js_front = TIMER_JS_FRONT
+        timer_js_back = TIMER_JS_BACK
+    else:  # "between_sections" (default)
+        # Between CONTEXT and CARD sections
+        timer_css = TIMER_CSS_BETWEEN_SECTIONS
+        timer_html = TIMER_HTML
+        timer_js_front = TIMER_JS_FRONT
+        timer_js_back = TIMER_JS_BACK
+
+    # Build complete templates
+    if timer_position == "top_middle":
+        # For top_middle: timer at beginning (fixed position, so doesn't matter)
+        qfmt = (
+            timer_css +
+            timer_html +
+            MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
+            header +
+            MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            question_html +
+            timer_js_front
+        )
+    elif timer_position == "hidden":
+        # No timer at all
+        qfmt = (
+            MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
+            header +
+            MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            question_html
+        )
+    else:  # "between_sections"
+        # Timer between CONTEXT and CARD
+        qfmt = (
+            timer_css +
+            MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
+            header +
+            timer_html +
+            MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            question_html +
+            timer_js_front
+        )
     
-    # Back template: Same structure with timer between CONTEXT and CARD
-    # Both cloze and basic now include full content (no {{FrontSide}})
+    # Back template
     if is_cloze:
         back_content = (
             header + 
-            TIMER_HTML +  # Timer between CONTEXT and CARD
+            (timer_html if timer_position == "between_sections" else "") +
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
             question_html +
             MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
@@ -600,7 +685,7 @@ def create_card_template(is_cloze=False):
         # Basic card: show question + answer + additional info
         back_content = (
             header + 
-            TIMER_HTML +  # Timer between CONTEXT and CARD
+            (timer_html if timer_position == "between_sections" else "") +
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
             question_html +
             answer_html +
@@ -614,12 +699,26 @@ def create_card_template(is_cloze=False):
             footer
         )
     
-    afmt = (
-        TIMER_CSS +
-        MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
-        back_content +
-        TIMER_JS_BACK
-    )
+    if timer_position == "top_middle":
+        afmt = (
+            timer_css +
+            timer_html +
+            MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
+            back_content +
+            timer_js_back
+        )
+    elif timer_position == "hidden":
+        afmt = (
+            MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
+            back_content
+        )
+    else:  # "between_sections"
+        afmt = (
+            timer_css +
+            MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
+            back_content +
+            timer_js_back
+        )
 
     return {"qfmt": qfmt, "afmt": afmt}
 

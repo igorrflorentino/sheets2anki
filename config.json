@@ -9,7 +9,8 @@
         "auto_backup_enabled": false,
         "auto_backup_directory": null,
         "auto_backup_max_files": 50,
-        "auto_backup_type": "simple"
+        "auto_backup_type": "simple",
+        "timer_position": "between_sections"
     },
     "students": {
         "available_students": [],

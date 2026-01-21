@@ -2011,6 +2011,45 @@ def ensure_deck_configurations_consistency():
 
 
 # =============================================================================
+# TIMER POSITION SETTINGS
+# =============================================================================
+
+
+def get_timer_position():
+    """
+    Gets the current timer position setting.
+
+    Returns:
+        str: "top_middle", "between_sections", or "hidden"
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    return config.get("timer_position", "between_sections")
+
+
+def set_timer_position(position):
+    """
+    Sets the timer position setting.
+
+    Args:
+        position (str): "top_middle", "between_sections", or "hidden"
+    """
+    valid_positions = ["top_middle", "between_sections", "hidden"]
+    if position not in valid_positions:
+        raise ValueError(
+            f"Invalid position: {position}. Use one of: {valid_positions}"
+        )
+
+    meta = get_meta()
+    if "config" not in meta:
+        meta["config"] = {}
+
+    meta["config"]["timer_position"] = position
+    save_meta(meta)
+    add_debug_msg(f"[TIMER_POSITION] Timer position changed to: {position}")
+
+
+# =============================================================================
 # ANKIWEB SYNCHRONIZATION SETTINGS MANAGEMENT
 # =============================================================================
 

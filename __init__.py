@@ -219,6 +219,22 @@ def open_debug_mode():
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
 
+def configure_timer():
+    """
+    Opens the timer position configuration dialog.
+    
+    This function allows the user to choose between three timer positions:
+    1. Top Middle - Timer at top center
+    2. Between Sections - Timer between CONTEXT and CARD
+    3. Hidden - Timer disabled
+    """
+    try:
+        from .src.timer_config_dialog import show_timer_config_dialog
+        show_timer_config_dialog(mw)
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
 # =============================================================================
 # ANKI INTERFACE CONFIGURATION
 # =============================================================================
@@ -271,6 +287,12 @@ if mw is not None:
     ankiWebSyncConfigAction.setShortcut(QKeySequence("Ctrl+Shift+W"))
     qconnect(ankiWebSyncConfigAction.triggered, configure_ankiweb_sync)
     remoteDecksSubMenu.addAction(ankiWebSyncConfigAction)
+
+    # Action: Configure timer position
+    timerConfigAction = QAction("Configure Timer", mw)
+    timerConfigAction.setShortcut(QKeySequence("Ctrl+Shift+I"))
+    qconnect(timerConfigAction.triggered, configure_timer)
+    remoteDecksSubMenu.addAction(timerConfigAction)
 
     # Separator
     remoteDecksSubMenu.addSeparator()
