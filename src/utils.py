@@ -2357,13 +2357,13 @@ def get_subdeck_name(main_deck_name, fields, student=None):
         """Cleans text for use as Anki deck name (single value, NOT list)."""
         if not text or not isinstance(text, str):
             return ""
-        # Remove extra spaces, replace spaces with underscores and problematic characters
+        # Remove problematic characters but keep spaces intact
         # Deck names can't contain :: as it's the separator
         cleaned = text.strip().replace("::", "_").replace(":", "_")
         # Remove special characters that may cause issues, but allow brackets and basic punctuation
         cleaned = re.sub(r"[^\w\s\-_\[\]()]", "", cleaned)
-        # Replace multiple spaces with single underscore
-        cleaned = re.sub(r"\s+", "_", cleaned)
+        # Normalize multiple spaces to single space (keep spaces, don't replace with underscores)
+        cleaned = re.sub(r"\s+", " ", cleaned)
         return cleaned
 
     # Get field values (single values, NOT lists)
