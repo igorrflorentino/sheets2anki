@@ -241,9 +241,9 @@ MARKERS_TEMPLATE = """
 TIMER_CSS = """
 <style>
 .sheets2anki-timer {
-  position: fixed;
-  top: 10px;
-  right: 10px;
+  display: block;
+  width: fit-content;
+  margin: 10px auto;
   padding: 8px 16px;
   background: rgba(0, 0, 0, 0.75);
   color: #00ff88;
@@ -251,7 +251,7 @@ TIMER_CSS = """
   font-size: 18px;
   font-weight: bold;
   border-radius: 8px;
-  z-index: 9999;
+  text-align: center;
   user-select: none;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -568,23 +568,23 @@ def create_card_template(is_cloze=False):
         )
 
     # Build complete templates with timer
-    # Front template: CSS + Timer HTML + Content + Timer JS (starts timer)
+    # Front template: CSS at top, timer between CONTEXT and CARD
     qfmt = (
         TIMER_CSS +
-        TIMER_HTML +
         MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
-        header +        
+        header +
+        TIMER_HTML +  # Timer appears between CONTEXT and CARD
         MARKERS_TEMPLATE.format(text="CARD", observation="") +
-        question_html +  # Front: only header and question
+        question_html +
         TIMER_JS_FRONT
     )
     
-    # Back template: CSS + Timer HTML + Content + Timer JS (freezes timer)
+    # Back template: Same structure with timer between CONTEXT and CARD
     # Both cloze and basic now include full content (no {{FrontSide}})
-    # This ensures timer appears correctly on back side
     if is_cloze:
         back_content = (
             header + 
+            TIMER_HTML +  # Timer between CONTEXT and CARD
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
             question_html +
             MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
@@ -600,6 +600,7 @@ def create_card_template(is_cloze=False):
         # Basic card: show question + answer + additional info
         back_content = (
             header + 
+            TIMER_HTML +  # Timer between CONTEXT and CARD
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
             question_html +
             answer_html +
@@ -615,7 +616,6 @@ def create_card_template(is_cloze=False):
     
     afmt = (
         TIMER_CSS +
-        TIMER_HTML +
         MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
         back_content +
         TIMER_JS_BACK
