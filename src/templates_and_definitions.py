@@ -44,7 +44,7 @@ info_2 = "DETAILED INFO"  # Additional detailed information
 # Examples related to the question (up to 3 examples)
 example_1 = "EXAMPLE 1"  # First example
 example_2 = "EXAMPLE 2"  # Second example
-example_3 = "EXAMPLE 3"  # Third example
+mnemonic = "MNEMONIC"  # Mnemonic for memory aid
 
 # =============================================================================
 # MULTIMEDIA FIELDS
@@ -106,7 +106,7 @@ ALL_AVAILABLE_COLUMNS = [
 
     example_1,  # First example
     example_2,  # Second example
-    example_3,  # Third example
+    mnemonic,  # Mnemonic for memory aid
 
     multimedia_1,  # HTML code for images and illustrations
     multimedia_2,  # HTML code for embedded videos
@@ -142,7 +142,7 @@ TEXT_FIELDS = [
     info_2,
     example_1,
     example_2,
-    example_3,
+    mnemonic,
     extra_field_1,
     extra_field_2,
     extra_field_3,
@@ -171,7 +171,7 @@ NOTE_FIELDS = [
     
     example_1,  # First example
     example_2,  # Second example
-    example_3,  # Third example
+    mnemonic,  # Mnemonic for memory aid
     
     multimedia_1,  # HTML code for images and illustrations
     multimedia_2,  # HTML code for embedded videos
@@ -581,7 +581,7 @@ def create_card_template(is_cloze=False, timer_position=None):
     )
 
     # Example fields
-    example_fields = [example_1, example_2, example_3]
+    example_fields = [example_1, example_2, mnemonic]
 
     examples = ""
     for field in example_fields:

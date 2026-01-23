@@ -1505,7 +1505,7 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
         (cols.multimedia_2, cols.multimedia_2),
         (cols.example_1, cols.example_1),
         (cols.example_2, cols.example_2),
-        (cols.example_3, cols.example_3),
+        (cols.mnemonic, cols.mnemonic),
         (cols.hierarchy_1, cols.hierarchy_1),
         (cols.hierarchy_2, cols.hierarchy_2),
         (cols.hierarchy_3, cols.hierarchy_3),
@@ -1712,7 +1712,7 @@ def fill_note_fields_for_student(note, note_data, student):
         cols.multimedia_2: note_data.get(cols.multimedia_2, "").strip(),
         cols.example_1: note_data.get(cols.example_1, "").strip(),
         cols.example_2: note_data.get(cols.example_2, "").strip(),
-        cols.example_3: note_data.get(cols.example_3, "").strip(),
+        cols.mnemonic: note_data.get(cols.mnemonic, "").strip(),
         # Metadata fields
         cols.tags_1: note_data.get(cols.tags_1, "").strip(),
         cols.tags_2: note_data.get(cols.tags_2, "").strip(),

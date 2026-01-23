@@ -57,7 +57,7 @@ Use our [**ready-made template**](https://docs.google.com/spreadsheets/d/1N-Va4Z
 | **DETAILED INFO** | More details | `Designed by Oscar Niemeyer` |
 | **EXAMPLE 1** | First example | - |
 | **EXAMPLE 2** | Second example | - |
-| **EXAMPLE 3** | Third example | - |
+| **MNEMONIC** | Mnemonic for memory aid | - |
 | **HTML IMAGE** | Images/HTML | `<img src="...">` |
 | **HTML VIDEO** | Embedded videos | `<iframe src="...">` |
 | **EXTRA FIELD 1** | Free field (personal use) | - |
