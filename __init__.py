@@ -235,6 +235,127 @@ def configure_timer():
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
 
+def configure_ai_help():
+    """
+    Opens the AI Help configuration dialog.
+    
+    This function allows the user to configure:
+    1. AI Service (Gemini, Claude, OpenAI)
+    2. API Key
+    3. Model selection
+    4. Custom prompt template
+    """
+    try:
+        from .src.ai_help_config_dialog import show_ai_help_config_dialog
+        show_ai_help_config_dialog(mw)
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
+
+# =============================================================================
+# AI HELP PYCMD HANDLER
+# =============================================================================
+
+def handle_ai_help_request(card_content):
+    """
+    Handles AI Help requests from card JavaScript.
+    
+    This function:
+    1. Gets AI configuration
+    2. Calls the AI API with card content
+    3. Returns response to the card via JavaScript
+    
+    Args:
+        card_content: The card content sent from JavaScript (URL encoded)
+    """
+    import urllib.parse
+    
+    try:
+        # Decode the card content
+        decoded_content = urllib.parse.unquote(card_content)
+        
+        # Get AI configuration
+        from .src.config_manager import get_ai_help_config
+        config = get_ai_help_config()
+        
+        if not config.get("enabled"):
+            send_ai_response_to_card("AI Help is not enabled. Go to Tools → Sheets2Anki → Configure AI Help to set it up.", None)
+            return
+        
+        service = config.get("service", "gemini")
+        model = config.get("model", "")
+        api_key = config.get("api_key", "")
+        prompt = config.get("prompt", "")
+        
+        if not api_key:
+            send_ai_error_to_card("No API key configured. Please configure AI Help first.")
+            return
+        
+        if not model:
+            send_ai_error_to_card("No model selected. Please configure AI Help first.")
+            return
+        
+        # Call AI API asynchronously
+        from .src.ai_service import call_ai_api_async
+        
+        def on_ai_response(result, error):
+            if error:
+                send_ai_error_to_card(str(error))
+            else:
+                # result is a dict with 'text', 'input_tokens', 'output_tokens', 'cost'
+                usage_info = {
+                    "input_tokens": result.get("input_tokens", 0),
+                    "output_tokens": result.get("output_tokens", 0),
+                    "cost": result.get("cost", 0)
+                }
+                send_ai_response_to_card(result.get("text", ""), usage_info)
+        
+        call_ai_api_async(service, model, api_key, prompt, decoded_content, on_ai_response)
+        
+    except Exception as e:
+        send_ai_error_to_card(f"Error processing AI Help request: {str(e)}")
+
+
+def send_ai_response_to_card(response, usage_info):
+    """Sends AI response back to the card via JavaScript."""
+    try:
+        import json
+        from aqt import mw
+        if mw and mw.reviewer and mw.reviewer.web:
+            # Escape the response for JavaScript
+            escaped_response = response.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '')
+            
+            # Serialize usage info
+            usage_json = json.dumps(usage_info) if usage_info else "null"
+            
+            # Must run on main thread - Qt requires UI operations on main thread
+            def run_on_main():
+                if mw.reviewer and mw.reviewer.web:
+                    mw.reviewer.web.eval(f"sheets2ankiAIResponse('{escaped_response}', {usage_json})")
+            
+            mw.taskman.run_on_main(run_on_main)
+    except Exception as e:
+        print(f"Error sending AI response to card: {e}")
+
+
+def send_ai_error_to_card(error):
+    """Sends error message back to the card via JavaScript."""
+    try:
+        from aqt import mw
+        if mw and mw.reviewer and mw.reviewer.web:
+            # Escape the error for JavaScript
+            escaped_error = str(error).replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '')
+            
+            # Must run on main thread - Qt requires UI operations on main thread
+            def run_on_main():
+                if mw.reviewer and mw.reviewer.web:
+                    mw.reviewer.web.eval(f"sheets2ankiAIError('{escaped_error}')")
+            
+            mw.taskman.run_on_main(run_on_main)
+    except Exception as e:
+        print(f"Error sending AI error to card: {e}")
+
 # =============================================================================
 # ANKI INTERFACE CONFIGURATION
 # =============================================================================
@@ -294,6 +415,12 @@ if mw is not None:
     qconnect(timerConfigAction.triggered, configure_timer)
     remoteDecksSubMenu.addAction(timerConfigAction)
 
+    # Action: Configure AI Help
+    aiHelpConfigAction = QAction("Configure AI Help", mw)
+    aiHelpConfigAction.setShortcut(QKeySequence("Ctrl+Shift+H"))
+    qconnect(aiHelpConfigAction.triggered, configure_ai_help)
+    remoteDecksSubMenu.addAction(aiHelpConfigAction)
+
     # Separator
     remoteDecksSubMenu.addSeparator()
 
@@ -318,3 +445,19 @@ if mw is not None:
             remoteDecksSubMenu.addAction(importTestDeckAction)
     except ImportError:
         pass  # If import fails, don't show the menu
+
+    # =========================================================================
+    # PYCMD HANDLER REGISTRATION
+    # =========================================================================
+    
+    from aqt import gui_hooks
+    
+    def on_webview_did_receive_js_message(handled, message, context):
+        """Handler for JavaScript pycmd messages from review cards."""
+        if message.startswith("sheets2anki_ai_help:"):
+            card_content = message[len("sheets2anki_ai_help:"):]
+            handle_ai_help_request(card_content)
+            return True, None
+        return handled
+    
+    gui_hooks.webview_did_receive_js_message.append(on_webview_did_receive_js_message)

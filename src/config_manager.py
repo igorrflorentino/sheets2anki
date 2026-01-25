@@ -2523,3 +2523,207 @@ def get_auto_backup_directory():
         directory = tempfile.gettempdir()
     
     return directory
+
+
+# =============================================================================
+# AI HELP CONFIGURATION SETTINGS
+# =============================================================================
+
+# Default prompt template for AI Help
+DEFAULT_AI_HELP_PROMPT = """I'm studying with flashcards and need help understanding this one better.
+
+Here is the card content:
+{card_content}
+
+Please help me understand:
+1. What is this card trying to teach me?
+2. Why is this information important?
+3. How can I better remember this concept?
+
+Keep your explanation clear and concise."""
+
+
+def get_ai_help_config():
+    """
+    Gets AI Help configuration settings.
+    
+    Returns:
+        dict: AI Help settings including:
+            - enabled: Whether AI Help is enabled
+            - service: Selected service (gemini, claude, openai)
+            - model: Selected model for the service
+            - api_key: API key for the service
+            - prompt: Custom prompt template
+            - mobile_enabled: Whether to embed API key for mobile support
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    
+    return {
+        "enabled": config.get("ai_help_enabled", False),
+        "service": config.get("ai_help_service", "gemini"),
+        "model": config.get("ai_help_model", ""),
+        "api_key": config.get("ai_help_api_key", ""),
+        "prompt": config.get("ai_help_prompt", DEFAULT_AI_HELP_PROMPT),
+        "mobile_enabled": config.get("ai_help_mobile_enabled", False),
+    }
+
+
+def set_ai_help_config(enabled=None, service=None, model=None, api_key=None, prompt=None, mobile_enabled=None):
+    """
+    Sets AI Help configuration settings.
+    
+    Args:
+        enabled (bool, optional): Whether AI Help is enabled
+        service (str, optional): Selected service (gemini, claude, openai)
+        model (str, optional): Selected model for the service
+        api_key (str, optional): API key for the service
+        prompt (str, optional): Custom prompt template
+        mobile_enabled (bool, optional): Whether to embed API key for mobile support
+    
+    Returns:
+        bool: True if settings were saved successfully
+    """
+    valid_services = ["gemini", "claude", "openai"]
+    
+    try:
+        meta = get_meta()
+        config = meta.get("config", {})
+        
+        if enabled is not None:
+            config["ai_help_enabled"] = bool(enabled)
+        
+        if service is not None:
+            if service not in valid_services:
+                add_debug_msg(f"[AI_HELP] Invalid service: {service}. Using 'gemini'.")
+                service = "gemini"
+            config["ai_help_service"] = service
+        
+        if model is not None:
+            config["ai_help_model"] = str(model)
+        
+        if api_key is not None:
+            config["ai_help_api_key"] = str(api_key)
+        
+        if prompt is not None:
+            config["ai_help_prompt"] = str(prompt)
+        
+        if mobile_enabled is not None:
+            config["ai_help_mobile_enabled"] = bool(mobile_enabled)
+        
+        meta["config"] = config
+        save_meta(meta)
+        
+        add_debug_msg(f"[AI_HELP] Settings updated: enabled={enabled}, service={service}, model={model}, mobile={mobile_enabled}")
+        return True
+        
+    except Exception as e:
+        add_debug_msg(f"[AI_HELP] Error saving settings: {e}")
+        return False
+
+
+def get_ai_help_enabled():
+    """
+    Gets whether AI Help is enabled.
+    
+    Returns:
+        bool: True if AI Help is enabled
+    """
+    return get_ai_help_config().get("enabled", False)
+
+
+def set_ai_help_enabled(enabled):
+    """
+    Sets whether AI Help is enabled.
+    
+    Args:
+        enabled (bool): True to enable AI Help
+    """
+    set_ai_help_config(enabled=enabled)
+
+
+def get_ai_help_service():
+    """
+    Gets the selected AI service.
+    
+    Returns:
+        str: Service name (gemini, claude, openai)
+    """
+    return get_ai_help_config().get("service", "gemini")
+
+
+def set_ai_help_service(service):
+    """
+    Sets the AI service.
+    
+    Args:
+        service (str): Service name (gemini, claude, openai)
+    """
+    set_ai_help_config(service=service)
+
+
+def get_ai_help_model():
+    """
+    Gets the selected AI model.
+    
+    Returns:
+        str: Model name
+    """
+    return get_ai_help_config().get("model", "")
+
+
+def set_ai_help_model(model):
+    """
+    Sets the AI model.
+    
+    Args:
+        model (str): Model name
+    """
+    set_ai_help_config(model=model)
+
+
+def get_ai_help_api_key():
+    """
+    Gets the API key for the AI service.
+    
+    Returns:
+        str: API key
+    """
+    return get_ai_help_config().get("api_key", "")
+
+
+def set_ai_help_api_key(api_key):
+    """
+    Sets the API key for the AI service.
+    
+    Args:
+        api_key (str): API key
+    """
+    set_ai_help_config(api_key=api_key)
+
+
+def get_ai_help_prompt():
+    """
+    Gets the custom prompt template.
+    
+    Returns:
+        str: Prompt template
+    """
+    return get_ai_help_config().get("prompt", DEFAULT_AI_HELP_PROMPT)
+
+
+def set_ai_help_prompt(prompt):
+    """
+    Sets the custom prompt template.
+    
+    Args:
+        prompt (str): Prompt template
+    """
+    set_ai_help_config(prompt=prompt)
+
+
+def reset_ai_help_prompt():
+    """
+    Resets the prompt template to the default.
+    """
+    set_ai_help_config(prompt=DEFAULT_AI_HELP_PROMPT)

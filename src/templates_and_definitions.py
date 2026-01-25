@@ -372,6 +372,815 @@ TIMER_JS_BACK = """
 # Timer HTML element
 TIMER_HTML = '<div id="sheets2anki-timer" class="sheets2anki-timer">00:00</div>'
 
+# =============================================================================
+# AI HELP BUTTON - CSS, HTML AND JAVASCRIPT
+# =============================================================================
+
+# AI Help Button CSS
+AI_HELP_CSS = """
+<style>
+/* Theme variables - defaults to dark mode */
+:root {
+  --ai-bg: #1e1e1e;
+  --ai-bg-secondary: #2d2d2d;
+  --ai-text: #e0e0e0;
+  --ai-text-muted: #888;
+  --ai-border: #404040;
+  --ai-accent: #667eea;
+  --ai-accent-secondary: #764ba2;
+  --ai-code-bg: #333;
+  --ai-code-text: #f8f8f2;
+  --ai-error: #ff6b6b;
+  --ai-error-bg: rgba(255, 107, 107, 0.1);
+  --ai-overlay: rgba(0, 0, 0, 0.7);
+  --ai-shadow: rgba(0, 0, 0, 0.5);
+}
+
+/* Light mode overrides */
+@media (prefers-color-scheme: light) {
+  :root {
+    --ai-bg: #ffffff;
+    --ai-bg-secondary: #f5f5f5;
+    --ai-text: #1a1a1a;
+    --ai-text-muted: #666;
+    --ai-border: #e0e0e0;
+    --ai-accent: #5a67d8;
+    --ai-accent-secondary: #6b46c1;
+    --ai-code-bg: #f0f0f0;
+    --ai-code-text: #333;
+    --ai-error: #e53e3e;
+    --ai-error-bg: rgba(229, 62, 62, 0.1);
+    --ai-overlay: rgba(0, 0, 0, 0.5);
+    --ai-shadow: rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Also support Anki's night mode class */
+.night_mode {
+  --ai-bg: #1e1e1e;
+  --ai-bg-secondary: #2d2d2d;
+  --ai-text: #e0e0e0;
+  --ai-text-muted: #888;
+  --ai-border: #404040;
+  --ai-accent: #667eea;
+  --ai-accent-secondary: #764ba2;
+  --ai-code-bg: #333;
+  --ai-code-text: #f8f8f2;
+  --ai-error: #ff6b6b;
+  --ai-error-bg: rgba(255, 107, 107, 0.1);
+}
+
+.ai-help-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 20px 0;
+  padding: 10px;
+}
+
+.ai-help-button {
+  background: linear-gradient(135deg, var(--ai-accent) 0%, var(--ai-accent-secondary) 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-help-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.ai-help-button:active {
+  transform: translateY(0);
+}
+
+.ai-help-button.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.ai-help-button .spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+.ai-help-button.loading .spinner {
+  display: inline-block;
+}
+
+.ai-help-button.loading .btn-text {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* AI Help Response Modal (for desktop) */
+.ai-help-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--ai-overlay);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+}
+
+.ai-help-modal.show {
+  display: flex;
+}
+
+.ai-help-modal-content {
+  background: var(--ai-bg);
+  color: var(--ai-text);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 90%;
+  max-height: 80%;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px var(--ai-shadow);
+  position: relative;
+  border: 1px solid var(--ai-border);
+}
+
+.ai-help-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ai-border);
+}
+
+.ai-help-modal-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--ai-accent);
+}
+
+.ai-help-modal-close {
+  background: none;
+  border: none;
+  color: var(--ai-text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.ai-help-modal-close:hover {
+  background: var(--ai-bg-secondary);
+  color: var(--ai-text);
+}
+
+.ai-help-modal-body {
+  line-height: 1.7;
+  font-size: 14px;
+  color: var(--ai-text);
+}
+
+.ai-help-modal-body h2,
+.ai-help-modal-body h3,
+.ai-help-modal-body h4 {
+  color: var(--ai-accent);
+  margin: 16px 0 8px 0;
+}
+
+.ai-help-modal-body h2 { font-size: 18px; }
+.ai-help-modal-body h3 { font-size: 16px; }
+.ai-help-modal-body h4 { font-size: 15px; }
+
+.ai-help-modal-body p { margin: 8px 0; }
+.ai-help-modal-body ul { margin: 8px 0; padding-left: 24px; }
+.ai-help-modal-body li { margin: 4px 0; }
+
+.ai-help-modal-body code {
+  background: var(--ai-code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  color: var(--ai-code-text);
+}
+
+.ai-help-modal-body strong { color: var(--ai-text); font-weight: 600; }
+.ai-help-modal-body hr { border: none; border-top: 1px solid var(--ai-border); margin: 16px 0; }
+
+.ai-help-error {
+  color: var(--ai-error);
+  padding: 12px;
+  background: var(--ai-error-bg);
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* Usage info - vertical layout */
+.ai-help-usage {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ai-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ai-text-muted);
+}
+
+.ai-help-usage span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Inline response area (for mobile) */
+.ai-help-inline {
+  display: none;
+  width: 100%;
+  max-width: 600px;
+  margin-top: 15px;
+  padding: 16px;
+  background: var(--ai-bg);
+  border: 1px solid var(--ai-border);
+  border-radius: 12px;
+  line-height: 1.7;
+  font-size: 14px;
+  color: var(--ai-text);
+  box-shadow: 0 4px 12px var(--ai-shadow);
+}
+
+.ai-help-inline.show {
+  display: block;
+}
+
+.ai-help-inline h2,
+.ai-help-inline h3,
+.ai-help-inline h4 {
+  color: var(--ai-accent);
+  margin: 16px 0 8px 0;
+}
+
+.ai-help-inline h2 { font-size: 18px; }
+.ai-help-inline h3 { font-size: 16px; }
+.ai-help-inline h4 { font-size: 15px; }
+
+.ai-help-inline p { margin: 8px 0; }
+.ai-help-inline ul { margin: 8px 0; padding-left: 24px; }
+.ai-help-inline li { margin: 4px 0; }
+
+.ai-help-inline code {
+  background: var(--ai-code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  color: var(--ai-code-text);
+}
+
+.ai-help-inline strong { color: var(--ai-text); font-weight: 600; }
+.ai-help-inline hr { border: none; border-top: 1px solid var(--ai-border); margin: 16px 0; }
+
+.ai-help-inline .ai-help-error {
+  color: var(--ai-error);
+  padding: 12px;
+  background: var(--ai-error-bg);
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* Base Table Styles */
+.ai-help-modal-body table,
+.ai-help-inline table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.ai-help-modal-body th,
+.ai-help-inline th {
+  background: var(--ai-bg-secondary);
+  color: var(--ai-accent);
+  font-weight: bold;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--ai-border);
+}
+
+.ai-help-modal-body td,
+.ai-help-inline td {
+  padding: 8px 12px;
+  border: 1px solid var(--ai-border);
+  color: var(--ai-text);
+}
+
+.ai-help-modal-body tr:nth-child(even),
+.ai-help-inline tr:nth-child(even) {
+  background: rgba(128, 128, 128, 0.05);
+}
+
+.ai-help-modal-body tr:hover,
+.ai-help-inline tr:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+</style>
+"""
+
+# AI Help Button HTML
+AI_HELP_BUTTON_HTML = """
+<div class="ai-help-container">
+  <!-- Load marked.js for markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <button id="ai-help-btn" class="ai-help-button" onclick="requestAIHelp()">
+    <span class="btn-text">🤖 AI Help</span>
+    <span class="spinner"></span>
+  </button>
+  <div id="ai-help-inline" class="ai-help-inline"></div>
+</div>
+
+<div id="ai-help-modal" class="ai-help-modal" onclick="closeAIHelpModal(event)">
+  <div class="ai-help-modal-content" onclick="event.stopPropagation()">
+    <div class="ai-help-modal-header">
+      <span class="ai-help-modal-title">🤖 AI Help</span>
+      <button class="ai-help-modal-close" onclick="closeAIHelpModal()">&times;</button>
+    </div>
+    <div id="ai-help-modal-body" class="ai-help-modal-body">
+      Loading...
+    </div>
+  </div>
+</div>
+"""
+
+# AI Help JavaScript - Base template (desktop-only mode)
+AI_HELP_JS_DESKTOP = """
+<script>
+// Desktop-only mode: hide button if pycmd not available
+(function() {
+  if (typeof pycmd === 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+      var container = document.querySelector('.ai-help-container');
+      if (container) container.style.display = 'none';
+    });
+    var container = document.querySelector('.ai-help-container');
+    if (container) container.style.display = 'none';
+  }
+})();
+
+function requestAIHelp() {
+  var btn = document.getElementById('ai-help-btn');
+  if (!btn || btn.classList.contains('loading')) return;
+  
+  btn.classList.add('loading');
+  var cardContent = collectCardContent();
+  
+  if (typeof pycmd !== 'undefined') {
+    pycmd('sheets2anki_ai_help:' + encodeURIComponent(cardContent));
+  } else {
+    btn.classList.remove('loading');
+  }
+}
+
+""" + """
+function collectCardContent() {
+  var allText = document.body.innerText || document.body.textContent;
+  return allText.trim();
+}
+
+""" + """
+function processMathAndMarkdown(text) {
+  var mathBlocks = [];
+  var placeholder = "MATHBLOCK";
+  var suffix = "END";
+  
+  // Display math $$ ... $$ -> \[ ... \]
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, function(match, content) {
+    var id = mathBlocks.length;
+    mathBlocks.push('\\\\[' + content + '\\\\]');
+    return placeholder + id + suffix;
+  });
+  
+  // Inline math $ ... $ -> \( ... \) (Disallow newlines)
+  text = text.replace(/([^\\\\$]|^)\$([^\s$\\n](?:[^$\\n]*?[^\s$\\n])?)\$(?!\d)/g, function(match, prefix, content) {
+    var id = mathBlocks.length;
+    mathBlocks.push('\\\\(' + content + '\\\\)');
+    return prefix + placeholder + id + suffix;
+  });
+  
+  var html = (typeof marked !== 'undefined') ? marked.parse(text) : text;
+  
+  for (var i = 0; i < mathBlocks.length; i++) {
+    var regex = new RegExp(placeholder + i + suffix, 'g');
+    html = html.replace(regex, mathBlocks[i]);
+  }
+  
+  return html;
+}
+
+function renderMathJax() {
+  if (typeof MathJax !== 'undefined') {
+    if (MathJax.typesetPromise) {
+      MathJax.typesetPromise();
+    } else if (MathJax.Hub && MathJax.Hub.Queue) {
+      MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+    }
+  }
+}
+
+function showAIHelpResponse(response, usageInfo) {
+  var btn = document.getElementById('ai-help-btn');
+  if (btn) btn.classList.remove('loading');
+  
+  var modal = document.getElementById('ai-help-modal');
+  var body = document.getElementById('ai-help-modal-body');
+  
+  var html = processMathAndMarkdown(response);
+  
+  if (usageInfo && (usageInfo.input_tokens || usageInfo.output_tokens)) {
+    var totalTokens = usageInfo.input_tokens + usageInfo.output_tokens;
+    var cost = usageInfo.cost || 0;
+    var costStr = cost < 0.01 ? cost.toFixed(6) : cost.toFixed(4);
+    html += '<div class="ai-help-usage">';
+    html += '<span>📊 Tokens: ' + totalTokens + ' (' + usageInfo.input_tokens + ' in / ' + usageInfo.output_tokens + ' out)</span>';
+    html += '<span>💰 Cost: $' + costStr + '</span>';
+    html += '</div>';
+  }
+  
+  body.innerHTML = html;
+  modal.classList.add('show');
+  
+  // Trigger MathJax
+  setTimeout(renderMathJax, 10);
+}
+
+function showAIHelpError(error) {
+  var btn = document.getElementById('ai-help-btn');
+  if (btn) btn.classList.remove('loading');
+  
+  var modal = document.getElementById('ai-help-modal');
+  var body = document.getElementById('ai-help-modal-body');
+  body.innerHTML = '<div class="ai-help-error">⚠️ ' + error + '</div>';
+  modal.classList.add('show');
+}
+
+function closeAIHelpModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  var modal = document.getElementById('ai-help-modal');
+  modal.classList.remove('show');
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.sheets2ankiAIResponse = function(response, usageInfo) {
+    showAIHelpResponse(response, usageInfo);
+  };
+  globalThis.sheets2ankiAIError = function(error) {
+    showAIHelpError(error);
+  };
+}
+</script>
+"""
+
+# AI Help JavaScript - Mobile mode (with embedded API config)
+AI_HELP_JS_MOBILE_TEMPLATE = """
+<script>
+// AI Help Config (embedded for mobile support)
+var AI_CONFIG = {{
+  service: '{service}',
+  model: '{model}',
+  apiKey: '{api_key}',
+  prompt: {prompt_json}
+}};
+
+// Pricing per 1M tokens
+var PRICING = {{
+  'gemini-2.0-flash': [0.10, 0.40],
+  'gemini-1.5-flash': [0.075, 0.30],
+  'gemini-1.5-pro': [1.25, 5.00],
+  'gemini-pro': [0.50, 1.50],
+  'claude-sonnet-4': [3.00, 15.00],
+  'claude-3-5-sonnet': [3.00, 15.00],
+  'claude-3-5-haiku': [0.80, 4.00],
+  'claude-3-opus': [15.00, 75.00],
+  'claude-3-haiku': [0.25, 1.25],
+  'gpt-4o': [2.50, 10.00],
+  'gpt-4o-mini': [0.15, 0.60],
+  'gpt-4-turbo': [10.00, 30.00],
+  'gpt-4': [30.00, 60.00],
+  'gpt-3.5-turbo': [0.50, 1.50]
+}};
+
+function getPricing(model) {{
+  model = model.toLowerCase();
+  for (var prefix in PRICING) {{
+    if (model.indexOf(prefix) !== -1) return PRICING[prefix];
+  }}
+  return [1.00, 3.00];
+}}
+
+function calculateCost(model, inputTokens, outputTokens) {{
+  var p = getPricing(model);
+  return (inputTokens * p[0] / 1000000) + (outputTokens * p[1] / 1000000);
+}}
+
+function requestAIHelp() {{
+  var btn = document.getElementById('ai-help-btn');
+  if (!btn || btn.classList.contains('loading')) return;
+  
+  btn.classList.add('loading');
+  var cardContent = collectCardContent();
+  
+  // Try desktop first
+  if (typeof pycmd !== 'undefined') {{
+    pycmd('sheets2anki_ai_help:' + encodeURIComponent(cardContent));
+    return;
+  }}
+  
+  // Mobile: direct API call
+  callAIAPI(cardContent);
+}}
+
+function callAIAPI(cardContent) {{
+  var prompt = AI_CONFIG.prompt.replace('{{card_content}}', cardContent);
+  if (prompt.indexOf(cardContent) === -1) {{
+    prompt = prompt + '\\n\\n' + cardContent;
+  }}
+  
+  if (AI_CONFIG.service === 'gemini') {{
+    callGeminiAPI(prompt);
+  }} else if (AI_CONFIG.service === 'claude') {{
+    callClaudeAPI(prompt);
+  }} else if (AI_CONFIG.service === 'openai') {{
+    callOpenAIAPI(prompt);
+  }}
+}}
+
+function callGeminiAPI(prompt) {{
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + AI_CONFIG.model + ':generateContent?key=' + AI_CONFIG.apiKey;
+  
+  fetch(url, {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{
+      contents: [{{ parts: [{{ text: prompt }}] }}],
+      generationConfig: {{ temperature: 0.7, maxOutputTokens: 1024 }}
+    }})
+  }})
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (data.error) {{
+      showAIHelpError(data.error.message || 'API Error');
+      return;
+    }}
+    var text = '';
+    try {{
+      text = data.candidates[0].content.parts[0].text;
+    }} catch(e) {{
+      text = 'No response generated';
+    }}
+    var usage = data.usageMetadata || {{}};
+    var inputTokens = usage.promptTokenCount || 0;
+    var outputTokens = usage.candidatesTokenCount || 0;
+    showAIHelpResponse(text, {{
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cost: calculateCost(AI_CONFIG.model, inputTokens, outputTokens)
+    }});
+  }})
+  .catch(function(e) {{ showAIHelpError('Request failed: ' + e.message); }});
+}}
+
+function callClaudeAPI(prompt) {{
+  // Note: Claude API may have CORS restrictions from browser
+  var url = 'https://api.anthropic.com/v1/messages';
+  
+  fetch(url, {{
+    method: 'POST',
+    headers: {{
+      'Content-Type': 'application/json',
+      'x-api-key': AI_CONFIG.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    }},
+    body: JSON.stringify({{
+      model: AI_CONFIG.model,
+      max_tokens: 1024,
+      messages: [{{ role: 'user', content: prompt }}]
+    }})
+  }})
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (data.error) {{
+      showAIHelpError(data.error.message || 'API Error');
+      return;
+    }}
+    var text = data.content && data.content[0] ? data.content[0].text : 'No response';
+    var usage = data.usage || {{}};
+    showAIHelpResponse(text, {{
+      input_tokens: usage.input_tokens || 0,
+      output_tokens: usage.output_tokens || 0,
+      cost: calculateCost(AI_CONFIG.model, usage.input_tokens || 0, usage.output_tokens || 0)
+    }});
+  }})
+  .catch(function(e) {{ showAIHelpError('Request failed: ' + e.message); }});
+}}
+
+function callOpenAIAPI(prompt) {{
+  var url = 'https://api.openai.com/v1/chat/completions';
+  
+  fetch(url, {{
+    method: 'POST',
+    headers: {{
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + AI_CONFIG.apiKey
+    }},
+    body: JSON.stringify({{
+      model: AI_CONFIG.model,
+      messages: [{{ role: 'user', content: prompt }}],
+      max_tokens: 1024,
+      temperature: 0.7
+    }})
+  }})
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (data.error) {{
+      showAIHelpError(data.error.message || 'API Error');
+      return;
+    }}
+    var text = data.choices && data.choices[0] ? data.choices[0].message.content : 'No response';
+    var usage = data.usage || {{}};
+    showAIHelpResponse(text, {{
+      input_tokens: usage.prompt_tokens || 0,
+      output_tokens: usage.completion_tokens || 0,
+      cost: calculateCost(AI_CONFIG.model, usage.prompt_tokens || 0, usage.completion_tokens || 0)
+    }});
+  }})
+  .catch(function(e) {{ showAIHelpError('Request failed: ' + e.message); }});
+}}
+
+function collectCardContent() {{
+  var allText = document.body.innerText || document.body.textContent;
+  return allText.trim();
+}}
+
+function processMathAndMarkdown(text) {{
+  var mathBlocks = [];
+  var placeholder = "MATHBLOCK";
+  var suffix = "END";
+  
+  // Display math $$ ... $$ -> \[ ... \]
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, function(match, content) {{
+    var id = mathBlocks.length;
+    mathBlocks.push('\\\\[' + content + '\\\\]');
+    return placeholder + id + suffix;
+  }});
+  
+  // Inline math $ ... $ -> \( ... \)
+  text = text.replace(/([^\\\\$]|^)\$([^\s$\\n](?:[^$\\n]*?[^\s$\\n])?)\$(?!\d)/g, function(match, prefix, content) {{
+    var id = mathBlocks.length;
+    mathBlocks.push('\\\\(' + content + '\\\\)');
+    return prefix + placeholder + id + suffix;
+  }});
+  
+  var html = (typeof marked !== 'undefined') ? marked.parse(text) : text;
+  
+  for (var i = 0; i < mathBlocks.length; i++) {{
+    var regex = new RegExp(placeholder + i + suffix, 'g');
+    html = html.replace(regex, mathBlocks[i]);
+  }}
+  
+  return html;
+}}
+
+function renderMathJax() {{
+  if (typeof MathJax !== 'undefined') {{
+    if (MathJax.typesetPromise) {{
+      MathJax.typesetPromise();
+    }} else if (MathJax.Hub && MathJax.Hub.Queue) {{
+      MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+    }}
+  }}
+}}
+
+function showAIHelpResponse(response, usageInfo) {{
+  var btn = document.getElementById('ai-help-btn');
+  if (btn) btn.classList.remove('loading');
+  
+  var html = processMathAndMarkdown(response);
+  
+  if (usageInfo && (usageInfo.input_tokens || usageInfo.output_tokens)) {{
+    var totalTokens = usageInfo.input_tokens + usageInfo.output_tokens;
+    var cost = usageInfo.cost || 0;
+    var costStr = cost < 0.01 ? cost.toFixed(6) : cost.toFixed(4);
+    html += '<div class="ai-help-usage">';
+    html += '<span>📊 Tokens: ' + totalTokens + ' (' + usageInfo.input_tokens + ' in / ' + usageInfo.output_tokens + ' out)</span>';
+    html += '<span>💰 Cost: $' + costStr + '</span>';
+    html += '</div>';
+  }}
+  
+  // On mobile (no pycmd), show inline; on desktop, use modal
+  if (typeof pycmd === 'undefined') {{
+    var inline = document.getElementById('ai-help-inline');
+    if (inline) {{
+      inline.innerHTML = html;
+      inline.classList.add('show');
+    }}
+  }} else {{
+    var modal = document.getElementById('ai-help-modal');
+    var body = document.getElementById('ai-help-modal-body');
+    body.innerHTML = html;
+    modal.classList.add('show');
+  }}
+  
+  // Trigger MathJax
+  setTimeout(renderMathJax, 10);
+}}
+
+function showAIHelpError(error) {{
+  var btn = document.getElementById('ai-help-btn');
+  if (btn) btn.classList.remove('loading');
+  
+  var errorHtml = '<div class="ai-help-error">⚠️ ' + error + '</div>';
+  
+  // On mobile (no pycmd), show inline; on desktop, use modal
+  if (typeof pycmd === 'undefined') {{
+    var inline = document.getElementById('ai-help-inline');
+    if (inline) {{
+      inline.innerHTML = errorHtml;
+      inline.classList.add('show');
+    }}
+  }} else {{
+    var modal = document.getElementById('ai-help-modal');
+    var body = document.getElementById('ai-help-modal-body');
+    body.innerHTML = errorHtml;
+    modal.classList.add('show');
+  }}
+}}
+
+function closeAIHelpModal(event) {{
+  if (event && event.target !== event.currentTarget) return;
+  var modal = document.getElementById('ai-help-modal');
+  modal.classList.remove('show');
+}}
+
+if (typeof globalThis !== 'undefined') {{
+  globalThis.sheets2ankiAIResponse = function(response, usageInfo) {{
+    showAIHelpResponse(response, usageInfo);
+  }};
+  globalThis.sheets2ankiAIError = function(error) {{
+    showAIHelpError(error);
+  }};
+}}
+</script>
+"""
+
+# Keep old constant for backward compatibility (desktop-only mode)
+AI_HELP_JS = AI_HELP_JS_DESKTOP
+
+
+def generate_ai_help_js(mobile_enabled=False, service="gemini", model="", api_key="", prompt=""):
+    """
+    Generates AI Help JavaScript based on configuration.
+    
+    Args:
+        mobile_enabled: If True, embed API config for mobile support
+        service: AI service (gemini, claude, openai)
+        model: Model ID
+        api_key: API key
+        prompt: Custom prompt template
+    
+    Returns:
+        str: JavaScript code for AI Help
+    """
+    import json
+    
+    if not mobile_enabled:
+        return AI_HELP_JS_DESKTOP
+    
+    # Escape and encode prompt for JSON embedding
+    prompt_json = json.dumps(prompt)
+    
+    return AI_HELP_JS_MOBILE_TEMPLATE.format(
+        service=service,
+        model=model,
+        api_key=api_key,
+        prompt_json=prompt_json
+    )
+
 # Default values for empty fields (will be converted to lowercase by clean_tag_text)
 DEFAULT_IMPORTANCE = "[MISSING_IMPORTANCE]"
 DEFAULT_TOPIC = "[MISSING_TOPIC]"
@@ -513,7 +1322,7 @@ def get_all_column_info():
 # =============================================================================
 
 
-def create_card_template(is_cloze=False, timer_position=None):
+def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=None):
     """
     Creates the HTML template for a card (standard or cloze).
 
@@ -521,6 +1330,8 @@ def create_card_template(is_cloze=False, timer_position=None):
         is_cloze (bool): Whether to create a cloze template
         timer_position (str): Timer position - "top_middle", "between_sections", or "hidden"
                              If None, reads from config
+        ai_help_enabled (bool): Whether to include AI Help button on back card
+                               If None, reads from config
 
     Returns:
         dict: Dictionary with 'qfmt' and 'afmt' template strings
@@ -533,6 +1344,17 @@ def create_card_template(is_cloze=False, timer_position=None):
             timer_position = get_timer_position()
         except ImportError:
             timer_position = "between_sections"  # Default fallback
+    
+    # Get AI Help config from settings if not specified
+    ai_help_config = None
+    if ai_help_enabled is None:
+        try:
+            from .config_manager import get_ai_help_config
+            ai_help_config = get_ai_help_config()
+            ai_help_enabled = ai_help_config.get("enabled", False)
+        except ImportError:
+            ai_help_enabled = False  # Default fallback
+            ai_help_config = None
 
     # Common header fields
     header_fields = [
@@ -699,24 +1521,43 @@ def create_card_template(is_cloze=False, timer_position=None):
             footer
         )
     
+    # Build AI Help components if enabled
+    ai_help_components = ""
+    if ai_help_enabled:
+        # Check if mobile support is enabled
+        if ai_help_config and ai_help_config.get("mobile_enabled", False):
+            ai_help_js = generate_ai_help_js(
+                mobile_enabled=True,
+                service=ai_help_config.get("service", "gemini"),
+                model=ai_help_config.get("model", ""),
+                api_key=ai_help_config.get("api_key", ""),
+                prompt=ai_help_config.get("prompt", "")
+            )
+        else:
+            ai_help_js = AI_HELP_JS_DESKTOP
+        ai_help_components = AI_HELP_CSS + AI_HELP_BUTTON_HTML + ai_help_js
+    
     if timer_position == "top_middle":
         afmt = (
             timer_css +
             timer_html +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             back_content +
+            ai_help_components +
             timer_js_back
         )
     elif timer_position == "hidden":
         afmt = (
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
-            back_content
+            back_content +
+            ai_help_components
         )
     else:  # "between_sections"
         afmt = (
             timer_css +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             back_content +
+            ai_help_components +
             timer_js_back
         )
 

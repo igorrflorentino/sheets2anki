@@ -10,7 +10,12 @@
         "auto_backup_directory": null,
         "auto_backup_max_files": 50,
         "auto_backup_type": "simple",
-        "timer_position": "between_sections"
+        "timer_position": "between_sections",
+        "ai_help_enabled": false,
+        "ai_help_service": "gemini",
+        "ai_help_model": "",
+        "ai_help_api_key": "",
+        "ai_help_prompt": ""
     },
     "students": {
         "available_students": [],
