@@ -2538,8 +2538,9 @@ Here is the card content:
 
 Please help me understand:
 1. What is this card trying to teach me?
-2. Why is this information important?
-3. How can I better remember this concept?
+2. Contextualized explanation: explain the card's information using examples and real-life situations where that information applies.
+3. Why is this information important?
+4. How can I better remember this concept?
 
 Keep your explanation clear and concise.""",
     "portuguese_br": """Estou estudando com flashcards e preciso de ajuda para entender este cartão melhor.
@@ -2549,8 +2550,9 @@ Aqui está o conteúdo do cartão:
 
 Por favor, ajude-me a entender:
 1. O que este cartão está tentando me ensinar?
-2. Por que esta informação é importante?
-3. Como posso me lembrar melhor deste conceito?
+2. Explicando de forma contextualizada: explique a informação do cartão usando exemplos e situações reais onde aquela informação se aplica.
+3. Por que esta informação é importante?
+4. Como posso me lembrar melhor deste conceito?
 
 Mantenha sua explicação clara e concisa.""",
     "spanish_latam": """Estoy estudiando con tarjetas de memoria y necesito ayuda para entender esta tarjeta mejor.
@@ -2560,8 +2562,9 @@ Aquí está el contenido de la tarjeta:
 
 Por favor ayúdame a entender:
 1. ¿Qué intenta enseñarme esta tarjeta?
-2. ¿Por qué es importante esta información?
-3. ¿Cómo puedo recordar mejor este concepto?
+2. Explicación contextualizada: explique la información de la tarjeta usando ejemplos y situaciones reales donde esa información se aplica.
+3. ¿Por qué es importante esta información?
+4. ¿Cómo puedo recordar mejor este concepto?
 
 Mantén tu explicación clara y concisa."""
 }
