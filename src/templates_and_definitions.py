@@ -915,7 +915,7 @@ function requestAIHelp() {{
 }}
 
 function callAIAPI(cardContent) {{
-  var prompt = AI_CONFIG.prompt.replace('{{card_content}}', cardContent);
+  var prompt = AI_CONFIG.prompt.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
   if (prompt.indexOf(cardContent) === -1) {{
     prompt = prompt + '\\n\\n' + cardContent;
   }}
@@ -1171,8 +1171,11 @@ def generate_ai_help_js(mobile_enabled=False, service="gemini", model="", api_ke
     if not mobile_enabled:
         return AI_HELP_JS_DESKTOP
     
-    # Escape and encode prompt for JSON embedding
+    # Escape curly braces to prevent Anki from interpreting them as fields
+    # We replace {{ with \u007B\u007B and }} with \u007D\u007D
+    # This keeps the characters in the final JS string but hides them from Anki's template engine
     prompt_json = json.dumps(prompt)
+    prompt_json = prompt_json.replace("{{", "\\u007B\\u007B").replace("}}", "\\u007D\\u007D")
     
     return AI_HELP_JS_MOBILE_TEMPLATE.format(
         service=service,

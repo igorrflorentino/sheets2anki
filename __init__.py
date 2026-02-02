@@ -287,6 +287,7 @@ def handle_ai_help_request(card_content):
         model = config.get("model", "")
         api_key = config.get("api_key", "")
         prompt = config.get("prompt", "")
+        language = config.get("language", "english")
         
         if not api_key:
             send_ai_error_to_card("No API key configured. Please configure AI Help first.")
@@ -295,6 +296,17 @@ def handle_ai_help_request(card_content):
         if not model:
             send_ai_error_to_card("No model selected. Please configure AI Help first.")
             return
+            
+        # Add language instruction
+        language_instruction = ""
+        if language == "portuguese_br":
+            language_instruction = "Por favor, responda em Português do Brasil.\n\n"
+        elif language == "spanish_latam":
+            language_instruction = "Por favor, responda en Español Latinoamericano.\n\n"
+        else:
+            language_instruction = "Please answer in English (American).\n\n"
+            
+        final_prompt = language_instruction + prompt
         
         # Call AI API asynchronously
         from .src.ai_service import call_ai_api_async
@@ -311,7 +323,7 @@ def handle_ai_help_request(card_content):
                 }
                 send_ai_response_to_card(result.get("text", ""), usage_info)
         
-        call_ai_api_async(service, model, api_key, prompt, decoded_content, on_ai_response)
+        call_ai_api_async(service, model, api_key, final_prompt, decoded_content, on_ai_response)
         
     except Exception as e:
         send_ai_error_to_card(f"Error processing AI Help request: {str(e)}")

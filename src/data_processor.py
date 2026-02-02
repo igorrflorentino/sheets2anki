@@ -106,6 +106,7 @@ class RemoteDeck:
         self.potential_missing_students_notes = 0  # 7. Notes for [MISSING STUDENTS]
         self.unique_students = set()  # 8. Set of unique students
         self.notes_per_student = {}  # 9. Notes per individual student
+        self.ignored_ghost_rows = 0  # 10. Ghost Rows (ignored)
 
         self.enabled_students = set()  # Set of enabled students
 
@@ -118,6 +119,26 @@ class RemoteDeck:
         """
         if not note_data:
             return
+
+        # Check for completely empty rows (ghost rows from Google Sheets)
+        # If all fields are empty (or only contain default Sync values like "FALSE"), we ignore this row
+        # This prevents "Invalid Rows" noise from checkbox columns extended down
+        has_id = bool(note_data.get(cols.identifier, "").strip())
+        
+        if not has_id:
+            # Check if there is any content in columns OTHER than SYNC
+            # We ignore SYNC because checkboxes often default to FALSE in empty rows
+            other_content = False
+            for key, value in note_data.items():
+                if key != cols.is_sync and value and value.strip():
+                    other_content = True
+                    break
+            
+            # If no ID and no other content, it's a ghost row -> Ignore
+            if not other_content:
+                self.ignored_ghost_rows += 1
+                self.total_table_lines += 1 # Ghost rows are still lines in the table
+                return
 
         self.notes.append(note_data)
 
@@ -202,6 +223,7 @@ class RemoteDeck:
             "total_table_lines": self.total_table_lines,  # 1. Total lines
             "valid_note_lines": self.valid_note_lines,  # 2. Lines with filled ID
             "invalid_note_lines": self.invalid_note_lines,  # 3. Lines with empty ID
+            "ignored_ghost_rows": self.ignored_ghost_rows,  # 10. Ghost Rows
             "sync_marked_lines": self.sync_marked_lines,  # 4. Lines marked for sync
             # Anki potential metrics
             "total_potential_anki_notes": self.total_potential_anki_notes,  # 5. Total potential in Anki
@@ -225,11 +247,11 @@ class RemoteDeck:
         Raises:
             ValueError: If there are inconsistencies in the metrics
         """
-        # 1. Validate that valid lines + invalid lines = total
-        total_calculated = self.valid_note_lines + self.invalid_note_lines
+        # 1. Validate that valid lines + invalid lines + ghost rows = total
+        total_calculated = self.valid_note_lines + self.invalid_note_lines + self.ignored_ghost_rows
         if total_calculated != self.total_table_lines:
             raise ValueError(
-                f"Inconsistency: valid({self.valid_note_lines}) + invalid({self.invalid_note_lines}) != total({self.total_table_lines})"
+                f"Inconsistency: valid({self.valid_note_lines}) + invalid({self.invalid_note_lines}) + ghost({self.ignored_ghost_rows}) != total({self.total_table_lines})"
             )
 
         # 2. Validate that sync_marked_lines does not exceed valid_note_lines
@@ -793,6 +815,7 @@ def create_or_update_notes(
     stats.remote_total_table_lines = deck_stats["total_table_lines"]
     stats.remote_valid_note_lines = deck_stats["valid_note_lines"]
     stats.remote_invalid_note_lines = deck_stats["invalid_note_lines"]
+    stats.remote_ignored_ghost_rows = deck_stats.get("ignored_ghost_rows", 0)
     stats.remote_sync_marked_lines = deck_stats["sync_marked_lines"]
     stats.remote_total_potential_anki_notes = deck_stats["total_potential_anki_notes"]
     stats.remote_potential_student_notes = deck_stats["potential_student_notes"]
@@ -973,7 +996,7 @@ def create_or_update_notes(
                                         f"⏭️ [MISSING STUDENTS] note unchanged: {student_note_id}"
                                     )
                             else:
-                                stats.errors += 1
+                                stats.add_error(f"Error updating [MISSING STUDENTS] note: {student_note_id}")
                                 add_debug_msg(
                                     f"❌ Error updating [MISSING STUDENTS] note: {student_note_id}"
                                 )
@@ -1005,7 +1028,7 @@ def create_or_update_notes(
                                     f"✅ [MISSING STUDENTS] note created: {student_note_id}"
                                 )
                             else:
-                                stats.errors += 1
+                                stats.add_error(f"Error creating [MISSING STUDENTS] note: {student_note_id}")
                                 add_debug_msg(
                                     f"❌ Error creating [MISSING STUDENTS] note: {student_note_id}"
                                 )
@@ -1016,7 +1039,7 @@ def create_or_update_notes(
                         error_details = traceback.format_exc()
                         add_debug_msg(f"❌ Error processing {student_note_id}: {e}")
                         add_debug_msg(f"❌ Stack trace: {error_details}")
-                        stats.errors += 1
+                        stats.add_error(f"Exception processing {student_note_id}: {str(e)}")
                 else:
                     # [MISSING STUDENTS] feature disabled
                     stats.skipped += 1
@@ -1065,7 +1088,7 @@ def create_or_update_notes(
                                 stats.unchanged += 1
                                 add_debug_msg(f"⏭️ Note unchanged: {student_note_id}")
                         else:
-                            stats.errors += 1
+                            stats.add_error(f"Error updating note: {student_note_id}")
                             add_debug_msg(
                                 f"❌ Error updating note: {student_note_id}"
                             )
@@ -1090,7 +1113,7 @@ def create_or_update_notes(
                             stats.creation_details.append(creation_detail)
                             add_debug_msg(f"✅ Note created: {student_note_id}")
                         else:
-                            stats.errors += 1
+                            stats.add_error(f"Error creating note: {student_note_id}")
                             add_debug_msg(f"❌ Error creating note: {student_note_id}")
 
                 except Exception as e:
@@ -1099,7 +1122,7 @@ def create_or_update_notes(
                     error_details = traceback.format_exc()
                     add_debug_msg(f"❌ Error processing {student_note_id}: {e}")
                     add_debug_msg(f"❌ Stack trace: {error_details}")
-                    stats.errors += 1
+                    stats.add_error(f"Exception processing {student_note_id}: {str(e)}")
 
         # 6. Separate obsolete notes from disabled students' notes and sync-disabled notes
         all_existing_note_ids = set(existing_notes.keys())
@@ -1179,7 +1202,7 @@ def create_or_update_notes(
                     add_debug_msg(f"✅ Obsolete note removed: {student_note_id}")
             except Exception as e:
                 add_debug_msg(f"❌ Error removing obsolete note {student_note_id}: {e}")
-                stats.errors += 1
+                stats.add_error(f"Error removing obsolete note {student_note_id}: {str(e)}")
         
         # 6.3. Check if disabled students' notes should be removed
         from .config_manager import is_auto_remove_disabled_students
@@ -1220,7 +1243,7 @@ def create_or_update_notes(
                             add_debug_msg(f"✅ Note from disabled student removed: {student_note_id}")
                     except Exception as e:
                         add_debug_msg(f"❌ Error removing note from disabled student {student_note_id}: {e}")
-                        stats.errors += 1
+                        stats.add_error(f"Error removing note from disabled student {student_note_id}: {str(e)}")
             else:
                 add_debug_msg(f"🛡️ Auto-removal OFF: preserving {len(notes_from_disabled_students)} notes from disabled students")
                 for student_note_id in notes_from_disabled_students:
@@ -1267,7 +1290,10 @@ def create_or_update_notes(
             stats.remote_total_table_lines = (
                 len(remoteDeck.notes) if remoteDeck and remoteDeck.notes else 0
             )
-        stats.errors = max(stats.remote_sync_marked_lines, 1)
+        stats.add_error(f"Critical error in synchronization: {str(e)}")
+        # Ensure at least 1 error is counted even if add_error logic changes
+        if stats.errors == 0:
+            stats.errors = 1
         return stats
 
 

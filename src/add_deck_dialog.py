@@ -653,20 +653,21 @@ class AddDeckDialog(QDialog):
         deck_stats = self.remote_deck.get_statistics()
 
         # Create stat cards
+        # Create stat cards - ALWAYS SHOW ALL for consistent UI
         valid_lines = deck_stats.get("valid_note_lines", 0)
         self.stats_layout.addWidget(self._create_stat_card("📝", str(valid_lines), "Questions"))
 
         unique_students = deck_stats.get("unique_students_count", 0)
-        if unique_students > 0:
-            self.stats_layout.addWidget(self._create_stat_card("👥", str(unique_students), "Students"))
+        self.stats_layout.addWidget(self._create_stat_card("👥", str(unique_students), "Students"))
 
         potential_notes = deck_stats.get("total_potential_anki_notes", 0)
-        if potential_notes > 0 and potential_notes != valid_lines:
-            self.stats_layout.addWidget(self._create_stat_card("🎯", str(potential_notes), "Anki Notes"))
+        self.stats_layout.addWidget(self._create_stat_card("🎯", str(potential_notes), "Anki Notes"))
 
         invalid_lines = deck_stats.get("invalid_note_lines", 0)
-        if invalid_lines > 0:
-            self.stats_layout.addWidget(self._create_stat_card("🫥", str(invalid_lines), "Invalid Rows"))
+        self.stats_layout.addWidget(self._create_stat_card("🫥", str(invalid_lines), "Invalid Rows"))
+
+        ghost_rows = deck_stats.get("ignored_ghost_rows", 0)
+        self.stats_layout.addWidget(self._create_stat_card("👻", str(ghost_rows), "Ghost Rows"))
 
         self.stats_layout.addStretch()
 

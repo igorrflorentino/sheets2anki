@@ -2530,7 +2530,8 @@ def get_auto_backup_directory():
 # =============================================================================
 
 # Default prompt template for AI Help
-DEFAULT_AI_HELP_PROMPT = """I'm studying with flashcards and need help understanding this one better.
+AI_HELP_PROMPTS = {
+    "english": """I'm studying with flashcards and need help understanding this one better.
 
 Here is the card content:
 {card_content}
@@ -2540,7 +2541,33 @@ Please help me understand:
 2. Why is this information important?
 3. How can I better remember this concept?
 
-Keep your explanation clear and concise."""
+Keep your explanation clear and concise.""",
+    "portuguese_br": """Estou estudando com flashcards e preciso de ajuda para entender este cartão melhor.
+
+Aqui está o conteúdo do cartão:
+{card_content}
+
+Por favor, ajude-me a entender:
+1. O que este cartão está tentando me ensinar?
+2. Por que esta informação é importante?
+3. Como posso me lembrar melhor deste conceito?
+
+Mantenha sua explicação clara e concisa.""",
+    "spanish_latam": """Estoy estudiando con tarjetas de memoria y necesito ayuda para entender esta tarjeta mejor.
+
+Aquí está el contenido de la tarjeta:
+{card_content}
+
+Por favor ayúdame a entender:
+1. ¿Qué intenta enseñarme esta tarjeta?
+2. ¿Por qué es importante esta información?
+3. ¿Cómo puedo recordar mejor este concepto?
+
+Mantén tu explicación clara y concisa."""
+}
+
+# Default prompt template for AI Help (English)
+DEFAULT_AI_HELP_PROMPT = AI_HELP_PROMPTS["english"]
 
 
 def get_ai_help_config():
@@ -2566,10 +2593,11 @@ def get_ai_help_config():
         "api_key": config.get("ai_help_api_key", ""),
         "prompt": config.get("ai_help_prompt", DEFAULT_AI_HELP_PROMPT),
         "mobile_enabled": config.get("ai_help_mobile_enabled", False),
+        "language": config.get("ai_help_language", "english"),
     }
 
 
-def set_ai_help_config(enabled=None, service=None, model=None, api_key=None, prompt=None, mobile_enabled=None):
+def set_ai_help_config(enabled=None, service=None, model=None, api_key=None, prompt=None, mobile_enabled=None, language=None):
     """
     Sets AI Help configuration settings.
     
@@ -2610,11 +2638,14 @@ def set_ai_help_config(enabled=None, service=None, model=None, api_key=None, pro
         
         if mobile_enabled is not None:
             config["ai_help_mobile_enabled"] = bool(mobile_enabled)
+            
+        if language is not None:
+            config["ai_help_language"] = str(language)
         
         meta["config"] = config
         save_meta(meta)
         
-        add_debug_msg(f"[AI_HELP] Settings updated: enabled={enabled}, service={service}, model={model}, mobile={mobile_enabled}")
+        add_debug_msg(f"[AI_HELP] Settings updated: enabled={enabled}, service={service}, model={model}, mobile={mobile_enabled}, language={language}")
         return True
         
     except Exception as e:

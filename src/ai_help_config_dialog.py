@@ -46,9 +46,10 @@ class AIHelpConfigDialog(QDialog):
         self.resize(650, 700)
 
         # Get current config
-        from .config_manager import get_ai_help_config, DEFAULT_AI_HELP_PROMPT
+        from .config_manager import get_ai_help_config, DEFAULT_AI_HELP_PROMPT, AI_HELP_PROMPTS
         self.current_config = get_ai_help_config()
         self.default_prompt = DEFAULT_AI_HELP_PROMPT
+        self.prompts = AI_HELP_PROMPTS
 
         # Detect dark mode
         palette = self.palette()
@@ -228,6 +229,41 @@ class AIHelpConfigDialog(QDialog):
 
         service_frame.layout().addLayout(service_layout)
         layout.addWidget(service_frame)
+
+        # Language Selection
+        language_frame = self._create_section_frame("Language")
+        language_layout = QHBoxLayout()
+
+        self.language_combo = QComboBox()
+        self.language_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {self.colors['input_bg']};
+                color: {self.colors['text']};
+                border: 1px solid {self.colors['border']};
+                border-radius: 6px;
+                padding: 10px;
+                font-size: 12pt;
+                min-width: 300px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: 10px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {self.colors['input_bg']};
+                color: {self.colors['text']};
+                selection-background-color: {self.colors['accent_primary']};
+            }}
+        """)
+        
+        # Add languages
+        self.language_combo.addItem("🇺🇸 English (US)", "english")
+        self.language_combo.addItem("🇧🇷 Português (Brasil)", "portuguese_br")
+        self.language_combo.addItem("🇪🇸 Español (Latinoamérica)", "spanish_latam")
+        
+        language_layout.addWidget(self.language_combo)
+        language_frame.layout().addLayout(language_layout)
+        layout.addWidget(language_frame)
 
         # API Key section
         api_key_frame = self._create_section_frame("API Key")
@@ -464,6 +500,7 @@ class AIHelpConfigDialog(QDialog):
         self.fetch_models_btn.clicked.connect(self._fetch_models)
         self.reset_prompt_btn.clicked.connect(self._reset_prompt)
         self.service_group.buttonClicked.connect(self._on_service_changed)
+        self.language_combo.currentIndexChanged.connect(self._on_language_changed)
 
     def _load_current_config(self):
         """Loads current configuration into the UI."""
@@ -477,6 +514,12 @@ class AIHelpConfigDialog(QDialog):
             self.claude_radio.setChecked(True)
         elif service == "openai":
             self.openai_radio.setChecked(True)
+            
+        # Set language
+        language = self.current_config.get("language", "english")
+        index = self.language_combo.findData(language)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
         
         # Set API key
         self.api_key_input.setText(self.current_config.get("api_key", ""))
@@ -571,7 +614,26 @@ class AIHelpConfigDialog(QDialog):
 
     def _reset_prompt(self):
         """Resets prompt to default."""
-        self.prompt_edit.setPlainText(self.default_prompt)
+        language = self.language_combo.currentData()
+        default_for_lang = self.prompts.get(language, self.prompts["english"])
+        self.prompt_edit.setPlainText(default_for_lang)
+
+    def _on_language_changed(self):
+        """Updates prompt when language changes, if it matches a default prompt."""
+        current_text = self.prompt_edit.toPlainText().strip()
+        
+        # Check if current text matches ANY known default prompt
+        is_default = False
+        for prompt in self.prompts.values():
+            if current_text == prompt.strip() or current_text == "":
+                is_default = True
+                break
+        
+        # If it's a default prompt, update it to the new language's default
+        if is_default:
+            new_lang = self.language_combo.currentData()
+            new_default = self.prompts.get(new_lang, self.prompts["english"])
+            self.prompt_edit.setPlainText(new_default)
 
     def _apply_changes(self):
         """Applies configuration changes."""
@@ -584,6 +646,7 @@ class AIHelpConfigDialog(QDialog):
             model = self.model_combo.currentData() or self.model_combo.currentText()
             prompt = self.prompt_edit.toPlainText().strip()
             mobile_enabled = self.mobile_checkbox.isChecked()
+            language = self.language_combo.currentData()
 
             # Validate if enabled
             if enabled:
@@ -608,7 +671,8 @@ class AIHelpConfigDialog(QDialog):
                 model=model,
                 api_key=api_key,
                 prompt=prompt if prompt else None,
-                mobile_enabled=mobile_enabled
+                mobile_enabled=mobile_enabled,
+                language=language
             )
 
             status = "enabled" if enabled else "disabled"

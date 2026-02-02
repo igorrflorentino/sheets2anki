@@ -19,6 +19,7 @@ from .compat import AlignLeft
 from .compat import AlignRight
 from .compat import AlignTop
 from .compat import QDialog
+from .compat import Palette_Window
 from .compat import QGroupBox
 from .compat import QLabel
 
@@ -85,6 +86,11 @@ class SyncStats:
     # 3. Total invalid lines (empty ID)
     remote_invalid_note_lines: int = 0
 
+    # 10. Total ghost rows (ignored)
+    remote_ignored_ghost_rows: int = 0
+
+    # 4. Total lines marked for sync (SYNC = true)
+
     # 4. Total lines marked for sync (SYNC = true)
     remote_sync_marked_lines: int = 0
 
@@ -140,6 +146,7 @@ class SyncStats:
         self.remote_total_table_lines += other.remote_total_table_lines
         self.remote_valid_note_lines += other.remote_valid_note_lines
         self.remote_invalid_note_lines += other.remote_invalid_note_lines
+        self.remote_ignored_ghost_rows += other.remote_ignored_ghost_rows
         self.remote_sync_marked_lines += other.remote_sync_marked_lines
         self.remote_total_potential_anki_notes += (
             other.remote_total_potential_anki_notes
@@ -418,453 +425,315 @@ def _show_sync_summary_new(
     )
 
 
-def generate_simplified_view(total_stats, sync_errors=None, deck_results=None):
+
+def _generate_metrics_table_html(stats) -> str:
     """
-    Generates simplified (aggregated) view of sync statistics.
+    Helper to generate the metrics table HTML.
     
     Args:
-        total_stats: Total aggregated statistics
-        sync_errors: List of sync errors
-        deck_results: List of per-deck results (not used in simplified mode)
-    
-    Returns:
-        list: List of strings for display
-    """
-    details_content = []
-
-    # NEW: Summary of operations
-
-
-    # FIRST: Detailed remote deck metrics (aggregated)
-    if (
-        total_stats.remote_total_table_lines > 0
-        or total_stats.remote_valid_note_lines > 0
-        or total_stats.remote_sync_marked_lines > 0
-        or total_stats.remote_total_potential_anki_notes > 0
-    ):
-        details_content.append("📊 DETAILED REMOTE DECK METRICS:")
-        details_content.append("=" * 60)
-        details_content.append(
-            f"📋 1. Total table lines: {total_stats.remote_total_table_lines}"
-        )
-        details_content.append(
-            f"✅ 2. Lines with valid notes (ID filled): {total_stats.remote_valid_note_lines}"
-        )
-        details_content.append(
-            f"❌ 3. Invalid lines (empty ID): {total_stats.remote_invalid_note_lines}"
-        )
-        details_content.append(
-            f"🔄 4. Lines marked for sync: {total_stats.remote_sync_marked_lines}"
-        )
-        details_content.append(
-            f"⏸️ 5. Skipped lines (SYNC != yes): {total_stats.skipped}"
-        )
-        details_content.append(
-            f"⏭️ 6. Unchanged notes: {total_stats.unchanged}"
-        )
-        details_content.append(
-            f"➕ 7. Created notes: {total_stats.created}"
-        )
-        details_content.append(
-            f"✏️ 8. Updated notes: {total_stats.updated}"
-        )
-        details_content.append(
-            f"🗑️ 9. Deleted notes: {total_stats.deleted}"
-        )
-        details_content.append(
-            f"⚠️ 10. Ignored notes: {total_stats.ignored}"
-        )
-        details_content.append(
-            f"❌ 11. Errors: {total_stats.errors}"
-        )
-        details_content.append(
-            f"📝 12. Potential total notes in Anki: {total_stats.remote_total_potential_anki_notes}"
-        )
-        details_content.append(
-            f"🎓 13. Potential notes for specific students: {total_stats.remote_potential_student_notes}"
-        )
-        details_content.append(
-            f"❓ 14. Potential notes for {DEFAULT_STUDENT}: {total_stats.remote_potential_missing_students_notes}"
-        )
-        details_content.append(
-            f"👥 15. Total unique students: {total_stats.remote_unique_students_count}"
-        )
-
-        # 16. Show notes per individual student
-        if total_stats.remote_notes_per_student:
-            details_content.append("📊 16. Notes per student (aggregated totals):")
-            for student, count in sorted(total_stats.remote_notes_per_student.items()):
-                details_content.append(f"   • {student}: {count} notes")
-
-        details_content.append("")
-
-    # SECOND: Detailed errors (if any)
-    if sync_errors or total_stats.error_details:
-        total_errors = total_stats.errors + len(sync_errors or [])
-        if total_errors > 0:
-            details_content.append(f"⚠️ DETAILS OF {total_errors} ERRORS:")
-            details_content.append("=" * 60)
-            error_count = 1
-            for error in sync_errors or []:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            for error in total_stats.error_details:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            details_content.append("")
-
-    # LAST: Created notes details
-    if total_stats.created > 0 and total_stats.creation_details:
-        details_content.append(f"➕ DETAILS OF {total_stats.created} CREATED NOTES:")
-        details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats.creation_details, 1):
-            details_content.append(
-                f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail.get('pergunta', '(Unknown Question)')}"
-            )
-        details_content.append("")
-
-    # LAST: Updated notes details
-    if total_stats.updated > 0 and total_stats.update_details:
-        details_content.append(
-            f"✏️ DETAILS OF {total_stats.updated} UPDATED NOTES:"
-        )
-        details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats.update_details, 1):
-            details_content.append(f"{i:4d}. {detail['student']}: {detail['note_id']}")
-            for j, change in enumerate(detail["changes"], 1):
-                details_content.append(f"      {j:2d}. {change}")
-            details_content.append("")
-
-    # LAST: Removed notes details
-    if total_stats.deleted > 0 and total_stats.deletion_details:
-        details_content.append(f"🗑️ DETAILS OF {total_stats.deleted} REMOVED NOTES:")
-        details_content.append("=" * 60)
-        for i, detail in enumerate(total_stats.deletion_details, 1):
-            details_content.append(
-                f"{i:4d}. {detail['student']}: {detail['note_id']} - {detail.get('pergunta', '(Unknown Question)')}"
-            )
-        details_content.append("")
-
-    # If no modification details were recorded, show information message
-    if not any(
-        [
-            total_stats.created > 0 and total_stats.creation_details,
-            total_stats.updated > 0 and total_stats.update_details,
-            total_stats.deleted > 0 and total_stats.deletion_details,
-            sync_errors or total_stats.error_details,
-        ]
-    ):
-        details_content.append(
-            "ℹ️ No detailed note modifications were recorded during this sync."
-        )
-        details_content.append("")
-        details_content.append("This can happen when:")
-        details_content.append("• Notes were already up to date")
-        details_content.append("• Only cleanup operations were performed")
-        details_content.append("• No changes were found in spreadsheet data")
-
-    return details_content
-
-
-def generate_aggregated_summary_only(total_stats, sync_errors=None):
-    """
-    Generates only aggregated summary without individual note details.
-    Used in detailed mode to avoid duplication.
-    
-    Args:
-        total_stats: Total aggregated statistics
-        sync_errors: List of sync errors
-    
-    Returns:
-        list: List of strings for display
-    """
-    details_content = []
-
-    # Detailed errors (if any)
-    if sync_errors or total_stats.error_details:
-        total_errors = total_stats.errors + len(sync_errors or [])
-        if total_errors > 0:
-            details_content.append(f"⚠️ DETAILS OF {total_errors} GENERAL ERRORS:")
-            details_content.append("=" * 60)
-            error_count = 1
-            for error in sync_errors or []:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            for error in total_stats.error_details:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            details_content.append("")
-
-    # Detailed remote deck metrics (aggregated) - only if not shown per deck
-    if (
-        total_stats.remote_total_table_lines > 0
-        or total_stats.remote_valid_note_lines > 0
-        or total_stats.remote_sync_marked_lines > 0
-        or total_stats.remote_total_potential_anki_notes > 0
-    ):
-        details_content.append("📊 AGGREGATED REMOTE METRICS TOTALS:")
-        details_content.append("=" * 60)
-        details_content.append(
-            f"📋 1. Total table lines: {total_stats.remote_total_table_lines}"
-        )
-        details_content.append(
-            f"✅ 2. Lines with valid notes (ID filled): {total_stats.remote_valid_note_lines}"
-        )
-        details_content.append(
-            f"❌ 3. Invalid lines (empty ID): {total_stats.remote_invalid_note_lines}"
-        )
-        details_content.append(
-            f"🔄 4. Lines marked for sync: {total_stats.remote_sync_marked_lines}"
-        )
-        details_content.append(
-            f"⏸️ 5. Skipped lines (SYNC != yes): {total_stats.skipped}"
-        )
-        details_content.append(
-            f"⏭️ 6. Unchanged notes: {total_stats.unchanged}"
-        )
-        details_content.append(
-            f"➕ 7. Created notes: {total_stats.created}"
-        )
-        details_content.append(
-            f"✏️ 8. Updated notes: {total_stats.updated}"
-        )
-        details_content.append(
-            f"🗑️ 9. Deleted notes: {total_stats.deleted}"
-        )
-        details_content.append(
-            f"⚠️ 10. Ignored notes: {total_stats.ignored}"
-        )
-        details_content.append(
-            f"❌ 11. Errors: {total_stats.errors}"
-        )
-        details_content.append(
-            f"📝 12. Potential total notes in Anki: {total_stats.remote_total_potential_anki_notes}"
-        )
-        details_content.append(
-            f"🎓 13. Potential notes for specific students: {total_stats.remote_potential_student_notes}"
-        )
-        details_content.append(
-            f"❓ 14. Potential notes for {DEFAULT_STUDENT}: {total_stats.remote_potential_missing_students_notes}"
-        )
-        details_content.append(
-            f"👥 15. Total unique students: {total_stats.remote_unique_students_count}"
-        )
-
-        # 16. Show notes per individual student
-        if total_stats.remote_notes_per_student:
-            details_content.append("📊 16. Notes per student (aggregated totals):")
-            for student, count in sorted(total_stats.remote_notes_per_student.items()):
-                details_content.append(f"   • {student}: {count} notes")
-
-        details_content.append("")
-
-    return details_content
-
-
-def generate_deck_detailed_metrics(stats, deck_name):
-    """
-    Generates complete detailed metrics for an individual deck.
-    
-    Args:
-        stats: Individual deck statistics (SyncStats)
-        deck_name: Deck name
-    
-    Returns:
-        list: List of strings with detailed metrics
-    """
-    metrics_content = []
-    
-
-    # All 9 detailed remote deck metrics (same as simplified mode)
-    if (
-        stats.remote_total_table_lines > 0
-        or stats.remote_valid_note_lines > 0
-        or stats.remote_sync_marked_lines > 0
-        or stats.remote_total_potential_anki_notes > 0
-    ):
-        metrics_content.append(f"     📊 Remote Spreadsheet Metrics:")
-        metrics_content.append(f"        📋 1. Total table lines: {stats.remote_total_table_lines}")
-        metrics_content.append(f"        ✅ 2. Lines with valid notes (ID filled): {stats.remote_valid_note_lines}")
-        metrics_content.append(f"        ❌ 3. Invalid lines (empty ID): {stats.remote_invalid_note_lines}")
-        metrics_content.append(f"        🔄 4. Lines marked for sync: {stats.remote_sync_marked_lines}")
-        metrics_content.append(f"        ⏸️ 5. Skipped lines (SYNC != yes): {stats.skipped}")
-        metrics_content.append(f"        ⏭️ 6. Unchanged notes: {stats.unchanged}")
-        metrics_content.append(f"        ➕ 7. Created notes: {stats.created}")
-        metrics_content.append(f"        ✏️ 8. Updated notes: {stats.updated}")
-        metrics_content.append(f"        🗑️ 9. Deleted notes: {stats.deleted}")
-        metrics_content.append(f"        ⚠️ 10. Ignored notes: {stats.ignored}")
-        metrics_content.append(f"        ❌ 11. Errors: {stats.errors}")
-        metrics_content.append(f"        📝 12. Potential total notes in Anki: {stats.remote_total_potential_anki_notes}")
-        metrics_content.append(f"        🎓 13. Potential notes for specific students: {stats.remote_potential_student_notes}")
-        metrics_content.append(f"        ❓ 14. Potential notes for {DEFAULT_STUDENT}: {stats.remote_potential_missing_students_notes}")
-        metrics_content.append(f"        👥 15. Total unique students: {stats.remote_unique_students_count}")
+        stats: SyncStats object
         
-        # 16. Show notes per individual student for this deck
-        if stats.remote_notes_per_student:
-            metrics_content.append(f"        📊 16. Notes per student in this deck:")
-            for student, count in sorted(stats.remote_notes_per_student.items()):
-                metrics_content.append(f"           • {student}: {count} notes")
-    
-    # NOTE DETAILS AFTER REMOTE METRICS (individualized per deck)
-    
-    # Details of created notes in this deck
-    if stats.created > 0 and stats.creation_details:
-        metrics_content.append(f"     ➕ DETAILS OF {stats.created} CREATED NOTES:")
-        for i, detail in enumerate(stats.creation_details, 1):
-            metrics_content.append(f"        {i:2d}. {detail['student']}: {detail['note_id']} - {detail.get('pergunta', '(Unknown Question)')}")
-    
-    # Details of updated notes in this deck
-    if stats.updated > 0 and stats.update_details:
-        metrics_content.append(f"     ✏️ DETAILS OF {stats.updated} UPDATED NOTES:")
-        for i, detail in enumerate(stats.update_details, 1):
-            metrics_content.append(f"        {i:2d}. {detail['student']}: {detail['note_id']}")
-            for j, change in enumerate(detail["changes"], 1):
-                metrics_content.append(f"           {j:2d}. {change}")
-    
-    # Details of removed notes in this deck
-    if stats.deleted > 0 and stats.deletion_details:
-        metrics_content.append(f"     🗑️ DETAILS OF {stats.deleted} REMOVED NOTES:")
-        for i, detail in enumerate(stats.deletion_details, 1):
-            metrics_content.append(f"        {i:2d}. {detail['student']}: {detail['note_id']} - {detail.get('pergunta', '(Unknown Question)')}")
-    
-    return metrics_content
-
-
-def generate_detailed_view(total_stats, sync_errors=None, deck_results=None):
-    """
-    Generates detailed view (per deck) of sync statistics.
-    
-    Args:
-        total_stats: Total aggregated statistics
-        sync_errors: List of sync errors
-        deck_results: List of individual deck results
-    
     Returns:
-        list: List of strings for display
+        str: HTML string
     """
-    details_content = []
-
-    # FIRST: Show general aggregated summary
-    aggregated_summary = generate_aggregated_summary_only(total_stats, sync_errors)
+    # Define primary metrics
+    # Format: (Icon, Label, Value, StyleClass)
+    metrics = [
+        ("📋", "Total spreadsheet rows", stats.remote_total_table_lines, ""),
+        ("✅", "Rows with content (Valid ID)", stats.remote_valid_note_lines, "success"),
+        ("❌", "Rows skipped (Missing ID)", stats.remote_invalid_note_lines, "error" if stats.remote_invalid_note_lines > 0 else "muted"),
+        ("👻", "Empty rows (Ignored)", stats.remote_ignored_ghost_rows, "muted"),
+        ("🔄", "Rows enabled for sync (SYNC=TRUE)", stats.remote_sync_marked_lines, "info"),
+        ("⏸️", "Rows disabled for sync (SYNC=FALSE)", stats.skipped, "muted"),
+        ("⏭️", "Notes matched (Unchanged)", stats.unchanged, "muted"),
+        ("➕", "Created notes", stats.created, "success-bold" if stats.created > 0 else "muted"),
+        ("✏️", "Updated notes", stats.updated, "warning-bold" if stats.updated > 0 else "muted"),
+        ("🗑️", "Deleted notes", stats.deleted, "error-bold" if stats.deleted > 0 else "muted"),
+        ("❌", "Errors", stats.errors, "error-bold" if stats.errors > 0 else "muted"),
+    ]
     
-    if aggregated_summary:
-        details_content.append("📋 AGGREGATED GENERAL SUMMARY:")
-        details_content.append("=" * 80)
-        details_content.append("\n")
-        details_content.extend(aggregated_summary)
-        details_content.append("")
+    html = """<div class="metrics-container"><table class="metrics-table">"""
+    
+    for icon, label, value, style_class in metrics:
+        row_class = "metric-row"
+        if style_class == "muted" and value == 0:
+            row_class += " zero-value"
+            
+        value_display = f'<span class="stat-value {style_class}">{value}</span>'
+        
+        html += f'''
+        <tr class="{row_class}">
+            <td class="icon-col">{icon}</td>
+            <td class="label-col">{label}</td>
+            <td class="value-col">{value_display}</td>
+        </tr>
+        '''
+        
+    # Potential notes section - MERGED into same table with a separator
+    html += '''
+    <tr class="separator-row">
+        <td colspan="3"><hr></td>
+    </tr>
+    '''
+    
+    potential_metrics = [
+        ("🚀", "Total notes to process", stats.remote_total_potential_anki_notes),
+        ("🎓", "Notes assigned to students", stats.remote_potential_student_notes),
+        ("❓", f"Notes unassigned (Default to {DEFAULT_STUDENT})", stats.remote_potential_missing_students_notes),
+        ("👥", "Total unique students found", stats.remote_unique_students_count),
+    ]
 
-    # SECOND: Show summary per individual deck (with individualized note details)
+    
+    for icon, label, value in potential_metrics:
+        html += f'''
+        <tr class="metric-row info-row">
+            <td class="icon-col">{icon}</td>
+            <td class="label-col">{label}</td>
+            <td class="value-col">{value}</td>
+        </tr>
+        '''
+    html += '</table></div>'
+    
+    # Students detail
+    if stats.remote_notes_per_student:
+        html += '<div class="students-section"><h4>👥 Notes per student:</h4><div class="student-tags">'
+        for student, count in sorted(stats.remote_notes_per_student.items()):
+            html += f'<span class="student-tag">{student}: <b>{count}</b></span>&nbsp;&nbsp;'
+        html += '</div></div>'
+        
+    return html
+
+def _generate_details_list_html(title, items, icon="•") -> str:
+    """Helper to generate a list of details."""
+    if not items:
+        return ""
+        
+    html = f'<div class="details-block"><h3>{title}</h3><ul>'
+    for item in items:
+        html += f'<li>{item}</li>'
+    html += '</ul></div>'
+    return html
+
+def _generate_changes_list_html(title, details, type_class="info") -> str:
+    """Helper for created/updated/deleted details."""
+    if not details:
+        return ""
+        
+    html = f'<div class="changes-block {type_class}"><h3>{title}</h3><table class="changes-table">'
+    
+    for i, detail in enumerate(details, 1):
+        note_info = f"{detail['student']}: {detail['note_id']}"
+        extra = ""
+        if 'pergunta' in detail:
+             extra = f"<br><span class='note-extract'>{detail['pergunta']}</span>"
+             
+        html += f'<tr><td class="index-col">{i}.</td><td class="note-col"><b>{note_info}</b>{extra}'
+        
+        if "changes" in detail:
+            html += '<ul class="changes-list">'
+            for change in detail["changes"]:
+                html += f'<li>{change}</li>'
+            html += '</ul>'
+            
+        html += '</td></tr>'
+        
+    html += '</table></div>'
+    return html
+
+
+def generate_simplified_view(total_stats, sync_errors=None, deck_results=None) -> str:
+    """
+    Generates simplified (aggregated) HTML view of sync statistics.
+    """
+    html_parts = []
+    
+    # 1. Detailed Remote Metrics (Aggregated)
+    if (total_stats.remote_total_table_lines > 0 or 
+        total_stats.remote_total_potential_anki_notes > 0):
+        
+        html_parts.append('<div class="section-header"><h2>📊 Detailed Remote Deck Metrics</h2></div>')
+        html_parts.append(_generate_metrics_table_html(total_stats))
+        
+    # 2. Errors
+    all_errors = (sync_errors or []) + total_stats.error_details
+    if all_errors:
+        html_parts.append(_generate_details_list_html(f"⚠️ Errors ({len(all_errors)})", all_errors))
+        
+    # 3. Created Notes
+    if total_stats.created > 0 and total_stats.creation_details:
+        html_parts.append(_generate_changes_list_html(
+            f"➕ Created Notes ({total_stats.created})", 
+            total_stats.creation_details, 
+            "created"
+        ))
+        
+    # 4. Updated Notes
+    if total_stats.updated > 0 and total_stats.update_details:
+        html_parts.append(_generate_changes_list_html(
+            f"✏️ Updated Notes ({total_stats.updated})", 
+            total_stats.update_details, 
+            "updated"
+        ))
+
+    # 5. Deleted Notes
+    if total_stats.deleted > 0 and total_stats.deletion_details:
+        html_parts.append(_generate_changes_list_html(
+            f"🗑️ Deleted Notes ({total_stats.deleted})", 
+            total_stats.deletion_details, 
+            "deleted"
+        ))
+        
+    # 6. No Changes Message
+    if not (total_stats.created > 0 or total_stats.updated > 0 or total_stats.deleted > 0 or all_errors):
+         html_parts.append('''
+         <div class="no-changes-info">
+            <h3>ℹ️ No detailed note modifications</h3>
+            <p>This can happen when:</p>
+            <ul>
+                <li>Notes were already up to date</li>
+                <li>Only cleanup operations were performed</li>
+                <li>No changes were found in spreadsheet data</li>
+            </ul>
+         </div>
+         ''')
+         
+    return "".join(html_parts)
+
+
+def generate_aggregated_summary_only(total_stats, sync_errors=None) -> str:
+    """
+    Generates only aggregated summary HTML.
+    """
+    html_parts = []
+    
+    # Errors
+    all_errors = (sync_errors or []) + total_stats.error_details
+    if all_errors:
+        html_parts.append(_generate_details_list_html(f"⚠️ General Errors ({len(all_errors)})", all_errors))
+
+    # Metrics
+    if (total_stats.remote_total_table_lines > 0 or 
+        total_stats.remote_total_potential_anki_notes > 0):
+        html_parts.append('<div class="section-header"><h2>📊 Aggregated Remote Metrics Totals</h2></div>')
+        html_parts.append(_generate_metrics_table_html(total_stats))
+        
+    return "".join(html_parts)
+
+
+
+
+def generate_deck_detailed_metrics(stats, deck_name) -> str:
+    """
+    Generates complete detailed metrics HTML for an individual deck.
+    """
+    html_parts = []
+    
+    # Remote Metrics
+    if (stats.remote_total_table_lines > 0 or 
+        stats.remote_total_potential_anki_notes > 0):
+        # Header removed to reduce clutter as requested by implicit design cleanup
+        html_parts.append(_generate_metrics_table_html(stats))
+
+    # Note Details
+    
+    # Errors
+    if stats.errors > 0 or stats.error_details:
+         html_parts.append(_generate_details_list_html(
+             f"⚠️ Errors in {deck_name}", stats.error_details
+         ))
+
+    # Created
+    if stats.created > 0 and stats.creation_details:
+        html_parts.append(_generate_changes_list_html(
+            f"➕ Created in {deck_name}", stats.creation_details, "created"
+        ))
+
+    # Updated
+    if stats.updated > 0 and stats.update_details:
+         html_parts.append(_generate_changes_list_html(
+            f"✏️ Updated in {deck_name}", stats.update_details, "updated"
+        ))
+        
+    # Deleted
+    if stats.deleted > 0 and stats.deletion_details:
+         html_parts.append(_generate_changes_list_html(
+            f"🗑️ Deleted from {deck_name}", stats.deletion_details, "deleted"
+        ))
+        
+    return "".join(html_parts)
+
+
+def generate_detailed_html_view(total_stats, sync_errors=None, deck_results=None) -> str:
+    """
+    Generates detailed view (per deck) of sync statistics in HTML.
+    """
+    html_parts = []
+
+    # Aggregated Summary removed as per user request (it is in the Summary tab)
+
+
+    # 2. Individual Deck Summary
     if deck_results and len(deck_results) >= 1:
-        details_content.append("📊 INDIVIDUAL DECK SUMMARY:")
-        details_content.append("=" * 80)
+        html_parts.append('<div class="section-header"><h2>📊 Individual Deck Summary</h2></div>')
         
         for i, deck_result in enumerate(deck_results, 1):
+            # Add separator if not the first item
+            if i > 1:
+                html_parts.append('<div class="deck-separator-visual"><span class="separator-dot">•</span><span class="separator-dot">•</span><span class="separator-dot">•</span></div>')
+
             deck_name = deck_result.deck_name
             stats = deck_result.stats
-            success_status = "✅" if deck_result.success else "❌"
+            status_class = "success-deck" if deck_result.success else "fail-deck"
+            icon = "✅" if deck_result.success else "❌"
+            new_label = ' <span class="tag-new">NEW</span>' if deck_result.was_new_deck else ""
             
-            # Indicate if the deck was new during this synchronization
-            new_deck_indicator = " (NEW DECK)" if deck_result.was_new_deck else ""
+            html_parts.append(f'''
+            <div class="deck-block {status_class}">
+                <div class="deck-header">
+                    <span class="deck-icon">{icon}</span> 
+                    <span class="deck-name">{i}. {deck_name}</span>
+                    {new_label}
+                </div>
+            ''')
             
-            details_content.append(f"{i:2d}. {success_status} {deck_name}{new_deck_indicator}")
+            # Error message if failed
+            if not deck_result.success and deck_result.error_message:
+                html_parts.append(f'<div class="error-banner">❌ {deck_result.error_message}</div>')
             
-            # Generate all detailed metrics for this deck (includes note details)
-            deck_metrics = generate_deck_detailed_metrics(stats, deck_name)
-            details_content.extend(deck_metrics)
+            # Metrics
+            html_parts.append(generate_deck_detailed_metrics(stats, deck_name))
             
-            # If there is a deck-specific error, show it
-            if not deck_result.success and hasattr(deck_result, 'error_message') and deck_result.error_message:
-                details_content.append(f"     ❌ Error: {deck_result.error_message}")
+            html_parts.append('</div>')
             
-            details_content.append("")
-        
-        details_content.append("=" * 80)
+    return "".join(html_parts)
+
+
+def generate_errors_view(total_stats, sync_errors=None, deck_results=None) -> str:
+    """Generates errors only view in HTML."""
+    html_parts = []
     
-    return details_content
-
-
-def generate_errors_view(total_stats, sync_errors=None, deck_results=None):
-    """
-    Generates errors-only view of sync statistics.
-    Shows only errors that occurred during synchronization.
+    # 1. Global/Sync Errors
+    all_errors = (sync_errors or []) + total_stats.error_details
+    if all_errors:
+        html_parts.append(_generate_details_list_html(f"⚠️ General Errors ({len(all_errors)})", all_errors))
     
-    Args:
-        total_stats: Total aggregated statistics
-        sync_errors: List of sync errors
-        deck_results: List of per-deck results
-    
-    Returns:
-        list: List of strings for display
-    """
-    details_content = []
-    has_errors = False
-
-    # FIRST: General sync errors
-    if sync_errors or total_stats.error_details:
-        total_errors = total_stats.errors + len(sync_errors or [])
-        if total_errors > 0:
-            has_errors = True
-            details_content.append(f"⚠️ GENERAL SYNCHRONIZATION ERRORS ({total_errors}):")
-            details_content.append("=" * 60)
-            error_count = 1
-            for error in sync_errors or []:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            for error in total_stats.error_details:
-                details_content.append(f"{error_count:4d}. {error}")
-                error_count += 1
-            details_content.append("")
-
-    # SECOND: Per-deck errors
+    # 2. Deck Errors
     if deck_results:
-        deck_errors = []
-        for deck_result in deck_results:
-            if not deck_result.success:
-                deck_errors.append(deck_result)
-            elif deck_result.stats.errors > 0 or deck_result.stats.error_details:
-                deck_errors.append(deck_result)
+        for result in deck_results:
+            if not result.success or result.stats.errors > 0 or result.stats.error_details:
+                deck_errors = []
+                if not result.success and result.error_message:
+                    deck_errors.append(f"Critical: {result.error_message}")
+                
+                deck_errors.extend(result.stats.error_details)
+                
+                if deck_errors:
+                    html_parts.append(_generate_details_list_html(f"⚠️ Errors in {result.deck_name}", deck_errors))
+                    
+    if not html_parts:
+        html_parts.append('<div class="no-changes-info"><h3>✅ No errors found!</h3></div>')
         
-        if deck_errors:
-            has_errors = True
-            details_content.append("❌ ERRORS PER DECK:")
-            details_content.append("=" * 60)
-            
-            for i, deck_result in enumerate(deck_errors, 1):
-                deck_name = deck_result.deck_name
-                stats = deck_result.stats
-                success_status = "✅" if deck_result.success else "❌"
-                
-                details_content.append(f"{i:2d}. {success_status} {deck_name}")
-                
-                # Show deck-specific error message
-                if not deck_result.success and hasattr(deck_result, 'error_message') and deck_result.error_message:
-                    details_content.append(f"     ❌ Error: {deck_result.error_message}")
-                
-                # Show error details from stats
-                if stats.errors > 0 or stats.error_details:
-                    error_count = 1
-                    for error in stats.error_details:
-                        details_content.append(f"     {error_count:2d}. {error}")
-                        error_count += 1
-                
-                details_content.append("")
-            
-            details_content.append("=" * 60)
-
-    # If no errors, show success message
-    if not has_errors:
-        details_content.append("✅ NO ERRORS OCCURRED DURING SYNCHRONIZATION")
-        details_content.append("")
-        details_content.append("All decks were synchronized successfully without any errors.")
-        details_content.append("")
-        details_content.append("If you're experiencing issues, try:")
-        details_content.append("• Checking your internet connection")
-        details_content.append("• Verifying the spreadsheet URL is accessible")
-        details_content.append("• Ensuring the spreadsheet has the correct format")
-
-    return details_content
-
+    return "".join(html_parts)
 
 
 def _show_sync_summary_with_scroll(
@@ -1219,16 +1088,21 @@ def _show_sync_summary_with_scroll(
         }}
     """)
 
+
     def update_details_view():
         """Updates details view based on radiobutton selection."""
-        details_content = []
+        details_content = ""
         
         if simplified_radio.isChecked():
             details_content = generate_simplified_view(
                 total_stats, sync_errors, deck_results
             )
         elif detailed_radio.isChecked():
-            details_content = generate_detailed_view(
+            # Use generate_detailed_html_view instead of generate_detailed_view if available, 
+            # OR assume I renamed it. I defined generate_detailed_html_view in step 49.
+            # I should update the call here to use the new name or alias it.
+            # In the previous step, I defined `generate_detailed_html_view`.
+            details_content = generate_detailed_html_view(
                 total_stats, sync_errors, deck_results
             )
         else:
@@ -1236,7 +1110,81 @@ def _show_sync_summary_with_scroll(
                 total_stats, sync_errors, deck_results
             )
         
-        details_text.setPlainText("\n".join(details_content))
+        # Inject CSS and set HTML
+        # Using the colors dictionary defined in the outer scope
+        
+        css_content = f"""
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: {colors['text']}; background-color: {colors['card_bg']}; margin: 0; padding: 10px; }}
+            h2 {{ color: {colors['text']}; border-bottom: 2px solid {colors['border']}; padding-bottom: 5px; margin-top: 20px; font-size: 1.2em; }}
+            h3 {{ color: {colors['text_secondary']}; margin-top: 15px; margin-bottom: 8px; font-size: 1.1em; }}
+            h4 {{ color: {colors['text']}; margin-top: 10px; margin-bottom: 5px; font-size: 1.0em; font-weight: 600; }}
+            
+            .metrics-container {{ display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }}
+            .metrics-table {{ border-collapse: collapse; width: 100%; max-width: 600px; }}
+            .metric-row td {{ padding: 6px 8px; border-bottom: 1px solid {colors['border']}; }}
+            .metric-row:last-child td {{ border-bottom: none; }}
+            .zero-value {{ opacity: 0.5; }}
+            
+            .icon-col {{ width: 24px; text-align: center; }}
+            .label-col {{ font-weight: 500; }}
+            .value-col {{ text-align: right; font-family: monospace; font-weight: bold; }}
+            
+            .stat-value {{ padding: 2px 6px; border-radius: 4px; }}
+            .success {{ color: {colors['accent_success']}; }}
+            .success-bold {{  background-color: {colors['accent_success']}; padding: 2px 8px; color: white !important; font-weight: bold; display: inline-block; }}
+            .error {{ color: {colors['accent_error']}; }}
+            .error-bold {{ background-color: {colors['accent_error']}; padding: 2px 8px; color: white !important; font-weight: bold; display: inline-block; }}
+            .warning {{ color: {colors['accent_warning']}; }}
+            .warning-bold {{ background-color: {colors['accent_warning']}; padding: 2px 8px; color: black !important; font-weight: bold; display: inline-block; }}
+            .info {{ color: {colors['accent_info']}; }}
+            .muted {{ color: {colors['text_secondary']}; }}
+            
+            .separator-row td {{ padding: 10px 0; border: none; }}
+            .separator-row hr {{ border: 0; height: 1px; background: {colors['border']}; opacity: 0.5; }}
+            .info-row td {{ border-bottom: none; }}
+            
+            .students-section {{ margin-top: 15px; }}
+            .student-tags {{ margin-top: 5px; line-height: 1.8; }}
+            .student-tag {{ background: {colors['bg']}; border: 1px solid {colors['border']}; padding: 4px 8px; border-radius: 12px; font-size: 0.9em; margin-right: 8px; display: inline-block; }}
+            
+            .details-block {{ margin-top: 20px; }}
+            .details-block ul {{ list-style-type: none; padding-left: 0; }}
+            .details-block li {{ padding: 4px 0; border-bottom: 1px solid {colors['border']}; }}
+            
+            .changes-block {{ margin-top: 20px; }}
+            .changes-table {{ width: 100%; border-collapse: collapse; }}
+            .changes-table td {{ padding: 8px; vertical-align: top; border-bottom: 1px solid {colors['border']}; }}
+            .index-col {{ width: 30px; color: {colors['text_secondary']}; }}
+            .note-col {{ }}
+            .note-extract {{ display: block; margin-top: 4px; font-style: italic; color: {colors['text_secondary']}; font-size: 0.9em; }}
+            .changes-list {{ margin-top: 5px; padding-left: 20px; margin-bottom: 0; color: {colors['text_secondary']}; font-size: 0.9em; }}
+            
+            .section-header {{ background: {colors['bg']}; padding: 10px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid {colors['accent_info']}; }}
+            .section-header h2 {{ margin: 0; border: none; }}
+            
+            .deck-block {{ margin-bottom: 40px; border: 1px solid {colors['border']}; border-bottom: 5px solid {colors['border']}; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            .deck-header {{ padding: 10px 15px; background: {colors['header_bg']}; border-bottom: 1px solid {colors['border']}; font-weight: bold; font-size: 1.1em; display: flex; align-items: center; color: {colors['text']}; }}
+            .deck-icon {{ margin-right: 10px; }}
+            .tag-new {{ background: {colors['accent_success']}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; margin-left: 10px; vertical-align: middle; }}
+            .success-deck {{ border-left: 4px solid {colors['accent_success']}; }}
+            .fail-deck {{ border-left: 4px solid {colors['accent_error']}; }}
+            
+            .error-banner {{ background: {colors['accent_error']}; color: white; padding: 10px; margin: 10px; border-radius: 4px; }}
+            .deck-metrics-subsection {{ padding: 15px; }}
+            
+            .deck-separator-visual {{ text-align: center; margin: 40px 0; color: {colors['border']}; font-size: 24px; letter-spacing: 10px; }}
+            .separator-dot {{ color: {colors['border']}; opacity: 0.6; }}
+            
+            .no-changes-info {{ text-align: center; padding: 40px; color: {colors['text_secondary']}; opacity: 0.8; }}
+            .no-changes-info ul {{ display: inline-block; text-align: left; margin-top: 15px; }}
+            .no-changes-info h3 {{ color: {colors['text']}; }}
+        </style>
+        """
+        
+        full_html = css_content + details_content
+        details_text.setHtml(full_html)
+
 
     # Connect radiobutton changes to view update
     simplified_radio.toggled.connect(update_details_view)
@@ -1494,6 +1442,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
     # Setup and show progress bar (includes backup step if enabled)
     progress = _setup_progress_dialog(total_decks, include_backup=backup_enabled)
     status_msgs = []
+    sync_errors = []
     
     # Step 0: Backup before sync (if enabled)
     if backup_enabled:
@@ -1515,6 +1464,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         except Exception as e:
             add_debug_message(f"⚠️ Error creating automatic backup: {e}", "SYNC")
             status_msgs.append("⚠️ Backup error (continuing...)")
+            sync_errors.append(f"Backup Error: {str(e)}")
         
         _update_progress_text(progress, status_msgs)
         progress.setValue(1)
@@ -1537,6 +1487,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         add_debug_message(f"⚠️ Error updating templates: {e}", "SYNC")
         
         status_msgs.append("⚠️ Template update failed (continuing...)")
+        sync_errors.append(f"Template Update Error: {str(e)}")
         _update_progress_text(progress, status_msgs)
         # Continue synchronization even if template update failed
 
@@ -1558,6 +1509,12 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
         progress.close()
         return
 
+    except Exception as e:
+        add_debug_message(f"⚠️ Error during cleanup verification: {e}", "SYNC")
+        status_msgs.append("⚠️ Cleanup verification failed (continuing...)")
+        sync_errors.append(f"Cleanup Error: {str(e)}")
+        _update_progress_text(progress, status_msgs)
+
     # Check if no cleanup was needed and report it (Explicit feedback)
     if not missing_cleanup_result and not cleanup_result:
          status_msgs.append("🧹 Cleanup verification: OK")
@@ -1565,7 +1522,7 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
 
     # Initialize statistics system
     stats_manager = SyncStatsManager()
-    sync_errors = []
+    # sync_errors already initialized above
 
     # Add initial debug message
     add_debug_message(
@@ -1596,20 +1553,32 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
                 from .config_manager import update_deck_sync_status
                 was_new_deck = update_deck_sync_status(deck_url, success=True)
                 
+                # Check for NON-CRITICAL errors captured in stats (that didn't raise exception)
+                has_errors = current_stats.has_errors()
+                
                 deck_result = DeckSyncResult(
                     deck_name=deck_name,
                     deck_key=deckKey,
                     deck_url=deck_url,
-                    success=True,
+                    success=not has_errors, # Fail if there are any errors
                     stats=current_stats,
                     was_new_deck=was_new_deck,
+                    error_message="Completed with errors" if has_errors else None
                 )
                 stats_manager.add_deck_result(deck_result)
 
-                add_debug_message(f"✅ Deck completed: {deckKey}", "SYNC")
-
-                # Explicitly state deck sync is finished
-                status_msgs.append(f"✅ {deck_name}: Synchronization finished")
+                if has_errors:
+                    add_debug_message(f"⚠️ Deck completed with ERRORS: {deckKey}", "SYNC")
+                    # Explicitly state deck sync finished with errors
+                    status_msgs.append(f"⚠️ {deck_name}: Finished with {current_stats.errors} error(s)")
+                    
+                    # Add to main errors list so it appears in the header
+                    sync_errors.append(f"{deck_name}: {current_stats.errors} error(s) during processing")
+                else:
+                    add_debug_message(f"✅ Deck completed: {deckKey}", "SYNC")
+                    # Explicitly state deck sync is finished
+                    status_msgs.append(f"✅ {deck_name}: Synchronization finished")
+                    
                 _update_progress_text(progress, status_msgs)
 
             except SyncError as e:
@@ -1814,7 +1783,39 @@ class LogProgressDialog(QDialog):
         # Title/Status label
         self.label = QLabel(title)
         self.label.setWordWrap(True)
-        self.label.setStyleSheet("font-weight: bold; font-size: 14pt; color: white;")
+        # Detect dark mode
+        palette = self.palette()
+        bg_color = palette.color(Palette_Window)
+        is_dark_mode = bg_color.lightness() < 128
+        
+        # Define colors based on theme
+        if is_dark_mode:
+            colors = {
+                'bg': '#2d2d2d',
+                'text': '#ffffff',
+                'input_bg': '#1e1e1e',
+                'input_text': '#e0e0e0',
+                'border': '#3d3d3d',
+                'progress_bg': '#404040',
+                'btn_bg': '#505050',
+                'btn_hover': '#606060',
+                'title': '#ffffff'
+            }
+        else:
+            colors = {
+                'bg': '#f5f5f5',
+                'text': '#1a1a1a',
+                'input_bg': '#ffffff',
+                'input_text': '#1a1a1a',
+                'border': '#d0d0d0',
+                'progress_bg': '#e0e0e0',
+                'btn_bg': '#e0e0e0',
+                'btn_hover': '#d0d0d0',
+                'title': '#1a1a1a'
+            }
+        
+        # Title/Status label style
+        self.label.setStyleSheet(f"font-weight: bold; font-size: 14pt; color: {colors['title']};")
         layout.addWidget(self.label)
         
         # Progress bar
@@ -1838,49 +1839,49 @@ class LogProgressDialog(QDialog):
         self.resize(600, 450)
         
         # Apply style
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2d2d2d;
-                color: #ffffff;
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {colors['bg']};
+                color: {colors['text']};
                 font-size: 12pt;
-            }
-            QLabel {
-                color: #ffffff;
+            }}
+            QLabel {{
+                color: {colors['text']};
                 border: none;
-            }
-            QTextEdit {
-                background-color: #1e1e1e;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
+            }}
+            QTextEdit {{
+                background-color: {colors['input_bg']};
+                color: {colors['input_text']};
+                border: 1px solid {colors['border']};
                 border-radius: 4px;
                 font-family: monospace;
                 font-size: 11pt;
-            }
-            QProgressBar {
+            }}
+            QProgressBar {{
                 border: none;
                 border-radius: 4px;
-                background-color: #404040;
+                background-color: {colors['progress_bg']};
                 height: 24px;
                 text-align: center;
-                color: white;
+                color: {colors['text']};
                 font-weight: bold;
-            }
-            QProgressBar::chunk {
+            }}
+            QProgressBar::chunk {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #4CAF50, stop:1 #8BC34A);
                 border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #505050;
-                color: white;
+            }}
+            QPushButton {{
+                background-color: {colors['btn_bg']};
+                color: {colors['text']};
                 border: none;
                 border-radius: 4px;
                 padding: 8px 16px;
                 min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #606060;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {colors['btn_hover']};
+            }}
         """)
 
     def setValue(self, val):
