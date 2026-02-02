@@ -34,6 +34,9 @@ OPENAI_API_BASE = "https://api.openai.com/v1"
 # Default timeout in seconds
 DEFAULT_TIMEOUT = 30
 
+# Default max tokens for AI responses
+DEFAULT_MAX_TOKENS = 4096
+
 # Thread pool for async API calls
 _executor = ThreadPoolExecutor(max_workers=2)
 
@@ -172,7 +175,7 @@ class GeminiProvider(AIProvider):
             ],
             "generationConfig": {
                 "temperature": 0.7,
-                "maxOutputTokens": 1024,
+                "maxOutputTokens": DEFAULT_MAX_TOKENS,
             }
         }
         
@@ -230,7 +233,7 @@ class ClaudeProvider(AIProvider):
         
         data = {
             "model": model,
-            "max_tokens": 1024,
+            "max_tokens": DEFAULT_MAX_TOKENS,
             "messages": [
                 {"role": "user", "content": prompt}
             ]
@@ -302,7 +305,7 @@ class OpenAIProvider(AIProvider):
             "messages": [
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 1024,
+            "max_tokens": DEFAULT_MAX_TOKENS,
             "temperature": 0.7
         }
         

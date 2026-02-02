@@ -937,7 +937,7 @@ function callGeminiAPI(prompt) {{
     headers: {{ 'Content-Type': 'application/json' }},
     body: JSON.stringify({{
       contents: [{{ parts: [{{ text: prompt }}] }}],
-      generationConfig: {{ temperature: 0.7, maxOutputTokens: 1024 }}
+      generationConfig: {{ temperature: 0.7, maxOutputTokens: 4096 }}
     }})
   }})
   .then(function(r) {{ return r.json(); }})
@@ -978,7 +978,7 @@ function callClaudeAPI(prompt) {{
     }},
     body: JSON.stringify({{
       model: AI_CONFIG.model,
-      max_tokens: 1024,
+      max_tokens: 4096,
       messages: [{{ role: 'user', content: prompt }}]
     }})
   }})
@@ -1011,7 +1011,7 @@ function callOpenAIAPI(prompt) {{
     body: JSON.stringify({{
       model: AI_CONFIG.model,
       messages: [{{ role: 'user', content: prompt }}],
-      max_tokens: 1024,
+      max_tokens: 4096,
       temperature: 0.7
     }})
   }})
