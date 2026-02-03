@@ -66,17 +66,29 @@ Don't start from scratch. Use our official template which has all the columns pr
 
 ## 📊 Spreadsheet Structure
 
-Your spreadsheet is the brain of your deck. Here are the key columns:
+Your spreadsheet is the brain of your deck. The template comes with 23 columns, but you only strictly need to fill in **5 of them**.
 
-| Column | Purpose | Example |
+### 🔴 Mandatory Columns (Must be filled)
+
+| Column | Description | Example |
 | :--- | :--- | :--- |
-| **ID** | **Required.** Unique identifier for updates. | `Q101` |
-| **STUDENTS** | **Required.** List os students who wants to learn the information. | `Igor, Isabelle, Jack` |
-| **SYNC** | **Required.** Set to `TRUE` (or `VERDADEIRO`) to sync this row. | `TRUE` |
-| **QUESTION** | **Required.** The front of your flashcard. | `Capital of France?` |
-| **ANSWER** | **Required.** The back of your flashcard. | `Paris` |
+| **ID** | **Do not touch.** Unique identifier used to track card updates. | `Q101` |
+| **STUDENTS** | Who is this card for? Use `All` for everyone. | `All` or `John, Mary` |
+| **SYNC** | Control switch. Set to `TRUE` to sync this row. | `TRUE` |
+| **QUESTION** | The front of your flashcard. | `Capital of France?` |
+| **ANSWER** | The back of your flashcard. | `Paris` |
 
-> **💡 Pro Tip:** You can hide columns you don't use in Google Sheets to keep your view clean. The add-on will still read them!
+### 🟢 Optional Columns (Use if needed)
+
+| Column | Description | Example |
+| :--- | :--- | :--- |
+| **TOPIC** | Organizing category. | `Geography` |
+| **SUBTOPIC** | Organizing sub-category. | `Europe` |
+| **IMPORTANCE** | Priority level (High/Medium/Low). | `High` |
+| **MEDIA** | Embed images or videos. | `<img src="...">` |
+| **MNEMONIC** | Memory aids. | `My Very Educated Mother...` |
+
+> 💡 **Tip:** You can hide any optional columns you don't use in Google Sheets to keep your workspace clean. The add-on will still read them correctly!
 
 ---
 
