@@ -922,7 +922,10 @@ def create_or_update_notes(
         # 3. Ensure note types exist for all necessary students
         students_to_create_note_types = set()
         for student_note_id in expected_student_note_ids:
-            student = student_note_id.split("_")[0]  # First element before "_"
+            if student_note_id.startswith(DEFAULT_STUDENT + "_"):
+                student = DEFAULT_STUDENT
+            else:
+                student = student_note_id.split("_")[0]  # First element before "_"
             students_to_create_note_types.add(student)
 
         add_debug_msg(
@@ -1138,8 +1141,12 @@ def create_or_update_notes(
                 notes_really_obsolete.add(student_note_id)
                 continue
                 
-            student_name = student_note_id.split("_")[0]
-            note_id = "_".join(student_note_id.split("_")[1:])
+            if student_note_id.startswith(DEFAULT_STUDENT + "_"):
+                student_name = DEFAULT_STUDENT
+                note_id = student_note_id[len(DEFAULT_STUDENT) + 1:]
+            else:
+                student_name = student_note_id.split("_")[0]
+                note_id = "_".join(student_note_id.split("_")[1:])
             
             # Check if note still exists in remote spreadsheet and get its sync status
             note_exists_in_remote = False
@@ -1186,14 +1193,22 @@ def create_or_update_notes(
                     deletion_detail = {
                         "student_note_id": student_note_id,
                         "student": (
-                            student_note_id.split("_")[0]
-                            if "_" in student_note_id
-                            else "Unknown"
+                            DEFAULT_STUDENT 
+                            if student_note_id.startswith(DEFAULT_STUDENT + "_")
+                            else (
+                                student_note_id.split("_")[0]
+                                if "_" in student_note_id
+                                else "Unknown"
+                            )
                         ),
                         "note_id": (
-                            "_".join(student_note_id.split("_")[1:])
-                            if "_" in student_note_id
-                            else student_note_id
+                            student_note_id[len(DEFAULT_STUDENT) + 1:]
+                            if student_note_id.startswith(DEFAULT_STUDENT + "_")
+                            else (
+                                "_".join(student_note_id.split("_")[1:])
+                                if "_" in student_note_id
+                                else student_note_id
+                            )
                         ),
                         "reason": "obsolete",
                         "pergunta": pergunta
@@ -1227,14 +1242,22 @@ def create_or_update_notes(
                             deletion_detail = {
                                 "student_note_id": student_note_id,
                                 "student": (
-                                    student_note_id.split("_")[0]
-                                    if "_" in student_note_id
-                                    else "Unknown"
+                                    DEFAULT_STUDENT 
+                                    if student_note_id.startswith(DEFAULT_STUDENT + "_")
+                                    else (
+                                        student_note_id.split("_")[0]
+                                        if "_" in student_note_id
+                                        else "Unknown"
+                                    )
                                 ),
                                 "note_id": (
-                                    "_".join(student_note_id.split("_")[1:])
-                                    if "_" in student_note_id
-                                    else student_note_id
+                                    student_note_id[len(DEFAULT_STUDENT) + 1:]
+                                    if student_note_id.startswith(DEFAULT_STUDENT + "_")
+                                    else (
+                                        "_".join(student_note_id.split("_")[1:])
+                                        if "_" in student_note_id
+                                        else student_note_id
+                                    )
                                 ),
                                 "reason": "disabled_student",
                                 "pergunta": pergunta
@@ -1247,7 +1270,10 @@ def create_or_update_notes(
             else:
                 add_debug_msg(f"🛡️ Auto-removal OFF: preserving {len(notes_from_disabled_students)} notes from disabled students")
                 for student_note_id in notes_from_disabled_students:
-                    student_name = student_note_id.split("_")[0] if "_" in student_note_id else "Unknown"
+                    if student_note_id.startswith(DEFAULT_STUDENT + "_"):
+                        student_name = DEFAULT_STUDENT
+                    else:
+                        student_name = student_note_id.split("_")[0] if "_" in student_note_id else "Unknown"
                     add_debug_msg(f"🛡️ Preserving note: {student_note_id} (student: {student_name})")
 
         # 6.4. Log sync-disabled notes (always preserved)
