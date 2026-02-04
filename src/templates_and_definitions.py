@@ -305,6 +305,39 @@ body {
 # Default timer CSS (for backward compatibility)
 TIMER_CSS = TIMER_CSS_BETWEEN_SECTIONS
 
+# =============================================================================
+# REVERSE CARD INDICATOR - CSS
+# =============================================================================
+
+# Reverse Card Indicator CSS
+REVERSE_INDICATOR_CSS = """
+<style>
+.reverse-card-indicator {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 20px auto;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 3px 10px rgba(155, 89, 182, 0.3);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.reverse-card-indicator::before {
+  content: '🔄 ';
+  font-size: 16px;
+}
+</style>
+"""
+
+# Reverse Card Indicator HTML
+REVERSE_INDICATOR_HTML = '<div class="reverse-card-indicator">Card Reverso</div>'
+
 # Timer JavaScript for FRONT side (starts timer)
 TIMER_JS_FRONT = """
 <script>
@@ -1463,47 +1496,61 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
         timer_js_front = TIMER_JS_FRONT
         timer_js_back = TIMER_JS_BACK
 
+
     # Build complete templates
     if is_reverse:
         # Question format for Reverse cards (REVERSE field is the question)
         question_html = (
-            f"<b>❓ {question.capitalize()}</b><br>"
-            f"{{{{{reverse}}}}}<br><br>"
+            f"\u003cb\u003e❓ {question.capitalize()}\u003c/b\u003e\u003cbr\u003e"
+            f"{{{{{reverse}}}}}\u003cbr\u003e\u003cbr\u003e"
         )
         
         # Answer format for Reverse cards (QUESTION field is the answer)
         answer_html = (
-            f"<b>❗️ {answer.capitalize()}</b><br>"
-            f"{{{{{question}}}}}<br><br>"
+            f"\u003cb\u003e❗️ {answer.capitalize()}\u003c/b\u003e\u003cbr\u003e"
+            f"{{{{{question}}}}}\u003cbr\u003e\u003cbr\u003e"
         )
 
+    # Build reverse indicator if needed (CSS separate from HTML for positioning)
+    reverse_indicator_css = ""
+    reverse_indicator_html = ""
+    if is_reverse:
+        reverse_indicator_css = REVERSE_INDICATOR_CSS
+        reverse_indicator_html = REVERSE_INDICATOR_HTML
+    
     if timer_position == "top_middle":
         # For top_middle: timer at beginning (fixed position, so doesn't matter)
         qfmt = (
+            reverse_indicator_css +
             timer_css +
             timer_html +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             header +
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            reverse_indicator_html +
             question_html +
             timer_js_front
         )
     elif timer_position == "hidden":
         # No timer at all
         qfmt = (
+            reverse_indicator_css +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             header +
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            reverse_indicator_html +
             question_html
         )
     else:  # "between_sections"
         # Timer between CONTEXT and CARD
         qfmt = (
+            reverse_indicator_css +
             timer_css +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             header +
             timer_html +
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            reverse_indicator_html +
             question_html +
             timer_js_front
         )
@@ -1514,6 +1561,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
             header + 
             (timer_html if timer_position == "between_sections" else "") +
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            reverse_indicator_html +
             question_html +
             MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
             extra_infos + 
@@ -1530,6 +1578,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
             header + 
             (timer_html if timer_position == "between_sections" else "") +
             MARKERS_TEMPLATE.format(text="CARD", observation="") +
+            reverse_indicator_html +
             question_html +
             answer_html +
             MARKERS_TEMPLATE.format(text="INFORMATION", observation="May be empty") +
@@ -1560,6 +1609,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
     
     if timer_position == "top_middle":
         afmt = (
+            reverse_indicator_css +
             timer_css +
             timer_html +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
@@ -1569,12 +1619,14 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
         )
     elif timer_position == "hidden":
         afmt = (
+            reverse_indicator_css +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             back_content +
             ai_help_components
         )
     else:  # "between_sections"
         afmt = (
+            reverse_indicator_css +
             timer_css +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             back_content +
@@ -1887,7 +1939,12 @@ def update_existing_note_type_templates(col, debug_messages=None):
             # ----------------------------------------------------------------
             # We force update if we added fields OR if we want to ensure latest HTML structure
             # To be efficient, we generate the current standard template
-            new_card_template = create_card_template(is_cloze)
+            
+            # Detect if this is a reverse note type by checking the name
+            is_reverse = model_name.endswith(" - Reverse")
+            
+            # Generate template with correct parameters
+            new_card_template = create_card_template(is_cloze=is_cloze, is_reverse=is_reverse)
             templates = model.get("tmpls", [])
             
             if templates:
@@ -1923,7 +1980,8 @@ def update_existing_note_type_templates(col, debug_messages=None):
                             setattr(template, 'afmt', new_card_template["afmt"])
                         
                         model_was_updated = True
-                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} updated for {model_name}")
+                        template_type = "Reverse" if is_reverse else ("Cloze" if is_cloze else "Basic")
+                        debug_messages.append(f"[UPDATE_TEMPLATES] Template {i+1} ({template_type}) updated for {model_name}")
             
             # 3. Save changes if anything was modified
             # ----------------------------------------------------------------
