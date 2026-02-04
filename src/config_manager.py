@@ -69,7 +69,8 @@ DEFAULT_CONFIG = {
         "auto_backup_enabled": False,  # enable automatic configuration backup
         "auto_backup_directory": None,  # directory to save automatic backups (empty = use default)
         "auto_backup_max_files": 50,  # maximum backup files to keep
-        "auto_backup_type": "simple"  # "simple" or "full"
+        "auto_backup_type": "simple",  # "simple" or "full"
+        "accumulate_logs": True  # whether to keep logs between sessions
     },
     "students": {
         "available_students": [],
@@ -1816,22 +1817,25 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
                     # Second-to-last part is the student name
                     student = parts[-2].strip()
                     is_cloze = note_type == "Cloze"
+                    is_reverse = note_type == "Reverse"
 
                     new_name = get_note_type_name(
-                        url, new_remote_deck_name, student=student, is_cloze=is_cloze
+                        url, new_remote_deck_name, student=student, is_cloze=is_cloze, is_reverse=is_reverse
                     )
 
                 elif len(parts) == 3:  # Format: "Sheets2Anki - remote_name - type"
                     note_type = parts[-1].strip()
                     is_cloze = note_type == "Cloze"
+                    is_reverse = note_type == "Reverse"
 
                     new_name = get_note_type_name(
-                        url, new_remote_deck_name, student=None, is_cloze=is_cloze
+                        url, new_remote_deck_name, student=None, is_cloze=is_cloze, is_reverse=is_reverse
                     )
 
                 else:
                     # Unrecognized format, try to deduce
                     is_cloze = "Cloze" in old_name
+                    is_reverse = "Reverse" in old_name
                     student_candidates = enabled_students or []
                     student = None
 
@@ -1841,7 +1845,7 @@ def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=N
                             break
 
                     new_name = get_note_type_name(
-                        url, new_remote_deck_name, student=student, is_cloze=is_cloze
+                        url, new_remote_deck_name, student=student, is_cloze=is_cloze, is_reverse=is_reverse
                     )
 
                 # Update if name changed
@@ -2180,17 +2184,19 @@ def fix_note_type_names_consistency(url, correct_remote_name):
                 # Second-to-last part is the student name
                 student = parts[-2].strip()
                 is_cloze = note_type == "Cloze"
+                is_reverse = note_type == "Reverse"
 
                 return get_note_type_name(
-                    url, correct_remote_name, student=student, is_cloze=is_cloze
+                    url, correct_remote_name, student=student, is_cloze=is_cloze, is_reverse=is_reverse
                 )
 
             elif len(parts) == 3:  # Format: "Sheets2Anki - remote_name - type"
                 note_type = parts[-1].strip()
                 is_cloze = note_type == "Cloze"
+                is_reverse = note_type == "Reverse"
 
                 return get_note_type_name(
-                    url, correct_remote_name, student=None, is_cloze=is_cloze
+                    url, correct_remote_name, student=None, is_cloze=is_cloze, is_reverse=is_reverse
                 )
 
             return old_name  # Could not fix
@@ -2265,7 +2271,7 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
         def extract_student_and_type_from_name(old_name):
             """Extracts student and type from old name."""
             if not old_name.startswith("Sheets2Anki - "):
-                return None, None, False
+                return None, None, False, False
 
             parts = old_name.split(" - ")
             # IMPORTANT: deck_name may contain " - ", so parse from the END
@@ -2275,13 +2281,15 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
                 # Second-to-last part is the student name
                 student = parts[-2].strip()
                 is_cloze = note_type == "Cloze"
-                return student, note_type, is_cloze
+                is_reverse = note_type == "Reverse"
+                return student, note_type, is_cloze, is_reverse
             elif len(parts) == 3:  # "Sheets2Anki - remote_name - type"
                 note_type = parts[-1].strip()
                 is_cloze = note_type == "Cloze"
-                return None, note_type, is_cloze
+                is_reverse = note_type == "Reverse"
+                return None, note_type, is_cloze, is_reverse
 
-            return None, None, False
+            return None, None, False, False
 
         result = {
             "updated_count": 0,
@@ -2300,7 +2308,7 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
                 note_type_id_int = int(note_type_id)
 
                 # 1. RECREATE: Generate expected name based on correct pattern
-                student, note_type, is_cloze = extract_student_and_type_from_name(
+                student, note_type, is_cloze, is_reverse = extract_student_and_type_from_name(
                     old_name
                 )
 
@@ -2311,7 +2319,7 @@ def sync_note_type_names_robustly(url, correct_remote_name, enabled_students):
                     continue
 
                 expected_name = get_note_type_name(
-                    url, correct_remote_name, student=student, is_cloze=is_cloze
+                    url, correct_remote_name, student=student, is_cloze=is_cloze, is_reverse=is_reverse
                 )
 
                 # 2. DETECT: Compare old vs. recreated name
@@ -2761,3 +2769,22 @@ def reset_ai_help_prompt():
     Resets the prompt template to the default.
     """
     set_ai_help_config(prompt=DEFAULT_AI_HELP_PROMPT)
+
+
+# =============================================================================
+# DEBUG LOG CONFIGURATION
+# =============================================================================
+
+def should_accumulate_logs():
+    """Checks if logs should be accumulated over time."""
+    meta = get_meta()
+    return meta.get("config", {}).get("accumulate_logs", True)
+
+
+def set_accumulate_logs(enabled):
+    """Sets whether logs should be accumulated over time."""
+    meta = get_meta()
+    if "config" not in meta:
+        meta["config"] = {}
+    meta["config"]["accumulate_logs"] = enabled
+    save_meta(meta)

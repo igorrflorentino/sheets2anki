@@ -165,19 +165,22 @@ class RemoteDeck:
 
         # Student analysis for metrics 5-9 (only for valid lines)
         alunos_str = note_data.get(cols.students, "").strip()
+        has_reverse = bool(note_data.get(cols.reverse, "").strip())
 
         if not alunos_str:
             # 7. Note for [MISSING STUDENTS]
-            self.potential_missing_students_notes += 1
-            self.total_potential_anki_notes += 1
+            notes_to_add = 2 if has_reverse else 1
+            self.potential_missing_students_notes += notes_to_add
+            self.total_potential_anki_notes += notes_to_add
 
             # Add [MISSING STUDENTS] to per-student statistics
             if DEFAULT_STUDENT not in self.notes_per_student:
                 self.notes_per_student[DEFAULT_STUDENT] = 0
-            self.notes_per_student[DEFAULT_STUDENT] += 1
+            self.notes_per_student[DEFAULT_STUDENT] += notes_to_add
         else:
             # Extract students from string
             students_in_note = [s.strip() for s in alunos_str.split(",") if s.strip()]
+            multiplier = 2 if has_reverse else 1
 
             # 8. Add unique students
             for student in students_in_note:
@@ -186,13 +189,13 @@ class RemoteDeck:
                 # 9. Count notes per individual student
                 if student not in self.notes_per_student:
                     self.notes_per_student[student] = 0
-                self.notes_per_student[student] += 1
+                self.notes_per_student[student] += multiplier
 
             # 6. Total potential notes for specific students
-            self.potential_student_notes += len(students_in_note)
+            self.potential_student_notes += len(students_in_note) * multiplier
 
             # 5. Add to total potential Anki notes
-            self.total_potential_anki_notes += len(students_in_note)
+            self.total_potential_anki_notes += len(students_in_note) * multiplier
 
     def finalize_metrics(self):
         """
@@ -747,7 +750,8 @@ def create_tags_from_fields(note_data):
 
 def has_cloze_deletion(text):
     """
-    Checks if a text contains Anki cloze formatting.
+    Checks if a text contains Anki cloze formatting in a robust way.
+    Checks for {{c1::...}} or {{C1::...}} formats.
 
     Args:
         text (str): Text to check
@@ -759,8 +763,32 @@ def has_cloze_deletion(text):
         return False
 
     # Pattern to detect cloze: {{c1::text}} or {{c1::text::hint}}
+    # Added re.IGNORECASE to catch {{C1::...}} which Anki also supports
     cloze_pattern = r"\{\{c\d+::[^}]+\}\}"
-    return bool(re.search(cloze_pattern, text))
+    return bool(re.search(cloze_pattern, text, re.IGNORECASE))
+
+
+def clean_cloze_formatting(text):
+    """
+    Removes Anki cloze formatting from text, leaving only the inner content.
+    Example: "{{c1::Hello}}" -> "Hello", "{{c2::World::hint}}" -> "World"
+
+    Args:
+        text (str): Text to clean
+
+    Returns:
+        str: Cleaned text
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    # Regex to find {{cX::content}} or {{cX::content::hint}}
+    # [^:}]+ matches content until : or }
+    # (::[^}]+)? matches the optional ::hint part
+    pattern = r"\{\{c\d+::([^:}]+)(?:::[^}]+)?\}\}"
+
+    # Replace all occurrences with the first capturing group (the content)
+    return re.sub(pattern, r"\1", text)
 
 
 # =============================================================================
@@ -855,7 +883,11 @@ def create_or_update_notes(
         # 4. Create set of all expected student_note_ids for synchronization
         expected_student_note_ids = set()
 
-        for note_data in remoteDeck.notes:
+        for i, note_data in enumerate(remoteDeck.notes):
+            if i == 0:
+                 add_debug_msg(f"🔍 First note data keys: {list(note_data.keys())}")
+                 add_debug_msg(f"🔍 REVERSE column content: '{note_data.get(cols.reverse, '')}'")
+            
             note_id = note_data.get(cols.identifier, "").strip()
 
             # Skip invalid lines (empty ID)
@@ -874,6 +906,12 @@ def create_or_update_notes(
                 if sync_missing_students:
                     student_note_id = f"{DEFAULT_STUDENT}_{note_id}"
                     expected_student_note_ids.add(student_note_id)
+                    
+                    # Check for Reverse Note for [MISSING STUDENTS]
+                    if note_data.get(cols.reverse, "").strip():
+                        reverse_student_note_id = f"{DEFAULT_STUDENT}_{note_id}_REV"
+                        expected_student_note_ids.add(reverse_student_note_id)
+                        
                     add_debug_msg(
                         f"Note {note_id}: no specific students, including as {DEFAULT_STUDENT}"
                     )
@@ -892,6 +930,11 @@ def create_or_update_notes(
                     # Create unique ID student_id
                     student_note_id = f"{student}_{note_id}"
                     expected_student_note_ids.add(student_note_id)
+
+                    # Check for Reverse Note
+                    if note_data.get(cols.reverse, "").strip():
+                        reverse_student_note_id = f"{student}_{note_id}_REV"
+                        expected_student_note_ids.add(reverse_student_note_id)
 
         add_debug_msg("=== REMOTE DECK METRICS - REFACTORED ===")
         add_debug_msg(f"📊 Total table lines: {stats.remote_total_table_lines}")
@@ -925,7 +968,7 @@ def create_or_update_notes(
             if student_note_id.startswith(DEFAULT_STUDENT + "_"):
                 student = DEFAULT_STUDENT
             else:
-                student = student_note_id.split("_")[0]  # First element before "_"
+                student, note_id = extract_student_from_student_note_id(student_note_id)
             students_to_create_note_types.add(student)
 
         add_debug_msg(
@@ -935,6 +978,12 @@ def create_or_update_notes(
             ensure_custom_models(
                 col, deck_url, student=student, debug_messages=debug_messages
             )
+            # Ensure reverse model exists too if using reverse notes
+            # We can just call ensure_custom_models and it will handle checking if needed,
+            # but since ensure_custom_models now returns a dict with 'reverse', it's fine.
+            # However, ensure_custom_models creates based on logic that might need specific calls?
+            # Actually ensure_custom_models implementation I updated checks existing notes? No.
+            # I updated ensure_custom_models to ALWAYS check for reverse model. So calling it once is enough.
 
         # 4. Get existing notes by student_note_id
         existing_notes = get_existing_notes_by_student_id(col, deck_id)
@@ -1036,6 +1085,67 @@ def create_or_update_notes(
                                     f"❌ Error creating [MISSING STUDENTS] note: {student_note_id}"
                                 )
 
+                        # Process REVERSE note for [MISSING STUDENTS] if applicable
+                        reverse_content = note_data.get(cols.reverse, "").strip()
+                        if reverse_content:
+                            # WARNING for reverse-only notes
+                            pergunta_content = note_data.get(cols.question, "").strip()
+                            if not pergunta_content:
+                                warning_msg = f"⚠️ [MISSING STUDENTS] Note {note_id}: Reverse note created but has no answer (QUESTION field is empty)."
+                                stats.warnings.append(warning_msg)
+                                add_debug_msg(warning_msg)
+
+                            add_debug_msg(f"🔍 [MISSING STUDENTS] Found REVERSE content for {note_id}: '{reverse_content[:50]}'")
+                            reverse_student_note_id = f"{DEFAULT_STUDENT}_{note_id}_REV"
+                            
+                            if reverse_student_note_id in existing_notes:
+                                # Update existing reverse note
+                                success, was_updated, changes = (
+                                    update_existing_note_for_student(
+                                        col,
+                                        existing_notes[reverse_student_note_id],
+                                        note_data,
+                                        student,
+                                        deck_url,
+                                        debug_messages,
+                                        is_reverse=True
+                                    )
+                                )
+                                if success:
+                                    if was_updated:
+                                        stats.updated += 1
+                                        update_detail = {
+                                            "student_note_id": reverse_student_note_id,
+                                            "student": student,
+                                            "note_id": note_id,
+                                            "changes": changes,
+                                        }
+                                        stats.update_details.append(update_detail)
+                                        add_debug_msg(f"✅ [MISSING STUDENTS] Reverse note updated: {reverse_student_note_id}")
+                                    else:
+                                        stats.unchanged += 1
+                                        add_debug_msg(f"⏭️ [MISSING STUDENTS] Reverse note unchanged: {reverse_student_note_id}")
+                                else:
+                                    stats.add_error(f"Error updating [MISSING STUDENTS] reverse note: {reverse_student_note_id}")
+                                    add_debug_msg(f"❌ Error updating [MISSING STUDENTS] reverse note: {reverse_student_note_id}")
+                            else:
+                                # Create new reverse note
+                                if create_new_note_for_student(
+                                    col, note_data, student, deck_id, deck_url, debug_messages, is_reverse=True
+                                ):
+                                    stats.created += 1
+                                    creation_detail = {
+                                        "student_note_id": reverse_student_note_id,
+                                        "student": student,
+                                        "note_id": note_id,
+                                        "pergunta": note_data.get(cols.reverse, "")[:100] + "...",
+                                    }
+                                    stats.creation_details.append(creation_detail)
+                                    add_debug_msg(f"✅ [MISSING STUDENTS] Reverse note created: {reverse_student_note_id}")
+                                else:
+                                    stats.add_error(f"Error creating [MISSING STUDENTS] reverse note: {reverse_student_note_id}")
+                                    add_debug_msg(f"❌ Error creating [MISSING STUDENTS] reverse note: {reverse_student_note_id}")
+
                     except Exception as e:
                         import traceback
 
@@ -1119,6 +1229,72 @@ def create_or_update_notes(
                             stats.add_error(f"Error creating note: {student_note_id}")
                             add_debug_msg(f"❌ Error creating note: {student_note_id}")
 
+                    # Process REVERSE note if applicable
+                    reverse_content = note_data.get(cols.reverse, "").strip()
+                    if reverse_content:
+                        # WARNING for reverse-only notes
+                        pergunta_content = note_data.get(cols.question, "").strip()
+                        if not pergunta_content:
+                            warning_msg = f"⚠️ {student} Note {note_id}: Reverse note created but has no answer (QUESTION field is empty)."
+                            stats.warnings.append(warning_msg)
+                            add_debug_msg(warning_msg)
+
+                        add_debug_msg(f"🔍 Found REVERSE content for {note_id} (Student: {student}): '{reverse_content[:50]}'")
+                        reverse_student_note_id = f"{student}_{note_id}_REV"
+                        
+                        try:
+                            if reverse_student_note_id in existing_notes:
+                                # Update existing reverse note
+                                success, was_updated, changes = (
+                                    update_existing_note_for_student(
+                                        col,
+                                        existing_notes[reverse_student_note_id],
+                                        note_data,
+                                        student,
+                                        deck_url,
+                                        debug_messages,
+                                        is_reverse=True
+                                    )
+                                )
+                                if success:
+                                    if was_updated:
+                                        stats.updated += 1
+                                        update_detail = {
+                                            "student_note_id": reverse_student_note_id,
+                                            "student": student,
+                                            "note_id": note_id,
+                                            "changes": changes,
+                                        }
+                                        stats.update_details.append(update_detail)
+                                        add_debug_msg(f"✅ Reverse note updated: {reverse_student_note_id}")
+                                    else:
+                                        stats.unchanged += 1
+                                        add_debug_msg(f"⏭️ Reverse note unchanged: {reverse_student_note_id}")
+                                else:
+                                    stats.add_error(f"Error updating reverse note: {reverse_student_note_id}")
+                                    add_debug_msg(f"❌ Error updating reverse note: {reverse_student_note_id}")
+                            else:
+                                # Create new reverse note
+                                if create_new_note_for_student(
+                                    col, note_data, student, deck_id, deck_url, debug_messages, is_reverse=True
+                                ):
+                                    stats.created += 1
+                                    creation_detail = {
+                                        "student_note_id": reverse_student_note_id,
+                                        "student": student,
+                                        "note_id": note_id,
+                                        "pergunta": note_data.get(cols.reverse, "")[:100] + "...",
+                                    }
+                                    stats.creation_details.append(creation_detail)
+                                    add_debug_msg(f"✅ Reverse note created: {reverse_student_note_id}")
+                                else:
+                                    stats.add_error(f"Error creating reverse note: {reverse_student_note_id}")
+                                    add_debug_msg(f"❌ Error creating reverse note: {reverse_student_note_id}")
+                                    
+                        except Exception as e:
+                            add_debug_msg(f"❌ Error processing reverse note {reverse_student_note_id}: {e}")
+                            stats.add_error(f"Error processing reverse note {reverse_student_note_id}: {str(e)}")
+
                 except Exception as e:
                     import traceback
 
@@ -1141,12 +1317,7 @@ def create_or_update_notes(
                 notes_really_obsolete.add(student_note_id)
                 continue
                 
-            if student_note_id.startswith(DEFAULT_STUDENT + "_"):
-                student_name = DEFAULT_STUDENT
-                note_id = student_note_id[len(DEFAULT_STUDENT) + 1:]
-            else:
-                student_name = student_note_id.split("_")[0]
-                note_id = "_".join(student_note_id.split("_")[1:])
+            student_name, note_id = extract_student_from_student_note_id(student_note_id)
             
             # Check if note still exists in remote spreadsheet and get its sync status
             note_exists_in_remote = False
@@ -1192,24 +1363,8 @@ def create_or_update_notes(
                     # Capture deletion details
                     deletion_detail = {
                         "student_note_id": student_note_id,
-                        "student": (
-                            DEFAULT_STUDENT 
-                            if student_note_id.startswith(DEFAULT_STUDENT + "_")
-                            else (
-                                student_note_id.split("_")[0]
-                                if "_" in student_note_id
-                                else "Unknown"
-                            )
-                        ),
-                        "note_id": (
-                            student_note_id[len(DEFAULT_STUDENT) + 1:]
-                            if student_note_id.startswith(DEFAULT_STUDENT + "_")
-                            else (
-                                "_".join(student_note_id.split("_")[1:])
-                                if "_" in student_note_id
-                                else student_note_id
-                            )
-                        ),
+                        "student": student_name,
+                        "note_id": note_id,
                         "reason": "obsolete",
                         "pergunta": pergunta
                     }
@@ -1241,24 +1396,8 @@ def create_or_update_notes(
                             # Capture deletion details
                             deletion_detail = {
                                 "student_note_id": student_note_id,
-                                "student": (
-                                    DEFAULT_STUDENT 
-                                    if student_note_id.startswith(DEFAULT_STUDENT + "_")
-                                    else (
-                                        student_note_id.split("_")[0]
-                                        if "_" in student_note_id
-                                        else "Unknown"
-                                    )
-                                ),
-                                "note_id": (
-                                    student_note_id[len(DEFAULT_STUDENT) + 1:]
-                                    if student_note_id.startswith(DEFAULT_STUDENT + "_")
-                                    else (
-                                        "_".join(student_note_id.split("_")[1:])
-                                        if "_" in student_note_id
-                                        else student_note_id
-                                    )
-                                ),
+                                "student": student_name,
+                                "note_id": note_id,
                                 "reason": "disabled_student",
                                 "pergunta": pergunta
                             }
@@ -1273,7 +1412,7 @@ def create_or_update_notes(
                     if student_note_id.startswith(DEFAULT_STUDENT + "_"):
                         student_name = DEFAULT_STUDENT
                     else:
-                        student_name = student_note_id.split("_")[0] if "_" in student_note_id else "Unknown"
+                        student_name, _ = extract_student_from_student_note_id(student_note_id)
                     add_debug_msg(f"🛡️ Preserving note: {student_note_id} (student: {student_name})")
 
         # 6.4. Log sync-disabled notes (always preserved)
@@ -1321,6 +1460,34 @@ def create_or_update_notes(
         if stats.errors == 0:
             stats.errors = 1
         return stats
+
+
+def extract_student_from_student_note_id(student_note_id):
+    """
+    Safely extracts the student name from a student_note_id.
+    Handles the [MISSING_STUDENT] case which contains an underscore.
+
+    Args:
+        student_note_id (str): The concatenated ID (e.g., "Student_123" or "[MISSING_STUDENT]_123")
+
+    Returns:
+        tuple: (student_name, note_id)
+    """
+    if not student_note_id:
+        return "Unknown", ""
+
+    if student_note_id.startswith(DEFAULT_STUDENT + "_"):
+        student = DEFAULT_STUDENT
+        note_id = student_note_id[len(DEFAULT_STUDENT) + 1:]
+    elif "_" in student_note_id:
+        parts = student_note_id.split("_")
+        student = parts[0]
+        note_id = "_".join(parts[1:])
+    else:
+        student = "Unknown"
+        note_id = student_note_id
+
+    return student, note_id
 
 
 def get_existing_notes_by_student_id(col, deck_id):
@@ -1404,7 +1571,7 @@ def get_existing_notes_by_student_id(col, deck_id):
 
 
 def create_new_note_for_student(
-    col, note_data, student, deck_id, deck_url, debug_messages=None
+    col, note_data, student, deck_id, deck_url, debug_messages=None, is_reverse=False
 ):
     """
     Creates a new Anki note for a specific student.
@@ -1433,7 +1600,8 @@ def create_new_note_for_student(
 
         # Determine note type (cloze or basic)
         pergunta = note_data.get(cols.question, "")
-        is_cloze = has_cloze_deletion(pergunta)
+        resposta = note_data.get(cols.answer, "")
+        is_cloze = has_cloze_deletion(pergunta) or has_cloze_deletion(resposta)
 
         # Get appropriate model for the specific student
         from .config_manager import get_deck_remote_name
@@ -1441,7 +1609,7 @@ def create_new_note_for_student(
 
         remote_deck_name = get_deck_remote_name(deck_url)
         note_type_name = get_note_type_name(
-            deck_url, remote_deck_name, student=student, is_cloze=is_cloze
+            deck_url, remote_deck_name, student=student, is_cloze=is_cloze, is_reverse=is_reverse
         )
 
         add_debug_msg(f"Note type for {student}: {note_type_name}")
@@ -1458,7 +1626,7 @@ def create_new_note_for_student(
             models = ensure_custom_models(
                 col, deck_url, student=student, debug_messages=debug_messages
             )
-            model = models.get("cloze" if is_cloze else "standard")
+            model = models.get("reverse" if is_reverse else ("cloze" if is_cloze else "standard"))
             if not model:
                 add_debug_msg(
                     f"❌ CRITICAL ERROR: Could not create/find model: {note_type_name}"
@@ -1474,7 +1642,7 @@ def create_new_note_for_student(
         note = col.new_note(model)
 
         # Fill fields with unique identifier for student
-        fill_note_fields_for_student(note, note_data, student)
+        fill_note_fields_for_student(note, note_data, student, is_reverse=is_reverse)
 
         # Add tags
         tags = note_data.get("tags", [])
@@ -1518,7 +1686,7 @@ def create_new_note_for_student(
         return False
 
 
-def note_fields_need_update(existing_note, new_data, debug_messages=None, student=None):
+def note_fields_need_update(existing_note, new_data, debug_messages=None, student=None, is_reverse=False):
     """
     Checks if a note needs update by comparing fields and tags.
 
@@ -1551,6 +1719,7 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
     for field_key, field_anki_name in [
         (cols.question, cols.question),
         (cols.answer, cols.answer),
+        (cols.reverse, cols.reverse),
         (cols.info_1, cols.info_1),
         (cols.info_2, cols.info_2),
         (cols.multimedia_1, cols.multimedia_1),
@@ -1634,7 +1803,7 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
 
 
 def update_existing_note_for_student(
-    col, existing_note, new_data, student, deck_url, debug_messages=None
+    col, existing_note, new_data, student, deck_url, debug_messages=None, is_reverse=False
 ):
     """
     Updates an existing note for a specific student.
@@ -1664,21 +1833,78 @@ def update_existing_note_for_student(
             f"Checking if note {note_id} needs update for student {student}"
         )
 
+        # Determine expected note type
+        pergunta = new_data.get(cols.question, "")
+        resposta = new_data.get(cols.answer, "")
+        
+        # Cloze detection: check both fields
+        is_cloze = has_cloze_deletion(pergunta) or has_cloze_deletion(resposta)
+        
+        # Get appropriate model for the current student/state
+        models = ensure_custom_models(col, deck_url, student=student, debug_messages=debug_messages)
+        target_model = models.get("reverse" if is_reverse else ("cloze" if is_cloze else "standard"))
+        
         # Check for real differences between existing note and new data
+        # We MUST do this before type change to capture field differences
         needs_update, changes = note_fields_need_update(
-            existing_note, new_data, debug_messages, student=student
+            existing_note, new_data, debug_messages, student=student, is_reverse=is_reverse
         )
+        
+        # Check if note type needs to be changed (e.g. Basic -> Cloze)
+        # This check is now outside the 'needs_update' return to ensure type is corrected 
+        # even if content is already identical (e.g. failed previous sync or manual change)
+        if target_model and existing_note.mid != target_model["id"]:
+            old_type_name = existing_note.note_type()["name"]
+            new_type_name = target_model["name"]
+            
+            add_debug_msg(f"🔄 Note {note_id}: Note type change detected! '{old_type_name}' → '{new_type_name}'")
+            
+            try:
+                # Strategy: Delete old note and recreate with correct note type
+                # This is necessary because Anki's ModelManager doesn't have a direct
+                # method to change the note type of an existing note programmatically
+                
+                # Get the current deck ID before deleting
+                cards = existing_note.cards()
+                current_deck_id = cards[0].did if cards else None
+                
+                # Delete the old note
+                col.remove_notes([existing_note.id])
+                add_debug_msg(f"🗑️ Deleted old note {note_id} for recreation with new type")
+                
+                # Recreate the note with the correct note type
+                # Use the deck ID we already got from the existing note's cards
+                success = create_new_note_for_student(
+                    col, new_data, student, current_deck_id, deck_url, debug_messages, is_reverse=is_reverse
+                )
+                
+                if success:
+                    changes.append(f"Note type changed (recreated): '{old_type_name}' → '{new_type_name}'")
+                    add_debug_msg(f"✅ Note {note_id} recreated with new type '{new_type_name}'")
+                    return True, True, changes  # Success, was updated (recreated)
+                else:
+                    add_debug_msg(f"❌ Failed to recreate note {note_id} with new type")
+                    return False, False, []
+                    
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                add_debug_msg(f"❌ Error changing note type for {note_id}: {e}")
+                add_debug_msg(f"❌ Stack trace: {error_details}")
+                # On failure, return error - note was likely deleted but not recreated
+                return False, False, []
+
 
         if not needs_update:
-            add_debug_msg(f"⏭️ Note {note_id} was not updated - identical content")
-            return True, False, []  # Success, but not updated, no changes
+            add_debug_msg(f"⏭️ Note {note_id} was not updated - identical content and note type")
+            return True, False, []  # Success, but not updated
 
         add_debug_msg(
             f"📝 Updating note {note_id} with changes: {'; '.join(changes[:3])}..."
         )
 
         # Fill fields with new data (using unique identifier for student)
-        fill_note_fields_for_student(existing_note, new_data, student)
+        fill_note_fields_for_student(existing_note, new_data, student, is_reverse=is_reverse)
 
         # Update tags
         tags = new_data.get("tags", [])
@@ -1729,7 +1955,7 @@ def delete_note_by_id(col, note):
         return False
 
 
-def fill_note_fields_for_student(note, note_data, student):
+def fill_note_fields_for_student(note, note_data, student, is_reverse=False):
     """
     Fills note fields with spreadsheet data for a specific student.
 
@@ -1747,13 +1973,17 @@ def fill_note_fields_for_student(note, note_data, student):
     original_id = note_data.get(cols.identifier, "").strip()
 
     # Create unique identifier for this student-note combination
-    unique_student_note_id = f"{student}_{original_id}"
+    if is_reverse:
+        unique_student_note_id = f"{student}_{original_id}_REV"
+    else:
+        unique_student_note_id = f"{student}_{original_id}"
 
     # Field mapping with special treatment for ID
     field_mappings = {
         cols.identifier: unique_student_note_id,  # Unique ID per student
         cols.question: note_data.get(cols.question, "").strip(),
         cols.answer: note_data.get(cols.answer, "").strip(),
+        cols.reverse: note_data.get(cols.reverse, "").strip(),
         cols.hierarchy_1: note_data.get(cols.hierarchy_1, "").strip(),
         cols.hierarchy_2: note_data.get(cols.hierarchy_2, "").strip(),
         cols.hierarchy_3: note_data.get(cols.hierarchy_3, "").strip(),
@@ -1770,11 +2000,17 @@ def fill_note_fields_for_student(note, note_data, student):
         cols.tags_2: note_data.get(cols.tags_2, "").strip(),
         cols.tags_3: note_data.get(cols.tags_3, "").strip(),
         cols.tags_4: note_data.get(cols.tags_4, "").strip(),
-        # Personalized extra fields
+    # Personalizable extra fields
         cols.extra_field_1: note_data.get(cols.extra_field_1, "").strip(),
         cols.extra_field_2: note_data.get(cols.extra_field_2, "").strip(),
         cols.extra_field_3: note_data.get(cols.extra_field_3, "").strip(),
     }
+
+    # If it's a reverse note, we MUST clean clozes from the QUESTION field 
+    # since it will act as the answer and clozes shouldn't be hidden there.
+    if is_reverse:
+        raw_question = note_data.get(cols.question, "").strip()
+        field_mappings[cols.question] = clean_cloze_formatting(raw_question)
 
     # Fill available note fields
     for field_name in note.keys():

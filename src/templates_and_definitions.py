@@ -28,6 +28,7 @@ is_sync = "SYNC"  # Synchronization control field (true/false/1/0)
 # Main question fields
 question = "QUESTION"  # Main question text / front of card
 answer = "ANSWER"  # Succinct and atomic answer to the question
+reverse = "REVERSE"  # Reverse question (Answer -> Question)
 
 # =============================================================================
 # DETAIL FIELDS
@@ -100,6 +101,7 @@ ALL_AVAILABLE_COLUMNS = [
 
     question,  # Main question text / front of card
     answer,  # Succinct answer (core of response)
+    reverse,  # Reverse question
 
     info_1,  # Complementary info
     info_2,  # Detailed info
@@ -138,6 +140,7 @@ FILTER_FIELDS = [hierarchy_1, hierarchy_2, hierarchy_3, hierarchy_4,
 TEXT_FIELDS = [
     question,
     answer,
+    reverse,
     info_1,
     info_2,
     example_1,
@@ -164,6 +167,7 @@ NOTE_FIELDS = [
     hierarchy_4,  # Atomic concept
     
     question,  # Question text
+    reverse,  # Reverse question
     answer,  # Succinct answer (core of response)
     
     info_1,  # Complementary info
@@ -1325,7 +1329,7 @@ def get_all_column_info():
 # =============================================================================
 
 
-def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=None):
+def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=None, is_reverse=False):
     """
     Creates the HTML template for a card (standard or cloze).
 
@@ -1335,6 +1339,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
                              If None, reads from config
         ai_help_enabled (bool): Whether to include AI Help button on back card
                                If None, reads from config
+        is_reverse (bool): Whether to create a reverse template (Reverse->Question)
 
     Returns:
         dict: Dictionary with 'qfmt' and 'afmt' template strings
@@ -1459,6 +1464,19 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
         timer_js_back = TIMER_JS_BACK
 
     # Build complete templates
+    if is_reverse:
+        # Question format for Reverse cards (REVERSE field is the question)
+        question_html = (
+            f"<b>❓ {question.capitalize()}</b><br>"
+            f"{{{{{reverse}}}}}<br><br>"
+        )
+        
+        # Answer format for Reverse cards (QUESTION field is the answer)
+        answer_html = (
+            f"<b>❗️ {answer.capitalize()}</b><br>"
+            f"{{{{{question}}}}}<br><br>"
+        )
+
     if timer_position == "top_middle":
         # For top_middle: timer at beginning (fixed position, so doesn't matter)
         qfmt = (
@@ -1567,7 +1585,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
     return {"qfmt": qfmt, "afmt": afmt}
 
 
-def create_model(col, model_name, is_cloze=False, url=None, debug_messages=None):
+def create_model(col, model_name, is_cloze=False, url=None, debug_messages=None, is_reverse=False):
     """
     Creates a new Anki note model.
 
@@ -1576,6 +1594,8 @@ def create_model(col, model_name, is_cloze=False, url=None, debug_messages=None)
         model_name (str): Name for the new model
         is_cloze (bool): Whether to create a cloze model
         url (str, optional): Remote deck URL for automatic registration
+        debug_messages (list, optional): List for debug
+        is_reverse (bool): Whether to create a reverse model
         debug_messages (list, optional): List for debug
 
     Returns:
@@ -1594,7 +1614,7 @@ def create_model(col, model_name, is_cloze=False, url=None, debug_messages=None)
 
     # Add card template
     template = col.models.new_template("Cloze" if is_cloze else "Card 1")
-    card_template = create_card_template(is_cloze)
+    card_template = create_card_template(is_cloze, is_reverse=is_reverse)
     template["qfmt"] = card_template["qfmt"]
     template["afmt"] = card_template["afmt"]
 
@@ -1625,7 +1645,7 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
         debug_messages (list, optional): List for debug
 
     Returns:
-        dict: Dictionary containing 'standard' and 'cloze' models
+        dict: Dictionary containing 'standard', 'cloze', and 'reverse' models
     """
     from .config_manager import get_deck_note_type_ids
     from .config_manager import get_deck_remote_name
@@ -1648,8 +1668,14 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
     add_debug_msg(f"Existing note types: {len(existing_note_types)} found")
 
     # Helper function to find note type by pattern
-    def find_existing_note_type(is_cloze):
-        target_type = "Cloze" if is_cloze else "Basic"
+    def find_existing_note_type(is_cloze=False, is_reverse=False):
+        if is_reverse:
+            target_type = "Reverse"
+        elif is_cloze:
+            target_type = "Cloze"
+        else:
+            target_type = "Basic"
+            
         target_pattern = (
             f" - {student} - {target_type}" if student else f" - {target_type}"
         )
@@ -1753,6 +1779,53 @@ def ensure_custom_models(col, url, student=None, debug_messages=None):
             debug_messages=debug_messages,
         )
         models["cloze"] = cloze_model
+
+    # Reverse model
+    expected_reverse_name = get_note_type_name(
+        url, remote_deck_name, student=student, is_cloze=False, is_reverse=True
+    )
+    existing_reverse_model, existing_reverse_name = find_existing_note_type(is_cloze=False, is_reverse=True)
+
+    if existing_reverse_model:
+        # Use existing model and do NOT force new name if already registered
+        current_registered_reverse_name = None
+        for note_type_id_str, note_type_name in existing_note_types.items():
+            try:
+                if int(note_type_id_str) == existing_reverse_model["id"]:
+                    current_registered_reverse_name = note_type_name
+                    break
+            except ValueError:
+                continue
+
+        if current_registered_reverse_name:
+            # Already registered, use current config name
+            add_debug_msg(
+                f"Using existing (Reverse) model ALREADY REGISTERED: '{existing_reverse_name}' with config name: '{current_registered_reverse_name}'"
+            )
+            models["reverse"] = existing_reverse_model
+        else:
+            # Not registered, register with expected name
+            register_note_type_for_deck(
+                url, existing_reverse_model["id"], expected_reverse_name, debug_messages
+            )
+            models["reverse"] = existing_reverse_model
+            add_debug_msg(
+                f"Existing (Reverse) model registered: '{existing_reverse_name}' → expected: '{expected_reverse_name}'"
+            )
+    else:
+        # Create new model only if it really doesn't exist
+        add_debug_msg(f"Creating new (Reverse) model: '{expected_reverse_name}'")
+        # We use standard template structure (is_cloze=False) for Reverse notes
+        # The fields are mapped differently in data_processor.py
+        reverse_model = create_model(
+            col,
+            expected_reverse_name,
+            is_cloze=False,
+            url=url,
+            debug_messages=debug_messages,
+            is_reverse=True,
+        )
+        models["reverse"] = reverse_model
 
     return models
 

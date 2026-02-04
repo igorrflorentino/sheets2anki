@@ -27,7 +27,12 @@ from .utils import (
     clear_debug_log,
     add_debug_message,
 )
-from .config_manager import get_meta, save_meta
+from .config_manager import (
+    get_meta,
+    save_meta,
+    should_accumulate_logs,
+    set_accumulate_logs,
+)
 from .styled_messages import StyledMessageBox
 
 
@@ -90,6 +95,12 @@ class DebugModeDialog(QDialog):
         status_row.addWidget(self.status_label)
         
         toggle_layout.addLayout(status_row)
+        
+        # Accumulate logs checkbox
+        self.accumulate_checkbox = QCheckBox("Accumulate logs over time (do not clear at each sync)")
+        self.accumulate_checkbox.setStyleSheet("font-size: 11pt; padding: 5px;")
+        self.accumulate_checkbox.toggled.connect(self._on_accumulate_toggled)
+        toggle_layout.addWidget(self.accumulate_checkbox)
         
         # Info text
         info_label = QLabel(
@@ -267,6 +278,9 @@ class DebugModeDialog(QDialog):
             debug_enabled = is_debug_enabled()
             self.debug_checkbox.setChecked(debug_enabled)
             self._update_status_display(debug_enabled)
+            
+            accumulate_enabled = should_accumulate_logs()
+            self.accumulate_checkbox.setChecked(accumulate_enabled)
         except Exception as e:
             self.status_label.setText(f"⚠️ Error loading status: {e}")
 
@@ -306,6 +320,23 @@ class DebugModeDialog(QDialog):
             )
             # Revert checkbox state
             self.debug_checkbox.setChecked(not checked)
+
+    def _on_accumulate_toggled(self, checked: bool):
+        """Handles accumulate logs toggle."""
+        try:
+            set_accumulate_logs(checked)
+            if checked:
+                add_debug_message("📝 Log accumulation ENABLED", "DEBUG")
+            else:
+                add_debug_message("📝 Log accumulation DISABLED (clear at each sync)", "DEBUG")
+        except Exception as e:
+            StyledMessageBox.warning(
+                self,
+                "Error",
+                f"Failed to update log accumulation setting: {e}"
+            )
+            # Revert checkbox state
+            self.accumulate_checkbox.setChecked(not checked)
 
     def _load_log_content(self):
         """Loads and displays the debug log content."""

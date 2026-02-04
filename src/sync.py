@@ -114,6 +114,7 @@ class SyncStats:
     update_details: List[Dict[str, Any]] = field(default_factory=list)
     creation_details: List[Dict[str, Any]] = field(default_factory=list)
     deletion_details: List[Dict[str, Any]] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
 
     def add_error(self, error_msg: str) -> None:
         """Adds an error to the statistics."""
@@ -169,6 +170,7 @@ class SyncStats:
         self.update_details.extend(other.update_details)
         self.creation_details.extend(other.creation_details)
         self.deletion_details.extend(other.deletion_details)
+        self.warnings.extend(other.warnings)
 
     def get_total_operations(self) -> int:
         """Returns the total number of operations performed."""
@@ -411,6 +413,9 @@ def _show_sync_summary_new(
     if total_errors > 0:
         summary.append(f"⚠️ {total_errors} errors found")
 
+    if total_stats.warnings:
+        summary.append(f"⚠️ {len(total_stats.warnings)} warnings found")
+
     # Always use scrolled interface
     _show_sync_summary_with_scroll(
         summary,
@@ -449,6 +454,7 @@ def _generate_metrics_table_html(stats) -> str:
         ("➕", "Created notes", stats.created, "success-bold" if stats.created > 0 else "muted"),
         ("✏️", "Updated notes", stats.updated, "warning-bold" if stats.updated > 0 else "muted"),
         ("🗑️", "Deleted notes", stats.deleted, "error-bold" if stats.deleted > 0 else "muted"),
+        ("⚠️", "Warnings", len(stats.warnings), "warning-bold" if len(stats.warnings) > 0 else "muted"),
         ("❌", "Errors", stats.errors, "error-bold" if stats.errors > 0 else "muted"),
     ]
     
@@ -559,6 +565,10 @@ def generate_simplified_view(total_stats, sync_errors=None, deck_results=None) -
     if all_errors:
         html_parts.append(_generate_details_list_html(f"⚠️ Errors ({len(all_errors)})", all_errors))
         
+    # 2.1 Warnings
+    if total_stats.warnings:
+        html_parts.append(_generate_details_list_html(f"⚠️ Warnings ({len(total_stats.warnings)})", total_stats.warnings))
+        
     # 3. Created Notes
     if total_stats.created > 0 and total_stats.creation_details:
         html_parts.append(_generate_changes_list_html(
@@ -611,6 +621,10 @@ def generate_aggregated_summary_only(total_stats, sync_errors=None) -> str:
     if all_errors:
         html_parts.append(_generate_details_list_html(f"⚠️ General Errors ({len(all_errors)})", all_errors))
 
+    # Warnings
+    if total_stats.warnings:
+        html_parts.append(_generate_details_list_html(f"⚠️ Warnings ({len(total_stats.warnings)})", total_stats.warnings))
+
     # Metrics
     if (total_stats.remote_total_table_lines > 0 or 
         total_stats.remote_total_potential_anki_notes > 0):
@@ -640,6 +654,12 @@ def generate_deck_detailed_metrics(stats, deck_name) -> str:
     if stats.errors > 0 or stats.error_details:
          html_parts.append(_generate_details_list_html(
              f"⚠️ Errors in {deck_name}", stats.error_details
+         ))
+    
+    # Warnings
+    if stats.warnings:
+         html_parts.append(_generate_details_list_html(
+             f"⚠️ Warnings in {deck_name}", stats.warnings
          ))
 
     # Created
@@ -729,6 +749,10 @@ def generate_errors_view(total_stats, sync_errors=None, deck_results=None) -> st
                 
                 if deck_errors:
                     html_parts.append(_generate_details_list_html(f"⚠️ Errors in {result.deck_name}", deck_errors))
+            
+            # Deck Warnings
+            if result.stats.warnings:
+                html_parts.append(_generate_details_list_html(f"⚠️ Warnings in {result.deck_name}", result.stats.warnings))
                     
     if not html_parts:
         html_parts.append('<div class="no-changes-info"><h3>✅ No errors found!</h3></div>')
@@ -1421,8 +1445,10 @@ def syncDecks(selected_deck_names=None, selected_deck_urls=None, new_deck_mode=F
     
     remote_decks = get_remote_decks()
 
-    # Clear previous debug messages
+    # Clear previous debug messages and initialize log file
+    from .utils import initialize_debug_log
     clear_debug_messages()
+    initialize_debug_log()
 
     # Determine which decks to synchronize (needed to setup progress dialog)
     deck_keys = _get_deck_keys_to_sync(
@@ -2540,6 +2566,12 @@ def _sync_single_deck(
     add_debug_message(
         f"✅ create_or_update_notes COMPLETED - returned: {deck_stats}", "SYNC"
     )
+
+    # Show warnings in progress bar if any
+    if deck_stats.warnings:
+        for warning in deck_stats.warnings:
+            status_msgs.append(warning)
+        _update_progress_text(progress, status_msgs)
 
     step += 1
     progress.setValue(step)

@@ -15,7 +15,10 @@
         "ai_help_service": "gemini",
         "ai_help_model": "",
         "ai_help_api_key": "",
-        "ai_help_prompt": ""
+        "ai_help_prompt": "",
+        "ai_help_mobile_enabled": false,
+        "ai_help_language": "english",
+        "accumulate_logs": true
     },
     "students": {
         "available_students": [],

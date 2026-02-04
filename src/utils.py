@@ -450,11 +450,11 @@ def get_model_suffix_from_url(url):
     return hashlib.sha1(url.encode()).hexdigest()[:8]
 
 
-def get_note_type_name(url, remote_deck_name, student=None, is_cloze=False):
+def get_note_type_name(url, remote_deck_name, student=None, is_cloze=False, is_reverse=False):
     """
     Generates standardized name for Sheets2Anki note types.
 
-    Format: "Sheets2Anki - {remote_deck_name} - {student_name} - Basic/Cloze"
+    Format: "Sheets2Anki - {remote_deck_name} - {student_name} - Basic/Cloze/Reverse"
     The remote_deck_name already has conflict resolution applied by config_manager.
 
     Args:
@@ -462,12 +462,17 @@ def get_note_type_name(url, remote_deck_name, student=None, is_cloze=False):
         remote_deck_name (str): Remote deck name from spreadsheet (with suffix if necessary)
         student (str, optional): Student name for specific note type
         is_cloze (bool): If it's a Cloze note type
+        is_reverse (bool): If it's a Reverse note type
 
     Returns:
         str: Standardized note type name
     """
-
-    note_type = "Cloze" if is_cloze else "Basic"
+    if is_reverse:
+        note_type = "Reverse"
+    elif is_cloze:
+        note_type = "Cloze"
+    else:
+        note_type = "Basic"
 
     # Use remote name directly (already comes with conflict suffix from config_manager)
     clean_remote_name = remote_deck_name.strip() if remote_deck_name else "RemoteDeck"
@@ -2047,6 +2052,10 @@ class DebugManager:
         """
         Initializes the log file with a header.
         """
+        self._update_debug_status()
+        if not self.is_debug_enabled:
+            return
+
         try:
             import os
 
@@ -2056,12 +2065,21 @@ class DebugManager:
             # Create file if it doesn't exist or add session separator
             separator = f"\n{'='*60}\n=== NEW DEBUG SESSION - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n{'='*60}\n"
 
-            mode = "w" if not os.path.exists(log_path) else "a"
+            # Check if logs should be accumulated
+            try:
+                from .config_manager import should_accumulate_logs
+                accumulate = should_accumulate_logs()
+            except ImportError:
+                accumulate = True
+
+            mode = "w" if not os.path.exists(log_path) or not accumulate else "a"
             with open(log_path, mode, encoding="utf-8") as f:
                 if mode == "w":
                     f.write(
                         f"=== SHEETS2ANKI DEBUG LOG - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n"
                     )
+                    if not accumulate and os.path.exists(log_path):
+                        add_debug_message("🧹 Log cleared at session start (accumulation disabled)", "DEBUG")
                 else:
                     f.write(separator)
                 f.flush()
