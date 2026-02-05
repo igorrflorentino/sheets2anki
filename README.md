@@ -73,7 +73,7 @@ Your spreadsheet is the brain of your deck. The template comes with 23 columns, 
 | Column | Description | Example |
 | :--- | :--- | :--- |
 | **ID** | **Do not touch.** Unique identifier used to track card updates. | `Q101` |
-| **STUDENTS** | Who is this card for? Use `All` for everyone. | `All` or `John, Mary` |
+| **STUDENTS** | Who is this card for? | `John, Mary` |
 | **SYNC** | Control switch. Set to `TRUE` to sync this row. | `TRUE` |
 | **QUESTION** | The front of your flashcard. | `Capital of France?` |
 | **ANSWER** | The back of your flashcard. | `Paris` |
