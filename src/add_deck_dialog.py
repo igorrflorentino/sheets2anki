@@ -100,7 +100,6 @@ class AddDeckDialog(QDialog):
         self.setWindowTitle("Add Remote Deck")
         self.setModal(True)
         self.setMinimumWidth(520)
-        self.setMaximumWidth(600)
 
         self.remote_deck = None
         self.suggested_name = ""
@@ -308,7 +307,7 @@ class AddDeckDialog(QDialog):
         self.stats_widget = QWidget()
         stats_layout = QHBoxLayout(self.stats_widget)
         stats_layout.setContentsMargins(0, 0, 0, 0)
-        stats_layout.setSpacing(12)
+        stats_layout.setSpacing(16)
 
         # We'll add stat cards dynamically
         self.stats_layout = stats_layout
@@ -367,33 +366,37 @@ class AddDeckDialog(QDialog):
             QWidget {{
                 background-color: {self.colors['background_secondary']};
                 border-radius: 8px;
-                padding: 8px;
+                min-width: 110px;
             }}
         """)
-        card.setMinimumWidth(90)
-        card.setMaximumWidth(120)
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(4)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(8)
 
         # Icon and value
         value_label = QLabel(f"{icon} {value}")
         value_label.setStyleSheet(f"""
-            font-size: 16px;
-            font-weight: bold;
-            color: {self.colors['text_primary']};
+            QLabel {{
+                font-size: 16px;
+                font-weight: bold;
+                color: {self.colors['text_primary']};
+            }}
         """)
         value_label.setAlignment(AlignCenter)
+        value_label.setWordWrap(True)
         layout.addWidget(value_label)
 
         # Label
         text_label = QLabel(label)
         text_label.setStyleSheet(f"""
-            font-size: 10px;
-            color: {self.colors['text_secondary']};
+            QLabel {{
+                font-size: 10px;
+                color: {self.colors['text_secondary']};
+            }}
         """)
         text_label.setAlignment(AlignCenter)
+        text_label.setWordWrap(True)
         layout.addWidget(text_label)
 
         return card
@@ -498,10 +501,20 @@ class AddDeckDialog(QDialog):
         if not layout:
             return
 
+        # Force layout recalculation
         layout.activate()
+        self.adjustSize()
+        
+        # Get the recommended size
         size_hint = self.sizeHint()
-        ideal_width = max(size_hint.width(), 520)
+        
+        # Calculate ideal dimensions with better bounds
+        # When step2 is visible, need more width for 5 stat cards with potentially large numbers
+        min_width = 720 if self.step2_group.isVisible() else 520
+        ideal_width = max(size_hint.width(), min_width)
         ideal_height = max(size_hint.height(), 300)
+        
+        # Apply the new size
         self.resize(ideal_width, ideal_height)
         self.updateGeometry()
 

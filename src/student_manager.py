@@ -864,8 +864,11 @@ def _remove_student_note_types(student: str, deck_names: List[str]) -> int:
             for deck_name in deck_names:
                 student_pattern_basic = f"Sheets2Anki - {deck_name} - {student} - Basic"
                 student_pattern_cloze = f"Sheets2Anki - {deck_name} - {student} - Cloze"
+                student_pattern_reverse = f"Sheets2Anki - {deck_name} - {student} - Reverse"
 
-                if note_type_name == student_pattern_basic or note_type_name == student_pattern_cloze:
+                if (note_type_name == student_pattern_basic or 
+                    note_type_name == student_pattern_cloze or 
+                    note_type_name == student_pattern_reverse):
                     should_remove = True
                     match_reason = f"deck pattern for '{student}'"
                     break
@@ -882,7 +885,7 @@ def _remove_student_note_types(student: str, deck_names: List[str]) -> int:
                     note_student = parts[-2].strip()
                     
                     if (note_student == student and 
-                        note_type_suffix in ["Basic", "Cloze"]):
+                        note_type_suffix in ["Basic", "Cloze", "Reverse"]):
                         should_remove = True
                         match_reason = f"orphaned note type for student '{student}'"
 
@@ -1002,17 +1005,21 @@ def _update_meta_after_cleanup(
                 # Find note types of disabled students
                 for note_type_id, note_type_name in note_types_dict.items():
                     for student in disabled_students:
-                        # Format: "Sheets2Anki - {remote_deck_name} - {student} - {Basic|Cloze}"
+                        # Format: "Sheets2Anki - {remote_deck_name} - {student} - {Basic|Cloze|Reverse}"
                         student_pattern_basic = (
                             f"Sheets2Anki - {deck_name} - {student} - Basic"
                         )
                         student_pattern_cloze = (
                             f"Sheets2Anki - {deck_name} - {student} - Cloze"
                         )
+                        student_pattern_reverse = (
+                            f"Sheets2Anki - {deck_name} - {student} - Reverse"
+                        )
 
                         if (
                             note_type_name == student_pattern_basic
                             or note_type_name == student_pattern_cloze
+                            or note_type_name == student_pattern_reverse
                         ):
                             note_types_to_remove.append(note_type_id)
                             log_func(
@@ -1088,8 +1095,11 @@ def _update_meta_after_missing_cleanup(deck_names: List[str]) -> None:
                     for placeholder in missing_placeholders:
                         pattern_basic = f"Sheets2Anki - {deck_name} - {placeholder} - Basic"
                         pattern_cloze = f"Sheets2Anki - {deck_name} - {placeholder} - Cloze"
+                        pattern_reverse = f"Sheets2Anki - {deck_name} - {placeholder} - Reverse"
                         
-                        if note_type_name == pattern_basic or note_type_name == pattern_cloze:
+                        if (note_type_name == pattern_basic or 
+                            note_type_name == pattern_cloze or 
+                            note_type_name == pattern_reverse):
                             is_missing_type = True
                             break
                     
@@ -1348,8 +1358,11 @@ def cleanup_missing_students_data(deck_names: List[str]) -> Dict[str, int]:
                     for placeholder in missing_placeholders:
                         pattern_basic = f"Sheets2Anki - {deck_name} - {placeholder} - Basic"
                         pattern_cloze = f"Sheets2Anki - {deck_name} - {placeholder} - Cloze"
+                        pattern_reverse = f"Sheets2Anki - {deck_name} - {placeholder} - Reverse"
                         
-                        if note_type_name == pattern_basic or note_type_name == pattern_cloze:
+                        if (note_type_name == pattern_basic or 
+                            note_type_name == pattern_cloze or 
+                            note_type_name == pattern_reverse):
                             should_remove = True
                             add_debug_msg(f"   🎯 Missing student note type '{note_type_name}' matched deck pattern")
                             break
@@ -1361,13 +1374,13 @@ def cleanup_missing_students_data(deck_names: List[str]) -> Dict[str, int]:
             if not should_remove and note_type_name.startswith("Sheets2Anki - "):
                 parts = note_type_name.split(" - ")
                 if len(parts) >= 4:
-                    # Last part is the type (Basic or Cloze)
+                    # Last part is the type (Basic, Cloze or Reverse)
                     note_type_suffix = parts[-1].strip()
                     # Second-to-last part is the student name
                     note_student = parts[-2].strip()
                     
                     if (note_student in missing_placeholders and 
-                        note_type_suffix in ["Basic", "Cloze"]):
+                        note_type_suffix in ["Basic", "Cloze", "Reverse"]):
                         should_remove = True
                         add_debug_msg(f"   🔍 Orphaned missing student note type '{note_type_name}' found", "CLEANUP_MISSING")
             

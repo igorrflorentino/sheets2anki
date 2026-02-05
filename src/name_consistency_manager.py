@@ -32,10 +32,11 @@ class NameConsistencyManager:
         # 2. recreate local_deck_name in the pattern "Sheets2Anki::{remote_deck_name}"
         local_deck_name = f"Sheets2Anki::{remote_deck_name}"
         
-        # 3. recreate note_types in the pattern "Sheets2Anki - {remote_deck_name} - {student} - Basic/Cloze"
+        # 3. recreate note_types in the pattern "Sheets2Anki - {remote_deck_name} - {student} - Basic/Cloze/Reverse"
         note_type_patterns = {
             'basic_template': f"Sheets2Anki - {remote_deck_name} - {{student}} - Basic",
-            'cloze_template': f"Sheets2Anki - {remote_deck_name} - {{student}} - Cloze"
+            'cloze_template': f"Sheets2Anki - {remote_deck_name} - {{student}} - Cloze",
+            'reverse_template': f"Sheets2Anki - {remote_deck_name} - {{student}} - Reverse"
         }
         
         # 4. recreate deck_option_name in the pattern "Sheets2Anki - {remote_deck_name}"
@@ -296,7 +297,7 @@ class NameConsistencyManager:
         # Format is: "Sheets2Anki - {remote_name} - {student} - {type}"
         # But remote_name may contain hyphens, so we need to work backwards
         
-        # Last element is always the type (Basic/Cloze)
+        # Last element is always the type (Basic/Cloze/Reverse)
         note_type = parts[-1]
         
         # Second to last element is always the student
@@ -312,6 +313,8 @@ class NameConsistencyManager:
             pattern = patterns.get('basic_template')
         elif note_type == "Cloze":
             pattern = patterns.get('cloze_template')
+        elif note_type == "Reverse":
+            pattern = patterns.get('reverse_template')
         else:
             return None
         
