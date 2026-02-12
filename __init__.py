@@ -253,6 +253,314 @@ def configure_ai_help():
         showInfo(error_msg)
 
 
+def configure_image_processor():
+    """
+    Opens the Image Processor configuration dialog.
+    
+    This function allows the user to configure:
+    1. Enable/disable automatic image processing
+    2. ImgBB API key for image hosting
+    3. Google OAuth credentials for Sheets API
+    4. Auto-process setting for syncs
+    """
+    try:
+        from .src.image_processor_config_dialog import show_image_processor_config
+        show_image_processor_config()
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
+
+def verify_repair_images():
+    """
+    Verifies and repairs broken image URLs in remote decks.
+    
+    This function:
+    1. Shows styled deck selection dialog
+    2. Verifies all image URLs in the selected deck
+    3. Attempts to repair broken URLs using local backups
+    4. Shows results to the user
+    """
+    try:
+        from .src.config_manager import get_remote_decks
+        from .src.image_processor import verify_and_repair_images
+        from .src.compat import (
+            QDialog, QVBoxLayout, QLabel, QListWidget, 
+            QPushButton, QHBoxLayout, QFrame, QGroupBox,
+            Palette_Window, WINDOW_MODAL, QProgressDialog
+        )
+        
+        # Get remote decks
+        remote_decks = get_remote_decks()
+        
+        if not remote_decks:
+            showInfo("No remote decks configured.\n\nPlease add a remote deck first.")
+            return
+        
+        # Create dialog
+        dialog = QDialog(mw)
+        dialog.setWindowTitle("Verify & Repair Images")
+        dialog.setMinimumSize(650, 550)
+        dialog.resize(700, 600)
+        
+        # Detect dark mode
+        palette = dialog.palette()
+        bg_color = palette.color(Palette_Window)
+        is_dark = bg_color.lightness() < 128
+        
+        # Setup colors (addon standard)
+        if is_dark:
+            colors = {
+                'bg': '#1e1e1e',
+                'card_bg': '#2d2d2d',
+                'text': '#ffffff',
+                'text_secondary': '#b0b0b0',
+                'border': '#404040',
+                'accent_primary': '#2196F3',
+                'accent_success': '#4CAF50',
+                'button_bg': '#3d3d3d',
+                'button_hover': '#4a4a4a',
+                'list_bg': '#252525',
+            }
+        else:
+            colors = {
+                'bg': '#f5f5f5',
+                'card_bg': '#ffffff',
+                'text': '#1a1a1a',
+                'text_secondary': '#666666',
+                'border': '#d0d0d0',
+                'accent_primary': '#1976D2',
+                'accent_success': '#4CAF50',
+                'button_bg': '#e0e0e0',
+                'button_hover': '#d0d0d0',
+                'list_bg': '#fafafa',
+            }
+        
+        # Apply base stylesheet
+        dialog.setStyleSheet(f"""
+            QDialog {{
+                background-color: {colors['bg']};
+                color: {colors['text']};
+            }}
+            QGroupBox {{
+                font-weight: bold;
+                font-size: 12pt;
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                margin-top: 16px;
+                padding: 12px;
+                padding-top: 28px;
+                background-color: {colors['card_bg']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                top: 4px;
+                padding: 2px 10px;
+                background-color: {colors['card_bg']};
+                border-radius: 4px;
+                color: {colors['text_secondary']};
+                font-size: 12pt;
+            }}
+            QListWidget {{
+                background-color: {colors['list_bg']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                padding: 5px;
+                font-size: 12pt;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-radius: 4px;
+            }}
+            QListWidget::item:selected {{
+                background-color: {colors['accent_primary']};
+                color: white;
+            }}
+            QListWidget::item:hover {{
+                background-color: {colors['button_hover']};
+            }}
+        """)
+        
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Header section (addon standard)
+        header_frame = QFrame()
+        header_frame.setObjectName("headerFrame")
+        header_frame.setStyleSheet(f"""
+            QFrame#headerFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {colors['accent_primary']}, 
+                    stop:1 {colors['accent_success']});
+                border-radius: 12px;
+                padding: 5px;
+            }}
+            QFrame#headerFrame QLabel {{
+                background: transparent;
+                color: white;
+                border: none;
+            }}
+        """)
+        header_layout = QVBoxLayout(header_frame)
+        header_layout.setContentsMargins(20, 15, 20, 15)
+        
+        title_label = QLabel("🔍 Verify & Repair Images")
+        title_label.setStyleSheet("font-size: 18pt; font-weight: bold;")
+        header_layout.addWidget(title_label)
+        
+        desc_label = QLabel(
+            "Check all image URLs and automatically repair broken ones using local backups."
+        )
+        desc_label.setStyleSheet("font-size: 12pt; opacity: 0.9;")
+        desc_label.setWordWrap(True)
+        header_layout.addWidget(desc_label)
+        
+        layout.addWidget(header_frame)
+        
+        # Info section (addon standard)
+        info_label = QLabel(
+            "📋 <b>What this does:</b><br>"
+            "• Checks all image URLs in the spreadsheet<br>"
+            "• Identifies broken or inaccessible images<br>"
+            "• Re-uploads from local backups if available"
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet(f"""
+            background-color: rgba(33, 150, 243, 0.15);
+            border: 1px solid {colors['accent_primary']};
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 12pt;
+            color: {colors['text']};
+        """)
+        layout.addWidget(info_label)
+        
+        # Deck selection section (using GroupBox)
+        deck_group = QGroupBox("Select Deck to Verify")
+        deck_layout = QVBoxLayout()
+        deck_layout.setSpacing(10)
+        
+        deck_list = QListWidget()
+        for deck_url, deck_info in remote_decks.items():
+            deck_name = deck_info.get("remote_deck_name", "Unknown")
+            deck_list.addItem(f"📊 {deck_name}")
+            deck_list.item(deck_list.count() - 1).setData(256, deck_url)
+        
+        deck_list.setCurrentRow(0)
+        deck_layout.addWidget(deck_list)
+        
+        deck_group.setLayout(deck_layout)
+        layout.addWidget(deck_group, 1)  # Give stretch factor
+        
+        # Buttons (addon standard)
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setContentsMargins(0, 10, 0, 0)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['button_bg']};
+                color: {colors['text']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 12px 25px;
+                font-size: 12pt;
+            }}
+            QPushButton:hover {{
+                background-color: {colors['button_hover']};
+            }}
+        """)
+        
+        verify_btn = QPushButton("✓ Verify & Repair")
+        verify_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['accent_success']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 25px;
+                font-size: 12pt;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #45a049;
+            }}
+        """)
+        verify_btn.setDefault(True)
+        
+        buttons_layout.addStretch()
+        buttons_layout.addWidget(cancel_btn)
+        buttons_layout.addWidget(verify_btn)
+        
+        layout.addLayout(buttons_layout)
+        dialog.setLayout(layout)
+        
+        # Button handlers
+        def on_verify():
+            selected_item = deck_list.currentItem()
+            if not selected_item:
+                return
+            
+            deck_url = selected_item.data(256)
+            deck_name = selected_item.text().replace("📊 ", "")
+            dialog.accept()
+            
+            # Show styled progress
+            progress = QProgressDialog(f"Verifying images for '{deck_name}'...", None, 0, 0, mw)
+            progress.setWindowTitle("🔍 Image Verification")
+            progress.setWindowModality(WINDOW_MODAL)
+            progress.setMinimumWidth(400)
+            progress.setStyleSheet(f"""
+                QProgressDialog {{
+                    background-color: {colors['bg']};
+                }}
+                QLabel {{
+                    color: {colors['text']};
+                    font-size: 12pt;
+                    padding: 10px;
+                }}
+            """)
+            progress.show()
+            mw.app.processEvents()
+            
+            # Verify and repair
+            success, message = verify_and_repair_images(deck_url)
+            
+            progress.close()
+            
+            # Show styled results
+            if success:
+                if "All" in message and "accessible" in message:
+                    result_icon = "✅"
+                    result_title = "All Images OK!"
+                elif "Repaired:" in message:
+                    result_icon = "🔧"
+                    result_title = "Repairs Completed"
+                else:
+                    result_icon = "ℹ️"
+                    result_title = "Verification Complete"
+            else:
+                result_icon = "⚠️"
+                result_title = "Verification Issues"
+            
+            showInfo(f"{result_icon} {result_title}\n\n{message}")
+        
+        def on_cancel():
+            dialog.reject()
+        
+        verify_btn.clicked.connect(on_verify)
+        cancel_btn.clicked.connect(on_cancel)
+        
+        dialog.exec()
+        
+    except Exception as e:
+        error_msg = errorTemplate.format(str(e))
+        showInfo(error_msg)
+
+
 # =============================================================================
 # AI HELP PYCMD HANDLER
 # =============================================================================
@@ -433,8 +741,20 @@ if mw is not None:
     qconnect(aiHelpConfigAction.triggered, configure_ai_help)
     remoteDecksSubMenu.addAction(aiHelpConfigAction)
 
+    # Action: Configure Image Processor
+    imageProcessorConfigAction = QAction("Configure Image Processor", mw)
+    imageProcessorConfigAction.setShortcut(QKeySequence("Ctrl+Shift+P"))
+    qconnect(imageProcessorConfigAction.triggered, configure_image_processor)
+    remoteDecksSubMenu.addAction(imageProcessorConfigAction)
+
     # Separator
     remoteDecksSubMenu.addSeparator()
+
+    # Action: Verify & Repair Images
+    verifyRepairImagesAction = QAction("Verify & Repair Images", mw)
+    verifyRepairImagesAction.setShortcut(QKeySequence("Ctrl+Shift+V"))
+    qconnect(verifyRepairImagesAction.triggered, verify_repair_images)
+    remoteDecksSubMenu.addAction(verifyRepairImagesAction)
 
     # Action: Remote decks backup
     backupDecksAction = QAction("Remote Decks Backup", mw)

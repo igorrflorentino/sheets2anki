@@ -1,6 +1,28 @@
-# Build and Packaging Scripts
+# Scripts Directory
 
-This directory contains Python scripts to build and validate Sheets2Anki add-on packages.
+This directory contains utility scripts for Sheets2Anki development and image processing.
+
+## 📸 Image Processor Tool
+
+**New!** Process images from Google Sheets cells and convert them to HTML tags.
+
+See [`IMAGE_PROCESSOR_README.md`](IMAGE_PROCESSOR_README.md) for full documentation.
+
+**Quick Start**: [`QUICKSTART.md`](QUICKSTART.md)
+
+```bash
+# Setup
+./setup_image_processor.sh
+
+# Run
+python3 process_sheet_images.py
+```
+
+---
+
+## 🔧 Build and Packaging Scripts
+
+Python scripts to build and validate Sheets2Anki add-on packages.
 
 ## Available Scripts
 

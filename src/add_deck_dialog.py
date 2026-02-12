@@ -67,6 +67,8 @@ def get_colors():
             "background_secondary": "#383838",
             "border": "#505050",
             "border_light": "#454545",
+            "header_gradient_start": "#3A5A7C",
+            "header_gradient_end": "#2A4A6A",
         }
     else:
         # Light mode colors
@@ -87,6 +89,8 @@ def get_colors():
             "background_secondary": "#F8F9FA",
             "border": "#DEE2E6",
             "border_light": "#E9ECEF",
+            "header_gradient_start": "#4A90D9",
+            "header_gradient_end": "#357ABD",
         }
 
 

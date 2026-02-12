@@ -70,7 +70,12 @@ DEFAULT_CONFIG = {
         "auto_backup_directory": None,  # directory to save automatic backups (empty = use default)
         "auto_backup_max_files": 50,  # maximum backup files to keep
         "auto_backup_type": "simple",  # "simple" or "full"
-        "accumulate_logs": True  # whether to keep logs between sessions
+        "accumulate_logs": True,  # whether to keep logs between sessions
+        # Image processor settings
+        "image_processor_enabled": False,  # enable automatic image processing
+        "image_processor_imgbb_key": "",  # ImgBB API key for image hosting
+        "image_processor_webapp_url": "",  # Google Apps Script Web App URL
+        "image_processor_auto_process": True,  # process images automatically during sync
     },
     "students": {
         "available_students": [],
@@ -2788,3 +2793,150 @@ def set_accumulate_logs(enabled):
         meta["config"] = {}
     meta["config"]["accumulate_logs"] = enabled
     save_meta(meta)
+
+
+# =============================================================================
+# IMAGE PROCESSOR CONFIGURATION
+# =============================================================================
+
+def get_image_processor_config():
+    """
+    Gets Image Processor configuration settings.
+    
+    Returns:
+        dict: Configuration dictionary with:
+            - enabled: Whether Image Processor is enabled
+            - imgbb_api_key: ImgBB API key for image hosting
+            - webapp_url: Google Apps Script Web App URL
+            - auto_process: Whether to process images automatically during sync
+    """
+    meta = get_meta()
+    config = meta.get("config", {})
+    
+    return {
+        "enabled": config.get("image_processor_enabled", False),
+        "imgbb_api_key": config.get("image_processor_imgbb_key", ""),
+        "webapp_url": config.get("image_processor_webapp_url", ""),
+        "auto_process": config.get("image_processor_auto_process", True),
+    }
+
+
+def set_image_processor_config(enabled=None, imgbb_api_key=None, webapp_url=None, auto_process=None):
+    """
+    Sets Image Processor configuration settings.
+    
+    Args:
+        enabled (bool, optional): Whether Image Processor is enabled
+        imgbb_api_key (str, optional): ImgBB API key for image hosting
+        webapp_url (str, optional): Google Apps Script Web App URL
+        auto_process (bool, optional): Whether to process images automatically during sync
+    
+    Returns:
+        bool: True if settings were saved successfully
+    """
+    try:
+        meta = get_meta()
+        config = meta.get("config", {})
+        
+        if enabled is not None:
+            config["image_processor_enabled"] = bool(enabled)
+        
+        if imgbb_api_key is not None:
+            config["image_processor_imgbb_key"] = str(imgbb_api_key)
+        
+        if webapp_url is not None:
+            config["image_processor_webapp_url"] = str(webapp_url)
+        
+        if auto_process is not None:
+            config["image_processor_auto_process"] = bool(auto_process)
+        
+        meta["config"] = config
+        save_meta(meta)
+        
+        add_debug_msg(f"[IMAGE_PROCESSOR] Settings updated: enabled={enabled}, auto_process={auto_process}")
+        return True
+        
+    except Exception as e:
+        add_debug_msg(f"[IMAGE_PROCESSOR] Error saving settings: {e}")
+        return False
+
+
+def get_image_processor_enabled():
+    """
+    Gets whether Image Processor is enabled.
+    
+    Returns:
+        bool: True if Image Processor is enabled
+    """
+    return get_image_processor_config().get("enabled", False)
+
+
+def set_image_processor_enabled(enabled):
+    """
+    Sets whether Image Processor is enabled.
+    
+    Args:
+        enabled (bool): True to enable Image Processor
+    """
+    set_image_processor_config(enabled=enabled)
+
+
+def get_image_processor_imgbb_key():
+    """
+    Gets the ImgBB API key.
+    
+    Returns:
+        str: ImgBB API key
+    """
+    return get_image_processor_config().get("imgbb_api_key", "")
+
+
+def set_image_processor_imgbb_key(api_key):
+    """
+    Sets the ImgBB API key.
+    
+    Args:
+        api_key (str): ImgBB API key
+    """
+    set_image_processor_config(imgbb_api_key=api_key)
+
+
+def get_image_processor_webapp_url():
+    """
+    Gets the Google Apps Script Web App URL.
+    
+    Returns:
+        str: Web App URL
+    """
+    return get_image_processor_config().get("webapp_url", "")
+
+
+def set_image_processor_webapp_url(url):
+    """
+    Sets the Google Apps Script Web App URL.
+    
+    Args:
+        url (str): Web App URL
+    """
+    set_image_processor_config(webapp_url=url)
+
+
+def get_image_processor_auto_process():
+    """
+    Gets whether to process images automatically during sync.
+    
+    Returns:
+        bool: True if auto-processing is enabled
+    """
+    return get_image_processor_config().get("auto_process", True)
+
+
+def set_image_processor_auto_process(enabled):
+    """
+    Sets whether to process images automatically during sync.
+    
+    Args:
+        enabled (bool): True to enable auto-processing
+    """
+    set_image_processor_config(auto_process=enabled)
+

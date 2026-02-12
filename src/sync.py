@@ -2190,6 +2190,34 @@ def _sync_single_deck(
         "STUDENTS",
     )
 
+    # Process images if enabled (before downloading TSV)
+    try:
+        from .config_manager import get_image_processor_enabled, get_image_processor_auto_process
+        
+        if get_image_processor_enabled() and get_image_processor_auto_process():
+            msg = f"📸 {deckName}: Processing images..."
+            status_msgs.append(msg)
+            _update_progress_text(progress, status_msgs)
+            
+            from .image_processor import process_images_for_sync
+            
+            success, image_msg = process_images_for_sync(remote_deck_url)
+            
+            if success:
+                status_msgs.append(f"  ✅ {image_msg}")
+            else:
+                status_msgs.append(f"  ⚠️ Image processing: {image_msg}")
+            
+            _update_progress_text(progress, status_msgs)
+            mw.app.processEvents()
+    except Exception as img_error:
+        # Don't fail sync if image processing fails
+        add_debug_message(f"⚠️ Image processing error: {img_error}", "IMAGE_PROCESSOR")
+        status_msgs.append(f"  ⚠️ Image processing failed (continuing sync)")
+        _update_progress_text(progress, status_msgs)
+
+
+
     remoteDeck = getRemoteDeck(tsv_url, enabled_students=list(enabled_students))
 
     # NEW: Debug to check loaded notes

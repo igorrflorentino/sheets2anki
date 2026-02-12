@@ -27,3 +27,11 @@ Thumbs.db
 # Scripts de desenvolvimento (manter no versionamento)
 # scripts/ - pasta com todos os scripts de build
 .DS_Store
+
+# Image Processor Script - Security (never commit these!)
+scripts/credentials.json
+scripts/token.json
+scripts/image_processor_config.json
+
+# Image Processor - Local backups (never commit!)
+image_backups/

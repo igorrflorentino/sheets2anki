@@ -29,6 +29,7 @@ Creating flashcards manually is slow, lonely, and repetitive. **Sheets2Anki** tr
 *   🔄 **Seamless Sync:** One-click synchronization from Sheets → Anki → AnkiWeb (Mobile/Tablet).
 *   🏷️ **Smart Tagging:** Automatic hierarchical tags for Topic, Subtopic, Complexity, and Exam Board.
 *   🧩 **Cloze Deletions:** Automatic detection of `{{c1::cloze}}` patterns.
+*   📸 **Automatic Image Processing:** Insert images in Sheets, they're automatically hosted and embedded in your cards.
 *   🎬 **Rich Media Support:** Embed HTML, Images, and Videos (YouTube/Vimeo) directly in your cards.
 *   👩‍🎓 **Multi-Student Support:** Manage distinct decks for different students (or study groups) from a single sheet.
 
@@ -100,6 +101,49 @@ Sheets2Anki brings the power of LLMs to your flashcards.
 2.  Choose your provider: **Google Gemini**, **Anthropic Claude**, or **OpenAI**.
 3.  Enter your API Key (safely stored locally).
 4.  **Usage:** When reviewing a card, click the **🤖 AI Help** button to get more context about the question!
+
+---
+
+## 📸 Using Images in Your Cards
+
+Sheets2Anki can automatically process images from Google Sheets and embed them in your flashcards!
+
+### How It Works
+
+1.  **Insert images** directly into cells in Google Sheets (Insert > Image > Image in cell)
+2.  **Configure once:** `Tools` → `Sheets2Anki` → `📸 Configure Image Processor`
+3.  **Automatic processing:** Images are uploaded to free hosting and replaced with HTML tags
+4.  **Sync normally:** Your cards will include the images automatically!
+
+### Setup (One-time)
+
+1.  **Get ImgBB API Key** (Free):
+    *   Visit [api.imgbb.com](https://api.imgbb.com/)
+    *   Sign up (no credit card required)
+    *   Copy your API key
+
+2.  **Get Google Sheets Credentials**:
+    *   Go to [Google Cloud Console](https://console.cloud.google.com/)
+    *   Create a project and enable "Google Sheets API"
+    *   Create OAuth 2.0 credentials (Desktop App)
+    *   Download `credentials.json`
+
+3.  **Configure in Anki**:
+    *   `Tools` → `Sheets2Anki` → `📸 Configure Image Processor`
+    *   ☑ Enable automatic image processing
+    *   Paste ImgBB API key
+    *   Select `credentials.json` file
+    *   Click "🧪 Test Configuration"
+    *   Save!
+
+> 📖 **Detailed Guide:** See [`scripts/IMAGE_PROCESSOR_README.md`](scripts/IMAGE_PROCESSOR_README.md) for complete documentation.
+
+### Usage Tips
+
+✅ **DO:** Insert images using "Insert > Image > Image in cell"  
+❌ **DON'T:** Use drag-and-drop or "Image over cells" (not detectable)
+
+Images are hosted permanently on ImgBB (free) and will work on all devices including AnkiMobile!
 
 ---
 

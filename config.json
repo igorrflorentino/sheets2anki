@@ -18,7 +18,11 @@
         "ai_help_prompt": "",
         "ai_help_mobile_enabled": false,
         "ai_help_language": "english",
-        "accumulate_logs": true
+        "accumulate_logs": true,
+        "image_processor_enabled": false,
+        "image_processor_imgbb_key": "",
+        "image_processor_webapp_url": "",
+        "image_processor_auto_process": true
     },
     "students": {
         "available_students": [],
