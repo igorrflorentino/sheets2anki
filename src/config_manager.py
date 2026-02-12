@@ -66,11 +66,19 @@ DEFAULT_CONFIG = {
         "deck_options_mode": "individual",  # "shared", "individual", "manual"
         "ankiweb_sync_mode": "sync",  # "none", "sync"
         # Automatic backup settings
-        "auto_backup_enabled": False,  # enable automatic configuration backup
-        "auto_backup_directory": None,  # directory to save automatic backups (empty = use default)
+        "auto_backup_enabled": True,  # enable automatic configuration backup
+        "auto_backup_directory": "",  # directory to save automatic backups (empty = use default)
         "auto_backup_max_files": 50,  # maximum backup files to keep
         "auto_backup_type": "simple",  # "simple" or "full"
         "accumulate_logs": True,  # whether to keep logs between sessions
+        # AI Help settings
+        "ai_help_enabled": False,  # whether AI help is enabled
+        "ai_help_service": "gemini",  # gemini, claude, openai
+        "ai_help_model": "",  # specific model ID
+        "ai_help_api_key": "",  # user's API key
+        "ai_help_prompt": "",  # custom prompt (empty = use default for language)
+        "ai_help_mobile_enabled": False,  # whether to embed key in cards for mobile
+        "ai_help_language": "english",  # default language
         # Image processor settings
         "image_processor_enabled": False,  # enable automatic image processing
         "image_processor_imgbb_key": "",  # ImgBB API key for image hosting
@@ -607,48 +615,6 @@ def is_local_deck_missing(url):
         return True  # Error accessing deck = deck doesn't exist
 
 
-def get_deck_naming_mode():
-    """
-    Gets current deck naming mode.
-
-    Returns:
-        str: Always "automatic" (fixed behavior)
-    """
-    return "automatic"
-
-
-def set_deck_naming_mode(mode):
-    """
-    Sets deck naming mode.
-
-    Args:
-        mode (str): Ignored - behavior always automatic
-    """
-    # Kept for compatibility, does nothing
-    pass
-
-
-def get_create_subdecks_setting():
-    """
-    Checks if subdeck creation is enabled.
-
-    Returns:
-        bool: Always True (fixed behavior)
-    """
-    return True
-
-
-def set_create_subdecks_setting(enabled):
-    """
-    Sets whether subdeck creation is enabled.
-
-    Args:
-        enabled (bool): Ignored - behavior always enabled
-    """
-    # Kept for compatibility, does nothing
-    pass
-
-
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
@@ -730,24 +696,6 @@ def verify_and_update_deck_info(url, local_deck_id, local_deck_name, silent=Fals
 
     return False
 
-
-def get_deck_info_by_id(local_deck_id):
-    """
-    Gets remote deck information by local deck ID.
-
-    Args:
-        local_deck_id (int): Deck ID in Anki
-
-    Returns:
-        tuple: (url_hash, deck_info) or (None, None) if not found
-    """
-    remote_decks = get_remote_decks()
-
-    for url_hash, deck_info in remote_decks.items():
-        if deck_info.get("local_deck_id") == local_deck_id:
-            return url_hash, deck_info
-
-    return None, None
 
 
 def detect_deck_name_changes(skip_deleted=False):
@@ -1695,90 +1643,6 @@ def get_deck_note_types_by_ids(deck_url):
         return []
 
 
-def test_note_type_id_capture():
-    """
-    Test function to manually capture note type IDs.
-    Use this function to test the system independently of sync.
-    """
-    from .compat import mw
-
-    if not mw or not mw.col:
-        add_debug_msg("[TEST] Anki is not available")
-        return
-
-    add_debug_msg("[TEST] === MANUAL NOTE TYPE ID CAPTURE TEST ===")
-
-    # List all note types
-    all_models = mw.col.models.all()
-    add_debug_msg(f"[TEST] Total note types in Anki: {len(all_models)}")
-
-    sheets2anki_models = []
-    for model in all_models:
-        model_name = model["name"]
-        add_debug_msg(f"[TEST] Note type found: '{model_name}' (ID: {model['id']})")
-        if "Sheets2Anki" in model_name:
-            sheets2anki_models.append(model)
-            add_debug_msg(
-                f"[TEST] ✅ Sheets2Anki note type: '{model_name}' (ID: {model['id']})"
-            )
-
-    if not sheets2anki_models:
-        add_debug_msg("[TEST] ❌ No Sheets2Anki note types found!")
-        return
-
-    # Check if we have configured decks
-    meta = get_meta()
-    decks = meta.get("decks", {})
-    add_debug_msg(f"[TEST] Configured decks: {len(decks)}")
-
-    if not decks:
-        add_debug_msg("[TEST] ❌ No decks configured!")
-        return
-
-    # For each configured deck, try to capture IDs
-    for deck_url, deck_info in decks.items():
-        add_debug_msg(f"[TEST] Processing deck: {deck_info.get('local_deck_name', 'Unknown')}")
-        add_debug_msg(f"[TEST] URL: {deck_url}")
-
-        # Simulate capture
-        from .utils import get_model_suffix_from_url
-
-        try:
-            url_hash = get_model_suffix_from_url(deck_url)
-            hash_pattern = f"Sheets2Anki - {url_hash} - "
-            add_debug_msg(f"[TEST] Hash: {url_hash}")
-            add_debug_msg(f"[TEST] Pattern: {hash_pattern}")
-
-            matching_models = []
-            for model in sheets2anki_models:
-                if hash_pattern in model["name"]:
-                    matching_models.append(model)
-                    add_debug_msg(f"[TEST] ✅ Match: '{model['name']}'")
-
-            if matching_models:
-                add_debug_msg(f"[TEST] Adding {len(matching_models)} IDs to deck...")
-                for model in matching_models:
-                    add_note_type_id_to_deck(deck_url, model["id"], model["name"])
-            else:
-                add_debug_msg(
-                    f"[TEST] ❌ No note type found for pattern '{hash_pattern}'"
-                )
-
-        except Exception as e:
-            add_debug_msg(f"[TEST] Error processing deck: {e}")
-
-    add_debug_msg("[TEST] === END OF TEST ===")
-
-    # Show final result
-    meta_final = get_meta()
-    for deck_url, deck_info in meta_final.get("decks", {}).items():
-        note_type_ids = deck_info.get("note_type_ids", [])
-        add_debug_msg(
-            f"[TEST] Deck {deck_info.get('local_deck_name', 'Unknown')}: {len(note_type_ids)} IDs saved"
-        )
-        if note_type_ids:
-            add_debug_msg(f"[TEST]   IDs: {note_type_ids}")
-
 
 def update_note_type_names_in_meta(url, new_remote_deck_name, enabled_students=None):
     """
@@ -2098,24 +1962,6 @@ def set_ankiweb_sync_mode(mode):
 
 
 
-
-
-def set_ankiweb_sync_notifications(enabled):
-    """
-    Enables or disables AnkiWeb sync notifications.
-
-    Args:
-        enabled (bool): True to enable, False to disable
-    """
-    meta = get_meta()
-    if "config" not in meta:
-        meta["config"] = {}
-
-    meta["config"]["show_ankiweb_sync_notifications"] = bool(enabled)
-    save_meta(meta)
-    add_debug_msg(
-        f"[ANKIWEB_SYNC_NOTIFICATIONS] Notifications {'enabled' if enabled else 'disabled'}"
-    )
 
 
 def set_ankiweb_sync_config(mode):
