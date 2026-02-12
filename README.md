@@ -55,7 +55,7 @@ Don't start from scratch. Use our official template which has all the columns pr
 
 ### 2. Connect to Anki
 1.  In your Google Sheet, click `Share` -> `Anyone with the link can view` -> **Copy Link**.
-2.  In Anki, press `Ctrl+Shift+A` (or `Tools` → `Sheets2Anki` → `Add Remote Deck`).
+2.  In Anki, press `Ctrl+Shift+A` (or `Tools` → `Sheets2Anki` → `Add New Remote Deck`).
 3.  Paste your link and give your deck a name.
 
 ### 3. Sync & Study!
@@ -67,27 +67,44 @@ Don't start from scratch. Use our official template which has all the columns pr
 
 ## 📊 Spreadsheet Structure
 
-Your spreadsheet is the brain of your deck. The template comes with 23 columns, but you only strictly need to fill in **5 of them**.
+Your spreadsheet is the brain of your deck. The template comes with **23 columns**, but you only strictly need **3 in the header** plus a few filled in per row.
 
-### 🔴 Mandatory Columns (Must be filled)
+### 🔴 Required Columns (Must exist in the header)
 
 | Column | Description | Example |
 | :--- | :--- | :--- |
 | **ID** | **Do not touch.** Unique identifier used to track card updates. | `Q101` |
-| **STUDENTS** | Who is this card for? | `John, Mary` |
-| **SYNC** | Control switch. Set to `TRUE` to sync this row. | `TRUE` |
 | **QUESTION** | The front of your flashcard. | `Capital of France?` |
 | **ANSWER** | The back of your flashcard. | `Paris` |
+
+### 🟡 Control Columns (Recommended)
+
+| Column | Description | Example |
+| :--- | :--- | :--- |
+| **STUDENTS** | Who is this card for? Comma-separated. | `John, Mary` |
+| **SYNC** | Set to `TRUE` to sync this row. | `TRUE` |
 
 ### 🟢 Optional Columns (Use if needed)
 
 | Column | Description | Example |
 | :--- | :--- | :--- |
+| **IMPORTANCE** | Priority level. | `High` |
 | **TOPIC** | Organizing category. | `Geography` |
 | **SUBTOPIC** | Organizing sub-category. | `Europe` |
-| **IMPORTANCE** | Priority level (High/Medium/Low). | `High` |
-| **MEDIA** | Embed images or videos. | `<img src="...">` |
+| **CONCEPT** | Atomic concept (more refined than subtopic). | `Capital Cities` |
+| **REVERSE** | Reverse question (creates an extra Answer → Question card). | `What city is the capital of France?` |
+| **COMPLEMENTARY INFO** | Additional context. | `France is in Western Europe.` |
+| **DETAILED INFO** | Extended explanation. | `Paris has been the capital since...` |
+| **EXAMPLE 1** | First example. | `London is the capital of the UK.` |
+| **EXAMPLE 2** | Second example. | `Berlin is the capital of Germany.` |
 | **MNEMONIC** | Memory aids. | `My Very Educated Mother...` |
+| **HTML IMAGE** | HTML code for images (or use Image Processor). | `<img src="...">` |
+| **HTML VIDEO** | Embedded video (YouTube/Vimeo). | `<iframe src="...">` |
+| **BOARDS** | Related exam boards. | `ENEM, FUVEST` |
+| **LAST YEAR IN EXAM** | Last year this appeared in an exam. | `2024` |
+| **CAREERS** | Related careers or areas. | `Medicine, Law` |
+| **OTHER TAGS** | Additional tags for organization. | `review, hard` |
+| **EXTRA FIELD 1/2/3** | Free-use fields for anything you want. | *(your content)* |
 
 > 💡 **Tip:** You can hide any optional columns you don't use in Google Sheets to keep your workspace clean. The add-on will still read them correctly!
 
@@ -110,9 +127,9 @@ Sheets2Anki can automatically process images from Google Sheets and embed them i
 
 ### How It Works
 
-1.  **Insert images** directly into cells in Google Sheets (Insert > Image > Image in cell)
-2.  **Configure once:** `Tools` → `Sheets2Anki` → `📸 Configure Image Processor`
-3.  **Automatic processing:** Images are uploaded to free hosting and replaced with HTML tags
+1.  **Insert images** directly into cells in the **IMAGE** column (Insert > Image > Image in cell)
+2.  **Configure once:** `Tools` → `Sheets2Anki` → `Configure Image Processor`
+3.  **Automatic processing:** A Google Apps Script uploads images to ImgBB and writes HTML tags to the HTML IMAGE column.
 4.  **Sync normally:** Your cards will include the images automatically!
 
 ### Setup (One-time)
@@ -122,17 +139,21 @@ Sheets2Anki can automatically process images from Google Sheets and embed them i
     *   Sign up (no credit card required)
     *   Copy your API key
 
-2.  **Get Google Sheets Credentials**:
-    *   Go to [Google Cloud Console](https://console.cloud.google.com/)
-    *   Create a project and enable "Google Sheets API"
-    *   Create OAuth 2.0 credentials (Desktop App)
-    *   Download `credentials.json`
+2.  **Deploy the Google Apps Script** (once — works for all spreadsheets):
+    *   In Anki, open `Tools` → `Sheets2Anki` → `Configure Image Processor`
+    *   Click **📋 Copy Script to Clipboard**
+    *   Go to [script.google.com](https://script.google.com) → **New project**
+    *   Paste the script → **Save**
+    *   Click **Deploy → New deployment**
+    *   Configure: Type = Web app, Execute as = Me, Access = Anyone
+    *   Click **Deploy** and authorize when prompted
+    *   **Copy the Web App URL**
 
 3.  **Configure in Anki**:
-    *   `Tools` → `Sheets2Anki` → `📸 Configure Image Processor`
+    *   `Tools` → `Sheets2Anki` → `Configure Image Processor`
     *   ☑ Enable automatic image processing
-    *   Paste ImgBB API key
-    *   Select `credentials.json` file
+    *   Paste your **ImgBB API key**
+    *   Paste your **Web App URL**
     *   Click "🧪 Test Configuration"
     *   Save!
 
@@ -140,7 +161,7 @@ Sheets2Anki can automatically process images from Google Sheets and embed them i
 
 ### Usage Tips
 
-✅ **DO:** Insert images using "Insert > Image > Image in cell"  
+✅ **DO:** Insert images using "Insert > Image > Image in cell" in the **HTML IMAGE** column  
 ❌ **DON'T:** Use drag-and-drop or "Image over cells" (not detectable)
 
 Images are hosted permanently on ImgBB (free) and will work on all devices including AnkiMobile!
@@ -149,7 +170,20 @@ Images are hosted permanently on ImgBB (free) and will work on all devices inclu
 
 ## 📂 Advanced Organization
 
-The add-on automatically creates a beautiful hierarchy for your cards in the Anki Browser:
+The add-on automatically creates a rich tag hierarchy for your cards in the Anki Browser:
+
+```text
+sheets2anki
+├── topics::topic::subtopic::concept    (hierarchical content tree)
+├── concepts::concept                   (flat concept search)
+├── importance::level                   (priority level)
+├── boards::board                       (exam boards)
+├── years::year                         (exam years)
+├── careers::career                     (professional areas)
+└── other_tags::tag                     (additional tags)
+```
+
+Your **decks** are organized as:
 
 ```text
 Sheets2Anki
@@ -168,8 +202,8 @@ Sheets2Anki
 **Something went wrong?**
 
 1.  **Check the logs:** `Tools` → `Add-ons` → `Sheets2Anki` → `View Files` → `debug_sheets2anki.log`.
-2.  **Test Connection:** Press `Ctrl+Shift+W` to test your connection to AnkiWeb.
-3.  **Reset:** Access `Tools` → `Sheets2Anki` → `Backup` to save your state, then try removing and re-adding the deck.
+2.  **Configure AnkiWeb Sync:** Press `Ctrl+Shift+W` to configure automatic AnkiWeb synchronization.
+3.  **Backup & Reset:** Access `Tools` → `Sheets2Anki` → `Remote Decks Backup` to save your state, then try removing and re-adding the deck.
 
 ---
 
