@@ -475,6 +475,14 @@ AI_HELP_CSS = """
   padding: 10px;
 }
 
+.ai-buttons-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .ai-help-button {
   background: linear-gradient(135deg, var(--ai-accent) 0%, var(--ai-accent-secondary) 100%);
   color: white;
@@ -505,6 +513,36 @@ AI_HELP_CSS = """
   cursor: wait;
 }
 
+.ai-ask-button {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-ask-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+}
+
+.ai-ask-button:active {
+  transform: translateY(0);
+}
+
+.ai-ask-button.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .ai-help-button .spinner {
   display: none;
   width: 16px;
@@ -525,6 +563,108 @@ AI_HELP_CSS = """
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* AI Ask Input Modal */
+.ai-ask-input-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--ai-overlay);
+  z-index: 10001;
+  justify-content: center;
+  align-items: center;
+}
+
+.ai-ask-input-modal.show {
+  display: flex;
+}
+
+.ai-ask-input-content {
+  background: var(--ai-bg);
+  color: var(--ai-text);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 90%;
+  width: 500px;
+  box-shadow: 0 10px 40px var(--ai-shadow);
+  border: 1px solid var(--ai-border);
+  box-sizing: border-box;
+}
+
+.ai-ask-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ai-border);
+}
+
+.ai-ask-input-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #f59e0b;
+}
+
+.ai-ask-input-close {
+  background: none;
+  border: none;
+  color: var(--ai-text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.ai-ask-input-close:hover {
+  background: var(--ai-bg-secondary);
+  color: var(--ai-text);
+}
+
+.ai-ask-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  background: var(--ai-bg-secondary);
+  color: var(--ai-text);
+  border: 1px solid var(--ai-border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+}
+
+.ai-ask-textarea:focus {
+  outline: none;
+  border-color: #f59e0b;
+}
+
+.ai-ask-textarea::placeholder {
+  color: var(--ai-text-muted);
+}
+
+.ai-ask-submit {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.ai-ask-submit:hover {
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5);
 }
 
 /* AI Help Response Modal (for desktop) */
@@ -744,11 +884,28 @@ AI_HELP_BUTTON_HTML = """
 <div class="ai-help-container">
   <!-- Load marked.js for markdown parsing -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <button id="ai-help-btn" class="ai-help-button" onclick="requestAIHelp()">
-    <span class="btn-text">🤖 AI Help</span>
-    <span class="spinner"></span>
-  </button>
+  <div class="ai-buttons-row">
+    <button id="ai-help-btn" class="ai-help-button" onclick="requestAIHelp()">
+      <span class="btn-text">🤖 AI Help</span>
+      <span class="spinner"></span>
+    </button>
+    <button id="ai-ask-btn" class="ai-ask-button" onclick="openAIAskInput()">
+      <span class="btn-text">💬 AI Ask</span>
+      <span class="spinner"></span>
+    </button>
+  </div>
   <div id="ai-help-inline" class="ai-help-inline"></div>
+</div>
+
+<div id="ai-ask-input-modal" class="ai-ask-input-modal" onclick="closeAIAskInput(event)">
+  <div class="ai-ask-input-content" onclick="event.stopPropagation()">
+    <div class="ai-ask-input-header">
+      <span class="ai-ask-input-title">💬 AI Ask</span>
+      <button class="ai-ask-input-close" onclick="closeAIAskInput()">&times;</button>
+    </div>
+    <textarea id="ai-ask-textarea" class="ai-ask-textarea" placeholder="Type your question here..."></textarea>
+    <button class="ai-ask-submit" onclick="submitAIAsk()">Send Question</button>
+  </div>
 </div>
 
 <div id="ai-help-modal" class="ai-help-modal" onclick="closeAIHelpModal(event)">
@@ -792,6 +949,62 @@ function requestAIHelp() {
     btn.classList.remove('loading');
   }
 }
+
+function openAIAskInput() {
+  var modal = document.getElementById('ai-ask-input-modal');
+  if (modal) {
+    modal.classList.add('show');
+    var textarea = document.getElementById('ai-ask-textarea');
+    if (textarea) {
+      textarea.value = '';
+      textarea.focus();
+    }
+  }
+}
+
+function closeAIAskInput(event) {
+  if (event && event.target !== event.currentTarget) return;
+  var modal = document.getElementById('ai-ask-input-modal');
+  if (modal) modal.classList.remove('show');
+}
+
+function submitAIAsk() {
+  var submitBtn = document.querySelector('.ai-ask-submit');
+  if (submitBtn && submitBtn.classList.contains('loading')) return;
+  
+  var textarea = document.getElementById('ai-ask-textarea');
+  var question = textarea ? textarea.value.trim() : '';
+  if (!question) return;
+  
+  var btn = document.getElementById('ai-ask-btn');
+  if (btn) btn.classList.add('loading');
+  
+  if (submitBtn) {
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = 'Sending... ⏳';
+  }
+  if (textarea) textarea.disabled = true;
+  
+  var cardContent = collectCardContent();
+  
+  if (typeof pycmd !== 'undefined') {
+    pycmd('sheets2anki_ai_ask:' + encodeURIComponent(question) + '|||' + encodeURIComponent(cardContent));
+  } else {
+    resetAIAskInput();
+  }
+}
+
+function resetAIAskInput() {
+  var submitBtn = document.querySelector('.ai-ask-submit');
+  if (submitBtn) {
+    submitBtn.classList.remove('loading');
+    submitBtn.innerHTML = 'Send Question';
+  }
+  var textarea = document.getElementById('ai-ask-textarea');
+  if (textarea) textarea.disabled = false;
+  closeAIAskInput();
+}
+
 
 """ + """
 function collectCardContent() {
@@ -842,6 +1055,10 @@ function renderMathJax() {
 function showAIHelpResponse(response, usageInfo) {
   var btn = document.getElementById('ai-help-btn');
   if (btn) btn.classList.remove('loading');
+  var askBtn = document.getElementById('ai-ask-btn');
+  if (askBtn) askBtn.classList.remove('loading');
+  
+  if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
   var modal = document.getElementById('ai-help-modal');
   var body = document.getElementById('ai-help-modal-body');
@@ -868,6 +1085,10 @@ function showAIHelpResponse(response, usageInfo) {
 function showAIHelpError(error) {
   var btn = document.getElementById('ai-help-btn');
   if (btn) btn.classList.remove('loading');
+  var askBtn = document.getElementById('ai-ask-btn');
+  if (askBtn) askBtn.classList.remove('loading');
+  
+  if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
   var modal = document.getElementById('ai-help-modal');
   var body = document.getElementById('ai-help-modal-body');
@@ -949,6 +1170,76 @@ function requestAIHelp() {{
   
   // Mobile: direct API call
   callAIAPI(cardContent);
+}}
+
+function openAIAskInput() {{
+  var modal = document.getElementById('ai-ask-input-modal');
+  if (modal) {{
+    modal.classList.add('show');
+    var textarea = document.getElementById('ai-ask-textarea');
+    if (textarea) {{
+      textarea.value = '';
+      textarea.focus();
+    }}
+  }}
+}}
+
+function closeAIAskInput(event) {{
+  if (event && event.target !== event.currentTarget) return;
+  var modal = document.getElementById('ai-ask-input-modal');
+  if (modal) modal.classList.remove('show');
+}}
+
+function submitAIAsk() {{
+  var submitBtn = document.querySelector('.ai-ask-submit');
+  if (submitBtn && submitBtn.classList.contains('loading')) return;
+  
+  var textarea = document.getElementById('ai-ask-textarea');
+  var question = textarea ? textarea.value.trim() : '';
+  if (!question) return;
+  
+  var btn = document.getElementById('ai-ask-btn');
+  if (btn) btn.classList.add('loading');
+  
+  if (submitBtn) {{
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = 'Sending... ⏳';
+  }}
+  if (textarea) textarea.disabled = true;
+  
+  var cardContent = collectCardContent();
+  
+  // Try desktop first
+  if (typeof pycmd !== 'undefined') {{
+    pycmd('sheets2anki_ai_ask:' + encodeURIComponent(question) + '|||' + encodeURIComponent(cardContent));
+    return;
+  }}
+  
+  // Mobile: direct API call with custom question
+  callAIAskAPI(question, cardContent);
+}}
+
+function resetAIAskInput() {{
+  var submitBtn = document.querySelector('.ai-ask-submit');
+  if (submitBtn) {{
+    submitBtn.classList.remove('loading');
+    submitBtn.innerHTML = 'Send Question';
+  }}
+  var textarea = document.getElementById('ai-ask-textarea');
+  if (textarea) textarea.disabled = false;
+  closeAIAskInput();
+}}
+
+function callAIAskAPI(question, cardContent) {{
+  var prompt = 'I am studying with flashcards. Here is the card content for context:\\n\\n' + cardContent + '\\n\\nMy question: ' + question;
+  
+  if (AI_CONFIG.service === 'gemini') {{
+    callGeminiAPI(prompt);
+  }} else if (AI_CONFIG.service === 'claude') {{
+    callClaudeAPI(prompt);
+  }} else if (AI_CONFIG.service === 'openai') {{
+    callOpenAIAPI(prompt);
+  }}
 }}
 
 function callAIAPI(cardContent) {{
@@ -1116,6 +1407,10 @@ function renderMathJax() {{
 function showAIHelpResponse(response, usageInfo) {{
   var btn = document.getElementById('ai-help-btn');
   if (btn) btn.classList.remove('loading');
+  var askBtn = document.getElementById('ai-ask-btn');
+  if (askBtn) askBtn.classList.remove('loading');
+  
+  if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
   var html = processMathAndMarkdown(response);
   
@@ -1150,6 +1445,10 @@ function showAIHelpResponse(response, usageInfo) {{
 function showAIHelpError(error) {{
   var btn = document.getElementById('ai-help-btn');
   if (btn) btn.classList.remove('loading');
+  var askBtn = document.getElementById('ai-ask-btn');
+  if (askBtn) askBtn.classList.remove('loading');
+  
+  if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
   var errorHtml = '<div class="ai-help-error">⚠️ ' + error + '</div>';
   

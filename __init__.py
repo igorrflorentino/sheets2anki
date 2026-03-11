@@ -286,10 +286,12 @@ def handle_ai_help_request(card_content):
         card_content: The card content sent from JavaScript (URL encoded)
     """
     import urllib.parse
+    from .src.utils import add_debug_message
     
     try:
         # Decode the card content
         decoded_content = urllib.parse.unquote(card_content)
+        add_debug_message(f"Request received, content length: {len(decoded_content)}", "AI_HELP")
         
         # Get AI configuration
         from .src.config_manager import get_ai_help_config
@@ -339,10 +341,104 @@ def handle_ai_help_request(card_content):
                 }
                 send_ai_response_to_card(result.get("text", ""), usage_info)
         
+        add_debug_message(f"Calling API: service={service}, model={model}", "AI_HELP")
         call_ai_api_async(service, model, api_key, final_prompt, decoded_content, on_ai_response)
         
     except Exception as e:
+        add_debug_message(f"Exception: {e}", "AI_HELP")
         send_ai_error_to_card(f"Error processing AI Help request: {str(e)}")
+
+
+def handle_ai_ask_request(data):
+    """
+    Handles AI Ask requests from card JavaScript.
+    
+    This function:
+    1. Parses the question|||card_content payload
+    2. Builds a prompt combining user question + card context
+    3. Calls the AI API ignoring the pre-configured prompt template
+    4. Returns response to the card via JavaScript
+    
+    Args:
+        data: The payload sent from JavaScript (format: question|||card_content, URL encoded)
+    """
+    import urllib.parse
+    from .src.utils import add_debug_message
+    
+    try:
+        # Parse the question and card content
+        add_debug_message(f"Request received, data length: {len(data)}", "AI_ASK")
+        parts = data.split('|||', 1)
+        if len(parts) != 2:
+            send_ai_error_to_card("Invalid AI Ask request format.")
+            return
+        
+        question = urllib.parse.unquote(parts[0])
+        card_content = urllib.parse.unquote(parts[1])
+        
+        if not question.strip():
+            send_ai_error_to_card("Please enter a question.")
+            return
+        
+        # Get AI configuration
+        from .src.config_manager import get_ai_help_config
+        config = get_ai_help_config()
+        
+        if not config.get("enabled"):
+            send_ai_response_to_card("AI Help is not enabled. Go to Tools → Sheets2Anki → Configure AI Help to set it up.", None)
+            return
+        
+        service = config.get("service", "gemini")
+        model = config.get("model", "")
+        api_key = config.get("api_key", "")
+        language = config.get("language", "english")
+        
+        if not api_key:
+            send_ai_error_to_card("No API key configured. Please configure AI Help first.")
+            return
+        
+        if not model:
+            send_ai_error_to_card("No model selected. Please configure AI Help first.")
+            return
+        
+        # Add language instruction
+        language_instruction = ""
+        if language == "portuguese_br":
+            language_instruction = "Por favor, responda em Português do Brasil.\n\n"
+        elif language == "spanish_latam":
+            language_instruction = "Por favor, responda en Español Latinoamericano.\n\n"
+        else:
+            language_instruction = "Please answer in English (American).\n\n"
+        
+        # Build a prompt that combines the user's question with card context
+        # (ignoring the pre-configured prompt template)
+        ask_prompt = (
+            f"{language_instruction}"
+            f"I am studying with flashcards. Here is the card content for context:\n\n"
+            f"{{card_content}}\n\n"
+            f"My question: {question}"
+        )
+        
+        # Call AI API asynchronously
+        from .src.ai_service import call_ai_api_async
+        
+        def on_ai_response(result, error):
+            if error:
+                send_ai_error_to_card(str(error))
+            else:
+                usage_info = {
+                    "input_tokens": result.get("input_tokens", 0),
+                    "output_tokens": result.get("output_tokens", 0),
+                    "cost": result.get("cost", 0)
+                }
+                send_ai_response_to_card(result.get("text", ""), usage_info)
+        
+        add_debug_message(f"Calling API: service={service}, model={model}", "AI_ASK")
+        call_ai_api_async(service, model, api_key, ask_prompt, card_content, on_ai_response)
+        
+    except Exception as e:
+        add_debug_message(f"Exception: {e}", "AI_ASK")
+        send_ai_error_to_card(f"Error processing AI Ask request: {str(e)}")
 
 
 def send_ai_response_to_card(response, usage_info):
@@ -488,11 +584,19 @@ if mw is not None:
     
     from aqt import gui_hooks
     
+    from .src.utils import add_debug_message as _add_debug_msg
+    
     def on_webview_did_receive_js_message(handled, message, context):
         """Handler for JavaScript pycmd messages from review cards."""
         if message.startswith("sheets2anki_ai_help:"):
+            _add_debug_msg("AI Help pycmd message received", "PYCMD")
             card_content = message[len("sheets2anki_ai_help:"):]
             handle_ai_help_request(card_content)
+            return True, None
+        if message.startswith("sheets2anki_ai_ask:"):
+            _add_debug_msg("AI Ask pycmd message received", "PYCMD")
+            data = message[len("sheets2anki_ai_ask:"):]
+            handle_ai_ask_request(data)
             return True, None
         return handled
     
