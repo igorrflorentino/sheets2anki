@@ -889,19 +889,8 @@ def get_or_create_note_type(deck_name: str, student: str) -> NotetypeDict:
 
 ---
 
-## 📚 Additional Resources
-
-### **Architecture Diagrams**
-*(Consider adding visual architecture diagrams)*
-
-### **API Reference**
-*(Link to detailed API documentation)*
-
-### **Examples & Tutorials**
-*(Practical development examples)*
-
-### **Troubleshooting**
-*(Common issues solution guide)*
+## Future Plans
+- Make the whole card creating adaptable so the user can change the columns name and created the card interface directly in the google sheets
 
 ---
 
