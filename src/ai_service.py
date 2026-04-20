@@ -14,6 +14,7 @@ Features:
 - Token usage and cost tracking
 """
 
+import atexit
 import json
 import urllib.request
 import urllib.error
@@ -39,6 +40,8 @@ DEFAULT_MAX_TOKENS = 4096
 
 # Thread pool for async API calls
 _executor = ThreadPoolExecutor(max_workers=2)
+# Ensure threads are cleaned up when Anki closes (wait=False avoids blocking shutdown)
+atexit.register(_executor.shutdown, wait=False)
 
 # Pricing per 1M tokens (as of Jan 2024, approximate)
 # Format: {model_prefix: (input_cost_per_1m, output_cost_per_1m)}

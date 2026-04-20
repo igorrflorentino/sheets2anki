@@ -233,9 +233,9 @@ def configure_timer():
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
 
-def configure_ai_help():
+def configure_ai_assistance():
     """
-    Opens the AI Help configuration dialog.
+    Opens the AI Assistance configuration dialog.
     
     This function allows the user to configure:
     1. AI Service (Gemini, Claude, OpenAI)
@@ -244,8 +244,8 @@ def configure_ai_help():
     4. Custom prompt template
     """
     try:
-        from .src.ai_help_config_dialog import show_ai_help_config_dialog
-        show_ai_help_config_dialog(mw)
+        from .src.ai_assistance_config_dialog import show_ai_assistance_config_dialog
+        show_ai_assistance_config_dialog(mw)
     except Exception as e:
         error_msg = errorTemplate.format(str(e))
         showInfo(error_msg)
@@ -294,37 +294,29 @@ def handle_ai_help_request(card_content):
         add_debug_message(f"Request received, content length: {len(decoded_content)}", "AI_HELP")
         
         # Get AI configuration
-        from .src.config_manager import get_ai_help_config
-        config = get_ai_help_config()
+        from .src.config_manager import get_ai_assistance_config
+        config = get_ai_assistance_config()
         
         if not config.get("enabled"):
-            send_ai_response_to_card("AI Help is not enabled. Go to Tools → Sheets2Anki → Configure AI Help to set it up.", None)
+            send_ai_response_to_card("AI Assistance is not enabled. Go to Tools → Sheets2Anki → Configure AI Assistance to set it up.", None)
             return
         
         service = config.get("service", "gemini")
         model = config.get("model", "")
         api_key = config.get("api_key", "")
         prompt = config.get("prompt", "")
-        language = config.get("language", "english")
         
         if not api_key:
-            send_ai_error_to_card("No API key configured. Please configure AI Help first.")
+            send_ai_error_to_card("No API key configured. Please configure AI Assistance first.")
             return
         
         if not model:
-            send_ai_error_to_card("No model selected. Please configure AI Help first.")
+            send_ai_error_to_card("No model selected. Please configure AI Assistance first.")
             return
             
-        # Add language instruction
-        language_instruction = ""
-        if language == "portuguese_br":
-            language_instruction = "Por favor, responda em Português do Brasil.\n\n"
-        elif language == "spanish_latam":
-            language_instruction = "Por favor, responda en Español Latinoamericano.\n\n"
-        else:
-            language_instruction = "Please answer in English (American).\n\n"
-            
-        final_prompt = language_instruction + prompt
+        # The prompt is already written in the user's selected language
+        # (defaults are language-specific; custom prompts are user-controlled)
+        final_prompt = prompt
         
         # Call AI API asynchronously
         from .src.ai_service import call_ai_api_async
@@ -347,6 +339,76 @@ def handle_ai_help_request(card_content):
     except Exception as e:
         add_debug_message(f"Exception: {e}", "AI_HELP")
         send_ai_error_to_card(f"Error processing AI Help request: {str(e)}")
+
+
+def handle_ai_checker_request(card_content):
+    """
+    Handles AI Checker requests from card JavaScript.
+    
+    This function:
+    1. Gets AI configuration
+    2. Uses the checker-specific prompt to verify card accuracy
+    3. Returns response to the card via JavaScript
+    
+    Args:
+        card_content: The card content sent from JavaScript (URL encoded)
+    """
+    import urllib.parse
+    from .src.utils import add_debug_message
+    
+    try:
+        # Decode the card content
+        decoded_content = urllib.parse.unquote(card_content)
+        add_debug_message(f"Request received, content length: {len(decoded_content)}", "AI_CHECKER")
+        
+        # Get AI configuration
+        from .src.config_manager import get_ai_assistance_config, AI_CHECKER_PROMPTS
+        config = get_ai_assistance_config()
+        
+        if not config.get("enabled"):
+            send_ai_response_to_card("AI Assistance is not enabled. Go to Tools → Sheets2Anki → Configure AI Assistance to set it up.", None)
+            return
+        
+        service = config.get("service", "gemini")
+        model = config.get("model", "")
+        api_key = config.get("api_key", "")
+        language = config.get("language", "english")
+        
+        if not api_key:
+            send_ai_error_to_card("No API key configured. Please configure AI Assistance first.")
+            return
+        
+        if not model:
+            send_ai_error_to_card("No model selected. Please configure AI Assistance first.")
+            return
+            
+        # The checker prompt is already written in the user's selected language
+        # (defaults are language-specific; custom prompts are user-controlled)
+        # get_ai_assistance_config() already handles language-aware fallback.
+        final_prompt = config.get("prompt_checker", "")
+        if not final_prompt:
+            final_prompt = AI_CHECKER_PROMPTS.get(language, AI_CHECKER_PROMPTS["english"])
+        
+        # Call AI API asynchronously
+        from .src.ai_service import call_ai_api_async
+        
+        def on_ai_response(result, error):
+            if error:
+                send_ai_error_to_card(str(error))
+            else:
+                usage_info = {
+                    "input_tokens": result.get("input_tokens", 0),
+                    "output_tokens": result.get("output_tokens", 0),
+                    "cost": result.get("cost", 0)
+                }
+                send_ai_response_to_card(result.get("text", ""), usage_info)
+        
+        add_debug_message(f"Calling API: service={service}, model={model}", "AI_CHECKER")
+        call_ai_api_async(service, model, api_key, final_prompt, decoded_content, on_ai_response)
+        
+    except Exception as e:
+        add_debug_message(f"Exception: {e}", "AI_CHECKER")
+        send_ai_error_to_card(f"Error processing AI Checker request: {str(e)}")
 
 
 def handle_ai_ask_request(data):
@@ -381,11 +443,11 @@ def handle_ai_ask_request(data):
             return
         
         # Get AI configuration
-        from .src.config_manager import get_ai_help_config
-        config = get_ai_help_config()
+        from .src.config_manager import get_ai_assistance_config
+        config = get_ai_assistance_config()
         
         if not config.get("enabled"):
-            send_ai_response_to_card("AI Help is not enabled. Go to Tools → Sheets2Anki → Configure AI Help to set it up.", None)
+            send_ai_response_to_card("AI Assistance is not enabled. Go to Tools → Sheets2Anki → Configure AI Assistance to set it up.", None)
             return
         
         service = config.get("service", "gemini")
@@ -394,30 +456,22 @@ def handle_ai_ask_request(data):
         language = config.get("language", "english")
         
         if not api_key:
-            send_ai_error_to_card("No API key configured. Please configure AI Help first.")
+            send_ai_error_to_card("No API key configured. Please configure AI Assistance first.")
             return
         
         if not model:
-            send_ai_error_to_card("No model selected. Please configure AI Help first.")
+            send_ai_error_to_card("No model selected. Please configure AI Assistance first.")
             return
         
-        # Add language instruction
-        language_instruction = ""
-        if language == "portuguese_br":
-            language_instruction = "Por favor, responda em Português do Brasil.\n\n"
-        elif language == "spanish_latam":
-            language_instruction = "Por favor, responda en Español Latinoamericano.\n\n"
-        else:
-            language_instruction = "Please answer in English (American).\n\n"
+        # The ask prompt is already written in the user's selected language
+        # (defaults are language-specific; custom prompts are user-controlled)
+        # get_ai_assistance_config() already handles language-aware fallback.
+        ask_prompt = config.get("prompt_ask", "")
+        if not ask_prompt:
+            from .src.config_manager import AI_ASK_PROMPTS
+            ask_prompt = AI_ASK_PROMPTS.get(language, AI_ASK_PROMPTS["english"])
         
-        # Build a prompt that combines the user's question with card context
-        # (ignoring the pre-configured prompt template)
-        ask_prompt = (
-            f"{language_instruction}"
-            f"I am studying with flashcards. Here is the card content for context:\n\n"
-            f"{{card_content}}\n\n"
-            f"My question: {question}"
-        )
+        final_ask_prompt = ask_prompt.replace("{question}", question).replace("{{question}}", question)
         
         # Call AI API asynchronously
         from .src.ai_service import call_ai_api_async
@@ -434,7 +488,7 @@ def handle_ai_ask_request(data):
                 send_ai_response_to_card(result.get("text", ""), usage_info)
         
         add_debug_message(f"Calling API: service={service}, model={model}", "AI_ASK")
-        call_ai_api_async(service, model, api_key, ask_prompt, card_content, on_ai_response)
+        call_ai_api_async(service, model, api_key, final_ask_prompt, card_content, on_ai_response)
         
     except Exception as e:
         add_debug_message(f"Exception: {e}", "AI_ASK")
@@ -447,38 +501,39 @@ def send_ai_response_to_card(response, usage_info):
         import json
         from aqt import mw
         if mw and mw.reviewer and mw.reviewer.web:
-            # Escape the response for JavaScript
-            escaped_response = response.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '')
-            
-            # Serialize usage info
+            # Use json.dumps for safe, injection-proof serialization
+            response_json = json.dumps(response)
             usage_json = json.dumps(usage_info) if usage_info else "null"
             
             # Must run on main thread - Qt requires UI operations on main thread
             def run_on_main():
                 if mw.reviewer and mw.reviewer.web:
-                    mw.reviewer.web.eval(f"sheets2ankiAIResponse('{escaped_response}', {usage_json})")
+                    mw.reviewer.web.eval(f"sheets2ankiAIResponse({response_json}, {usage_json})")
             
             mw.taskman.run_on_main(run_on_main)
     except Exception as e:
-        print(f"Error sending AI response to card: {e}")
+        from .src.utils import add_debug_message
+        add_debug_message(f"Error sending AI response to card: {e}", "AI_HELP")
 
 
 def send_ai_error_to_card(error):
     """Sends error message back to the card via JavaScript."""
     try:
+        import json
         from aqt import mw
         if mw and mw.reviewer and mw.reviewer.web:
-            # Escape the error for JavaScript
-            escaped_error = str(error).replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '')
+            # Use json.dumps for safe, injection-proof serialization
+            error_json = json.dumps(str(error))
             
             # Must run on main thread - Qt requires UI operations on main thread
             def run_on_main():
                 if mw.reviewer and mw.reviewer.web:
-                    mw.reviewer.web.eval(f"sheets2ankiAIError('{escaped_error}')")
+                    mw.reviewer.web.eval(f"sheets2ankiAIError({error_json})")
             
             mw.taskman.run_on_main(run_on_main)
     except Exception as e:
-        print(f"Error sending AI error to card: {e}")
+        from .src.utils import add_debug_message
+        add_debug_message(f"Error sending AI error to card: {e}", "AI_HELP")
 
 # =============================================================================
 # ANKI INTERFACE CONFIGURATION
@@ -539,11 +594,11 @@ if mw is not None:
     qconnect(timerConfigAction.triggered, configure_timer)
     remoteDecksSubMenu.addAction(timerConfigAction)
 
-    # Action: Configure AI Help
-    aiHelpConfigAction = QAction("Configure AI Help", mw)
-    aiHelpConfigAction.setShortcut(QKeySequence("Ctrl+Shift+H"))
-    qconnect(aiHelpConfigAction.triggered, configure_ai_help)
-    remoteDecksSubMenu.addAction(aiHelpConfigAction)
+    # Action: Configure AI Assistance
+    aiAssistanceConfigAction = QAction("Configure AI Assistance", mw)
+    aiAssistanceConfigAction.setShortcut(QKeySequence("Ctrl+Shift+H"))
+    qconnect(aiAssistanceConfigAction.triggered, configure_ai_assistance)
+    remoteDecksSubMenu.addAction(aiAssistanceConfigAction)
 
     # Action: Configure Image Processor
     imageProcessorConfigAction = QAction("Configure Image Processor", mw)
@@ -598,6 +653,11 @@ if mw is not None:
             data = message[len("sheets2anki_ai_ask:"):]
             handle_ai_ask_request(data)
             return True, None
-        return handled
+        if message.startswith("sheets2anki_ai_checker:"):
+            _add_debug_msg("AI Checker pycmd message received", "PYCMD")
+            card_content = message[len("sheets2anki_ai_checker:"):]
+            handle_ai_checker_request(card_content)
+            return True, None
+        return False, None  # Not handled by this addon
     
     gui_hooks.webview_did_receive_js_message.append(on_webview_did_receive_js_message)

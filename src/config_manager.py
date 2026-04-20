@@ -71,14 +71,16 @@ DEFAULT_CONFIG = {
         "auto_backup_max_files": 50,  # maximum backup files to keep
         "auto_backup_type": "simple",  # "simple" or "full"
         "accumulate_logs": True,  # whether to keep logs between sessions
-        # AI Help settings
-        "ai_help_enabled": False,  # whether AI help is enabled
-        "ai_help_service": "gemini",  # gemini, claude, openai
-        "ai_help_model": "",  # specific model ID
-        "ai_help_api_key": "",  # user's API key
-        "ai_help_prompt": "",  # custom prompt (empty = use default for language)
-        "ai_help_mobile_enabled": False,  # whether to embed key in cards for mobile
-        "ai_help_language": "english",  # default language
+        # AI Assistance settings
+        "ai_assistance_enabled": False,  # whether AI assistance is enabled
+        "ai_assistance_service": "gemini",  # gemini, claude, openai
+        "ai_assistance_model": "",  # specific model ID
+        "ai_assistance_api_key": "",  # user's API key
+        "ai_help_prompt": "",  # custom prompt for AI Help (empty = use default for language)
+        "ai_ask_prompt": "",   # custom prompt for AI Ask (empty = use default for language)
+        "ai_checker_prompt": "", # custom prompt for AI Checker (empty = use default for language)
+        "ai_assistance_mobile_enabled": False,  # whether to embed key in cards for mobile
+        "ai_assistance_language": "english",  # default language
         # Image processor settings
         "image_processor_enabled": False,  # enable automatic image processing
         "image_processor_imgbb_key": "",  # ImgBB API key for image hosting
@@ -2401,7 +2403,8 @@ Please help me understand:
 3. Why is this information important?
 4. How can I better remember this concept?
 
-Keep your explanation clear and concise.""",
+Keep your explanation clear and concise.
+Always respond in English, regardless of the languages used in the card content.""",
     "portuguese_br": """Estou estudando com flashcards e preciso de ajuda para entender este cartão melhor.
 
 Aqui está o conteúdo do cartão:
@@ -2413,7 +2416,8 @@ Por favor, ajude-me a entender:
 3. Por que esta informação é importante?
 4. Como posso me lembrar melhor deste conceito?
 
-Mantenha sua explicação clara e concisa.""",
+Mantenha sua explicação clara e concisa.
+Sempre responda em Português, independentemente dos idiomas usados no conteúdo do cartão.""",
     "spanish_latam": """Estoy estudiando con tarjetas de memoria y necesito ayuda para entender esta tarjeta mejor.
 
 Aquí está el contenido de la tarjeta:
@@ -2425,20 +2429,116 @@ Por favor ayúdame a entender:
 3. ¿Por qué es importante esta información?
 4. ¿Cómo puedo recordar mejor este concepto?
 
-Mantén tu explicación clara y concisa."""
+Mantén tu explicación clara y concisa.
+Siempre responde en Español, independientemente de los idiomas utilizados en el contenido de la tarjeta."""
 }
 
 # Default prompt template for AI Help (English)
 DEFAULT_AI_HELP_PROMPT = AI_HELP_PROMPTS["english"]
 
+# Default prompt templates for AI Ask (answering user questions)
+AI_ASK_PROMPTS = {
+    "english": """I am studying with flashcards. Here is the card content for context:
 
-def get_ai_help_config():
+{card_content}
+
+My question: {question}
+
+Always respond in English, regardless of the languages used in the card content.""",
+    "portuguese_br": """Estou estudando com flashcards. Aqui está o conteúdo do cartão para contexto:
+
+{card_content}
+
+Minha pergunta: {question}
+
+Sempre responda em Português, independentemente dos idiomas usados no conteúdo do cartão.""",
+    "spanish_latam": """Estoy estudiando con tarjetas de memoria. Aquí está el contenido de la tarjeta como contexto:
+
+{card_content}
+
+Mi pregunta: {question}
+
+Siempre responde en Español, independientemente de los idiomas utilizados en el contenido de la tarjeta."""
+}
+
+# Default prompt templates for AI Checker (fact-checking and improvement)
+AI_CHECKER_PROMPTS = {
+    "english": """I'm studying with flashcards and need help checking the quality of this one.
+
+Here is the card content:
+{card_content}
+
+Evaluate the following points:
+1. Is the information correct according to official/academic sources?
+2. Is the content coherent and logically well-structured?
+3. Is any part of the content outdated or no longer valid?
+4. Can the content be simplified or made clearer without losing meaning?
+
+Provide a final verdict:
+- ✅ Information is accurate and well-structured.
+- ⚠️ Minor issues or room for improvement.
+- ❌ Factual errors found that need correction.
+
+Suggest improvements:
+- Suggest any improvements to make this card more effective for studying.
+
+Be concise and specific in your analysis.
+Always respond in English, regardless of the languages used in the card content.""",
+
+    "portuguese_br": """Estou estudando com flashcards e preciso de ajuda para verificar a qualidade deste.
+
+Aqui está o conteúdo do cartão:
+{card_content}
+
+Avalie os seguintes pontos:
+1. A informação está correta de acordo com fontes oficiais/acadêmicas?
+2. O conteúdo é coerente e bem estruturado logicamente?
+3. Alguma parte do conteúdo está desatualizada ou não é mais válida?
+4. O conteúdo pode ser simplificado ou tornar-se mais claro sem perder o significado?
+
+Forneça um veredito final:
+- ✅ A informação é precisa e bem estruturada.
+- ⚠️ Problemas menores ou margem para melhoria.
+- ❌ Erros factuais encontrados que precisam de correção.
+
+Sugira melhorias:
+- Sugira quaisquer melhorias para tornar este cartão mais eficaz para o estudo.
+
+Seja conciso e específico em sua análise.
+Responda sempre em português, independentemente dos idiomas usados no conteúdo do cartão.""",
+
+    "spanish_latam": """Estoy estudiando con flashcards y necesito ayuda para verificar la calidad de esta.
+
+Aquí está el contenido de la tarjeta:
+{card_content}
+
+Evalúa los siguientes puntos:
+1. ¿Es la información correcta según fuentes oficiales/académicas?
+2. ¿Es el contenido coherente y está bien estructurado lógicamente?
+3. ¿Alguna parte del contenido está desactualizada o ya no es válida?
+4. ¿Se puede simplificar el contenido o hacerlo más claro sin perder el significado?
+
+Proporciona un veredicto final:
+- ✅ La información es precisa y está bien estructurada.
+- ⚠️ Problemas menores o margen de mejora.
+- ❌ Errores factuales encontrados que necesitan corrección.
+
+Sugiere mejoras:
+- Sugiere cualquier mejora para hacer que esta tarjeta sea más efectiva para el estudio.
+
+Sé conciso y específico en tu análisis.
+Responde siempre en español, independientemente de los idiomas utilizados en el contenido de la tarjeta."""
+}
+
+
+
+def get_ai_assistance_config():
     """
-    Gets AI Help configuration settings.
+    Gets AI Assistance configuration settings.
     
     Returns:
-        dict: AI Help settings including:
-            - enabled: Whether AI Help is enabled
+        dict: AI Assistance settings including:
+            - enabled: Whether AI Assistance is enabled
             - service: Selected service (gemini, claude, openai)
             - model: Selected model for the service
             - api_key: API key for the service
@@ -2448,27 +2548,35 @@ def get_ai_help_config():
     meta = get_meta()
     config = meta.get("config", {})
     
+    # Resolve language first so all prompts can use the same language-aware fallback.
+    # Using 'or' ensures empty strings ("") are treated the same as missing keys.
+    language = config.get("ai_assistance_language") or "english"
+    
     return {
-        "enabled": config.get("ai_help_enabled", False),
-        "service": config.get("ai_help_service", "gemini"),
-        "model": config.get("ai_help_model", ""),
-        "api_key": config.get("ai_help_api_key", ""),
-        "prompt": config.get("ai_help_prompt", DEFAULT_AI_HELP_PROMPT),
-        "mobile_enabled": config.get("ai_help_mobile_enabled", False),
-        "language": config.get("ai_help_language", "english"),
+        "enabled": config.get("ai_assistance_enabled", False),
+        "service": config.get("ai_assistance_service", "gemini"),
+        "model": config.get("ai_assistance_model", ""),
+        "api_key": config.get("ai_assistance_api_key", ""),
+        "prompt": config.get("ai_help_prompt") or AI_HELP_PROMPTS.get(language, DEFAULT_AI_HELP_PROMPT),
+        "prompt_ask": config.get("ai_ask_prompt") or AI_ASK_PROMPTS.get(language, AI_ASK_PROMPTS["english"]),
+        "prompt_checker": config.get("ai_checker_prompt") or AI_CHECKER_PROMPTS.get(language, AI_CHECKER_PROMPTS["english"]),
+        "mobile_enabled": config.get("ai_assistance_mobile_enabled", False),
+        "language": language,
     }
 
 
-def set_ai_help_config(enabled=None, service=None, model=None, api_key=None, prompt=None, mobile_enabled=None, language=None):
+def set_ai_assistance_config(enabled=None, service=None, model=None, api_key=None, prompt=None, prompt_ask=None, prompt_checker=None, mobile_enabled=None, language=None):
     """
-    Sets AI Help configuration settings.
+    Sets AI Assistance configuration settings.
     
     Args:
-        enabled (bool, optional): Whether AI Help is enabled
+        enabled (bool, optional): Whether AI Assistance is enabled
         service (str, optional): Selected service (gemini, claude, openai)
         model (str, optional): Selected model for the service
         api_key (str, optional): API key for the service
-        prompt (str, optional): Custom prompt template
+        prompt (str, optional): Custom prompt template for AI Help
+        prompt_ask (str, optional): Custom prompt template for AI Ask
+        prompt_checker (str, optional): Custom prompt template for AI Checker
         mobile_enabled (bool, optional): Whether to embed API key for mobile support
     
     Returns:
@@ -2481,118 +2589,124 @@ def set_ai_help_config(enabled=None, service=None, model=None, api_key=None, pro
         config = meta.get("config", {})
         
         if enabled is not None:
-            config["ai_help_enabled"] = bool(enabled)
+            config["ai_assistance_enabled"] = bool(enabled)
         
         if service is not None:
             if service not in valid_services:
-                add_debug_msg(f"[AI_HELP] Invalid service: {service}. Using 'gemini'.")
+                add_debug_msg(f"[AI_ASSISTANCE] Invalid service: {service}. Using 'gemini'.")
                 service = "gemini"
-            config["ai_help_service"] = service
+            config["ai_assistance_service"] = service
         
         if model is not None:
-            config["ai_help_model"] = str(model)
+            config["ai_assistance_model"] = str(model)
         
         if api_key is not None:
-            config["ai_help_api_key"] = str(api_key)
+            config["ai_assistance_api_key"] = str(api_key)
         
         if prompt is not None:
             config["ai_help_prompt"] = str(prompt)
         
+        if prompt_ask is not None:
+            config["ai_ask_prompt"] = str(prompt_ask)
+            
+        if prompt_checker is not None:
+            config["ai_checker_prompt"] = str(prompt_checker)
+        
         if mobile_enabled is not None:
-            config["ai_help_mobile_enabled"] = bool(mobile_enabled)
+            config["ai_assistance_mobile_enabled"] = bool(mobile_enabled)
             
         if language is not None:
-            config["ai_help_language"] = str(language)
+            config["ai_assistance_language"] = str(language)
         
         meta["config"] = config
         save_meta(meta)
         
-        add_debug_msg(f"[AI_HELP] Settings updated: enabled={enabled}, service={service}, model={model}, mobile={mobile_enabled}, language={language}")
+        add_debug_msg(f"[AI_ASSISTANCE] Settings updated: enabled={enabled}, service={service}, model={model}, mobile={mobile_enabled}, language={language}")
         return True
         
     except Exception as e:
-        add_debug_msg(f"[AI_HELP] Error saving settings: {e}")
+        add_debug_msg(f"[AI_ASSISTANCE] Error saving settings: {e}")
         return False
 
 
-def get_ai_help_enabled():
+def get_ai_assistance_enabled():
     """
-    Gets whether AI Help is enabled.
+    Gets whether AI Assistance is enabled.
     
     Returns:
-        bool: True if AI Help is enabled
+        bool: True if AI Assistance is enabled
     """
-    return get_ai_help_config().get("enabled", False)
+    return get_ai_assistance_config().get("enabled", False)
 
 
-def set_ai_help_enabled(enabled):
+def set_ai_assistance_enabled(enabled):
     """
-    Sets whether AI Help is enabled.
+    Sets whether AI Assistance is enabled.
     
     Args:
-        enabled (bool): True to enable AI Help
+        enabled (bool): True to enable AI Assistance
     """
-    set_ai_help_config(enabled=enabled)
+    set_ai_assistance_config(enabled=enabled)
 
 
-def get_ai_help_service():
+def get_ai_assistance_service():
     """
     Gets the selected AI service.
     
     Returns:
         str: Service name (gemini, claude, openai)
     """
-    return get_ai_help_config().get("service", "gemini")
+    return get_ai_assistance_config().get("service", "gemini")
 
 
-def set_ai_help_service(service):
+def set_ai_assistance_service(service):
     """
     Sets the AI service.
     
     Args:
         service (str): Service name (gemini, claude, openai)
     """
-    set_ai_help_config(service=service)
+    set_ai_assistance_config(service=service)
 
 
-def get_ai_help_model():
+def get_ai_assistance_model():
     """
     Gets the selected AI model.
     
     Returns:
         str: Model name
     """
-    return get_ai_help_config().get("model", "")
+    return get_ai_assistance_config().get("model", "")
 
 
-def set_ai_help_model(model):
+def set_ai_assistance_model(model):
     """
     Sets the AI model.
     
     Args:
         model (str): Model name
     """
-    set_ai_help_config(model=model)
+    set_ai_assistance_config(model=model)
 
 
-def get_ai_help_api_key():
+def get_ai_assistance_api_key():
     """
     Gets the API key for the AI service.
     
     Returns:
         str: API key
     """
-    return get_ai_help_config().get("api_key", "")
+    return get_ai_assistance_config().get("api_key", "")
 
 
-def set_ai_help_api_key(api_key):
+def set_ai_assistance_api_key(api_key):
     """
     Sets the API key for the AI service.
     
     Args:
         api_key (str): API key
     """
-    set_ai_help_config(api_key=api_key)
+    set_ai_assistance_config(api_key=api_key)
 
 
 def get_ai_help_prompt():
@@ -2602,7 +2716,7 @@ def get_ai_help_prompt():
     Returns:
         str: Prompt template
     """
-    return get_ai_help_config().get("prompt", DEFAULT_AI_HELP_PROMPT)
+    return get_ai_assistance_config().get("prompt", DEFAULT_AI_HELP_PROMPT)
 
 
 def set_ai_help_prompt(prompt):
@@ -2612,14 +2726,14 @@ def set_ai_help_prompt(prompt):
     Args:
         prompt (str): Prompt template
     """
-    set_ai_help_config(prompt=prompt)
+    set_ai_assistance_config(prompt=prompt)
 
 
 def reset_ai_help_prompt():
     """
     Resets the prompt template to the default.
     """
-    set_ai_help_config(prompt=DEFAULT_AI_HELP_PROMPT)
+    set_ai_assistance_config(prompt=DEFAULT_AI_HELP_PROMPT)
 
 
 # =============================================================================

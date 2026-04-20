@@ -1,5 +1,5 @@
 """
-Dialog for configuring AI Help feature.
+Dialog for configuring AI Assistance feature.
 
 This module allows the user to configure:
 1. AI Service (Gemini, Claude, OpenAI)
@@ -30,26 +30,29 @@ from .compat import QVBoxLayout
 from .compat import QTimer
 from .compat import QScrollArea
 from .compat import QWidget
+from .compat import QTabWidget
 from .styled_messages import StyledMessageBox
 from .compat import safe_exec_dialog
 
 
-class AIHelpConfigDialog(QDialog):
+class AIAssistanceConfigDialog(QDialog):
     """
-    Dialog for configuring AI Help settings.
+    Dialog for configuring AI Assistance settings.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configure AI Help")
+        self.setWindowTitle("Configure AI Assistance")
         self.setMinimumSize(550, 500)
         self.resize(650, 700)
 
         # Get current config
-        from .config_manager import get_ai_help_config, DEFAULT_AI_HELP_PROMPT, AI_HELP_PROMPTS
-        self.current_config = get_ai_help_config()
+        from .config_manager import get_ai_assistance_config, DEFAULT_AI_HELP_PROMPT, AI_HELP_PROMPTS, AI_ASK_PROMPTS, AI_CHECKER_PROMPTS
+        self.current_config = get_ai_assistance_config()
         self.default_prompt = DEFAULT_AI_HELP_PROMPT
         self.prompts = AI_HELP_PROMPTS
+        self.ask_prompts = AI_ASK_PROMPTS
+        self.checker_prompts = AI_CHECKER_PROMPTS
 
         # Detect dark mode
         palette = self.palette()
@@ -148,12 +151,12 @@ class AIHelpConfigDialog(QDialog):
         header_layout = QVBoxLayout(header_frame)
         header_layout.setContentsMargins(20, 15, 20, 15)
 
-        title_label = QLabel("🤖 AI Help Configuration")
+        title_label = QLabel("✨ AI Assistance Configuration")
         title_label.setStyleSheet("font-size: 18pt; font-weight: bold;")
         header_layout.addWidget(title_label)
 
         desc_label = QLabel(
-            "Configure AI assistance to help you understand your flashcards better."
+            "Configure settings for the AI Help, AI Ask, and AI Checker buttons."
         )
         desc_label.setStyleSheet("font-size: 12pt; opacity: 0.9;")
         desc_label.setWordWrap(True)
@@ -162,7 +165,7 @@ class AIHelpConfigDialog(QDialog):
         layout.addWidget(header_frame)
 
         # Enable checkbox
-        self.enable_checkbox = QCheckBox("Enable AI Help button on cards")
+        self.enable_checkbox = QCheckBox("Enable AI buttons on cards (Help, Ask, Checker)")
         self.enable_checkbox.setStyleSheet(f"""
             QCheckBox {{
                 font-size: 12pt;
@@ -365,27 +368,76 @@ class AIHelpConfigDialog(QDialog):
         layout.addWidget(model_frame)
 
         # Custom Prompt section
-        prompt_frame = self._create_section_frame("Custom Prompt")
+        prompt_frame = self._create_section_frame("Custom Prompts")
         
-        prompt_desc = QLabel("Use {card_content} as placeholder for the card content.")
-        prompt_desc.setStyleSheet(f"color: {self.colors['text_secondary']}; font-size: 10pt;")
-        prompt_frame.layout().addWidget(prompt_desc)
-
-        self.prompt_edit = QTextEdit()
-        self.prompt_edit.setPlaceholderText("Enter your custom prompt template...")
-        self.prompt_edit.setStyleSheet(f"""
-            QTextEdit {{
-                background-color: {self.colors['input_bg']};
-                color: {self.colors['text']};
+        self.prompt_tabs = QTabWidget()
+        self.prompt_tabs.setStyleSheet(f"""
+            QTabWidget::pane {{
                 border: 1px solid {self.colors['border']};
                 border-radius: 6px;
-                padding: 10px;
-                font-size: 11pt;
+                background-color: {self.colors['card_bg']};
+            }}
+            QTabBar::tab {{
+                background-color: {self.colors['button_bg']};
+                color: {self.colors['text']};
+                padding: 8px 16px;
+                border: 1px solid {self.colors['border']};
+                border-bottom: none;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-right: 2px;
+            }}
+            QTabBar::tab:selected {{
+                background-color: {self.colors['card_bg']};
+                font-weight: bold;
             }}
         """)
-        self.prompt_edit.setMinimumHeight(120)
-        self.prompt_edit.setMaximumHeight(150)
-        prompt_frame.layout().addWidget(self.prompt_edit)
+        
+        # Helper function to create prompt tab
+        def create_prompt_tab(placeholder_text, desc_text):
+            tab = QWidget()
+            layout = QVBoxLayout(tab)
+            layout.setContentsMargins(10, 10, 10, 10)
+            
+            desc = QLabel(desc_text)
+            desc.setStyleSheet(f"color: {self.colors['text_secondary']}; font-size: 10pt;")
+            layout.addWidget(desc)
+            
+            edit = QTextEdit()
+            edit.setPlaceholderText(placeholder_text)
+            edit.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: {self.colors['input_bg']};
+                    color: {self.colors['text']};
+                    border: 1px solid {self.colors['border']};
+                    border-radius: 6px;
+                    padding: 10px;
+                    font-size: 11pt;
+                }}
+            """)
+            edit.setMinimumHeight(120)
+            edit.setMaximumHeight(150)
+            layout.addWidget(edit)
+            return tab, edit
+            
+        self.tab_help, self.prompt_help_edit = create_prompt_tab(
+            "Enter custom prompt template for AI Help...",
+            "Use {card_content} as placeholder for the card content."
+        )
+        self.tab_ask, self.prompt_ask_edit = create_prompt_tab(
+            "Enter custom prompt template for AI Ask...",
+            "Use {card_content} and {question} as placeholders."
+        )
+        self.tab_checker, self.prompt_checker_edit = create_prompt_tab(
+            "Enter custom prompt template for AI Checker...",
+            "Use {card_content} as placeholder for the card content."
+        )
+        
+        self.prompt_tabs.addTab(self.tab_help, "🤖 AI Help")
+        self.prompt_tabs.addTab(self.tab_ask, "💬 AI Ask")
+        self.prompt_tabs.addTab(self.tab_checker, "🔍 AI Checker")
+        
+        prompt_frame.layout().addWidget(self.prompt_tabs)
 
         self.reset_prompt_btn = QPushButton("↻ Reset to Default")
         self.reset_prompt_btn.setStyleSheet(f"""
@@ -530,9 +582,10 @@ class AIHelpConfigDialog(QDialog):
             self.model_combo.addItem(model, model)
             self.model_combo.setCurrentText(model)
         
-        # Set prompt
-        prompt = self.current_config.get("prompt", self.default_prompt)
-        self.prompt_edit.setPlainText(prompt)
+        # Set prompts
+        self.prompt_help_edit.setPlainText(self.current_config.get("prompt", self.default_prompt))
+        self.prompt_ask_edit.setPlainText(self.current_config.get("prompt_ask", ""))
+        self.prompt_checker_edit.setPlainText(self.current_config.get("prompt_checker", ""))
         
         # Set mobile enabled
         self.mobile_checkbox.setChecked(self.current_config.get("mobile_enabled", False))
@@ -613,38 +666,47 @@ class AIHelpConfigDialog(QDialog):
             self.fetch_models_btn.setText("🔄 Fetch Models")
 
     def _reset_prompt(self):
-        """Resets prompt to default."""
+        """Resets prompts to default."""
         language = self.language_combo.currentData()
-        default_for_lang = self.prompts.get(language, self.prompts["english"])
-        self.prompt_edit.setPlainText(default_for_lang)
+        self.prompt_help_edit.setPlainText(self.prompts.get(language, self.prompts["english"]))
+        self.prompt_ask_edit.setPlainText(self.ask_prompts.get(language, self.ask_prompts["english"]))
+        self.prompt_checker_edit.setPlainText(self.checker_prompts.get(language, self.checker_prompts["english"]))
 
     def _on_language_changed(self):
-        """Updates prompt when language changes, if it matches a default prompt."""
-        current_text = self.prompt_edit.toPlainText().strip()
+        """Updates prompts when language changes, if they match a default prompt."""
+        current_help = self.prompt_help_edit.toPlainText().strip()
+        current_ask = self.prompt_ask_edit.toPlainText().strip()
+        current_checker = self.prompt_checker_edit.toPlainText().strip()
         
-        # Check if current text matches ANY known default prompt
-        is_default = False
-        for prompt in self.prompts.values():
-            if current_text == prompt.strip() or current_text == "":
-                is_default = True
-                break
+        new_lang = self.language_combo.currentData()
         
-        # If it's a default prompt, update it to the new language's default
-        if is_default:
-            new_lang = self.language_combo.currentData()
-            new_default = self.prompts.get(new_lang, self.prompts["english"])
-            self.prompt_edit.setPlainText(new_default)
+        # Helper to check and update a specific prompt
+        def update_if_default(current_text, dict_prompts, edit_widget):
+            is_default = False
+            for p in dict_prompts.values():
+                if current_text == p.strip() or current_text == "":
+                    is_default = True
+                    break
+            if is_default:
+                new_default = dict_prompts.get(new_lang, dict_prompts["english"])
+                edit_widget.setPlainText(new_default)
+                
+        update_if_default(current_help, self.prompts, self.prompt_help_edit)
+        update_if_default(current_ask, self.ask_prompts, self.prompt_ask_edit)
+        update_if_default(current_checker, self.checker_prompts, self.prompt_checker_edit)
 
     def _apply_changes(self):
         """Applies configuration changes."""
         try:
-            from .config_manager import set_ai_help_config
+            from .config_manager import set_ai_assistance_config
 
             enabled = self.enable_checkbox.isChecked()
             service = self._get_selected_service()
             api_key = self.api_key_input.text().strip()
             model = self.model_combo.currentData() or self.model_combo.currentText()
-            prompt = self.prompt_edit.toPlainText().strip()
+            prompt_help = self.prompt_help_edit.toPlainText().strip()
+            prompt_ask = self.prompt_ask_edit.toPlainText().strip()
+            prompt_checker = self.prompt_checker_edit.toPlainText().strip()
             mobile_enabled = self.mobile_checkbox.isChecked()
             language = self.language_combo.currentData()
 
@@ -654,7 +716,7 @@ class AIHelpConfigDialog(QDialog):
                     StyledMessageBox.warning(
                         self,
                         "API Key Required",
-                        "Please enter an API key to enable AI Help.",
+                        "Please enter an API key to enable AI Assistance.",
                     )
                     return
                 if not model:
@@ -665,12 +727,14 @@ class AIHelpConfigDialog(QDialog):
                     )
                     return
 
-            set_ai_help_config(
+            set_ai_assistance_config(
                 enabled=enabled,
                 service=service,
                 model=model,
                 api_key=api_key,
-                prompt=prompt if prompt else None,
+                prompt=prompt_help if prompt_help else None,
+                prompt_ask=prompt_ask if prompt_ask else None,
+                prompt_checker=prompt_checker if prompt_checker else None,
                 mobile_enabled=mobile_enabled,
                 language=language
             )
@@ -678,9 +742,9 @@ class AIHelpConfigDialog(QDialog):
             status = "enabled" if enabled else "disabled"
             StyledMessageBox.success(
                 self,
-                "AI Help Configuration Saved",
-                f"AI Help is now {status}.",
-                detailed_text="Run a sync (Ctrl+Shift+S) to update card templates with the AI Help button." if enabled else None
+                "AI Assistance Configuration Saved",
+                f"AI buttons are now {status}.",
+                detailed_text="Run a sync (Ctrl+Shift+S) to update card templates with the AI buttons." if enabled else None
             )
 
             self.accept()
@@ -691,9 +755,9 @@ class AIHelpConfigDialog(QDialog):
             )
 
 
-def show_ai_help_config_dialog(parent=None):
+def show_ai_assistance_config_dialog(parent=None):
     """
-    Utility function to show AI Help configuration dialog.
+    Utility function to show AI Assistance configuration dialog.
 
     Args:
         parent: Parent widget (optional)
@@ -701,6 +765,6 @@ def show_ai_help_config_dialog(parent=None):
     Returns:
         bool: True if user accepted changes, False otherwise
     """
-    dialog = AIHelpConfigDialog(parent)
+    dialog = AIAssistanceConfigDialog(parent)
     result = safe_exec_dialog(dialog)
     return result == DialogAccepted

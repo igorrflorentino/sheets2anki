@@ -543,6 +543,54 @@ AI_HELP_CSS = """
   cursor: wait;
 }
 
+.ai-checker-button {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-checker-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+}
+
+.ai-checker-button:active {
+  transform: translateY(0);
+}
+
+.ai-checker-button.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.ai-checker-button .spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+.ai-checker-button.loading .spinner {
+  display: inline-block;
+}
+
+.ai-checker-button.loading .btn-text {
+  display: none;
+}
+
 .ai-help-button .spinner {
   display: none;
   width: 16px;
@@ -883,7 +931,7 @@ AI_HELP_CSS = """
 AI_HELP_BUTTON_HTML = """
 <div class="ai-help-container">
   <!-- Load marked.js for markdown parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
   <div class="ai-buttons-row">
     <button id="ai-help-btn" class="ai-help-button" onclick="requestAIHelp()">
       <span class="btn-text">🤖 AI Help</span>
@@ -891,6 +939,10 @@ AI_HELP_BUTTON_HTML = """
     </button>
     <button id="ai-ask-btn" class="ai-ask-button" onclick="openAIAskInput()">
       <span class="btn-text">💬 AI Ask</span>
+      <span class="spinner"></span>
+    </button>
+    <button id="ai-checker-btn" class="ai-checker-button" onclick="requestAIChecker()">
+      <span class="btn-text">🔍 AI Checker</span>
       <span class="spinner"></span>
     </button>
   </div>
@@ -941,10 +993,26 @@ function requestAIHelp() {
   if (!btn || btn.classList.contains('loading')) return;
   
   btn.classList.add('loading');
+  window._aiModalTitle = '🤖 AI Help';
   var cardContent = collectCardContent();
   
   if (typeof pycmd !== 'undefined') {
     pycmd('sheets2anki_ai_help:' + encodeURIComponent(cardContent));
+  } else {
+    btn.classList.remove('loading');
+  }
+}
+
+function requestAIChecker() {
+  var btn = document.getElementById('ai-checker-btn');
+  if (!btn || btn.classList.contains('loading')) return;
+  
+  btn.classList.add('loading');
+  window._aiModalTitle = '🔍 AI Checker';
+  var cardContent = collectCardContent();
+  
+  if (typeof pycmd !== 'undefined') {
+    pycmd('sheets2anki_ai_checker:' + encodeURIComponent(cardContent));
   } else {
     btn.classList.remove('loading');
   }
@@ -978,6 +1046,7 @@ function submitAIAsk() {
   
   var btn = document.getElementById('ai-ask-btn');
   if (btn) btn.classList.add('loading');
+  window._aiModalTitle = '💬 AI Ask';
   
   if (submitBtn) {
     submitBtn.classList.add('loading');
@@ -1057,11 +1126,16 @@ function showAIHelpResponse(response, usageInfo) {
   if (btn) btn.classList.remove('loading');
   var askBtn = document.getElementById('ai-ask-btn');
   if (askBtn) askBtn.classList.remove('loading');
+  var checkerBtn = document.getElementById('ai-checker-btn');
+  if (checkerBtn) checkerBtn.classList.remove('loading');
   
   if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
   var modal = document.getElementById('ai-help-modal');
   var body = document.getElementById('ai-help-modal-body');
+  if (!modal || !body) return;
+  var titleEl = document.querySelector('.ai-help-modal-title');
+  if (titleEl && window._aiModalTitle) titleEl.textContent = window._aiModalTitle;
   
   var html = processMathAndMarkdown(response);
   
@@ -1087,11 +1161,14 @@ function showAIHelpError(error) {
   if (btn) btn.classList.remove('loading');
   var askBtn = document.getElementById('ai-ask-btn');
   if (askBtn) askBtn.classList.remove('loading');
+  var checkerBtn = document.getElementById('ai-checker-btn');
+  if (checkerBtn) checkerBtn.classList.remove('loading');
   
   if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
   var modal = document.getElementById('ai-help-modal');
   var body = document.getElementById('ai-help-modal-body');
+  if (!modal || !body) return;
   body.innerHTML = '<div class="ai-help-error">⚠️ ' + error + '</div>';
   modal.classList.add('show');
 }
@@ -1099,7 +1176,7 @@ function showAIHelpError(error) {
 function closeAIHelpModal(event) {
   if (event && event.target !== event.currentTarget) return;
   var modal = document.getElementById('ai-help-modal');
-  modal.classList.remove('show');
+  if (modal) modal.classList.remove('show');
 }
 
 if (typeof globalThis !== 'undefined') {
@@ -1121,7 +1198,9 @@ var AI_CONFIG = {{
   service: '{service}',
   model: '{model}',
   apiKey: '{api_key}',
-  prompt: {prompt_json}
+  prompt_help: {prompt_help_json},
+  prompt_ask: {prompt_ask_json},
+  prompt_checker: {prompt_checker_json}
 }};
 
 // Pricing per 1M tokens
@@ -1160,6 +1239,7 @@ function requestAIHelp() {{
   if (!btn || btn.classList.contains('loading')) return;
   
   btn.classList.add('loading');
+  window._aiModalTitle = '🤖 AI Help';
   var cardContent = collectCardContent();
   
   // Try desktop first
@@ -1170,6 +1250,24 @@ function requestAIHelp() {{
   
   // Mobile: direct API call
   callAIAPI(cardContent);
+}}
+
+function requestAIChecker() {{
+  var btn = document.getElementById('ai-checker-btn');
+  if (!btn || btn.classList.contains('loading')) return;
+  
+  btn.classList.add('loading');
+  window._aiModalTitle = '🔍 AI Checker';
+  var cardContent = collectCardContent();
+  
+  // Try desktop first
+  if (typeof pycmd !== 'undefined') {{
+    pycmd('sheets2anki_ai_checker:' + encodeURIComponent(cardContent));
+    return;
+  }}
+  
+  // Mobile: direct API call with checker prompt
+  callAICheckerAPI(cardContent);
 }}
 
 function openAIAskInput() {{
@@ -1200,6 +1298,7 @@ function submitAIAsk() {{
   
   var btn = document.getElementById('ai-ask-btn');
   if (btn) btn.classList.add('loading');
+  window._aiModalTitle = '💬 AI Ask';
   
   if (submitBtn) {{
     submitBtn.classList.add('loading');
@@ -1231,7 +1330,8 @@ function resetAIAskInput() {{
 }}
 
 function callAIAskAPI(question, cardContent) {{
-  var prompt = 'I am studying with flashcards. Here is the card content for context:\\n\\n' + cardContent + '\\n\\nMy question: ' + question;
+  var prompt = AI_CONFIG.prompt_ask.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
+  prompt = prompt.replace(/\\u007B\\u007Bquestion\\u007D\\u007D|\\u007Bquestion\\u007D/g, question);
   
   if (AI_CONFIG.service === 'gemini') {{
     callGeminiAPI(prompt);
@@ -1243,8 +1343,29 @@ function callAIAskAPI(question, cardContent) {{
 }}
 
 function callAIAPI(cardContent) {{
-  var prompt = AI_CONFIG.prompt.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
-  if (prompt.indexOf(cardContent) === -1) {{
+  var promptTemplate = AI_CONFIG.prompt_help;
+  // Check if the placeholder existed BEFORE replacement (not whether cardContent appears after)
+  var hadPlaceholder = /\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/.test(promptTemplate);
+  var prompt = promptTemplate.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
+  if (!hadPlaceholder) {{
+    prompt = prompt + '\\n\\n' + cardContent;
+  }}
+  
+  if (AI_CONFIG.service === 'gemini') {{
+    callGeminiAPI(prompt);
+  }} else if (AI_CONFIG.service === 'claude') {{
+    callClaudeAPI(prompt);
+  }} else if (AI_CONFIG.service === 'openai') {{
+    callOpenAIAPI(prompt);
+  }}
+}}
+
+function callAICheckerAPI(cardContent) {{
+  var checkerTemplate = AI_CONFIG.prompt_checker;
+  // Check if the placeholder existed BEFORE replacement
+  var checkerHadPlaceholder = /\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/.test(checkerTemplate);
+  var prompt = checkerTemplate.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
+  if (!checkerHadPlaceholder) {{
     prompt = prompt + '\\n\\n' + cardContent;
   }}
   
@@ -1409,6 +1530,8 @@ function showAIHelpResponse(response, usageInfo) {{
   if (btn) btn.classList.remove('loading');
   var askBtn = document.getElementById('ai-ask-btn');
   if (askBtn) askBtn.classList.remove('loading');
+  var checkerBtn = document.getElementById('ai-checker-btn');
+  if (checkerBtn) checkerBtn.classList.remove('loading');
   
   if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
@@ -1428,12 +1551,16 @@ function showAIHelpResponse(response, usageInfo) {{
   if (typeof pycmd === 'undefined') {{
     var inline = document.getElementById('ai-help-inline');
     if (inline) {{
-      inline.innerHTML = html;
+      var titleHtml = window._aiModalTitle ? '<h3>' + window._aiModalTitle + '</h3>' : '';
+      inline.innerHTML = titleHtml + html;
       inline.classList.add('show');
     }}
   }} else {{
     var modal = document.getElementById('ai-help-modal');
     var body = document.getElementById('ai-help-modal-body');
+    if (!modal || !body) return;
+    var titleEl = document.querySelector('.ai-help-modal-title');
+    if (titleEl && window._aiModalTitle) titleEl.textContent = window._aiModalTitle;
     body.innerHTML = html;
     modal.classList.add('show');
   }}
@@ -1447,6 +1574,8 @@ function showAIHelpError(error) {{
   if (btn) btn.classList.remove('loading');
   var askBtn = document.getElementById('ai-ask-btn');
   if (askBtn) askBtn.classList.remove('loading');
+  var checkerBtn = document.getElementById('ai-checker-btn');
+  if (checkerBtn) checkerBtn.classList.remove('loading');
   
   if (typeof resetAIAskInput === 'function') resetAIAskInput();
   
@@ -1456,12 +1585,16 @@ function showAIHelpError(error) {{
   if (typeof pycmd === 'undefined') {{
     var inline = document.getElementById('ai-help-inline');
     if (inline) {{
-      inline.innerHTML = errorHtml;
+      var titleHtml = window._aiModalTitle ? '<h3>' + window._aiModalTitle + '</h3>' : '';
+      inline.innerHTML = titleHtml + errorHtml;
       inline.classList.add('show');
     }}
   }} else {{
     var modal = document.getElementById('ai-help-modal');
     var body = document.getElementById('ai-help-modal-body');
+    if (!modal || !body) return;
+    var titleEl = document.querySelector('.ai-help-modal-title');
+    if (titleEl && window._aiModalTitle) titleEl.textContent = window._aiModalTitle;
     body.innerHTML = errorHtml;
     modal.classList.add('show');
   }}
@@ -1470,7 +1603,7 @@ function showAIHelpError(error) {{
 function closeAIHelpModal(event) {{
   if (event && event.target !== event.currentTarget) return;
   var modal = document.getElementById('ai-help-modal');
-  modal.classList.remove('show');
+  if (modal) modal.classList.remove('show');
 }}
 
 if (typeof globalThis !== 'undefined') {{
@@ -1488,16 +1621,18 @@ if (typeof globalThis !== 'undefined') {{
 AI_HELP_JS = AI_HELP_JS_DESKTOP
 
 
-def generate_ai_help_js(mobile_enabled=False, service="gemini", model="", api_key="", prompt=""):
+def generate_ai_assistance_js(mobile_enabled=False, service="gemini", model="", api_key="", prompt_help="", prompt_ask="", prompt_checker=""):
     """
-    Generates AI Help JavaScript based on configuration.
+    Generates AI Assistance JavaScript based on configuration.
     
     Args:
         mobile_enabled: If True, embed API config for mobile support
         service: AI service (gemini, claude, openai)
         model: Model ID
         api_key: API key
-        prompt: Custom prompt template
+        prompt_help: Custom prompt template for AI Help
+        prompt_ask: Custom prompt template for AI Ask
+        prompt_checker: Custom prompt template for AI Checker
     
     Returns:
         str: JavaScript code for AI Help
@@ -1507,17 +1642,30 @@ def generate_ai_help_js(mobile_enabled=False, service="gemini", model="", api_ke
     if not mobile_enabled:
         return AI_HELP_JS_DESKTOP
     
-    # Escape curly braces to prevent Anki from interpreting them as fields
-    # We replace {{ with \u007B\u007B and }} with \u007D\u007D
-    # This keeps the characters in the final JS string but hides them from Anki's template engine
-    prompt_json = json.dumps(prompt)
-    prompt_json = prompt_json.replace("{{", "\\u007B\\u007B").replace("}}", "\\u007D\\u007D")
+    # Escape curly braces in the prompt JSON so that:
+    # 1. Anki field refs like {{Front}} become unicode escapes (\u007B\u007B...\u007D\u007D)
+    #    so Anki's template engine does not interpret them as field references.
+    # 2. Remaining single { and } (e.g. from {card_content} placeholders) are doubled
+    #    so Python's .format() call below does not raise KeyError on them.
+    def prepare_json_prompt(p):
+        pj = json.dumps(p)
+        # Step 1: convert double-brace Anki refs to JS unicode escapes
+        pj = pj.replace("{{", "\\u007B\\u007B").replace("}}", "\\u007D\\u007D")
+        # Step 2: escape any remaining single braces for Python's .format()
+        pj = pj.replace("{", "{{").replace("}", "}}")
+        return pj
+        
+    prompt_help_json = prepare_json_prompt(prompt_help)
+    prompt_ask_json = prepare_json_prompt(prompt_ask)
+    prompt_checker_json = prepare_json_prompt(prompt_checker)
     
     return AI_HELP_JS_MOBILE_TEMPLATE.format(
         service=service,
         model=model,
         api_key=api_key,
-        prompt_json=prompt_json
+        prompt_help_json=prompt_help_json,
+        prompt_ask_json=prompt_ask_json,
+        prompt_checker_json=prompt_checker_json
     )
 
 # Default values for empty fields (will be converted to lowercase by clean_tag_text)
@@ -1661,7 +1809,7 @@ def get_all_column_info():
 # =============================================================================
 
 
-def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=None, is_reverse=False):
+def create_card_template(is_cloze=False, timer_position=None, ai_assistance_enabled=None, is_reverse=False):
     """
     Creates the HTML template for a card (standard or cloze).
 
@@ -1669,7 +1817,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
         is_cloze (bool): Whether to create a cloze template
         timer_position (str): Timer position - "top_middle", "between_sections", or "hidden"
                              If None, reads from config
-        ai_help_enabled (bool): Whether to include AI Help button on back card
+        ai_assistance_enabled (bool): Whether to include AI Assistance button on back card
                                If None, reads from config
         is_reverse (bool): Whether to create a reverse template (Reverse->Question)
 
@@ -1685,16 +1833,16 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
         except ImportError:
             timer_position = "between_sections"  # Default fallback
     
-    # Get AI Help config from settings if not specified
-    ai_help_config = None
-    if ai_help_enabled is None:
+    # Get AI Assistance config from settings if not specified
+    ai_assistance_config = None
+    if ai_assistance_enabled is None:
         try:
-            from .config_manager import get_ai_help_config
-            ai_help_config = get_ai_help_config()
-            ai_help_enabled = ai_help_config.get("enabled", False)
+            from .config_manager import get_ai_assistance_config
+            ai_assistance_config = get_ai_assistance_config()
+            ai_assistance_enabled = ai_assistance_config.get("enabled", False)
         except ImportError:
-            ai_help_enabled = False  # Default fallback
-            ai_help_config = None
+            ai_assistance_enabled = False  # Default fallback
+            ai_assistance_config = None
 
     # Common header fields
     header_fields = [
@@ -1890,21 +2038,23 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
             footer
         )
     
-    # Build AI Help components if enabled
-    ai_help_components = ""
-    if ai_help_enabled:
+    # Build AI Assistance components if enabled
+    ai_assistance_components = ""
+    if ai_assistance_enabled:
         # Check if mobile support is enabled
-        if ai_help_config and ai_help_config.get("mobile_enabled", False):
-            ai_help_js = generate_ai_help_js(
+        if ai_assistance_config and ai_assistance_config.get("mobile_enabled", False):
+            ai_help_js = generate_ai_assistance_js(
                 mobile_enabled=True,
-                service=ai_help_config.get("service", "gemini"),
-                model=ai_help_config.get("model", ""),
-                api_key=ai_help_config.get("api_key", ""),
-                prompt=ai_help_config.get("prompt", "")
+                service=ai_assistance_config.get("service", "gemini"),
+                model=ai_assistance_config.get("model", ""),
+                api_key=ai_assistance_config.get("api_key", ""),
+                prompt_help=ai_assistance_config.get("prompt", ""),
+                prompt_ask=ai_assistance_config.get("prompt_ask", ""),
+                prompt_checker=ai_assistance_config.get("prompt_checker", "")
             )
         else:
             ai_help_js = AI_HELP_JS_DESKTOP
-        ai_help_components = AI_HELP_CSS + AI_HELP_BUTTON_HTML + ai_help_js
+        ai_assistance_components = AI_HELP_CSS + AI_HELP_BUTTON_HTML + ai_help_js
     
     if timer_position == "top_middle":
         afmt = (
@@ -1913,7 +2063,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
             timer_html +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             back_content +
-            ai_help_components +
+            ai_assistance_components +
             timer_js_back
         )
     elif timer_position == "hidden":
@@ -1921,7 +2071,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
             reverse_indicator_css +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             back_content +
-            ai_help_components
+            ai_assistance_components
         )
     else:  # "between_sections"
         afmt = (
@@ -1929,7 +2079,7 @@ def create_card_template(is_cloze=False, timer_position=None, ai_help_enabled=No
             timer_css +
             MARKERS_TEMPLATE.format(text="CONTEXT", observation="") +
             back_content +
-            ai_help_components +
+            ai_assistance_components +
             timer_js_back
         )
 
