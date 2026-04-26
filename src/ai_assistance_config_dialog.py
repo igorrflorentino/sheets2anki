@@ -260,9 +260,9 @@ class AIAssistanceConfigDialog(QDialog):
         """)
         
         # Add languages
-        self.language_combo.addItem("🇺🇸 English (US)", "english")
-        self.language_combo.addItem("🇧🇷 Português (Brasil)", "portuguese_br")
-        self.language_combo.addItem("🇪🇸 Español (Latinoamérica)", "spanish_latam")
+        self.language_combo.addItem("🇺🇸 English (US)", "en_us")
+        self.language_combo.addItem("🇧🇷 Português (Brasil)", "pt_br")
+        self.language_combo.addItem("🇪🇸 Español (Latinoamérica)", "es_la")
         
         language_layout.addWidget(self.language_combo)
         language_frame.layout().addLayout(language_layout)
@@ -568,7 +568,7 @@ class AIAssistanceConfigDialog(QDialog):
             self.openai_radio.setChecked(True)
             
         # Set language
-        language = self.current_config.get("language", "english")
+        language = self.current_config.get("language", "en_us")
         index = self.language_combo.findData(language)
         if index >= 0:
             self.language_combo.setCurrentIndex(index)
@@ -668,9 +668,9 @@ class AIAssistanceConfigDialog(QDialog):
     def _reset_prompt(self):
         """Resets prompts to default."""
         language = self.language_combo.currentData()
-        self.prompt_help_edit.setPlainText(self.prompts.get(language, self.prompts["english"]))
-        self.prompt_ask_edit.setPlainText(self.ask_prompts.get(language, self.ask_prompts["english"]))
-        self.prompt_checker_edit.setPlainText(self.checker_prompts.get(language, self.checker_prompts["english"]))
+        self.prompt_help_edit.setPlainText(self.prompts.get(language, self.prompts["en_us"]))
+        self.prompt_ask_edit.setPlainText(self.ask_prompts.get(language, self.ask_prompts["en_us"]))
+        self.prompt_checker_edit.setPlainText(self.checker_prompts.get(language, self.checker_prompts["en_us"]))
 
     def _on_language_changed(self):
         """Updates prompts when language changes, if they match a default prompt."""
@@ -688,7 +688,7 @@ class AIAssistanceConfigDialog(QDialog):
                     is_default = True
                     break
             if is_default:
-                new_default = dict_prompts.get(new_lang, dict_prompts["english"])
+                new_default = dict_prompts.get(new_lang, dict_prompts["en_us"])
                 edit_widget.setPlainText(new_default)
                 
         update_if_default(current_help, self.prompts, self.prompt_help_edit)

@@ -780,7 +780,6 @@ AI_HELP_CSS = """
   line-height: 1.7;
   font-size: 14px;
   color: var(--ai-text);
-  text-align: center;
 }
 
 .ai-help-modal-body h2,
@@ -795,7 +794,7 @@ AI_HELP_CSS = """
 .ai-help-modal-body h4 { font-size: 15px; }
 
 .ai-help-modal-body p { margin: 8px 0; }
-.ai-help-modal-body ul, .ai-help-modal-body ol { margin: 8px auto; padding-left: 0; display: inline-block; text-align: left; }
+.ai-help-modal-body ul { margin: 8px 0; padding-left: 24px; }
 .ai-help-modal-body li { margin: 4px 0; }
 
 .ai-help-modal-body code {
@@ -824,7 +823,6 @@ AI_HELP_CSS = """
   border-top: 1px solid var(--ai-border);
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 6px;
   font-size: 12px;
   color: var(--ai-text-muted);
@@ -850,7 +848,6 @@ AI_HELP_CSS = """
   font-size: 14px;
   color: var(--ai-text);
   box-shadow: 0 4px 12px var(--ai-shadow);
-  text-align: center;
 }
 
 .ai-help-inline.show {
@@ -869,7 +866,7 @@ AI_HELP_CSS = """
 .ai-help-inline h4 { font-size: 15px; }
 
 .ai-help-inline p { margin: 8px 0; }
-.ai-help-inline ul, .ai-help-inline ol { margin: 8px auto; padding-left: 0; display: inline-block; text-align: left; }
+.ai-help-inline ul { margin: 8px 0; padding-left: 24px; }
 .ai-help-inline li { margin: 4px 0; }
 
 .ai-help-inline code {
@@ -905,7 +902,7 @@ AI_HELP_CSS = """
   background: var(--ai-bg-secondary);
   color: var(--ai-accent);
   font-weight: bold;
-  text-align: center;
+  text-align: left;
   padding: 10px 12px;
   border: 1px solid var(--ai-border);
 }
@@ -1079,24 +1076,9 @@ function resetAIAskInput() {
 
 
 """ + """
-// Capture the original card content ONCE on page load, before any AI response is injected.
-// This prevents AI responses from contaminating subsequent AI requests.
-(function() {
-  function captureOriginalContent() {
-    if (!window._originalCardContent) {
-      var allText = document.body.innerText || document.body.textContent;
-      window._originalCardContent = allText.trim();
-    }
-  }
-  // Capture immediately (for cases where DOM is already ready)
-  captureOriginalContent();
-  // Also capture on DOMContentLoaded (fallback for early script execution)
-  document.addEventListener('DOMContentLoaded', captureOriginalContent);
-})();
-
 function collectCardContent() {
-  // Always return the original card content snapshot, never re-read the DOM
-  return window._originalCardContent || '';
+  var allText = document.body.innerText || document.body.textContent;
+  return allText.trim();
 }
 
 """ + """
@@ -1211,31 +1193,18 @@ if (typeof globalThis !== 'undefined') {
 # AI Help JavaScript - Mobile mode (with embedded API config)
 AI_HELP_JS_MOBILE_TEMPLATE = """
 <script>
-// Decode Base64-encoded prompts to prevent HTML parser corruption
-function _b64decode(str) {
-  try {
-    return decodeURIComponent(Array.prototype.map.call(
-      atob(str), function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }
-    ).join(''));
-  } catch(e) {
-    return atob(str);
-  }
-}
-
 // AI Help Config (embedded for mobile support)
-var AI_CONFIG = {
-  service: {service_json},
-  model: {model_json},
-  apiKey: {api_key_json},
-  prompt_help: _b64decode("{prompt_help_b64}"),
-  prompt_ask: _b64decode("{prompt_ask_b64}"),
-  prompt_checker: _b64decode("{prompt_checker_b64}")
-};
+var AI_CONFIG = {{
+  service: '{service}',
+  model: '{model}',
+  apiKey: '{api_key}',
+  prompt_help: {prompt_help_json},
+  prompt_ask: {prompt_ask_json},
+  prompt_checker: {prompt_checker_json}
+}};
 
 // Pricing per 1M tokens
-var PRICING = {
+var PRICING = {{
   'gemini-2.0-flash': [0.10, 0.40],
   'gemini-1.5-flash': [0.075, 0.30],
   'gemini-1.5-pro': [1.25, 5.00],
@@ -1249,25 +1218,23 @@ var PRICING = {
   'gpt-4o-mini': [0.15, 0.60],
   'gpt-4-turbo': [10.00, 30.00],
   'gpt-4': [30.00, 60.00],
-  'gpt-3.5-turbo': [0.50, 1.50],
-  'o1': [15.00, 60.00],
-  'o1-mini': [3.00, 12.00]
-};
+  'gpt-3.5-turbo': [0.50, 1.50]
+}};
 
-function getPricing(model) {
+function getPricing(model) {{
   model = model.toLowerCase();
-  for (var prefix in PRICING) {
+  for (var prefix in PRICING) {{
     if (model.indexOf(prefix) !== -1) return PRICING[prefix];
-  }
+  }}
   return [1.00, 3.00];
-}
+}}
 
-function calculateCost(model, inputTokens, outputTokens) {
+function calculateCost(model, inputTokens, outputTokens) {{
   var p = getPricing(model);
   return (inputTokens * p[0] / 1000000) + (outputTokens * p[1] / 1000000);
-}
+}}
 
-function requestAIHelp() {
+function requestAIHelp() {{
   var btn = document.getElementById('ai-help-btn');
   if (!btn || btn.classList.contains('loading')) return;
   
@@ -1276,16 +1243,16 @@ function requestAIHelp() {
   var cardContent = collectCardContent();
   
   // Try desktop first
-  if (typeof pycmd !== 'undefined') {
+  if (typeof pycmd !== 'undefined') {{
     pycmd('sheets2anki_ai_help:' + encodeURIComponent(cardContent));
     return;
-  }
+  }}
   
   // Mobile: direct API call
   callAIAPI(cardContent);
-}
+}}
 
-function requestAIChecker() {
+function requestAIChecker() {{
   var btn = document.getElementById('ai-checker-btn');
   if (!btn || btn.classList.contains('loading')) return;
   
@@ -1294,34 +1261,34 @@ function requestAIChecker() {
   var cardContent = collectCardContent();
   
   // Try desktop first
-  if (typeof pycmd !== 'undefined') {
+  if (typeof pycmd !== 'undefined') {{
     pycmd('sheets2anki_ai_checker:' + encodeURIComponent(cardContent));
     return;
-  }
+  }}
   
   // Mobile: direct API call with checker prompt
   callAICheckerAPI(cardContent);
-}
+}}
 
-function openAIAskInput() {
+function openAIAskInput() {{
   var modal = document.getElementById('ai-ask-input-modal');
-  if (modal) {
+  if (modal) {{
     modal.classList.add('show');
     var textarea = document.getElementById('ai-ask-textarea');
-    if (textarea) {
+    if (textarea) {{
       textarea.value = '';
       textarea.focus();
-    }
-  }
-}
+    }}
+  }}
+}}
 
-function closeAIAskInput(event) {
+function closeAIAskInput(event) {{
   if (event && event.target !== event.currentTarget) return;
   var modal = document.getElementById('ai-ask-input-modal');
   if (modal) modal.classList.remove('show');
-}
+}}
 
-function submitAIAsk() {
+function submitAIAsk() {{
   var submitBtn = document.querySelector('.ai-ask-submit');
   if (submitBtn && submitBtn.classList.contains('loading')) return;
   
@@ -1333,267 +1300,232 @@ function submitAIAsk() {
   if (btn) btn.classList.add('loading');
   window._aiModalTitle = '💬 AI Ask';
   
-  if (submitBtn) {
+  if (submitBtn) {{
     submitBtn.classList.add('loading');
     submitBtn.innerHTML = 'Sending... ⏳';
-  }
+  }}
   if (textarea) textarea.disabled = true;
   
   var cardContent = collectCardContent();
   
   // Try desktop first
-  if (typeof pycmd !== 'undefined') {
+  if (typeof pycmd !== 'undefined') {{
     pycmd('sheets2anki_ai_ask:' + encodeURIComponent(question) + '|||' + encodeURIComponent(cardContent));
     return;
-  }
+  }}
   
   // Mobile: direct API call with custom question
   callAIAskAPI(question, cardContent);
-}
+}}
 
-function resetAIAskInput() {
+function resetAIAskInput() {{
   var submitBtn = document.querySelector('.ai-ask-submit');
-  if (submitBtn) {
+  if (submitBtn) {{
     submitBtn.classList.remove('loading');
     submitBtn.innerHTML = 'Send Question';
-  }
+  }}
   var textarea = document.getElementById('ai-ask-textarea');
   if (textarea) textarea.disabled = false;
   closeAIAskInput();
-}
+}}
 
-function _replacePromptPlaceholder(promptTemplate, placeholder, value) {
-  // Handles both {placeholder} and {placeholder} forms
-  var regex = new RegExp('\\u007B\\u007B' + placeholder + '\\u007D\\u007D|\\u007B' + placeholder + '\\u007D', 'g');
-  var testRegex = new RegExp('\\u007B\\u007B' + placeholder + '\\u007D\\u007D|\\u007B' + placeholder + '\\u007D');
-  var hadPlaceholder = testRegex.test(promptTemplate);
-  var result = promptTemplate.replace(regex, value);
-  return { text: result, had: hadPlaceholder };
-}
-
-function callAIAskAPI(question, cardContent) {
-  var promptTemplate = AI_CONFIG.prompt_ask;
+function callAIAskAPI(question, cardContent) {{
+  var prompt = AI_CONFIG.prompt_ask.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
+  prompt = prompt.replace(/\\u007B\\u007Bquestion\\u007D\\u007D|\\u007Bquestion\\u007D/g, question);
   
-  // Replace {card_content} placeholder with fallback
-  var r1 = _replacePromptPlaceholder(promptTemplate, 'card_content', cardContent);
-  var prompt = r1.text;
-  if (!r1.had) {
-    prompt = prompt + '\\n\\n' + cardContent;
-  }
-  
-  // Replace {question} placeholder with fallback
-  var r2 = _replacePromptPlaceholder(prompt, 'question', question);
-  prompt = r2.text;
-  if (!r2.had) {
-    prompt = prompt + '\\n\\nQuestion: ' + question;
-  }
-  
-  if (AI_CONFIG.service === 'gemini') {
+  if (AI_CONFIG.service === 'gemini') {{
     callGeminiAPI(prompt);
-  } else if (AI_CONFIG.service === 'claude') {
+  }} else if (AI_CONFIG.service === 'claude') {{
     callClaudeAPI(prompt);
-  } else if (AI_CONFIG.service === 'openai') {
+  }} else if (AI_CONFIG.service === 'openai') {{
     callOpenAIAPI(prompt);
-  }
-}
+  }}
+}}
 
-function callAIAPI(cardContent) {
+function callAIAPI(cardContent) {{
   var promptTemplate = AI_CONFIG.prompt_help;
-  var r = _replacePromptPlaceholder(promptTemplate, 'card_content', cardContent);
-  var prompt = r.text;
-  if (!r.had) {
+  // Check if the placeholder existed BEFORE replacement (not whether cardContent appears after)
+  var hadPlaceholder = /\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/.test(promptTemplate);
+  var prompt = promptTemplate.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
+  if (!hadPlaceholder) {{
     prompt = prompt + '\\n\\n' + cardContent;
-  }
+  }}
   
-  if (AI_CONFIG.service === 'gemini') {
+  if (AI_CONFIG.service === 'gemini') {{
     callGeminiAPI(prompt);
-  } else if (AI_CONFIG.service === 'claude') {
+  }} else if (AI_CONFIG.service === 'claude') {{
     callClaudeAPI(prompt);
-  } else if (AI_CONFIG.service === 'openai') {
+  }} else if (AI_CONFIG.service === 'openai') {{
     callOpenAIAPI(prompt);
-  }
-}
+  }}
+}}
 
-function callAICheckerAPI(cardContent) {
+function callAICheckerAPI(cardContent) {{
   var checkerTemplate = AI_CONFIG.prompt_checker;
-  var r = _replacePromptPlaceholder(checkerTemplate, 'card_content', cardContent);
-  var prompt = r.text;
-  if (!r.had) {
+  // Check if the placeholder existed BEFORE replacement
+  var checkerHadPlaceholder = /\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/.test(checkerTemplate);
+  var prompt = checkerTemplate.replace(/\\u007B\\u007Bcard_content\\u007D\\u007D|\\u007Bcard_content\\u007D/g, cardContent);
+  if (!checkerHadPlaceholder) {{
     prompt = prompt + '\\n\\n' + cardContent;
-  }
+  }}
   
-  if (AI_CONFIG.service === 'gemini') {
+  if (AI_CONFIG.service === 'gemini') {{
     callGeminiAPI(prompt);
-  } else if (AI_CONFIG.service === 'claude') {
+  }} else if (AI_CONFIG.service === 'claude') {{
     callClaudeAPI(prompt);
-  } else if (AI_CONFIG.service === 'openai') {
+  }} else if (AI_CONFIG.service === 'openai') {{
     callOpenAIAPI(prompt);
-  }
-}
+  }}
+}}
 
-function callGeminiAPI(prompt) {
+function callGeminiAPI(prompt) {{
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + AI_CONFIG.model + ':generateContent?key=' + AI_CONFIG.apiKey;
   
-  fetch(url, {
+  fetch(url, {{
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-    })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) {
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{
+      contents: [{{ parts: [{{ text: prompt }}] }}],
+      generationConfig: {{ temperature: 0.7, maxOutputTokens: 4096 }}
+    }})
+  }})
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (data.error) {{
       showAIHelpError(data.error.message || 'API Error');
       return;
-    }
+    }}
     var text = '';
-    try {
+    try {{
       text = data.candidates[0].content.parts[0].text;
-    } catch(e) {
+    }} catch(e) {{
       text = 'No response generated';
-    }
-    var usage = data.usageMetadata || {};
+    }}
+    var usage = data.usageMetadata || {{}};
     var inputTokens = usage.promptTokenCount || 0;
     var outputTokens = usage.candidatesTokenCount || 0;
-    showAIHelpResponse(text, {
+    showAIHelpResponse(text, {{
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       cost: calculateCost(AI_CONFIG.model, inputTokens, outputTokens)
-    });
-  })
-  .catch(function(e) { showAIHelpError('Request failed: ' + e.message); });
-}
+    }});
+  }})
+  .catch(function(e) {{ showAIHelpError('Request failed: ' + e.message); }});
+}}
 
-function callClaudeAPI(prompt) {
+function callClaudeAPI(prompt) {{
   // Note: Claude API may have CORS restrictions from browser
   var url = 'https://api.anthropic.com/v1/messages';
   
-  fetch(url, {
+  fetch(url, {{
     method: 'POST',
-    headers: {
+    headers: {{
       'Content-Type': 'application/json',
       'x-api-key': AI_CONFIG.apiKey,
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
+    }},
+    body: JSON.stringify({{
       model: AI_CONFIG.model,
       max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) {
+      messages: [{{ role: 'user', content: prompt }}]
+    }})
+  }})
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (data.error) {{
       showAIHelpError(data.error.message || 'API Error');
       return;
-    }
+    }}
     var text = data.content && data.content[0] ? data.content[0].text : 'No response';
-    var usage = data.usage || {};
-    showAIHelpResponse(text, {
+    var usage = data.usage || {{}};
+    showAIHelpResponse(text, {{
       input_tokens: usage.input_tokens || 0,
       output_tokens: usage.output_tokens || 0,
       cost: calculateCost(AI_CONFIG.model, usage.input_tokens || 0, usage.output_tokens || 0)
-    });
-  })
-  .catch(function(e) { showAIHelpError('Request failed: ' + e.message); });
-}
+    }});
+  }})
+  .catch(function(e) {{ showAIHelpError('Request failed: ' + e.message); }});
+}}
 
-function callOpenAIAPI(prompt) {
+function callOpenAIAPI(prompt) {{
   var url = 'https://api.openai.com/v1/chat/completions';
   
-  fetch(url, {
+  fetch(url, {{
     method: 'POST',
-    headers: {
+    headers: {{
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + AI_CONFIG.apiKey
-    },
-    body: JSON.stringify({
+    }},
+    body: JSON.stringify({{
       model: AI_CONFIG.model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{{ role: 'user', content: prompt }}],
       max_tokens: 4096,
       temperature: 0.7
-    })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error) {
+    }})
+  }})
+  .then(function(r) {{ return r.json(); }})
+  .then(function(data) {{
+    if (data.error) {{
       showAIHelpError(data.error.message || 'API Error');
       return;
-    }
+    }}
     var text = data.choices && data.choices[0] ? data.choices[0].message.content : 'No response';
-    var usage = data.usage || {};
-    showAIHelpResponse(text, {
+    var usage = data.usage || {{}};
+    showAIHelpResponse(text, {{
       input_tokens: usage.prompt_tokens || 0,
       output_tokens: usage.completion_tokens || 0,
       cost: calculateCost(AI_CONFIG.model, usage.prompt_tokens || 0, usage.completion_tokens || 0)
-    });
-  })
-  .catch(function(e) { showAIHelpError('Request failed: ' + e.message); });
-}
+    }});
+  }})
+  .catch(function(e) {{ showAIHelpError('Request failed: ' + e.message); }});
+}}
 
-// Capture the original card content ONCE on page load, before any AI response is injected.
-// This prevents AI responses from contaminating subsequent AI requests.
-(function() {
-  function captureOriginalContent() {
-    if (!window._originalCardContent) {
-      var allText = document.body.innerText || document.body.textContent;
-      window._originalCardContent = allText.trim();
-    }
-  }
-  // Capture immediately (for cases where DOM is already ready)
-  captureOriginalContent();
-  // Also capture on DOMContentLoaded (fallback for early script execution)
-  document.addEventListener('DOMContentLoaded', captureOriginalContent);
-})();
+function collectCardContent() {{
+  var allText = document.body.innerText || document.body.textContent;
+  return allText.trim();
+}}
 
-function collectCardContent() {
-  // Always return the original card content snapshot, never re-read the DOM
-  return window._originalCardContent || '';
-}
-
-function processMathAndMarkdown(text) {
+function processMathAndMarkdown(text) {{
   var mathBlocks = [];
   var placeholder = "MATHBLOCK";
   var suffix = "END";
   
   // Display math $$ ... $$ -> \[ ... \]
-  text = text.replace(/\$\$([\s\S]*?)\$\$/g, function(match, content) {
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, function(match, content) {{
     var id = mathBlocks.length;
     mathBlocks.push('\\\\[' + content + '\\\\]');
     return placeholder + id + suffix;
-  });
+  }});
   
   // Inline math $ ... $ -> \( ... \)
-  text = text.replace(/([^\\\\$]|^)\$([^\s$\\n](?:[^$\\n]*?[^\s$\\n])?)\$(?!\d)/g, function(match, prefix, content) {
+  text = text.replace(/([^\\\\$]|^)\$([^\s$\\n](?:[^$\\n]*?[^\s$\\n])?)\$(?!\d)/g, function(match, prefix, content) {{
     var id = mathBlocks.length;
     mathBlocks.push('\\\\(' + content + '\\\\)');
     return prefix + placeholder + id + suffix;
-  });
+  }});
   
   var html = (typeof marked !== 'undefined') ? marked.parse(text) : text;
   
-  for (var i = 0; i < mathBlocks.length; i++) {
+  for (var i = 0; i < mathBlocks.length; i++) {{
     var regex = new RegExp(placeholder + i + suffix, 'g');
     html = html.replace(regex, mathBlocks[i]);
-  }
+  }}
   
   return html;
-}
+}}
 
-function renderMathJax() {
-  if (typeof MathJax !== 'undefined') {
-    if (MathJax.typesetPromise) {
+function renderMathJax() {{
+  if (typeof MathJax !== 'undefined') {{
+    if (MathJax.typesetPromise) {{
       MathJax.typesetPromise();
-    } else if (MathJax.Hub && MathJax.Hub.Queue) {
+    }} else if (MathJax.Hub && MathJax.Hub.Queue) {{
       MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
-    }
-  }
-}
+    }}
+  }}
+}}
 
-function showAIHelpResponse(response, usageInfo) {
+function showAIHelpResponse(response, usageInfo) {{
   var btn = document.getElementById('ai-help-btn');
   if (btn) btn.classList.remove('loading');
   var askBtn = document.getElementById('ai-ask-btn');
@@ -1605,7 +1537,7 @@ function showAIHelpResponse(response, usageInfo) {
   
   var html = processMathAndMarkdown(response);
   
-  if (usageInfo && (usageInfo.input_tokens || usageInfo.output_tokens)) {
+  if (usageInfo && (usageInfo.input_tokens || usageInfo.output_tokens)) {{
     var totalTokens = usageInfo.input_tokens + usageInfo.output_tokens;
     var cost = usageInfo.cost || 0;
     var costStr = cost < 0.01 ? cost.toFixed(6) : cost.toFixed(4);
@@ -1613,17 +1545,17 @@ function showAIHelpResponse(response, usageInfo) {
     html += '<span>📊 Tokens: ' + totalTokens + ' (' + usageInfo.input_tokens + ' in / ' + usageInfo.output_tokens + ' out)</span>';
     html += '<span>💰 Cost: $' + costStr + '</span>';
     html += '</div>';
-  }
+  }}
   
   // On mobile (no pycmd), show inline; on desktop, use modal
-  if (typeof pycmd === 'undefined') {
+  if (typeof pycmd === 'undefined') {{
     var inline = document.getElementById('ai-help-inline');
-    if (inline) {
+    if (inline) {{
       var titleHtml = window._aiModalTitle ? '<h3>' + window._aiModalTitle + '</h3>' : '';
       inline.innerHTML = titleHtml + html;
       inline.classList.add('show');
-    }
-  } else {
+    }}
+  }} else {{
     var modal = document.getElementById('ai-help-modal');
     var body = document.getElementById('ai-help-modal-body');
     if (!modal || !body) return;
@@ -1631,13 +1563,13 @@ function showAIHelpResponse(response, usageInfo) {
     if (titleEl && window._aiModalTitle) titleEl.textContent = window._aiModalTitle;
     body.innerHTML = html;
     modal.classList.add('show');
-  }
+  }}
   
   // Trigger MathJax
   setTimeout(renderMathJax, 10);
-}
+}}
 
-function showAIHelpError(error) {
+function showAIHelpError(error) {{
   var btn = document.getElementById('ai-help-btn');
   if (btn) btn.classList.remove('loading');
   var askBtn = document.getElementById('ai-ask-btn');
@@ -1650,14 +1582,14 @@ function showAIHelpError(error) {
   var errorHtml = '<div class="ai-help-error">⚠️ ' + error + '</div>';
   
   // On mobile (no pycmd), show inline; on desktop, use modal
-  if (typeof pycmd === 'undefined') {
+  if (typeof pycmd === 'undefined') {{
     var inline = document.getElementById('ai-help-inline');
-    if (inline) {
+    if (inline) {{
       var titleHtml = window._aiModalTitle ? '<h3>' + window._aiModalTitle + '</h3>' : '';
       inline.innerHTML = titleHtml + errorHtml;
       inline.classList.add('show');
-    }
-  } else {
+    }}
+  }} else {{
     var modal = document.getElementById('ai-help-modal');
     var body = document.getElementById('ai-help-modal-body');
     if (!modal || !body) return;
@@ -1665,23 +1597,23 @@ function showAIHelpError(error) {
     if (titleEl && window._aiModalTitle) titleEl.textContent = window._aiModalTitle;
     body.innerHTML = errorHtml;
     modal.classList.add('show');
-  }
-}
+  }}
+}}
 
-function closeAIHelpModal(event) {
+function closeAIHelpModal(event) {{
   if (event && event.target !== event.currentTarget) return;
   var modal = document.getElementById('ai-help-modal');
   if (modal) modal.classList.remove('show');
-}
+}}
 
-if (typeof globalThis !== 'undefined') {
-  globalThis.sheets2ankiAIResponse = function(response, usageInfo) {
+if (typeof globalThis !== 'undefined') {{
+  globalThis.sheets2ankiAIResponse = function(response, usageInfo) {{
     showAIHelpResponse(response, usageInfo);
-  };
-  globalThis.sheets2ankiAIError = function(error) {
+  }};
+  globalThis.sheets2ankiAIError = function(error) {{
     showAIHelpError(error);
-  };
-}
+  }};
+}}
 </script>
 """
 
@@ -1706,40 +1638,34 @@ def generate_ai_assistance_js(mobile_enabled=False, service="gemini", model="", 
         str: JavaScript code for AI Help
     """
     import json
-    import base64
     
     if not mobile_enabled:
         return AI_HELP_JS_DESKTOP
     
-    # Encode prompts as Base64 to prevent corruption by:
-    # 1. HTML parser interpreting XML tags (<command>, <output_format>, etc.)
-    # 2. Anki's template engine interpreting {{...}} as field references
-    # 3. Python's .format() interpreting {...} as format placeholders
-    # The JS code decodes them at runtime using _b64decode()
-    def encode_prompt_b64(p):
-        return base64.b64encode(p.encode('utf-8')).decode('ascii')
+    # Escape curly braces in the prompt JSON so that:
+    # 1. Anki field refs like {{Front}} become unicode escapes (\u007B\u007B...\u007D\u007D)
+    #    so Anki's template engine does not interpret them as field references.
+    # 2. Remaining single { and } (e.g. from {card_content} placeholders) are doubled
+    #    so Python's .format() call below does not raise KeyError on them.
+    def prepare_json_prompt(p):
+        pj = json.dumps(p)
+        # Step 1: convert double-brace Anki refs to JS unicode escapes
+        pj = pj.replace("{{", "\\u007B\\u007B").replace("}}", "\\u007D\\u007D")
+        # Step 2: escape any remaining single braces for Python's .format()
+        pj = pj.replace("{", "{{").replace("}", "}}")
+        return pj
+        
+    prompt_help_json = prepare_json_prompt(prompt_help)
+    prompt_ask_json = prepare_json_prompt(prompt_ask)
+    prompt_checker_json = prepare_json_prompt(prompt_checker)
     
-    prompt_help_b64 = encode_prompt_b64(prompt_help)
-    prompt_ask_b64 = encode_prompt_b64(prompt_ask)
-    prompt_checker_b64 = encode_prompt_b64(prompt_checker)
-    
-    # Safely serialize string values to prevent JS injection from special chars
-    service_json = json.dumps(service)
-    model_json = json.dumps(model)
-    api_key_json = json.dumps(api_key)
-    
-    return AI_HELP_JS_MOBILE_TEMPLATE.replace(
-        "{service_json}", service_json
-    ).replace(
-        "{model_json}", model_json
-    ).replace(
-        "{api_key_json}", api_key_json
-    ).replace(
-        "{prompt_help_b64}", prompt_help_b64
-    ).replace(
-        "{prompt_ask_b64}", prompt_ask_b64
-    ).replace(
-        "{prompt_checker_b64}", prompt_checker_b64
+    return AI_HELP_JS_MOBILE_TEMPLATE.format(
+        service=service,
+        model=model,
+        api_key=api_key,
+        prompt_help_json=prompt_help_json,
+        prompt_ask_json=prompt_ask_json,
+        prompt_checker_json=prompt_checker_json
     )
 
 # Default values for empty fields (will be converted to lowercase by clean_tag_text)

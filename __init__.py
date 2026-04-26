@@ -372,7 +372,7 @@ def handle_ai_checker_request(card_content):
         service = config.get("service", "gemini")
         model = config.get("model", "")
         api_key = config.get("api_key", "")
-        language = config.get("language", "english")
+        language = config.get("language", "en_us")
         
         if not api_key:
             send_ai_error_to_card("No API key configured. Please configure AI Assistance first.")
@@ -387,7 +387,7 @@ def handle_ai_checker_request(card_content):
         # get_ai_assistance_config() already handles language-aware fallback.
         final_prompt = config.get("prompt_checker", "")
         if not final_prompt:
-            final_prompt = AI_CHECKER_PROMPTS.get(language, AI_CHECKER_PROMPTS["english"])
+            final_prompt = AI_CHECKER_PROMPTS.get(language, AI_CHECKER_PROMPTS["en_us"])
         
         # Call AI API asynchronously
         from .src.ai_service import call_ai_api_async
@@ -453,7 +453,7 @@ def handle_ai_ask_request(data):
         service = config.get("service", "gemini")
         model = config.get("model", "")
         api_key = config.get("api_key", "")
-        language = config.get("language", "english")
+        language = config.get("language", "en_us")
         
         if not api_key:
             send_ai_error_to_card("No API key configured. Please configure AI Assistance first.")
@@ -469,7 +469,7 @@ def handle_ai_ask_request(data):
         ask_prompt = config.get("prompt_ask", "")
         if not ask_prompt:
             from .src.config_manager import AI_ASK_PROMPTS
-            ask_prompt = AI_ASK_PROMPTS.get(language, AI_ASK_PROMPTS["english"])
+            ask_prompt = AI_ASK_PROMPTS.get(language, AI_ASK_PROMPTS["en_us"])
         
         final_ask_prompt = ask_prompt.replace("{question}", question).replace("{{question}}", question)
         

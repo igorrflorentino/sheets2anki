@@ -80,7 +80,7 @@ DEFAULT_CONFIG = {
         "ai_ask_prompt": "",   # custom prompt for AI Ask (empty = use default for language)
         "ai_checker_prompt": "", # custom prompt for AI Checker (empty = use default for language)
         "ai_assistance_mobile_enabled": False,  # whether to embed key in cards for mobile
-        "ai_assistance_language": "english",  # default language
+        "ai_assistance_language": "en_us",  # default language
         # Image processor settings
         "image_processor_enabled": False,  # enable automatic image processing
         "image_processor_imgbb_key": "",  # ImgBB API key for image hosting
@@ -2387,150 +2387,233 @@ def get_auto_backup_directory():
 
 
 # =============================================================================
-# AI HELP CONFIGURATION SETTINGS
+# AI ASSISTANCE CONFIGURATION SETTINGS
 # =============================================================================
 
 # Default prompt template for AI Help
 AI_HELP_PROMPTS = {
-    "english": """I'm studying with flashcards and need help understanding this one better.
+    "en_us": 
+    """
+        <command>
+            I'm studying with flashcards and need help understanding this one better.
+        </command>
 
-Here is the card content:
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-Please help me understand:
-1. What is this card trying to teach me?
-2. Contextualized explanation: explain the card's information using examples and real-life situations where that information applies.
-3. Why is this information important?
-4. How can I better remember this concept?
+        <output_format>
+            ## What is this card trying to teach me?
+            ## What examples, contexts, and real situations does this information apply to?
+            ## Why is this information important?
+            ## How can I better remember this concept?
+        </output_format>
 
-Keep your explanation clear and concise.
-Always respond in English, regardless of the languages used in the card content.""",
-    "portuguese_br": """Estou estudando com flashcards e preciso de ajuda para entender este cartão melhor.
+        <output_details>
+            Keep your explanation clear and concise.
+            You must respond in American English.
+        </output_details>    
+    """,
+    "pt_br": 
+    """
+        <command>
+            Estou estudando com flashcards e preciso de ajuda para entender este cartão melhor.
+        </command>
 
-Aqui está o conteúdo do cartão:
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-Por favor, ajude-me a entender:
-1. O que este cartão está tentando me ensinar?
-2. Explicando de forma contextualizada: explique a informação do cartão usando exemplos e situações reais onde aquela informação se aplica.
-3. Por que esta informação é importante?
-4. Como posso me lembrar melhor deste conceito?
+        <output_format>
+            ## O que este cartão está tentando me ensinar?
+            ## Que exemplos, contextos e situações reais essa informação se aplica?
+            ## Por que esta informação é importante?
+            ## Como posso me lembrar melhor deste conceito?
+        </output_format>
 
-Mantenha sua explicação clara e concisa.
-Sempre responda em Português, independentemente dos idiomas usados no conteúdo do cartão.""",
-    "spanish_latam": """Estoy estudiando con tarjetas de memoria y necesito ayuda para entender esta tarjeta mejor.
+        <output_details>
+            Mantenha sua explicação clara e concisa.
+            Você deve responder em Português brasileiro.
+        </output_details>
+    """,
+    "es_la": 
+    """
+        <command>
+            Estoy estudiando con tarjetas de memoria y necesito ayuda para entender esta tarjeta mejor.
+        </command>
 
-Aquí está el contenido de la tarjeta:
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-Por favor ayúdame a entender:
-1. ¿Qué intenta enseñarme esta tarjeta?
-2. Explicación contextualizada: explique la información de la tarjeta usando ejemplos y situaciones reales donde esa información se aplica.
-3. ¿Por qué es importante esta información?
-4. ¿Cómo puedo recordar mejor este concepto?
+        <output_format>
+            ## ¿Qué intenta enseñarme esta tarjeta?
+            ## ¿A qué ejemplos, contextos y situaciones reales se aplica esta información?
+            ## ¿Por qué es importante esta información?
+            ## ¿Cómo puedo recordar mejor este concepto?
+        </output_format>
 
-Mantén tu explicación clara y concisa.
-Siempre responde en Español, independientemente de los idiomas utilizados en el contenido de la tarjeta."""
+        <output_details>
+            Mantén tu explicación clara y concisa.
+            Usted debe responder en español latino.
+        </output_details>
+    """
 }
 
 # Default prompt template for AI Help (English)
-DEFAULT_AI_HELP_PROMPT = AI_HELP_PROMPTS["english"]
+DEFAULT_AI_HELP_PROMPT = AI_HELP_PROMPTS["en_us"]
 
 # Default prompt templates for AI Ask (answering user questions)
 AI_ASK_PROMPTS = {
-    "english": """I am studying with flashcards. Here is the card content for context:
+    "en_us": 
+    """
+        <command>
+            I am studying with flashcards. Here is the card content for context:
+        </command>
 
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-My question: {question}
+        <question>
+            {question}
+        </question>
 
-Always respond in English, regardless of the languages used in the card content.""",
-    "portuguese_br": """Estou estudando com flashcards. Aqui está o conteúdo do cartão para contexto:
+        <output_details>
+            Keep your explanation clear and concise.
+            You must respond in American English.
+        </output_details>  
+    """,
+    "pt_br": 
+    """
+        <command>
+            Estou estudando com flashcards. Aqui está o conteúdo do cartão para contexto:
+        </command>
 
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-Minha pergunta: {question}
+        <question>
+            {question}
+        </question>
 
-Sempre responda em Português, independentemente dos idiomas usados no conteúdo do cartão.""",
-    "spanish_latam": """Estoy estudiando con tarjetas de memoria. Aquí está el contenido de la tarjeta como contexto:
+        <output_details>
+            Mantenha sua explicação clara e concisa.
+            Você deve responder em Português brasileiro.
+        </output_details>
+    """,
+    "es_la": 
+    """
+        <command>
+            Estoy estudiando con tarjetas de memoria. Aquí está el contenido de la tarjeta como contexto:
+        </command>
 
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-Mi pregunta: {question}
+        <question>
+            {question}
+        </question>
 
-Siempre responde en Español, independientemente de los idiomas utilizados en el contenido de la tarjeta."""
+        <output_details>
+            Mantén tu explicación clara y concisa.
+            Usted debe responder en español latino.
+        </output_details>
+    """
 }
 
 # Default prompt templates for AI Checker (fact-checking and improvement)
 AI_CHECKER_PROMPTS = {
-    "english": """I'm studying with flashcards and need help checking the quality of this one.
+    "en_us": 
+    """
+        <command>
+            I'm studying with flashcards and need help checking the quality of this one.
+        </command>
 
-Here is the card content:
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-Evaluate the following points:
-1. Is the information correct according to official/academic sources?
-2. Is the content coherent and logically well-structured?
-3. Is any part of the content outdated or no longer valid?
-4. Can the content be simplified or made clearer without losing meaning?
+        <output_format>
+            ## Is the information correct according to official/academic sources?
+            ## Is the content coherent and logically well-structured?
+            ## Is any part of the content outdated or no longer valid?
+            ## Can the content be simplified or made clearer without losing meaning?
+            ---
+            ## Veredict
+                ✅ Information is accurate and well-structured.
+                ⚠️ Minor issues or room for improvement.
+                ❌ Factual errors found that need correction.
+            ---
+            ## Suggest any improvements to make this card more effective for studying.
+        </output_format>
 
-Provide a final verdict:
-- ✅ Information is accurate and well-structured.
-- ⚠️ Minor issues or room for improvement.
-- ❌ Factual errors found that need correction.
+        <output_details>
+            Keep your explanation clear and concise.
+            You must respond in American English.
+        </output_details>   
+    """,
+    "pt_br": 
+    """
+        <command>
+            Estou estudando com flashcards e preciso de ajuda para verificar a qualidade deste.
+        </command>
 
-Suggest improvements:
-- Suggest any improvements to make this card more effective for studying.
+        <card_content>
+            {card_content}
+        </card_content>
 
-Be concise and specific in your analysis.
-Always respond in English, regardless of the languages used in the card content.""",
+        <output_format>
+            ## A informação está correta de acordo com fontes oficiais/acadêmicas?
+            ## O conteúdo é coerente e bem estruturado logicamente?
+            ## Alguma parte do conteúdo está desatualizada ou não é mais válida?
+            ## O conteúdo pode ser simplificado ou tornar-se mais claro sem perder o significado?
+            ---
+            ## Veredito
+                ✅ A informação é precisa e bem estruturada.
+                ⚠️ Problemas menores ou margem para melhoria.
+                ❌ Erros factuais encontrados que precisam de correção.
+            ---
+            ## Sugira quaisquer melhorias para tornar este cartão mais eficaz para o estudo.
+        </output_format>
 
-    "portuguese_br": """Estou estudando com flashcards e preciso de ajuda para verificar a qualidade deste.
+        <output_details>
+            Mantenha sua explicação clara e concisa.
+            Você deve responder em Português brasileiro.
+        </output_details>   
+    """,
+    "es_la": 
+    """
+        <command>
+            Estoy estudiando con tarjetas de memoria y necesito ayuda para verificar la calidad de esta.
+        </command>
 
-Aqui está o conteúdo do cartão:
-{card_content}
+        <card_content>
+            {card_content}
+        </card_content>
 
-Avalie os seguintes pontos:
-1. A informação está correta de acordo com fontes oficiais/acadêmicas?
-2. O conteúdo é coerente e bem estruturado logicamente?
-3. Alguma parte do conteúdo está desatualizada ou não é mais válida?
-4. O conteúdo pode ser simplificado ou tornar-se mais claro sem perder o significado?
+        <output_format>
+            ## ¿Es la información correcta según fuentes oficiales/académicas?
+            ## ¿Es el contenido coherente y está bien estructurado lógicamente?
+            ## ¿Alguna parte del contenido está desactualizada o ya no es válida?
+            ## ¿Se puede simplificar el contenido o hacerlo más claro sin perder el significado?
+            ---
+            ## Veredicto
+                ✅ La información es precisa y está bien estructurada.
+                ⚠️ Problemas menores o margen de mejora.
+                ❌ Errores factuales encontrados que necesitan corrección.
+            ---
+            ## Sugiera cualquier mejora para hacer que esta tarjeta sea más efectiva para el estudio.
+        </output_format>
 
-Forneça um veredito final:
-- ✅ A informação é precisa e bem estruturada.
-- ⚠️ Problemas menores ou margem para melhoria.
-- ❌ Erros factuais encontrados que precisam de correção.
-
-Sugira melhorias:
-- Sugira quaisquer melhorias para tornar este cartão mais eficaz para o estudo.
-
-Seja conciso e específico em sua análise.
-Responda sempre em português, independentemente dos idiomas usados no conteúdo do cartão.""",
-
-    "spanish_latam": """Estoy estudiando con flashcards y necesito ayuda para verificar la calidad de esta.
-
-Aquí está el contenido de la tarjeta:
-{card_content}
-
-Evalúa los siguientes puntos:
-1. ¿Es la información correcta según fuentes oficiales/académicas?
-2. ¿Es el contenido coherente y está bien estructurado lógicamente?
-3. ¿Alguna parte del contenido está desactualizada o ya no es válida?
-4. ¿Se puede simplificar el contenido o hacerlo más claro sin perder el significado?
-
-Proporciona un veredicto final:
-- ✅ La información es precisa y está bien estructurada.
-- ⚠️ Problemas menores o margen de mejora.
-- ❌ Errores factuales encontrados que necesitan corrección.
-
-Sugiere mejoras:
-- Sugiere cualquier mejora para hacer que esta tarjeta sea más efectiva para el estudio.
-
-Sé conciso y específico en tu análisis.
-Responde siempre en español, independientemente de los idiomas utilizados en el contenido de la tarjeta."""
+        <output_details>
+            Mantén tu explicación clara y concisa.
+            Usted debe responder en español latino.
+        </output_details>   
+    """
 }
-
-
 
 def get_ai_assistance_config():
     """
@@ -2550,7 +2633,7 @@ def get_ai_assistance_config():
     
     # Resolve language first so all prompts can use the same language-aware fallback.
     # Using 'or' ensures empty strings ("") are treated the same as missing keys.
-    language = config.get("ai_assistance_language") or "english"
+    language = config.get("ai_assistance_language") or "en_us"
     
     return {
         "enabled": config.get("ai_assistance_enabled", False),
@@ -2558,8 +2641,8 @@ def get_ai_assistance_config():
         "model": config.get("ai_assistance_model", ""),
         "api_key": config.get("ai_assistance_api_key", ""),
         "prompt": config.get("ai_help_prompt") or AI_HELP_PROMPTS.get(language, DEFAULT_AI_HELP_PROMPT),
-        "prompt_ask": config.get("ai_ask_prompt") or AI_ASK_PROMPTS.get(language, AI_ASK_PROMPTS["english"]),
-        "prompt_checker": config.get("ai_checker_prompt") or AI_CHECKER_PROMPTS.get(language, AI_CHECKER_PROMPTS["english"]),
+        "prompt_ask": config.get("ai_ask_prompt") or AI_ASK_PROMPTS.get(language, AI_ASK_PROMPTS["en_us"]),
+        "prompt_checker": config.get("ai_checker_prompt") or AI_CHECKER_PROMPTS.get(language, AI_CHECKER_PROMPTS["en_us"]),
         "mobile_enabled": config.get("ai_assistance_mobile_enabled", False),
         "language": language,
     }

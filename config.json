@@ -17,7 +17,7 @@
         "ai_assistance_api_key": "",
         "ai_help_prompt": "",
         "ai_assistance_mobile_enabled": false,
-        "ai_assistance_language": "english",
+        "ai_assistance_language": "en_us",
         "accumulate_logs": true,
         "image_processor_enabled": false,
         "image_processor_imgbb_key": "",
