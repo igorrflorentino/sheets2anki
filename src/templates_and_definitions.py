@@ -20,6 +20,7 @@ Consolidated from:
 identifier = "ID"  # Unique question identifier (required)
 students = "STUDENTS"  # Indicates which students are interested in studying this note
 is_sync = "SYNC"  # Synchronization control field (true/false/1/0)
+sanity_check = "[ ✅ / ❌ ] - SANITY CHECK"  # Sanity check/Quality control field
 
 # =============================================================================
 # MAIN FIELDS
@@ -93,6 +94,7 @@ ALL_AVAILABLE_COLUMNS = [
     identifier,  # Unique identifier
     students,  # Interested students control
     is_sync,  # Synchronization control
+    sanity_check,  # Quality control field
 
     hierarchy_1,  # Importance level
     hierarchy_2,  # Main topic
@@ -188,6 +190,7 @@ NOTE_FIELDS = [
     tags_2,  # Exam year
     tags_3,  # Careers or professional areas
     tags_4,  # Additional tags
+    sanity_check,  # Quality control field
 ]
 
 # Fields containing metadata
@@ -1084,7 +1087,21 @@ function resetAIAskInput() {
 (function() {
   function captureOriginalContent() {
     if (!window._originalCardContent) {
+      // Temporarily hide sanity check so it's not included in AI context
+      var sanityCheck = document.querySelector('.sanity-check-container');
+      var originalDisplay = '';
+      if (sanityCheck) {
+        originalDisplay = sanityCheck.style.display;
+        sanityCheck.style.display = 'none';
+      }
+      
       var allText = document.body.innerText || document.body.textContent;
+      
+      // Restore sanity check visibility
+      if (sanityCheck) {
+        sanityCheck.style.display = originalDisplay;
+      }
+      
       window._originalCardContent = allText.trim();
     }
   }
@@ -1539,7 +1556,21 @@ function callOpenAIAPI(prompt) {
 (function() {
   function captureOriginalContent() {
     if (!window._originalCardContent) {
+      // Temporarily hide sanity check so it's not included in AI context
+      var sanityCheck = document.querySelector('.sanity-check-container');
+      var originalDisplay = '';
+      if (sanityCheck) {
+        originalDisplay = sanityCheck.style.display;
+        sanityCheck.style.display = 'none';
+      }
+      
       var allText = document.body.innerText || document.body.textContent;
+      
+      // Restore sanity check visibility
+      if (sanityCheck) {
+        sanityCheck.style.display = originalDisplay;
+      }
+      
       window._originalCardContent = allText.trim();
     }
   }
@@ -1997,6 +2028,16 @@ def create_card_template(is_cloze=False, timer_position=None, ai_assistance_enab
             field_name=field_name.capitalize(), field_value=field_value
         )
 
+    # Sanity check footer
+    sanity_html = f"""
+    {{{{#{sanity_check}}}}}
+    <hr style="border: 0; height: 1px; background: #ccc; margin-top: 20px; margin-bottom: 10px;">
+    <div class="sanity-check-container" style="text-align: center; padding: 10px; background: rgba(128, 128, 128, 0.1); border-radius: 8px;">
+      <span style="font-weight: bold; color: #555;">Sanity Check:</span> {{{{{sanity_check}}}}}
+    </div>
+    {{{{/{sanity_check}}}}}
+    """
+
     # Determine timer components based on position
     if timer_position == "hidden":
         # No timer
@@ -2091,7 +2132,8 @@ def create_card_template(is_cloze=False, timer_position=None, ai_assistance_enab
             video_html + 
             extras + 
             MARKERS_TEMPLATE.format(text="TAGS", observation="May be empty") + 
-            footer
+            footer +
+            sanity_html
         )
     else:
         # Basic card: show question + answer + additional info
@@ -2109,7 +2151,8 @@ def create_card_template(is_cloze=False, timer_position=None, ai_assistance_enab
             video_html + 
             extras + 
             MARKERS_TEMPLATE.format(text="TAGS", observation="May be empty") +
-            footer
+            footer +
+            sanity_html
         )
     
     # Build AI Assistance components if enabled

@@ -1738,6 +1738,7 @@ def note_fields_need_update(existing_note, new_data, debug_messages=None, studen
         (cols.extra_field_1, cols.extra_field_1),
         (cols.extra_field_2, cols.extra_field_2),
         (cols.extra_field_3, cols.extra_field_3),
+        (cols.sanity_check, cols.sanity_check),
     ]:
         if field_anki_name in existing_note:
             old_value = str(existing_note[field_anki_name]).strip()
@@ -2004,6 +2005,7 @@ def fill_note_fields_for_student(note, note_data, student, is_reverse=False):
         cols.extra_field_1: note_data.get(cols.extra_field_1, "").strip(),
         cols.extra_field_2: note_data.get(cols.extra_field_2, "").strip(),
         cols.extra_field_3: note_data.get(cols.extra_field_3, "").strip(),
+        cols.sanity_check: note_data.get(cols.sanity_check, "").strip(),
     }
 
     # If it's a reverse note, we MUST clean clozes from the QUESTION field 
